@@ -1,18 +1,20 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\APIAddressController;
 use App\Http\Controllers\APIAuthController;
+
 use App\Http\Controllers\APIBannerController;
+use App\Http\Controllers\APIBrandController;
 use App\Http\Controllers\APICategoryController;
 use App\Http\Controllers\APIOrderController;
 use App\Http\Controllers\APIProductController;
 use App\Http\Controllers\APISettingsController;
 use App\Http\Controllers\APIUploadController;
 use App\Http\Controllers\APIUserController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
+
 
 
 
@@ -29,12 +31,12 @@ Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'
 // Public Routes
 Route::get('/categories', [APICategoryController::class, 'index']);
 
-Route::get('/brands', [BrandController::class, 'index']);
-Route::get('/brands/{id}', [BrandController::class, 'show']);
-Route::get('/brands/isFeatured', [BrandController::class, 'featured']);
-Route::get('/brands/category/{categoryId}', [BrandController::class, 'brandsForCategory']);
-Route::post('/brands', [BrandController::class, 'store']);
-Route::post('/brand-categories', [BrandController::class, 'storeBrandCategory']);
+Route::get('/brands', [APIBrandController::class, 'index']);
+Route::get('/brands/{id}', [APIBrandController::class, 'show']);
+Route::get('/brands/isFeatured', [APIBrandController::class, 'featured']);
+Route::get('/brands/category/{categoryId}', [APIBrandController::class, 'brandsForCategory']);
+Route::post('/brands', [APIBrandController::class, 'store']);
+Route::post('/brand-categories', [APIBrandController::class, 'storeBrandCategory']);
 
 Route::get('/products', [APIProductController::class, 'index']);
 Route::get('/products/{id}', [APIProductController::class, 'show']);

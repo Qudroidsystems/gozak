@@ -2,201 +2,171 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\BrandResource;
 use App\Models\Brand;
-use App\Models\BrandCategory;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
 class APIBrandController extends Controller
 {
     /**
-     * Get all brands.
+     * Display a listing of the brands.
      *
-     * @return \Illuminate\Http\JsonResponse
+     * @param Request $request
+     * @return \Illuminate\Http\Resources\Json\AnonymousResourceCollection
      */
-    public function index()
+    public function index(Request $request)
     {
-        try {
-            $brands = Brand::with('categories')->get();
-            return response()->json($brands, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Something went wrong. Please try again.'], 500);
+        $query = Brand::with('categories')->latest();
+
+        // Optional filtering by category_id
+        if ($request->has('category_id')) {
+            $query->whereHas('categories', function ($q) use ($request) {
+                $q->where('category_id', $request->category_id);
+            });
         }
+
+        $brands = $query->paginate(20);
+        return BrandResource::collection($brands);
     }
 
     /**
-     * Get a single brand by ID.
+     * Display the specified brand.
      *
-     * @param string $id
+     * @param int $id
      * @return \Illuminate\Http\JsonResponse
      */
     public function show($id)
     {
-        try {
-            $brand = Brand::with('categories')->findOrFail($id);
-            return response()->json($brand, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Brand not found.'], 404);
+        $brand = Brand::with('categories')->find($id);
+
+        if (!$brand) {
+            return response()->json(['message' => 'Brand not found'], 404);
         }
+
+        return new BrandResource($brand);
     }
 
     /**
-     * Get featured brands.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function featured(Request $request)
-    {
-        try {
-            $limit = $request->query('limit', 4);
-            $brands = Brand::where('is_featured', true)->with('categories')->take($limit)->get();
-            return response()->json($brands, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Something went wrong. Please try again.'], 500);
-        }
-    }
-
-    /**
-     * Get brands for a specific category.
-     *
-     * @param string $categoryId
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function brandsForCategory($categoryId)
-    {
-        try {
-            $brands = Brand::whereHas('categories', function ($query) use ($categoryId) {
-                $query->where('category_id', $categoryId);
-            })->with('categories')->get();
-            return response()->json($brands, 200);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Something went wrong. Please try again.'], 500);
-        }
-    }
-
-    /**
-     * Store a new brand.
+     * Store a newly created brand in storage.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255|unique:brands,name',
+            'logo' => 'required|string|max:255',
+            'categories' => 'array|exists:categories,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
         try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'logo' => 'nullable|string',
-                'is_featured' => 'boolean',
-            ]);
+            DB::beginTransaction();
 
             $brand = Brand::create([
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
-                'logo' => $validated['logo'] ?? null,
-                'slug' => Str::slug($validated['name']),
-                'is_featured' => $request->input('is_featured', false),
+                'name' => $request->name,
+                'logo' => $request->logo,
             ]);
 
-            return response()->json($brand, 201);
+            // Attach categories if provided
+            if ($request->has('categories')) {
+                $brand->categories()->sync($request->categories);
+            }
+
+            DB::commit();
+
+            // Load categories for response
+            $brand->load('categories');
+            return new BrandResource($brand);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to create brand.'], 500);
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to create brand', 'error' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * Store brand-category relationships.
+     * Update the specified brand in storage.
      *
      * @param Request $request
+     * @param int $id
      * @return \Illuminate\Http\JsonResponse
      */
-    public function storeBrandCategory(Request $request)
+    public function update(Request $request, $id)
     {
+        $brand = Brand::find($id);
+
+        if (!$brand) {
+            return response()->json(['message' => 'Brand not found'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'string|max:255|unique:brands,name,' . $id,
+            'logo' => 'string|max:255',
+            'categories' => 'array|exists:categories,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
         try {
-            $validated = $request->validate([
-                'brand_id' => 'required|exists:brands,id',
-                'category_id' => 'required|exists:categories,id',
+            DB::beginTransaction();
+
+            $brand->update([
+                'name' => $request->input('name', $brand->name),
+                'logo' => $request->input('logo', $brand->logo),
             ]);
 
-            $brandCategory = BrandCategory::create([
-                'brand_id' => $validated['brand_id'],
-                'category_id' => $validated['category_id'],
-            ]);
+            // Sync categories if provided
+            if ($request->has('categories')) {
+                $brand->categories()->sync($request->categories);
+            }
 
-            return response()->json($brandCategory, 201);
+            DB::commit();
+
+            // Load categories for response
+            $brand->load('categories');
+            return new BrandResource($brand);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to create brand-category relationship.'], 500);
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to update brand', 'error' => $e->getMessage()], 500);
         }
     }
 
     /**
-     * Upload dummy brand data.
+     * Remove the specified brand from storage.
      *
-     * @param Request $request
+     * @param int $id
      * @return \Illuminate\Http\JsonResponse
      */
-    public function uploadDummyData(Request $request)
+    public function destroy($id)
     {
-        try {
-            $request->validate([
-                'brands' => 'required|array',
-                'brands.*.name' => 'required|string|max:255',
-                'brands.*.description' => 'nullable|string',
-                'brands.*.logo' => 'nullable|string',
-                'brands.*.is_featured' => 'boolean',
-            ]);
+        $brand = Brand::find($id);
 
-            $brands = [];
-            DB::transaction(function () use ($request, &$brands) {
-                foreach ($request->input('brands') as $brandData) {
-                    $brand = Brand::create([
-                        'name' => $brandData['name'],
-                        'description' => $brandData['description'] ?? null,
-                        'logo' => $brandData['logo'] ?? null,
-                        'slug' => Str::slug($brandData['name']),
-                        'is_featured' => $brandData['is_featured'] ?? false,
-                    ]);
-                    $brands[] = $brand;
-                }
-            });
-
-            return response()->json($brands, 201);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to upload dummy brand data.'], 500);
+        if (!$brand) {
+            return response()->json(['message' => 'Brand not found'], 404);
         }
-    }
 
-    /**
-     * Upload dummy brand-category data.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function uploadDummyBrandCategoryData(Request $request)
-    {
         try {
-            $request->validate([
-                'brand_categories' => 'required|array',
-                'brand_categories.*.brand_id' => 'required|exists:brands,id',
-                'brand_categories.*.category_id' => 'required|exists:categories,id',
-            ]);
+            DB::beginTransaction();
 
-            $brandCategories = [];
-            DB::transaction(function () use ($request, &$brandCategories) {
-                foreach ($request->input('brand_categories') as $data) {
-                    $brandCategory = BrandCategory::create([
-                        'brand_id' => $data['brand_id'],
-                        'category_id' => $data['category_id'],
-                    ]);
-                    $brandCategories[] = $brandCategory;
-                }
-            });
+            // Detach categories from the pivot table
+            $brand->categories()->detach();
+            $brand->delete();
 
-            return response()->json($brandCategories, 201);
+            DB::commit();
+            return response()->json(['message' => 'Brand deleted successfully'], 200);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to upload dummy brand-category data.'], 500);
+            DB::rollBack();
+            return response()->json(['message' => 'Failed to delete brand', 'error' => $e->getMessage()], 500);
         }
     }
 }
