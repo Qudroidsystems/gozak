@@ -29,6 +29,13 @@ Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'
 // Public Routes
 Route::get('/categories', [APICategoryController::class, 'index']);
 
+Route::get('/brands', [BrandController::class, 'index']);
+Route::get('/brands/{id}', [BrandController::class, 'show']);
+Route::get('/brands/isFeatured', [BrandController::class, 'featured']);
+Route::get('/brands/category/{categoryId}', [BrandController::class, 'brandsForCategory']);
+Route::post('/brands', [BrandController::class, 'store']);
+Route::post('/brand-categories', [BrandController::class, 'storeBrandCategory']);
+
 Route::get('/products', [APIProductController::class, 'index']);
 Route::get('/products/{id}', [APIProductController::class, 'show']);
 Route::post('/products', [APIProductController::class, 'store']);

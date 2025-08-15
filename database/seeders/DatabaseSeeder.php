@@ -86,6 +86,44 @@ class DatabaseSeeder extends Seeder
             Brand::create($brand);
         }
 
+
+         // Brand Categories
+        $brandCategories = [
+            ['brand_id' => 1, 'category_id' => 1], // Nike -> Sports
+            ['brand_id' => 1, 'category_id' => 8], // Nike -> Sport Shoes
+            ['brand_id' => 1, 'category_id' => 9], // Nike -> Track suits
+            ['brand_id' => 2, 'category_id' => 1], // Adidas -> Sports
+            ['brand_id' => 2, 'category_id' => 10], // Adidas -> Sports Equipments
+            ['brand_id' => 3, 'category_id' => 1], // Jordan -> Sports
+            ['brand_id' => 3, 'category_id' => 8], // Jordan -> Sport Shoes
+            ['brand_id' => 4, 'category_id' => 1], // Puma -> Sports
+            ['brand_id' => 4, 'category_id' => 8], // Puma -> Sport Shoes
+            ['brand_id' => 5, 'category_id' => 2], // Apple -> Electronics
+            ['brand_id' => 5, 'category_id' => 15], // Apple -> Mobile
+            ['brand_id' => 6, 'category_id' => 3], // ZARA -> Clothes
+            ['brand_id' => 6, 'category_id' => 16], // ZARA -> Shirts
+            ['brand_id' => 7, 'category_id' => 2], // Samsung -> Electronics
+            ['brand_id' => 7, 'category_id' => 15], // Samsung -> Mobile
+            ['brand_id' => 7, 'category_id' => 4], // Samsung -> Animals (TOMI Dog food)
+            ['brand_id' => 8, 'category_id' => 5], // Kenwood -> Furniture
+            ['brand_id' => 8, 'category_id' => 11], // Kenwood -> Bedroom furniture
+            ['brand_id' => 8, 'category_id' => 12], // Kenwood -> Kitchen furniture
+            ['brand_id' => 9, 'category_id' => 5], // IKEA -> Furniture
+            ['brand_id' => 9, 'category_id' => 13], // IKEA -> Office furniture
+            ['brand_id' => 10, 'category_id' => 2], // Acer -> Electronics
+            ['brand_id' => 10, 'category_id' => 14], // Acer -> Jewelery (assuming laptops as high-value items)
+        ];
+
+        // Insert into brand_categories pivot table, skipping duplicates
+        $uniqueBrandCategories = collect($brandCategories)->unique(function ($item) {
+            return $item['brand_id'] . '-' . $item['category_id'];
+        })->values()->all();
+
+        foreach ($uniqueBrandCategories as $brandCategory) {
+            DB::table('brand_categories')->insertOrIgnore($brandCategory);
+        }
+
+
         // Products
         $products = [
             [

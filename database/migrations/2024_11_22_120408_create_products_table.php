@@ -92,6 +92,13 @@ return new class extends Migration
             $table->timestamps();
             $table->unique(['product_id', 'brand_id']);
         });
+
+        Schema::create('brand_categories', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('brand_id')->constrained()->onDelete('cascade');
+            $table->foreignId('category_id')->constrained()->onDelete('cascade');
+            $table->timestamps();
+        });
     }
 
     public function down(): void

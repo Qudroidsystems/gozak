@@ -1,6 +1,7 @@
 <?php
 namespace App\Models;
 
+use App\Models\Brand;
 use Illuminate\Database\Eloquent\Model;
 
 class Category extends Model
@@ -20,5 +21,10 @@ class Category extends Model
     public function products()
     {
         return $this->hasMany(Product::class, 'category_id');
+    }
+
+    public function brands()
+    {
+        return $this->belongsToMany(Brand::class, 'brand_categories', 'category_id', 'brand_id');
     }
 }
