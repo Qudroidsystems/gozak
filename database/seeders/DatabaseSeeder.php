@@ -823,12 +823,12 @@ class DatabaseSeeder extends Seeder
        
        // Banners (Fixed: Aligned with Banner model fields)
         $banners = [
-            ['image_url' => 'banner/banner_1.jpg', 'target_screen' => 'home', 'active' => true],
-            ['image_url' => 'banner/banner_2.jpg', 'target_screen' => 'products', 'active' => true],
-            ['image_url' => 'banner/banner_3.jpg', 'target_screen' => 'categories', 'active' => true],
-            ['image_url' => 'banner/banner_4.jpg', 'target_screen' => 'home', 'active' => true],
-            ['image_url' => 'banner/banner_5.jpg', 'target_screen' => 'products', 'active' => true],
-            ['image_url' => 'banner/banner_6.jpg', 'target_screen' => 'categories', 'active' => true],
+            ['image_url' => 'banner/banner_1.png', 'target_screen' => 'home', 'active' => true],
+            ['image_url' => 'banner/banner_2.png', 'target_screen' => 'products', 'active' => true],
+            ['image_url' => 'banner/banner_3.png', 'target_screen' => 'categories', 'active' => true],
+            ['image_url' => 'banner/banner_4.png', 'target_screen' => 'home', 'active' => true],
+            ['image_url' => 'banner/banner_5.png', 'target_screen' => 'products', 'active' => true],
+            ['image_url' => 'banner/banner_6.png', 'target_screen' => 'categories', 'active' => true],
         ];
 
         foreach ($banners as $banner) {
