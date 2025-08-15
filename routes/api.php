@@ -1,19 +1,19 @@
 <?php
 
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\APIAddressController;
 use App\Http\Controllers\APIAuthController;
-
 use App\Http\Controllers\APIBannerController;
-use App\Http\Controllers\APIBrandController;
 use App\Http\Controllers\APICategoryController;
 use App\Http\Controllers\APIOrderController;
 use App\Http\Controllers\APIProductController;
 use App\Http\Controllers\APISettingsController;
 use App\Http\Controllers\APIUploadController;
 use App\Http\Controllers\APIUserController;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
+use App\Http\Controllers\APIBrandController;
 
 
 

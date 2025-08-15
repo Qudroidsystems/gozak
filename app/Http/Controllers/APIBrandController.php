@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\BrandCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -20,11 +21,9 @@ class APIBrandController extends Controller
     {
         $query = Brand::with('categories');
 
-        // Filter by category_id if provided
-        if ($request->has('category_id')) {
-            $query->whereHas('categories', function ($q) use ($request) {
-                $q->where('category_id', $request->category_id);
-            });
+        // Filter by isFeatured if provided
+        if ($request->has('isFeatured')) {
+            $query->where('is_featured', $request->input('isFeatured') === 'true');
         }
 
         // Apply limit if provided, default to 10
@@ -89,6 +88,40 @@ class APIBrandController extends Controller
     }
 
     /**
+     * Display brands for a specific category.
+     *
+     * @param string $categoryId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getBrandsForCategory($categoryId)
+    {
+        $query = Brand::with('categories')->whereHas('categories', function ($q) use ($categoryId) {
+            $q->where('category_id', $categoryId);
+        });
+
+        $brands = $query->latest()->get()->map(function ($brand) {
+            return [
+                'id' => $brand->id,
+                'name' => $brand->name,
+                'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
+                'categories' => $brand->categories->map(function ($category) {
+                    return [
+                        'id' => $category->id,
+                        'name' => $category->name,
+                        'image' => $category->image ? url(Storage::url($category->image)) : '',
+                        'is_featured' => $category->is_featured,
+                    ];
+                })->toArray(),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $brands,
+        ]);
+    }
+
+    /**
      * Store a newly created brand in storage.
      *
      * @param Request $request
@@ -144,6 +177,48 @@ class APIBrandController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create brand',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Store a brand-category relationship in storage.
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function storeBrandCategory(Request $request)
+    {
+        $validated = $request->validate([
+            'brand_id' => 'required|exists:brands,id',
+            'category_id' => 'required|exists:categories,id',
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            // Create or ignore to avoid duplicates
+            $brandCategory = BrandCategory::firstOrCreate([
+                'brand_id' => $validated['brand_id'],
+                'category_id' => $validated['category_id'],
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'brand_id' => $brandCategory->brand_id,
+                    'category_id' => $brandCategory->category_id,
+                ],
+                'message' => 'Brand category relationship created successfully',
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create brand category relationship',
                 'error' => $e->getMessage(),
             ], 500);
         }
