@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Validator;
 class APIBannerController extends Controller
 {
     /**
-     * Display a listing of banners.
+     * Display a listing of banners in random order.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -25,9 +25,9 @@ class APIBannerController extends Controller
             $query->where('active', $request->input('active') === 'true');
         }
 
-        // Apply limit (default to 10 if not provided)
+        // Apply random order and limit (default to 10 if not provided)
         $limit = $request->input('limit', 10);
-        $banners = $query->take($limit)->get();
+        $banners = $query->inRandomOrder()->take($limit)->get();
 
         $formattedBanners = $banners->map(function ($banner) {
             return [
