@@ -55,11 +55,11 @@ class APIProductController extends Controller
             $query->where('price', '<=', $request->max_price);
         }
 
-        // Add pagination
-        $perPage = $request->input('per_page', 20); // Default 20 items per page
-        $products = $query->paginate($perPage);
+        if ($request->has('limit')) {
+            $query->limit($request->limit);
+        }
 
-        $formattedProducts = $products->map(function ($product) {
+        $products = $query->get()->filter()->map(function ($product) {
             return [
                 'id' => $product->id,
                 'title' => $product->title ?? '',
@@ -84,6 +84,7 @@ class APIProductController extends Controller
                     'name' => $product->category->name ?? '',
                 ] : null,
                 'images' => $product->images ? $product->images->pluck('image_path')->map(function ($path) {
+                    // Remove 'storage/' prefix if present to avoid double 'storage/storage/'
                     $cleanPath = preg_replace('/^storage\//', '', $path);
                     return $cleanPath ? url(Storage::url($cleanPath)) : '';
                 })->toArray() : [],
@@ -95,6 +96,7 @@ class APIProductController extends Controller
                     ];
                 })->toArray() : [],
                 'product_variations' => $product->variations ? $product->variations->map(function ($var) {
+                    // Remove 'storage/' prefix if present
                     $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : '';
                     return [
                         'id' => $var->id,
@@ -111,12 +113,7 @@ class APIProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $formattedProducts,
-            'pagination' => [
-                'current_page' => $products->currentPage(),
-                'last_page' => $products->lastPage(),
-                'total' => $products->total(),
-            ],
+            'data' => $products,
         ]);
     }
 
@@ -164,6 +161,7 @@ class APIProductController extends Controller
                 'name' => $product->category->name ?? '',
             ] : null,
             'images' => $product->images ? $product->images->pluck('image_path')->map(function ($path) {
+                // Remove 'storage/' prefix if present
                 $cleanPath = preg_replace('/^storage\//', '', $path);
                 return $cleanPath ? url(Storage::url($cleanPath)) : '';
             })->toArray() : [],
@@ -175,6 +173,7 @@ class APIProductController extends Controller
                 ];
             })->toArray() : [],
             'product_variations' => $product->variations ? $product->variations->map(function ($var) {
+                // Remove 'storage/' prefix if present
                 $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : '';
                 return [
                     'id' => $var->id,
@@ -421,9 +420,7 @@ class APIProductController extends Controller
         }
 
         if ($request->type === 'image') {
-            // Save the uploaded file directly to storage
             $path = $request->file('file')->store('public');
-
             return response()->json([
                 'success' => true,
                 'url' => url(Storage::url($path)),
