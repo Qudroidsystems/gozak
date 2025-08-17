@@ -3,7 +3,7 @@
         'name' => 'laravel/laravel',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
-        'reference' => 'c47c277d31b720845e0857d66bf8ecc77da2c397',
+        'reference' => 'c74ec0500beb48b31c5b15c598274f5ea7a571bf',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -487,6 +487,15 @@
             'aliases' => array(),
             'dev_requirement' => false,
         ),
+        'intervention/image-laravel' => array(
+            'pretty_version' => '1.5.6',
+            'version' => '1.5.6.0',
+            'reference' => '056029431400a5cc56036172787a578f334683c4',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../intervention/image-laravel',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
         'jean85/pretty-package-versions' => array(
             'pretty_version' => '2.1.1',
             'version' => '2.1.1.0',
@@ -514,7 +523,7 @@
         'laravel/laravel' => array(
             'pretty_version' => 'dev-master',
             'version' => 'dev-master',
-            'reference' => 'c47c277d31b720845e0857d66bf8ecc77da2c397',
+            'reference' => 'c74ec0500beb48b31c5b15c598274f5ea7a571bf',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

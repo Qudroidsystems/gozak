@@ -171,6 +171,7 @@ class ComposerStaticInit88970a0117c062eed55fa8728fc43833
         ),
         'I' => 
         array (
+            'Intervention\\Image\\Laravel\\' => 27,
             'Intervention\\Image\\' => 19,
             'Intervention\\Gif\\' => 17,
             'Illuminate\\Support\\' => 19,
@@ -569,6 +570,10 @@ class ComposerStaticInit88970a0117c062eed55fa8728fc43833
         'Jean85\\' => 
         array (
             0 => __DIR__ . '/..' . '/jean85/pretty-package-versions/src',
+        ),
+        'Intervention\\Image\\Laravel\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/intervention/image-laravel/src',
         ),
         'Intervention\\Image\\' => 
         array (
@@ -4346,6 +4351,9 @@ class ComposerStaticInit88970a0117c062eed55fa8728fc43833
         'Intervention\\Image\\Interfaces\\SizeInterface' => __DIR__ . '/..' . '/intervention/image/src/Interfaces/SizeInterface.php',
         'Intervention\\Image\\Interfaces\\SpecializableInterface' => __DIR__ . '/..' . '/intervention/image/src/Interfaces/SpecializableInterface.php',
         'Intervention\\Image\\Interfaces\\SpecializedInterface' => __DIR__ . '/..' . '/intervention/image/src/Interfaces/SpecializedInterface.php',
+        'Intervention\\Image\\Laravel\\Facades\\Image' => __DIR__ . '/..' . '/intervention/image-laravel/src/Facades/Image.php',
+        'Intervention\\Image\\Laravel\\ImageResponseFactory' => __DIR__ . '/..' . '/intervention/image-laravel/src/ImageResponseFactory.php',
+        'Intervention\\Image\\Laravel\\ServiceProvider' => __DIR__ . '/..' . '/intervention/image-laravel/src/ServiceProvider.php',
         'Intervention\\Image\\MediaType' => __DIR__ . '/..' . '/intervention/image/src/MediaType.php',
         'Intervention\\Image\\ModifierStack' => __DIR__ . '/..' . '/intervention/image/src/ModifierStack.php',
         'Intervention\\Image\\Modifiers\\AbstractDrawModifier' => __DIR__ . '/..' . '/intervention/image/src/Modifiers/AbstractDrawModifier.php',
