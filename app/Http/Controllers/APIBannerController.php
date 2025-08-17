@@ -25,9 +25,9 @@ class APIBannerController extends Controller
             $query->where('active', $request->input('active') === 'true');
         }
 
-        // Add pagination
-        $perPage = $request->input('per_page', 10); // Default 10 items per page
-        $banners = $query->paginate($perPage);
+        // Apply limit (default to 10 if not provided)
+        $limit = $request->input('limit', 10);
+        $banners = $query->take($limit)->get();
 
         $formattedBanners = $banners->map(function ($banner) {
             return [
@@ -43,11 +43,6 @@ class APIBannerController extends Controller
         return response()->json([
             'success' => true,
             'data' => $formattedBanners,
-            'pagination' => [
-                'current_page' => $banners->currentPage(),
-                'last_page' => $banners->lastPage(),
-                'total' => $banners->total(),
-            ],
         ]);
     }
 
