@@ -34,7 +34,7 @@ Route::get('/categories', [APICategoryController::class, 'index']);
 Route::get('/brands', [APIBrandController::class, 'index']);
 Route::get('/brands/{id}', [APIBrandController::class, 'show']);
 Route::get('/brands/isFeatured', [APIBrandController::class, 'featured']);
-Route::get('/brands/category/{categoryId}', [APIBrandController::class, 'brandsForCategory']);
+Route::get('/brands/category/{categoryId}', [APIBrandController::class, 'getbrandsForCategory']);
 Route::post('/brands', [APIBrandController::class, 'store']);
 Route::post('/brand-categories', [APIBrandController::class, 'storeBrandCategory']);
 
