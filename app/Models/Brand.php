@@ -9,12 +9,9 @@ class Brand extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'name',
-        'description',
-        'slug',
-        'is_featured',
-    ];
+
+    protected $fillable = ['name', 'logo', 'is_featured'];
+    protected $casts = ['is_featured' => 'boolean'];
 
     /**
      * Define the many-to-many relationship with Category.

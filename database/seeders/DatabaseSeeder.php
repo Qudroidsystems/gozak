@@ -70,16 +70,16 @@ class DatabaseSeeder extends Seeder
 
         // Brands
         $brands = [
-            ['id' => 1, 'name' => 'Nike', 'logo' => 'brand/nike.png'],
-            ['id' => 2, 'name' => 'Adidas', 'logo' => 'brand/adidas-logo.png'],
-            ['id' => 8, 'name' => 'Kenwood', 'logo' => 'brand/kenwood-logo.png'],
-            ['id' => 9, 'name' => 'IKEA', 'logo' => 'brand/ikea_logo.png'],
-            ['id' => 5, 'name' => 'Apple', 'logo' => 'brand/apple-logo.png'],
-            ['id' => 10, 'name' => 'Acer', 'logo' => 'brand/acer_logo.png'],
-            ['id' => 3, 'name' => 'Jordan', 'logo' => 'brand/jordan-logo.png'],
-            ['id' => 4, 'name' => 'Puma', 'logo' => 'brand/puma-logo.png'],
-            ['id' => 6, 'name' => 'ZARA', 'logo' => 'brand/zara-logo.png'],
-            ['id' => 7, 'name' => 'Samsung', 'logo' => 'brand/kenwood-logo.png'],
+            ['id' => 1, 'name' => 'Nike', 'logo' => 'brand/nike.png', 'is_featured' => true],
+            ['id' => 2, 'name' => 'Adidas', 'logo' => 'brand/adidas-logo.png', 'is_featured' => true],
+            ['id' => 5, 'name' => 'Apple', 'logo' => 'brand/apple-logo.png', 'is_featured' => true],
+            ['id' => 7, 'name' => 'Samsung', 'logo' => 'brand/kenwood-logo.png', 'is_featured' => true],
+            ['id' => 8, 'name' => 'Kenwood', 'logo' => 'brand/kenwood-logo.png', 'is_featured' => false],
+            ['id' => 9, 'name' => 'IKEA', 'logo' => 'brand/ikea_logo.png', 'is_featured' => false],
+            ['id' => 10, 'name' => 'Acer', 'logo' => 'brand/acer_logo.png', 'is_featured' => false],
+            ['id' => 3, 'name' => 'Jordan', 'logo' => 'brand/jordan-logo.png', 'is_featured' => false],
+            ['id' => 4, 'name' => 'Puma', 'logo' => 'brand/puma-logo.png', 'is_featured' => false],
+            ['id' => 6, 'name' => 'ZARA', 'logo' => 'brand/zara-logo.png', 'is_featured' => false],
         ];
 
         foreach ($brands as $brand) {

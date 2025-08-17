@@ -20,80 +20,105 @@ class APIBrandController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Brand::with('categories')
+        try {
+            $query = Brand::with(['categories' => function ($q) {
+                $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
+            }])
             ->select('id', 'name', 'logo', 'is_featured');
 
-        // Filter by isFeatured if provided
-        if ($request->has('isFeatured')) {
-            $query->where('is_featured', $request->input('isFeatured') === 'true');
+            // Filter by isFeatured if provided
+            if ($request->has('isFeatured')) {
+                $query->where('is_featured', $request->input('isFeatured') === 'true');
+            }
+
+            // Add pagination
+            $perPage = min(max((int) $request->input('per_page', 10), 1), 100);
+            $brands = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+            $formattedBrands = $brands->map(function ($brand) {
+                return [
+                    'id' => $brand->id,
+                    'name' => $brand->name ?? '',
+                    'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
+                    'is_featured' => $brand->is_featured ?? false,
+                    'categories' => $brand->categories->map(function ($category) {
+                        return [
+                            'id' => $category->id,
+                            'name' => $category->name ?? '',
+                            'image' => $category->image ? url(Storage::url($category->image)) : '',
+                            'is_featured' => $category->is_featured ?? false,
+                        ];
+                    })->toArray(),
+                ];
+            })->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedBrands,
+                'pagination' => [
+                    'current_page' => $brands->currentPage(),
+                    'last_page' => $brands->lastPage(),
+                    'total' => $brands->total(),
+                ],
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Database error: ' . $e->getMessage(),
+            ], 500);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch brands: ' . $e->getMessage(),
+            ], 500);
         }
-
-        // Add pagination
-        $perPage = $request->input('per_page', 10); // Default 10 items per page
-        $brands = $query->latest()->paginate($perPage);
-
-        $formattedBrands = $brands->map(function ($brand) {
-            return [
-                'id' => $brand->id,
-                'name' => $brand->name,
-                'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
-                'categories' => $brand->categories->map(function ($category) {
-                    return [
-                        'id' => $category->id,
-                        'name' => $category->name,
-                        'image' => $category->image ? url(Storage::url($category->image)) : '',
-                        'is_featured' => $category->is_featured,
-                    ];
-                })->toArray(),
-            ];
-        })->values();
-
-        return response()->json([
-            'success' => true,
-            'data' => $formattedBrands,
-            'pagination' => [
-                'current_page' => $brands->currentPage(),
-                'last_page' => $brands->lastPage(),
-                'total' => $brands->total(),
-            ],
-        ]);
     }
 
     /**
      * Display the specified brand.
      *
-     * @param int $id
+     * @param string $id
      * @return \Illuminate\Http\JsonResponse
      */
     public function show($id)
     {
-        $brand = Brand::with('categories')->find($id);
+        try {
+            $brand = Brand::with(['categories' => function ($q) {
+                $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
+            }])->select('id', 'name', 'logo', 'is_featured')->find($id);
 
-        if (!$brand) {
+            if (!$brand) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Brand not found',
+                ], 404);
+            }
+
+            $brandData = [
+                'id' => $brand->id,
+                'name' => $brand->name ?? '',
+                'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
+                'is_featured' => $brand->is_featured ?? false,
+                'categories' => $brand->categories->map(function ($category) {
+                    return [
+                        'id' => $category->id,
+                        'name' => $category->name ?? '',
+                        'image' => $category->image ? url(Storage::url($category->image)) : '',
+                        'is_featured' => $category->is_featured ?? false,
+                    ];
+                })->toArray(),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => $brandData,
+            ]);
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Brand not found',
-            ], 404);
+                'message' => 'Failed to fetch brand: ' . $e->getMessage(),
+            ], 500);
         }
-
-        $brandData = [
-            'id' => $brand->id,
-            'name' => $brand->name,
-            'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
-            'categories' => $brand->categories->map(function ($category) {
-                return [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'image' => $category->image ? url(Storage::url($category->image)) : '',
-                    'is_featured' => $category->is_featured,
-                ];
-            })->toArray(),
-        ];
-
-        return response()->json([
-            'success' => true,
-            'data' => $brandData,
-        ]);
     }
 
     /**
@@ -105,39 +130,60 @@ class APIBrandController extends Controller
      */
     public function getBrandsForCategory(Request $request, $categoryId)
     {
-        $query = Brand::with('categories')->whereHas('categories', function ($q) use ($categoryId) {
-            $q->where('category_id', $categoryId);
-        });
+        try {
+            // Validate category exists
+            $category = Category::find($categoryId);
+            if (!$category) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Category not found',
+                ], 404);
+            }
 
-        // Add pagination
-        $perPage = $request->input('per_page', 10); // Default 10 items per page
-        $brands = $query->latest()->paginate($perPage);
+            $query = Brand::with(['categories' => function ($q) {
+                $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
+            }])
+            ->select('id', 'name', 'logo', 'is_featured')
+            ->whereHas('categories', function ($q) use ($categoryId) {
+                $q->where('categories.id', $categoryId);
+            });
 
-        $formattedBrands = $brands->map(function ($brand) {
-            return [
-                'id' => $brand->id,
-                'name' => $brand->name,
-                'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
-                'categories' => $brand->categories->map(function ($category) {
-                    return [
-                        'id' => $category->id,
-                        'name' => $category->name,
-                        'image' => $category->image ? url(Storage::url($category->image)) : '',
-                        'is_featured' => $category->is_featured,
-                    ];
-                })->toArray(),
-            ];
-        })->values();
+            // Add pagination
+            $perPage = min(max((int) $request->input('per_page', 10), 1), 100);
+            $brands = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => $formattedBrands,
-            'pagination' => [
-                'current_page' => $brands->currentPage(),
-                'last_page' => $brands->lastPage(),
-                'total' => $brands->total(),
-            ],
-        ]);
+            $formattedBrands = $brands->map(function ($brand) {
+                return [
+                    'id' => $brand->id,
+                    'name' => $brand->name ?? '',
+                    'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
+                    'is_featured' => $brand->is_featured ?? false,
+                    'categories' => $brand->categories->map(function ($category) {
+                        return [
+                            'id' => $category->id,
+                            'name' => $category->name ?? '',
+                            'image' => $category->image ? url(Storage::url($category->image)) : '',
+                            'is_featured' => $category->is_featured ?? false,
+                        ];
+                    })->toArray(),
+                ];
+            })->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedBrands,
+                'pagination' => [
+                    'current_page' => $brands->currentPage(),
+                    'last_page' => $brands->lastPage(),
+                    'total' => $brands->total(),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch brands for category: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
@@ -151,7 +197,8 @@ class APIBrandController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:brands,name',
             'logo' => 'required|file|mimes:jpeg,png,jpg|max:2048',
-            'categories' => 'array|exists:categories,id',
+            'is_featured' => 'nullable|boolean',
+            'categories' => 'nullable|array|exists:categories,id',
         ]);
 
         if ($validator->fails()) {
@@ -165,12 +212,13 @@ class APIBrandController extends Controller
         try {
             DB::beginTransaction();
 
-            // Save the logo directly to storage
+            // Save the logo to storage
             $path = $request->file('logo')->store('public/brands');
 
             $brand = Brand::create([
                 'name' => $request->name,
                 'logo' => $path,
+                'is_featured' => $request->input('is_featured', false),
             ]);
 
             // Attach categories if provided
@@ -181,18 +229,21 @@ class APIBrandController extends Controller
             DB::commit();
 
             // Load categories for response
-            $brand->load('categories');
+            $brand->load(['categories' => function ($q) {
+                $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
+            }]);
 
             $brandData = [
                 'id' => $brand->id,
-                'name' => $brand->name,
+                'name' => $brand->name ?? '',
                 'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
+                'is_featured' => $brand->is_featured ?? false,
                 'categories' => $brand->categories->map(function ($category) {
                     return [
                         'id' => $category->id,
-                        'name' => $category->name,
+                        'name' => $category->name ?? '',
                         'image' => $category->image ? url(Storage::url($category->image)) : '',
-                        'is_featured' => $category->is_featured,
+                        'is_featured' => $category->is_featured ?? false,
                     ];
                 })->toArray(),
             ];
@@ -206,8 +257,7 @@ class APIBrandController extends Controller
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create brand',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to create brand: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -220,18 +270,26 @@ class APIBrandController extends Controller
      */
     public function storeBrandCategory(Request $request)
     {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'brand_id' => 'required|exists:brands,id',
             'category_id' => 'required|exists:categories,id',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
         try {
             DB::beginTransaction();
 
             // Create or ignore to avoid duplicates
             $brandCategory = BrandCategory::firstOrCreate([
-                'brand_id' => $validated['brand_id'],
-                'category_id' => $validated['category_id'],
+                'brand_id' => $request->brand_id,
+                'category_id' => $request->category_id,
             ]);
 
             DB::commit();
@@ -248,8 +306,7 @@ class APIBrandController extends Controller
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create brand category relationship',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to create brand category relationship: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -258,7 +315,7 @@ class APIBrandController extends Controller
      * Update the specified brand in storage.
      *
      * @param Request $request
-     * @param int $id
+     * @param string $id
      * @return \Illuminate\Http\JsonResponse
      */
     public function update(Request $request, $id)
@@ -275,7 +332,8 @@ class APIBrandController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'string|max:255|unique:brands,name,' . $id,
             'logo' => 'nullable|file|mimes:jpeg,png,jpg|max:2048',
-            'categories' => 'array|exists:categories,id',
+            'is_featured' => 'nullable|boolean',
+            'categories' => 'nullable|array|exists:categories,id',
         ]);
 
         if ($validator->fails()) {
@@ -291,10 +349,15 @@ class APIBrandController extends Controller
 
             $data = [
                 'name' => $request->name ?? $brand->name,
+                'is_featured' => $request->input('is_featured', $brand->is_featured),
             ];
 
             // Save new logo if provided
             if ($request->hasFile('logo')) {
+                // Delete old logo if exists
+                if ($brand->logo) {
+                    Storage::delete($brand->logo);
+                }
                 $path = $request->file('logo')->store('public/brands');
                 $data['logo'] = $path;
             }
@@ -309,18 +372,21 @@ class APIBrandController extends Controller
             DB::commit();
 
             // Load categories for response
-            $brand->load('categories');
+            $brand->load(['categories' => function ($q) {
+                $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
+            }]);
 
             $brandData = [
                 'id' => $brand->id,
-                'name' => $brand->name,
+                'name' => $brand->name ?? '',
                 'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
+                'is_featured' => $brand->is_featured ?? false,
                 'categories' => $brand->categories->map(function ($category) {
                     return [
                         'id' => $category->id,
-                        'name' => $category->name,
+                        'name' => $category->name ?? '',
                         'image' => $category->image ? url(Storage::url($category->image)) : '',
-                        'is_featured' => $category->is_featured,
+                        'is_featured' => $category->is_featured ?? false,
                     ];
                 })->toArray(),
             ];
@@ -334,8 +400,7 @@ class APIBrandController extends Controller
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update brand',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to update brand: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -343,7 +408,7 @@ class APIBrandController extends Controller
     /**
      * Remove the specified brand from storage.
      *
-     * @param int $id
+     * @param string $id
      * @return \Illuminate\Http\JsonResponse
      */
     public function destroy($id)
@@ -360,6 +425,11 @@ class APIBrandController extends Controller
         try {
             DB::beginTransaction();
 
+            // Delete logo if exists
+            if ($brand->logo) {
+                Storage::delete($brand->logo);
+            }
+
             // Detach categories from the pivot table
             $brand->categories()->detach();
             $brand->delete();
@@ -374,8 +444,7 @@ class APIBrandController extends Controller
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete brand',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to delete brand: ' . $e->getMessage(),
             ], 500);
         }
     }
