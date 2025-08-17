@@ -2,14 +2,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\Brand;
 use App\Models\Category;
-use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Intervention\Image\Laravel\Facades\Image;
-
 
 class APIProductController extends Controller
 {
@@ -425,7 +424,7 @@ class APIProductController extends Controller
         }
 
         if ($request->type === 'image') {
-            // Load and compress the image
+            // Load and compress the image using Intervention\Image\Laravel
             $image = Image::make($request->file('file'));
 
             // Compress to 80% quality (adjustable)
