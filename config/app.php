@@ -1,5 +1,10 @@
 <?php
 
+use Intervention\Image\Facades\Image;
+use Intervention\Image\ImageServiceProvider;
+
+
+
 return [
 
     /*
@@ -125,5 +130,11 @@ return [
 
 
     
+    'providers' => [
+        ImageServiceProvider::class,
+    ],
+    'aliases' => [
+        'Image' => Image::class,
+    ],
 
 ];
