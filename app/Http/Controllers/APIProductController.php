@@ -8,7 +8,6 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Intervention\Image\Laravel\Facades\Image;
 
 class APIProductController extends Controller
 {
@@ -69,7 +68,6 @@ class APIProductController extends Controller
                 'price' => $product->price ?? 0.0,
                 'sale_price' => $product->sale_price ?? 0.0,
                 'thumbnail' => $product->thumbnail ? url(Storage::url($product->thumbnail)) : '',
-                'small_thumbnail' => $product->thumbnail ? $this->generateThumbnail($product->thumbnail, 300) : '', // Thumbnail for mobile
                 'description' => $product->description ?? '',
                 'product_type' => $product->product_type ?? '',
                 'sold_quantity' => $product->sold_quantity ?? 0,
@@ -150,7 +148,6 @@ class APIProductController extends Controller
             'price' => $product->price ?? 0.0,
             'sale_price' => $product->sale_price ?? 0.0,
             'thumbnail' => $product->thumbnail ? url(Storage::url($product->thumbnail)) : '',
-            'small_thumbnail' => $product->thumbnail ? $this->generateThumbnail($product->thumbnail, 300) : '', // Thumbnail for mobile
             'description' => $product->description ?? '',
             'product_type' => $product->product_type ?? '',
             'sold_quantity' => $product->sold_quantity ?? 0,
@@ -424,21 +421,8 @@ class APIProductController extends Controller
         }
 
         if ($request->type === 'image') {
-            // Load and compress the image using Intervention\Image\Laravel
-            $image = Image::make($request->file('file'));
-
-            // Compress to 80% quality (adjustable)
-            $image->encode('jpg', 80); // Use WebP for modern devices: $image->encode('webp', 80);
-
-            // Resize to max 1200px width (mobile-friendly)
-            $image->resize(1200, null, function ($constraint) {
-                $constraint->aspectRatio();
-                $constraint->upsize();
-            });
-
-            // Save compressed image
-            $path = 'public/' . $request->file('file')->hashName();
-            Storage::put($path, (string) $image);
+            // Save the uploaded file directly to storage
+            $path = $request->file('file')->store('public');
 
             return response()->json([
                 'success' => true,
@@ -450,26 +434,5 @@ class APIProductController extends Controller
             'success' => false,
             'message' => 'Invalid file type',
         ], 400);
-    }
-
-    /**
-     * Generate a smaller thumbnail for faster mobile loading
-     */
-    private function generateThumbnail($path, $width = 300)
-    {
-        $cleanPath = preg_replace('/^storage\//', '', $path);
-        $thumbPath = 'public/thumbnails/' . basename($cleanPath);
-
-        // Check if thumbnail already exists to avoid regeneration
-        if (!Storage::exists($thumbPath)) {
-            $image = Image::make(Storage::get($cleanPath));
-            $image->resize($width, null, function ($constraint) {
-                $constraint->aspectRatio();
-                $constraint->upsize();
-            })->encode('jpg', 80); // Use WebP if desired: ->encode('webp', 80);
-            Storage::put($thumbPath, (string) $image);
-        }
-
-        return url(Storage::url($thumbPath));
     }
 }
