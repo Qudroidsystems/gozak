@@ -8,6 +8,7 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Intervention\Image\Laravel\Facades\Image;
 
 class APIProductController extends Controller
 {
@@ -55,11 +56,11 @@ class APIProductController extends Controller
             $query->where('price', '<=', $request->max_price);
         }
 
-        if ($request->has('limit')) {
-            $query->limit($request->limit);
-        }
+        // Add pagination
+        $perPage = $request->input('per_page', 20); // Default 20 items per page
+        $products = $query->paginate($perPage);
 
-        $products = $query->get()->filter()->map(function ($product) {
+        $formattedProducts = $products->map(function ($product) {
             return [
                 'id' => $product->id,
                 'title' => $product->title ?? '',
@@ -68,6 +69,7 @@ class APIProductController extends Controller
                 'price' => $product->price ?? 0.0,
                 'sale_price' => $product->sale_price ?? 0.0,
                 'thumbnail' => $product->thumbnail ? url(Storage::url($product->thumbnail)) : '',
+                'small_thumbnail' => $product->thumbnail ? $this->generateThumbnail($product->thumbnail, 300) : '', // Thumbnail for mobile
                 'description' => $product->description ?? '',
                 'product_type' => $product->product_type ?? '',
                 'sold_quantity' => $product->sold_quantity ?? 0,
@@ -84,7 +86,6 @@ class APIProductController extends Controller
                     'name' => $product->category->name ?? '',
                 ] : null,
                 'images' => $product->images ? $product->images->pluck('image_path')->map(function ($path) {
-                    // Remove 'storage/' prefix if present to avoid double 'storage/storage/'
                     $cleanPath = preg_replace('/^storage\//', '', $path);
                     return $cleanPath ? url(Storage::url($cleanPath)) : '';
                 })->toArray() : [],
@@ -96,7 +97,6 @@ class APIProductController extends Controller
                     ];
                 })->toArray() : [],
                 'product_variations' => $product->variations ? $product->variations->map(function ($var) {
-                    // Remove 'storage/' prefix if present
                     $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : '';
                     return [
                         'id' => $var->id,
@@ -113,7 +113,12 @@ class APIProductController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $products,
+            'data' => $formattedProducts,
+            'pagination' => [
+                'current_page' => $products->currentPage(),
+                'last_page' => $products->lastPage(),
+                'total' => $products->total(),
+            ],
         ]);
     }
 
@@ -145,6 +150,7 @@ class APIProductController extends Controller
             'price' => $product->price ?? 0.0,
             'sale_price' => $product->sale_price ?? 0.0,
             'thumbnail' => $product->thumbnail ? url(Storage::url($product->thumbnail)) : '',
+            'small_thumbnail' => $product->thumbnail ? $this->generateThumbnail($product->thumbnail, 300) : '', // Thumbnail for mobile
             'description' => $product->description ?? '',
             'product_type' => $product->product_type ?? '',
             'sold_quantity' => $product->sold_quantity ?? 0,
@@ -161,7 +167,6 @@ class APIProductController extends Controller
                 'name' => $product->category->name ?? '',
             ] : null,
             'images' => $product->images ? $product->images->pluck('image_path')->map(function ($path) {
-                // Remove 'storage/' prefix if present
                 $cleanPath = preg_replace('/^storage\//', '', $path);
                 return $cleanPath ? url(Storage::url($cleanPath)) : '';
             })->toArray() : [],
@@ -173,7 +178,6 @@ class APIProductController extends Controller
                 ];
             })->toArray() : [],
             'product_variations' => $product->variations ? $product->variations->map(function ($var) {
-                // Remove 'storage/' prefix if present
                 $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : '';
                 return [
                     'id' => $var->id,
@@ -420,7 +424,22 @@ class APIProductController extends Controller
         }
 
         if ($request->type === 'image') {
-            $path = $request->file('file')->store('public');
+            // Load and compress the image using Intervention\Image\Laravel
+            $image = Image::make($request->file('file'));
+
+            // Compress to 80% quality (adjustable)
+            $image->encode('jpg', 80); // Use WebP for modern devices: $image->encode('webp', 80);
+
+            // Resize to max 1200px width (mobile-friendly)
+            $image->resize(1200, null, function ($constraint) {
+                $constraint->aspectRatio();
+                $constraint->upsize();
+            });
+
+            // Save compressed image
+            $path = 'public/' . $request->file('file')->hashName();
+            Storage::put($path, (string) $image);
+
             return response()->json([
                 'success' => true,
                 'url' => url(Storage::url($path)),
@@ -431,5 +450,26 @@ class APIProductController extends Controller
             'success' => false,
             'message' => 'Invalid file type',
         ], 400);
+    }
+
+    /**
+     * Generate a smaller thumbnail for faster mobile loading
+     */
+    private function generateThumbnail($path, $width = 300)
+    {
+        $cleanPath = preg_replace('/^storage\//', '', $path);
+        $thumbPath = 'public/thumbnails/' . basename($cleanPath);
+
+        // Check if thumbnail already exists to avoid regeneration
+        if (!Storage::exists($thumbPath)) {
+            $image = Image::make(Storage::get($cleanPath));
+            $image->resize($width, null, function ($constraint) {
+                $constraint->aspectRatio();
+                $constraint->upsize();
+            })->encode('jpg', 80); // Use WebP if desired: ->encode('webp', 80);
+            Storage::put($thumbPath, (string) $image);
+        }
+
+        return url(Storage::url($thumbPath));
     }
 }

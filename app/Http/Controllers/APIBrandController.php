@@ -1,13 +1,15 @@
 <?php
-
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\BrandCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Intervention\Image\Laravel\Facades\Image;
 
 class APIBrandController extends Controller
 {
@@ -19,16 +21,19 @@ class APIBrandController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Brand::with('categories');
+        $query = Brand::with('categories')
+            ->select('id', 'name', 'logo', 'is_featured');
 
         // Filter by isFeatured if provided
         if ($request->has('isFeatured')) {
             $query->where('is_featured', $request->input('isFeatured') === 'true');
         }
 
-        // Apply limit if provided, default to 10
-        $limit = $request->input('limit', 10);
-        $brands = $query->latest()->take($limit)->get()->map(function ($brand) {
+        // Add pagination
+        $perPage = $request->input('per_page', 10); // Default 10 items per page
+        $brands = $query->latest()->paginate($perPage);
+
+        $formattedBrands = $brands->map(function ($brand) {
             return [
                 'id' => $brand->id,
                 'name' => $brand->name,
@@ -42,11 +47,16 @@ class APIBrandController extends Controller
                     ];
                 })->toArray(),
             ];
-        });
+        })->values();
 
         return response()->json([
             'success' => true,
-            'data' => $brands,
+            'data' => $formattedBrands,
+            'pagination' => [
+                'current_page' => $brands->currentPage(),
+                'last_page' => $brands->lastPage(),
+                'total' => $brands->total(),
+            ],
         ]);
     }
 
@@ -90,16 +100,21 @@ class APIBrandController extends Controller
     /**
      * Display brands for a specific category.
      *
+     * @param Request $request
      * @param string $categoryId
      * @return \Illuminate\Http\JsonResponse
      */
-    public function getBrandsForCategory($categoryId)
+    public function getBrandsForCategory(Request $request, $categoryId)
     {
         $query = Brand::with('categories')->whereHas('categories', function ($q) use ($categoryId) {
             $q->where('category_id', $categoryId);
         });
 
-        $brands = $query->latest()->get()->map(function ($brand) {
+        // Add pagination
+        $perPage = $request->input('per_page', 10); // Default 10 items per page
+        $brands = $query->latest()->paginate($perPage);
+
+        $formattedBrands = $brands->map(function ($brand) {
             return [
                 'id' => $brand->id,
                 'name' => $brand->name,
@@ -113,11 +128,16 @@ class APIBrandController extends Controller
                     ];
                 })->toArray(),
             ];
-        });
+        })->values();
 
         return response()->json([
             'success' => true,
-            'data' => $brands,
+            'data' => $formattedBrands,
+            'pagination' => [
+                'current_page' => $brands->currentPage(),
+                'last_page' => $brands->lastPage(),
+                'total' => $brands->total(),
+            ],
         ]);
     }
 
@@ -129,23 +149,41 @@ class APIBrandController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:brands,name',
-            'logo' => 'required|string|max:255',
+            'logo' => 'required|file|mimes:jpeg,png,jpg|max:2048',
             'categories' => 'array|exists:categories,id',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
         try {
             DB::beginTransaction();
 
+            // Compress and save the logo
+            $image = Image::make($request->file('logo'));
+            $image->encode('jpg', 80); // Use WebP if desired: ->encode('webp', 80);
+            $image->resize(1200, null, function ($constraint) {
+                $constraint->aspectRatio();
+                $constraint->upsize();
+            });
+            $path = 'public/brands/' . $request->file('logo')->hashName();
+            Storage::put($path, (string) $image);
+
             $brand = Brand::create([
-                'name' => $validated['name'],
-                'logo' => $validated['logo'],
+                'name' => $request->name,
+                'logo' => $path,
             ]);
 
             // Attach categories if provided
-            if (isset($validated['categories'])) {
-                $brand->categories()->sync($validated['categories']);
+            if ($request->has('categories')) {
+                $brand->categories()->sync($request->categories);
             }
 
             DB::commit();
@@ -242,23 +280,45 @@ class APIBrandController extends Controller
             ], 404);
         }
 
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'string|max:255|unique:brands,name,' . $id,
-            'logo' => 'string|max:255',
+            'logo' => 'nullable|file|mimes:jpeg,png,jpg|max:2048',
             'categories' => 'array|exists:categories,id',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
         try {
             DB::beginTransaction();
 
-            $brand->update([
-                'name' => $validated['name'] ?? $brand->name,
-                'logo' => $validated['logo'] ?? $brand->logo,
-            ]);
+            $data = [
+                'name' => $request->name ?? $brand->name,
+            ];
+
+            // Compress and save new logo if provided
+            if ($request->hasFile('logo')) {
+                $image = Image::make($request->file('logo'));
+                $image->encode('jpg', 80); // Use WebP if desired: ->encode('webp', 80);
+                $image->resize(1200, null, function ($constraint) {
+                    $constraint->aspectRatio();
+                    $constraint->upsize();
+                });
+                $path = 'public/brands/' . $request->file('logo')->hashName();
+                Storage::put($path, (string) $image);
+                $data['logo'] = $path;
+            }
+
+            $brand->update($data);
 
             // Sync categories if provided
-            if (isset($validated['categories'])) {
-                $brand->categories()->sync($validated['categories']);
+            if ($request->has('categories')) {
+                $brand->categories()->sync($request->categories);
             }
 
             DB::commit();
