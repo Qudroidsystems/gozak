@@ -43,7 +43,9 @@ Route::get('/products/{id}', [APIProductController::class, 'show']);
 Route::post('/products', [APIProductController::class, 'store']);
 Route::patch('/products/{id}', [APIProductController::class, 'updateSingleField']);
 Route::put('/products/{id}', [APIProductController::class, 'update']);
-Route::post('/upload', [APIProductController::class, 'upload']);
+Route::put('/products/{id}', [APIProductController::class, 'update']);
+Route::post('/upload', [APIProductController::class, 'uploadFile']);
+Route::post('/product-categories', [APIProductController::class, 'storeProductCategory']);
 
 
 Route::get('/banners', [APIBannerController::class, 'index']);
