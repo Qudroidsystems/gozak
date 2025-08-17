@@ -6,7 +6,6 @@ use App\Models\Banner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Intervention\Image\Laravel\Facades\Image;
 
 class APIBannerController extends Controller
 {
@@ -34,7 +33,6 @@ class APIBannerController extends Controller
             return [
                 'id' => $banner->id,
                 'image_url' => $banner->image_url ? url(Storage::url($banner->image_url)) : '',
-                'small_image_url' => $banner->image_url ? $this->generateThumbnail($banner->image_url, 300) : '', // Thumbnail for mobile
                 'target_screen' => $banner->target_screen,
                 'active' => $banner->active,
                 'created_at' => $banner->created_at,
@@ -62,7 +60,7 @@ class APIBannerController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'image' => 'required|file|mimes:jpeg,png,jpg|max:2048', // Changed to handle file upload
+            'image' => 'required|file|mimes:jpeg,png,jpg|max:2048',
             'target_screen' => 'required|string|max:255',
             'active' => 'required|boolean',
         ]);
@@ -75,15 +73,8 @@ class APIBannerController extends Controller
             ], 422);
         }
 
-        // Compress and save the image
-        $image = Image::make($request->file('image'));
-        $image->encode('jpg', 80); // Use WebP if desired: ->encode('webp', 80);
-        $image->resize(1200, null, function ($constraint) {
-            $constraint->aspectRatio();
-            $constraint->upsize();
-        });
-        $path = 'public/banners/' . $request->file('image')->hashName();
-        Storage::put($path, (string) $image);
+        // Save the image directly to storage
+        $path = $request->file('image')->store('public/banners');
 
         $banner = Banner::create([
             'image_url' => $path,
@@ -96,7 +87,6 @@ class APIBannerController extends Controller
             'data' => [
                 'id' => $banner->id,
                 'image_url' => $banner->image_url ? url(Storage::url($banner->image_url)) : '',
-                'small_image_url' => $banner->image_url ? $this->generateThumbnail($banner->image_url, 300) : '',
                 'target_screen' => $banner->target_screen,
                 'active' => $banner->active,
                 'created_at' => $banner->created_at,
@@ -104,26 +94,5 @@ class APIBannerController extends Controller
             ],
             'message' => 'Banner created successfully',
         ], 201);
-    }
-
-    /**
-     * Generate a smaller thumbnail for faster mobile loading
-     */
-    private function generateThumbnail($path, $width = 300)
-    {
-        $cleanPath = preg_replace('/^storage\//', '', $path);
-        $thumbPath = 'public/thumbnails/' . basename($cleanPath);
-
-        // Check if thumbnail already exists to avoid regeneration
-        if (!Storage::exists($thumbPath)) {
-            $image = Image::make(Storage::get($cleanPath));
-            $image->resize($width, null, function ($constraint) {
-                $constraint->aspectRatio();
-                $constraint->upsize();
-            })->encode('jpg', 80); // Use WebP if desired: ->encode('webp', 80);
-            Storage::put($thumbPath, (string) $image);
-        }
-
-        return url(Storage::url($thumbPath));
     }
 }

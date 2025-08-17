@@ -9,7 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Intervention\Image\Laravel\Facades\Image;
 
 class APIBrandController extends Controller
 {
@@ -166,15 +165,8 @@ class APIBrandController extends Controller
         try {
             DB::beginTransaction();
 
-            // Compress and save the logo
-            $image = Image::make($request->file('logo'));
-            $image->encode('jpg', 80); // Use WebP if desired: ->encode('webp', 80);
-            $image->resize(1200, null, function ($constraint) {
-                $constraint->aspectRatio();
-                $constraint->upsize();
-            });
-            $path = 'public/brands/' . $request->file('logo')->hashName();
-            Storage::put($path, (string) $image);
+            // Save the logo directly to storage
+            $path = $request->file('logo')->store('public/brands');
 
             $brand = Brand::create([
                 'name' => $request->name,
@@ -301,16 +293,9 @@ class APIBrandController extends Controller
                 'name' => $request->name ?? $brand->name,
             ];
 
-            // Compress and save new logo if provided
+            // Save new logo if provided
             if ($request->hasFile('logo')) {
-                $image = Image::make($request->file('logo'));
-                $image->encode('jpg', 80); // Use WebP if desired: ->encode('webp', 80);
-                $image->resize(1200, null, function ($constraint) {
-                    $constraint->aspectRatio();
-                    $constraint->upsize();
-                });
-                $path = 'public/brands/' . $request->file('logo')->hashName();
-                Storage::put($path, (string) $image);
+                $path = $request->file('logo')->store('public/brands');
                 $data['logo'] = $path;
             }
 
