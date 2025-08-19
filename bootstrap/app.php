@@ -15,11 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->api(prepend: [
             EnsureFrontendRequestsAreStateful::class,
-            'throttle:api',
+           // 'throttle:api',
         ]);
 
         $middleware->alias([
-            // 'auth:sanctum' => \Laravel\Sanctum\Http\Middleware\AuthenticateWithSanctum::class,
+           // 'auth:sanctum' => \Laravel\Sanctum\Http\Middleware\AuthenticateWithSanctum::class,
             'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
