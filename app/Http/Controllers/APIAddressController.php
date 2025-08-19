@@ -11,7 +11,22 @@ class APIAddressController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth:sanctum');
+        $this->middleware(['auth:sanctum', 'throttle:api']);
+    }
+
+    /**
+     * Set the default address by resetting others
+     *
+     * @param \App\Models\User $user
+     * @param string|null $addressId
+     */
+    private function setDefaultAddress($user, $addressId = null)
+    {
+        $query = $user->addresses()->whereNull('deleted_at');
+        if ($addressId) {
+            $query->where('id', '!=', $addressId);
+        }
+        $query->update(['is_default' => false]);
     }
 
     /**
@@ -20,7 +35,7 @@ class APIAddressController extends Controller
     public function index(Request $request)
     {
         try {
-            $addresses = $request->user()->addresses;
+            $addresses = $request->user()->addresses()->whereNull('deleted_at')->get();
             return response()->json([
                 'success' => true,
                 'addresses' => $addresses,
@@ -30,8 +45,7 @@ class APIAddressController extends Controller
             \Log::error('Addresses fetch error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch addresses',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to fetch addresses: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -47,15 +61,15 @@ class APIAddressController extends Controller
                 'street' => 'required|string|max:255',
                 'city' => 'required|string|max:255',
                 'state' => 'required|string|max:255',
-                'postal_code' => 'required|string|max:20',
+                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/', // Matches US ZIP code format
                 'country' => 'required|string|max:255',
-                'phone_number' => 'nullable|string|max:20',
+                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/', // Matches E.164 phone format
                 'is_default' => 'boolean',
             ]);
 
             $user = $request->user();
             if ($validated['is_default']) {
-                $user->addresses()->update(['is_default' => false]);
+                $this->setDefaultAddress($user);
             }
 
             $address = $user->addresses()->create($validated);
@@ -75,8 +89,7 @@ class APIAddressController extends Controller
             \Log::error('Address creation error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create address',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to create address: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -87,21 +100,21 @@ class APIAddressController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
+            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->whereNull('deleted_at')->firstOrFail();
 
             $validated = $request->validate([
                 'name' => 'nullable|string|max:255',
                 'street' => 'required|string|max:255',
                 'city' => 'required|string|max:255',
                 'state' => 'required|string|max:255',
-                'postal_code' => 'required|string|max:20',
+                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/', // Matches US ZIP code format
                 'country' => 'required|string|max:255',
-                'phone_number' => 'nullable|string|max:20',
+                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/', // Matches E.164 phone format
                 'is_default' => 'boolean',
             ]);
 
             if ($validated['is_default']) {
-                $request->user()->addresses()->where('id', '!=', $id)->update(['is_default' => false]);
+                $this->setDefaultAddress($request->user(), $id);
             }
 
             $address->update($validated);
@@ -121,8 +134,7 @@ class APIAddressController extends Controller
             \Log::error('Address update error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update address',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to update address: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -133,14 +145,14 @@ class APIAddressController extends Controller
     public function patch(Request $request, $id)
     {
         try {
-            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
+            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->whereNull('deleted_at')->firstOrFail();
 
             $validated = $request->validate([
                 'is_default' => 'required|boolean',
             ]);
 
             if ($validated['is_default']) {
-                $request->user()->addresses()->where('id', '!=', $id)->update(['is_default' => false]);
+                $this->setDefaultAddress($request->user(), $id);
             }
 
             $address->update($validated);
@@ -160,8 +172,7 @@ class APIAddressController extends Controller
             \Log::error('Address selection update error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update address selection',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to update address selection: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -172,8 +183,8 @@ class APIAddressController extends Controller
     public function destroy(Request $request, $id)
     {
         try {
-            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
-            $address->delete();
+            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->whereNull('deleted_at')->firstOrFail();
+            $address->delete(); // Soft delete
 
             return response()->json([
                 'success' => true,
@@ -183,8 +194,7 @@ class APIAddressController extends Controller
             \Log::error('Address deletion error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete address',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to delete address: ' . $e->getMessage(),
             ], 500);
         }
     }
