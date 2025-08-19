@@ -11,7 +11,7 @@ class APIAddressController extends Controller
 {
     public function __construct()
     {
-        $this->middleware(['auth:sanctum', 'throttle:api']);
+        $this->middleware(['auth:sanctum']);
     }
 
     /**
