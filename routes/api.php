@@ -58,7 +58,7 @@ Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'
 
     Route::get('/banners', [APIBannerController::class, 'index']);
     Route::post('/banners', [APIBannerController::class, 'store']);
-    Route::post('/upload', [APIUploadController::class, 'upload']);
+    // Route::post('/upload', [APIUploadController::class, 'upload']);
 
     // Authenticated Routes
     Route::middleware('auth:sanctum')->group(function () {
