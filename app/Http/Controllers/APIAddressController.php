@@ -11,7 +11,7 @@ class APIAddressController extends Controller
 {
     public function __construct()
     {
-        $this->middleware(['auth:sanctum', 'throttle:api']);
+        $this->middleware('auth:sanctum');
     }
 
     /**
@@ -61,9 +61,9 @@ class APIAddressController extends Controller
                 'street' => 'required|string|max:255',
                 'city' => 'required|string|max:255',
                 'state' => 'required|string|max:255',
-                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/', // Matches US ZIP code format
+                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/', // US ZIP code format
                 'country' => 'required|string|max:255',
-                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/', // Matches E.164 phone format
+                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/', // E.164 phone format
                 'is_default' => 'boolean',
             ]);
 
@@ -107,9 +107,9 @@ class APIAddressController extends Controller
                 'street' => 'required|string|max:255',
                 'city' => 'required|string|max:255',
                 'state' => 'required|string|max:255',
-                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/', // Matches US ZIP code format
+                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/', // US ZIP code format
                 'country' => 'required|string|max:255',
-                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/', // Matches E.164 phone format
+                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/', // E.164 phone format
                 'is_default' => 'boolean',
             ]);
 
