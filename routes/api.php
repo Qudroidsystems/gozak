@@ -86,6 +86,14 @@ Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'
             // Order Routes
             Route::get('/orders', [APIOrderController::class, 'index']);
             Route::post('/orders', [APIOrderController::class, 'store']);
+
+        
+            Route::get('/addresses', [APIAddressController::class, 'index']);
+            Route::post('/addresses', [APIAddressController::class, 'store']);
+            Route::put('/addresses/{id}', [APIAddressController::class, 'update']);
+            Route::patch('/addresses/{id}', [APIAddressController::class, 'patch']);
+            Route::delete('/addresses/{id}', [APIAddressController::class, 'destroy']);
+     
 });
 
 // CSRF Token Endpoint
