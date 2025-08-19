@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductAttribute;
 use App\Models\ProductImage;
+use App\Models\ProductReview;
 use App\Models\ProductVariation;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -809,6 +810,136 @@ class DatabaseSeeder extends Seeder
             DB::table('product_category')->insertOrIgnore($productCategory);
         }
 
+
+        // Product Reviews
+        $productReviews = [
+            [
+                'product_id' => '001',
+                'user_id' => 1,
+                'rating' => 4,
+                'comment' => 'Great shoes, very comfortable for running!',
+                'user_name' => 'John Doe',
+                'user_image_url' => 'users/john_doe.jpg',
+                'company_comment' => 'Thank you for your feedback! We’re glad you’re enjoying the shoes.',
+                'company_timestamp' => now()->subDays(1),
+                'created_at' => now()->subDays(2),
+                'updated_at' => now()->subDays(2),
+            ],
+            [
+                'product_id' => '001',
+                'user_id' => 2,
+                'rating' => 3,
+                'comment' => 'Good quality, but the size runs a bit small.',
+                'user_name' => 'Jane Smith',
+                'user_image_url' => null,
+                'company_comment' => null,
+                'company_timestamp' => null,
+                'created_at' => now()->subDays(3),
+                'updated_at' => now()->subDays(3),
+            ],
+            [
+                'product_id' => '002',
+                'user_id' => 3,
+                'rating' => 5,
+                'comment' => 'Love this t-shirt, fits perfectly and feels great!',
+                'user_name' => 'Alice Johnson',
+                'user_image_url' => 'users/alice_johnson.jpg',
+                'company_comment' => 'We’re thrilled to hear you love the t-shirt! Thanks for your review.',
+                'company_timestamp' => now()->subDays(1),
+                'created_at' => now()->subDays(4),
+                'updated_at' => now()->subDays(4),
+            ],
+            [
+                'product_id' => '002',
+                'user_id' => 4,
+                'rating' => 4,
+                'comment' => 'Nice fabric, but the color faded slightly after washing.',
+                'user_name' => 'Bob Brown',
+                'user_image_url' => null,
+                'company_comment' => 'Thank you for your feedback. We’ll look into the color fading issue.',
+                'company_timestamp' => now()->subDays(2),
+                'created_at' => now()->subDays(5),
+                'updated_at' => now()->subDays(5),
+            ],
+            [
+                'product_id' => '005',
+                'user_id' => 1,
+                'rating' => 5,
+                'comment' => 'Best running shoes I’ve ever owned! Super lightweight.',
+                'user_name' => 'John Doe',
+                'user_image_url' => 'users/john_doe.jpg',
+                'company_comment' => 'Awesome to hear! Thanks for choosing our shoes.',
+                'company_timestamp' => now()->subDays(1),
+                'created_at' => now()->subDays(6),
+                'updated_at' => now()->subDays(6),
+            ],
+            [
+                'product_id' => '006',
+                'user_id' => 2,
+                'rating' => 4,
+                'comment' => 'Great phone, but the battery life could be better.',
+                'user_name' => 'Jane Smith',
+                'user_image_url' => null,
+                'company_comment' => null,
+                'company_timestamp' => null,
+                'created_at' => now()->subDays(7),
+                'updated_at' => now()->subDays(7),
+            ],
+            [
+                'product_id' => '008',
+                'user_id' => 3,
+                'rating' => 5,
+                'comment' => 'Fantastic phone, camera quality is amazing!',
+                'user_name' => 'Alice Johnson',
+                'user_image_url' => 'users/alice_johnson.jpg',
+                'company_comment' => 'Glad you’re enjoying the camera! Thanks for the review.',
+                'company_timestamp' => now()->subDays(1),
+                'created_at' => now()->subDays(8),
+                'updated_at' => now()->subDays(8),
+            ],
+            [
+                'product_id' => '022',
+                'user_id' => 4,
+                'rating' => 3,
+                'comment' => 'The bed is sturdy, but assembly was a bit tricky.',
+                'user_name' => 'Bob Brown',
+                'user_image_url' => null,
+                'company_comment' => 'We appreciate your feedback and will review our assembly instructions.',
+                'company_timestamp' => now()->subDays(2),
+                'created_at' => now()->subDays(9),
+                'updated_at' => now()->subDays(9),
+            ],
+            [
+                'product_id' => '033',
+                'user_id' => 1,
+                'rating' => 4,
+                'comment' => 'Solid laptop performance, great for work.',
+                'user_name' => 'John Doe',
+                'user_image_url' => 'users/john_doe.jpg',
+                'company_comment' => 'Thanks for the feedback! Happy to hear it’s working well for you.',
+                'company_timestamp' => now()->subDays(1),
+                'created_at' => now()->subDays(10),
+                'updated_at' => now()->subDays(10),
+            ],
+            [
+                'product_id' => '040',
+                'user_id' => 2,
+                'rating' => 5,
+                'comment' => 'Amazing phone, love the color options!',
+                'user_name' => 'Jane Smith',
+                'user_image_url' => null,
+                'company_comment' => 'We’re glad you love the phone! Thanks for your review.',
+                'company_timestamp' => now()->subDays(1),
+                'created_at' => now()->subDays(11),
+                'updated_at' => now()->subDays(11),
+            ],
+        ];
+
+        foreach ($productReviews as $review) {
+            ProductReview::create($review);
+        }
+
+        
         // Product Brands
         $productBrands = [
             ['product_id' => '001', 'brand_id' => 1],

@@ -12,26 +12,19 @@ use Illuminate\Support\Facades\Validator;
 
 class APIBrandController extends Controller
 {
-    /**
-     * Display a listing of the brands.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function index(Request $request)
     {
         try {
             $query = Brand::with(['categories' => function ($q) {
                 $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
             }])
-            ->select('id', 'name', 'logo', 'is_featured');
+            ->select('id', 'name', 'logo', 'is_featured')
+            ->withCount('products'); // Add products_count
 
-            // Filter by isFeatured if provided
             if ($request->has('isFeatured')) {
                 $query->where('is_featured', $request->input('isFeatured') === 'true');
             }
 
-            // Add pagination
             $perPage = min(max((int) $request->input('per_page', 10), 1), 100);
             $brands = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
@@ -41,6 +34,7 @@ class APIBrandController extends Controller
                     'name' => $brand->name ?? '',
                     'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                     'is_featured' => $brand->is_featured ?? false,
+                    'products_count' => $brand->products_count ?? 0, // Include products_count
                     'categories' => $brand->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
@@ -74,18 +68,15 @@ class APIBrandController extends Controller
         }
     }
 
-    /**
-     * Display the specified brand.
-     *
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function show($id)
     {
         try {
             $brand = Brand::with(['categories' => function ($q) {
                 $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
-            }])->select('id', 'name', 'logo', 'is_featured')->find($id);
+            }])
+            ->select('id', 'name', 'logo', 'is_featured')
+            ->withCount('products') // Add products_count
+            ->find($id);
 
             if (!$brand) {
                 return response()->json([
@@ -99,6 +90,7 @@ class APIBrandController extends Controller
                 'name' => $brand->name ?? '',
                 'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                 'is_featured' => $brand->is_featured ?? false,
+                'products_count' => $brand->products_count ?? 0, // Include products_count
                 'categories' => $brand->categories->map(function ($category) {
                     return [
                         'id' => $category->id,
@@ -121,17 +113,9 @@ class APIBrandController extends Controller
         }
     }
 
-    /**
-     * Display brands for a specific category.
-     *
-     * @param Request $request
-     * @param string $categoryId
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function getBrandsForCategory(Request $request, $categoryId)
     {
         try {
-            // Validate category exists
             $category = Category::find($categoryId);
             if (!$category) {
                 return response()->json([
@@ -144,11 +128,11 @@ class APIBrandController extends Controller
                 $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
             }])
             ->select('id', 'name', 'logo', 'is_featured')
+            ->withCount('products') // Add products_count
             ->whereHas('categories', function ($q) use ($categoryId) {
                 $q->where('categories.id', $categoryId);
             });
 
-            // Add pagination
             $perPage = min(max((int) $request->input('per_page', 10), 1), 100);
             $brands = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
@@ -158,6 +142,7 @@ class APIBrandController extends Controller
                     'name' => $brand->name ?? '',
                     'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                     'is_featured' => $brand->is_featured ?? false,
+                    'products_count' => $brand->products_count ?? 0, // Include products_count
                     'categories' => $brand->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
@@ -186,12 +171,6 @@ class APIBrandController extends Controller
         }
     }
 
-    /**
-     * Store a newly created brand in storage.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -212,7 +191,6 @@ class APIBrandController extends Controller
         try {
             DB::beginTransaction();
 
-            // Save the logo to storage
             $path = $request->file('logo')->store('public/brands');
 
             $brand = Brand::create([
@@ -221,14 +199,12 @@ class APIBrandController extends Controller
                 'is_featured' => $request->input('is_featured', false),
             ]);
 
-            // Attach categories if provided
             if ($request->has('categories')) {
                 $brand->categories()->sync($request->categories);
             }
 
             DB::commit();
 
-            // Load categories for response
             $brand->load(['categories' => function ($q) {
                 $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
             }]);
@@ -238,6 +214,7 @@ class APIBrandController extends Controller
                 'name' => $brand->name ?? '',
                 'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                 'is_featured' => $brand->is_featured ?? false,
+                'products_count' => $brand->products()->count(), // Include products_count
                 'categories' => $brand->categories->map(function ($category) {
                     return [
                         'id' => $category->id,
@@ -262,12 +239,6 @@ class APIBrandController extends Controller
         }
     }
 
-    /**
-     * Store a brand-category relationship in storage.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function storeBrandCategory(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -286,7 +257,6 @@ class APIBrandController extends Controller
         try {
             DB::beginTransaction();
 
-            // Create or ignore to avoid duplicates
             $brandCategory = BrandCategory::firstOrCreate([
                 'brand_id' => $request->brand_id,
                 'category_id' => $request->category_id,
@@ -311,13 +281,6 @@ class APIBrandController extends Controller
         }
     }
 
-    /**
-     * Update the specified brand in storage.
-     *
-     * @param Request $request
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function update(Request $request, $id)
     {
         $brand = Brand::find($id);
@@ -352,9 +315,7 @@ class APIBrandController extends Controller
                 'is_featured' => $request->input('is_featured', $brand->is_featured),
             ];
 
-            // Save new logo if provided
             if ($request->hasFile('logo')) {
-                // Delete old logo if exists
                 if ($brand->logo) {
                     Storage::delete($brand->logo);
                 }
@@ -364,14 +325,12 @@ class APIBrandController extends Controller
 
             $brand->update($data);
 
-            // Sync categories if provided
             if ($request->has('categories')) {
                 $brand->categories()->sync($request->categories);
             }
 
             DB::commit();
 
-            // Load categories for response
             $brand->load(['categories' => function ($q) {
                 $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
             }]);
@@ -381,6 +340,7 @@ class APIBrandController extends Controller
                 'name' => $brand->name ?? '',
                 'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                 'is_featured' => $brand->is_featured ?? false,
+                'products_count' => $brand->products()->count(), // Include products_count
                 'categories' => $brand->categories->map(function ($category) {
                     return [
                         'id' => $category->id,
@@ -405,12 +365,6 @@ class APIBrandController extends Controller
         }
     }
 
-    /**
-     * Remove the specified brand from storage.
-     *
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function destroy($id)
     {
         $brand = Brand::find($id);
@@ -425,12 +379,10 @@ class APIBrandController extends Controller
         try {
             DB::beginTransaction();
 
-            // Delete logo if exists
             if ($brand->logo) {
                 Storage::delete($brand->logo);
             }
 
-            // Detach categories from the pivot table
             $brand->categories()->detach();
             $brand->delete();
 
