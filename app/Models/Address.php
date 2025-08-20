@@ -13,6 +13,9 @@ class Address extends Model
         'state',
         'country',
         'postal_code',
+        'phone_number',
+        'name',
+        'is_default', // Added is_default
     ];
 
     public function user()
