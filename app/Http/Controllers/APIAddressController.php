@@ -22,7 +22,7 @@ class APIAddressController extends Controller
      */
     private function setDefaultAddress($user, $addressId = null)
     {
-        $query = $user->addresses()->whereNull('deleted_at');
+        $query = $user->addresses();
         if ($addressId) {
             $query->where('id', '!=', $addressId);
         }
@@ -35,7 +35,7 @@ class APIAddressController extends Controller
     public function index(Request $request)
     {
         try {
-            $addresses = $request->user()->addresses()->whereNull('deleted_at')->get();
+            $addresses = $request->user()->addresses()->get();
             return response()->json([
                 'success' => true,
                 'addresses' => $addresses,
@@ -100,7 +100,7 @@ class APIAddressController extends Controller
     public function update(Request $request, $id)
     {
         try {
-            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->whereNull('deleted_at')->firstOrFail();
+            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
 
             $validated = $request->validate([
                 'name' => 'nullable|string|max:255',
@@ -145,7 +145,7 @@ class APIAddressController extends Controller
     public function patch(Request $request, $id)
     {
         try {
-            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->whereNull('deleted_at')->firstOrFail();
+            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
 
             $validated = $request->validate([
                 'is_default' => 'required|boolean',
@@ -183,8 +183,8 @@ class APIAddressController extends Controller
     public function destroy(Request $request, $id)
     {
         try {
-            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->whereNull('deleted_at')->firstOrFail();
-            $address->delete(); // Soft delete
+            $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
+            $address->forceDelete(); // Hard delete
 
             return response()->json([
                 'success' => true,
