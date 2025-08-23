@@ -68,7 +68,7 @@ class APIAddressController extends Controller
             ]);
 
             $user = $request->user();
-            if ($validated['is_default']) {
+            if ($validated['is_default'] ?? false) {
                 $this->setDefaultAddress($user);
             }
 
@@ -95,7 +95,7 @@ class APIAddressController extends Controller
     }
 
     /**
-     * Update an existing address
+     * Update an existing address (Full update)
      */
     public function update(Request $request, $id)
     {
@@ -113,7 +113,7 @@ class APIAddressController extends Controller
                 'is_default' => 'boolean',
             ]);
 
-            if ($validated['is_default']) {
+            if ($validated['is_default'] ?? false) {
                 $this->setDefaultAddress($request->user(), $id);
             }
 
@@ -140,18 +140,21 @@ class APIAddressController extends Controller
     }
 
     /**
-     * Update the is_default field for an address
+     * Update ONLY the is_default field for an address (Partial update)
+     * This is the key fix - only validate what we're updating!
      */
     public function patch(Request $request, $id)
     {
         try {
             $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
 
+            // Only validate the is_default field for PATCH requests
             $validated = $request->validate([
                 'is_default' => 'required|boolean',
             ]);
 
             if ($validated['is_default']) {
+                // If setting this address as default, unset all others
                 $this->setDefaultAddress($request->user(), $id);
             }
 
@@ -159,7 +162,7 @@ class APIAddressController extends Controller
 
             return response()->json([
                 'success' => true,
-                'address' => $address,
+                'address' => $address->fresh(), // Return fresh model to get updated data
                 'message' => 'Address selection updated successfully',
             ], 200);
         } catch (ValidationException $e) {
