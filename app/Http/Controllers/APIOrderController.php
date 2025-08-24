@@ -2,137 +2,204 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Sale;
 use App\Models\Order;
-use App\Models\Orders;
-use App\Models\Invoice;
+use App\Models\OrderItem;
+use App\Models\Address;
 use App\Models\Product;
-use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log; // Import Log Facade
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class APIOrderController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the user's orders.
      */
     public function index()
     {
-        $orders = Order::with('sales.product')->get();
-        return response()->json($orders);
-
+        try {
+            $orders = Order::with(['items.product', 'shippingAddress', 'billingAddress'])
+                ->where('user_id', Auth::id())
+                ->get();
+            return response()->json([
+                'success' => true,
+                'data' => $orders,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error fetching orders: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch orders: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Store a newly created order.
      */
-    public function create()
-    {
-        //
-    }
-
-
-
     public function store(Request $request)
     {
-
         $request->validate([
-            'total' => 'required|numeric|min:1',
+            'total_amount' => 'required|numeric|min:0',
+            'shipping_cost' => 'required|numeric|min:0',
+            'tax_cost' => 'required|numeric|min:0',
+            'payment_method' => 'required|string',
+            'billing_address_same_as_shipping' => 'boolean',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.title' => 'required|string',
+            'items.*.price' => 'required|numeric|min:0',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.variation_id' => 'nullable|string',
+            'items.*.image' => 'nullable|string',
+            'items.*.brand_name' => 'nullable|string',
+            'items.*.selected_variation' => 'nullable|array',
+            'shipping_address' => 'required|array',
+            'shipping_address.name' => 'required|string',
+            'shipping_address.street' => 'required|string',
+            'shipping_address.city' => 'required|string',
+            'shipping_address.country' => 'required|string',
+            'billing_address' => 'nullable|array',
+            'billing_address.name' => 'required_if:billing_address_same_as_shipping,false|string',
+            'billing_address.street' => 'required_if:billing_address_same_as_shipping,false|string',
+            'billing_address.city' => 'required_if:billing_address_same_as_shipping,false|string',
+            'billing_address.country' => 'required_if:billing_address_same_as_shipping,false|string',
         ]);
 
         try {
+            DB::beginTransaction();
+
+            // Create or update shipping address
+            $shippingAddressData = $request->shipping_address;
+            $shippingAddressData['user_id'] = Auth::id();
+            $shippingAddress = Address::create($shippingAddressData);
+
+            // Create billing address if not same as shipping
+            $billingAddress = null;
+            if (!$request->billing_address_same_as_shipping && $request->billing_address) {
+                $billingAddressData = $request->billing_address;
+                $billingAddressData['user_id'] = Auth::id();
+                $billingAddress = Address::create($billingAddressData);
+            }
+
+            // Create order
             $order = Order::create([
+                'id' => Str::uuid()->toString(), // Generate UUID
                 'user_id' => Auth::id(),
-                'total' => $request->total,
-                'status' => 'pending'
+                'status' => $request->status ?? 'pending',
+                'total_amount' => $request->total_amount,
+                'shipping_cost' => $request->shipping_cost,
+                'tax_cost' => $request->tax_cost,
+                'order_date' => now(),
+                'payment_method' => $request->payment_method,
+                'shipping_address_id' => $shippingAddress->id,
+                'billing_address_id' => $billingAddress ? $billingAddress->id : $shippingAddress->id,
+                'billing_address_same_as_shipping' => $request->billing_address_same_as_shipping ?? true,
+                'delivery_date' => $request->delivery_date ? now()->addDays(3) : null, // Example
             ]);
 
-            return redirect()->route('dashboard')->with('success', 'Order placed successfully!');
+            // Create order items
+            foreach ($request->items as $item) {
+                OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $item['product_id'],
+                    'title' => $item['title'],
+                    'price' => $item['price'],
+                    'quantity' => $item['quantity'],
+                    'variation_id' => $item['variation_id'] ?? null,
+                    'image' => $item['image'] ?? null,
+                    'brand_name' => $item['brand_name'] ?? null,
+                    'selected_variation' => $item['selected_variation'] ? json_encode($item['selected_variation']) : null,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'data' => $order->load(['items.product', 'shippingAddress', 'billingAddress']),
+                'message' => 'Order placed successfully!',
+            ], 201);
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Error placing order: ' . $e->getMessage());
+            DB::rollBack();
+            Log::error('Error placing order: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error placing order: ' . $e->getMessage(),
+            ], 500);
         }
-    
-
     }
-     /**
-      * Calculate the total amount for the order items.
-      *
-      * @param array $items
-      * @return float
-      * @throws \Exception
-      */
-     private function calculateTotalAmount(array $items): float
-     {
-         $total = 0;
 
-         foreach ($items as $item) {
-             $product = Product::find($item['productId']);
-             if (!$product) {
-                 throw new \Exception("Product with ID {$item['productId']} not found.");
-             }
-
-             if (is_null($product->base_price)) {
-                //  Log::error("Product price is null", [
-                //      'product_id' => $item['productId'],
-                //      'product_name' => $product->name ?? 'Unknown',
-                //  ]);
-                //  throw new \Exception("Product with ID {$item['productId']} has no price.");
-             }
-
-             $itemTotal = $product->base_price * $item['quantity'];
-             $total += $itemTotal;
-
-             //Log the details for debugging
-            //  Log::info("Calculating total for item", [
-            //      'product_id' => $item['productId'],
-            //      'price' => $product->base_price,
-            //      'quantity' => $item['quantity'],
-            //      'item_total' => $itemTotal,
-            //  ]);
-         }
-
-         //Log::info("Total amount calculated: {$total}");
-
-         return $total;
-     }
     /**
-     * Show an order.
+     * Display a specific order.
      */
     public function show($id)
     {
-        $order = Order::with(['sales.product', 'payment'])->find($id);
-
-        if (!$order) {
-            return response()->json(['message' => 'Order not found.'], 404);
+        try {
+            $order = Order::with(['items.product', 'shippingAddress', 'billingAddress'])
+                ->where('user_id', Auth::id())
+                ->findOrFail($id);
+            return response()->json([
+                'success' => true,
+                'data' => $order,
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error fetching order: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found or access denied.',
+            ], 404);
         }
-
-        return response()->json($order, 200);
-    }
-
-
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
     }
 
     /**
-     * Update the specified resource in storage.
+     * Update an existing order (e.g., status).
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, $id)
     {
-        //
+        $request->validate([
+            'status' => 'sometimes|in:pending,shipped,delivered,cancelled',
+        ]);
+
+        try {
+            $order = Order::where('user_id', Auth::id())->findOrFail($id);
+            $order->update([
+                'status' => $request->status ?? $order->status,
+            ]);
+            return response()->json([
+                'success' => true,
+                'data' => $order->load(['items.product', 'shippingAddress', 'billingAddress']),
+                'message' => 'Order updated successfully!',
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error updating order: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error updating order: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Remove an order.
      */
-    public function destroy(string $id)
+    public function destroy($id)
     {
-        //
+        try {
+            $order = Order::where('user_id', Auth::id())->findOrFail($id);
+            $order->delete();
+            return response()->json([
+                'success' => true,
+                'message' => 'Order deleted successfully!',
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Error deleting order: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting order: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

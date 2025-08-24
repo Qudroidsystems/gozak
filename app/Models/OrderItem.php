@@ -9,22 +9,36 @@ class OrderItem extends Model
 {
     use HasFactory;
 
-     protected $fillable = [
+    protected $fillable = [
         'order_id',
         'product_id',
-        'quantity',
+        'title',
         'price',
-        'total',
+        'quantity',
+        'variation_id',
+        'image',
+        'brand_name',
+        'selected_variation',
     ];
 
+    protected $casts = [
+        'price' => 'decimal:2',
+        'selected_variation' => 'array', // Store JSON for variation attributes
+    ];
 
+    /**
+     * Get the order this item belongs to.
+     */
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Get the product for this item.
+     */
     public function product()
     {
         return $this->belongsTo(Product::class);
-    }
-
-    public function order()
-    {
-    return $this->belongsTo(Order::class, 'order_id'); // Explicitly specify the foreign key if needed
     }
 }

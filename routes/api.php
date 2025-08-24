@@ -81,12 +81,15 @@ Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'
             Route::get('/settings/global', [APISettingsController::class, 'global']);
 
             // Address Routes
-            Route::apiResource('addresses', APIAddressController::class);
+            //Route::apiResource('addresses', APIAddressController::class);
 
             // Order Routes
             Route::get('/orders', [APIOrderController::class, 'index']);
             Route::post('/orders', [APIOrderController::class, 'store']);
-
+            Route::get('/orders/{id}', [APIOrderController::class, 'show']);
+            Route::put('/orders/{id}', [APIOrderController::class, 'update']);
+            Route::delete('/orders/{id}', [APIOrderController::class, 'delete']);
+           
         
             Route::get('/addresses', [APIAddressController::class, 'index']);
             Route::post('/addresses', [APIAddressController::class, 'store']);

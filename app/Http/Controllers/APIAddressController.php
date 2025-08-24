@@ -141,7 +141,6 @@ class APIAddressController extends Controller
 
     /**
      * Update ONLY the is_default field for an address (Partial update)
-     * This is the key fix - only validate what we're updating!
      */
     public function patch(Request $request, $id)
     {
@@ -162,7 +161,7 @@ class APIAddressController extends Controller
 
             return response()->json([
                 'success' => true,
-                'address' => $address->fresh(), // Return fresh model to get updated data
+                'address' => $address->fresh(),
                 'message' => 'Address selection updated successfully',
             ], 200);
         } catch (ValidationException $e) {
