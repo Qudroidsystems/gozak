@@ -42,7 +42,7 @@ class APIAddressController extends Controller
                 'message' => 'Addresses retrieved successfully',
             ], 200);
         } catch (\Exception $e) {
-            \Log::error('Addresses fetch error: ' . $e->getMessage());
+            // \Log::error('Addresses fetch error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch addresses: ' . $e->getMessage(),
@@ -86,7 +86,7 @@ class APIAddressController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Address creation error: ' . $e->getMessage());
+            // \Log::error('Address creation error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create address: ' . $e->getMessage(),
@@ -131,7 +131,7 @@ class APIAddressController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Address update error: ' . $e->getMessage());
+            // \Log::error('Address update error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update address: ' . $e->getMessage(),
@@ -171,7 +171,7 @@ class APIAddressController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Address selection update error: ' . $e->getMessage());
+            // \Log::error('Address selection update error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update address selection: ' . $e->getMessage(),
@@ -193,7 +193,7 @@ class APIAddressController extends Controller
                 'message' => 'Address deleted successfully',
             ], 200);
         } catch (\Exception $e) {
-            \Log::error('Address deletion error: ' . $e->getMessage());
+            // \Log::error('Address deletion error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete address: ' . $e->getMessage(),
