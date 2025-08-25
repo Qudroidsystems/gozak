@@ -59,7 +59,7 @@ class APIOrderController extends Controller
             'items.*.title' => 'required|string',
             'items.*.price' => 'required|numeric|min:0',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.variation_id' => 'nullable|exists:variations,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id', // Updated table name
             'items.*.image' => 'nullable|string',
             'items.*.brand_name' => 'nullable|string',
             'items.*.selected_variation' => 'nullable|array',
@@ -100,7 +100,7 @@ class APIOrderController extends Controller
 
             // Create order
             $order = Order::create([
-                'id' => Str::uuid()->toString(), // Generate UUID for order
+                'id' => Str::uuid()->toString(),
                 'user_id' => Auth::id(),
                 'status' => $request->input('status', 'pending'),
                 'total_amount' => $request->total_amount,
@@ -122,7 +122,7 @@ class APIOrderController extends Controller
             // Create order items
             foreach ($request->items as $item) {
                 $orderItem = OrderItem::create([
-                    'order_id' => $order->id, // Use server-generated UUID
+                    'order_id' => $order->id,
                     'product_id' => $item['product_id'],
                     'title' => $item['title'],
                     'price' => $item['price'],
