@@ -3488,7 +3488,7 @@ namespace App\Models {
      * @property decimal:2 $total_amount
      * @property string $status
      * @property int $user_id
-     * @property int $id
+     * @property string $id
      * @property-read \App\Models\User $user
      * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OrderItem> $items
      * @property-read int|null $items_count

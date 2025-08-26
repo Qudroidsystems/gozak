@@ -30,9 +30,15 @@ class Order extends Model
         'tax_cost' => 'decimal:2',
         'order_date' => 'datetime',
         'delivery_date' => 'datetime',
+        'shipping_address' => 'array',
+        'billing_address' => 'array',
         'billing_address_same_as_shipping' => 'boolean',
     ];
 
+    protected $keyType = 'string';
+    public $incrementing = false;
+
+    
     /**
      * Get the user that placed the order.
      */
