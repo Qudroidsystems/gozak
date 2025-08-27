@@ -90,7 +90,7 @@
     </ul>
 
     <h2>Need Assistance?</h2>
-    <p>If you encounter any issues or have questions about our data safety practices, please contact our support team at <a href="mailto:houziapp@gmail.com">houziapp@gmail.com</a>.</p>
+    <p>If you encounter any issues or have questions about our data safety practices, please contact our support team at <a href="mailto:houziapp@gmail.com">gozak@qudroid.co</a>.</p>
 
     <p>Thank you for choosing Houzi. Your trust and privacy are our top priorities.</p>
 </body>
