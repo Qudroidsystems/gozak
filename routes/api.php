@@ -51,8 +51,9 @@ Route::delete('/product-reviews/{id}', [APIProductReviewController::class, 'dest
 Route::get('/banners', [APIBannerController::class, 'index']);
 Route::post('/banners', [APIBannerController::class, 'store']);
 
-// Privacy Policy Route
+// Privacy Policy and User Data Safety Routes
 Route::get('/privacy-policy', [PrivacyPolicyController::class, 'show']);
+Route::get('/user-data-safety', [PrivacyPolicyController::class, 'showUserDataSafety']);
 
 // Authenticated Routes
 Route::middleware('auth:sanctum')->group(function () {

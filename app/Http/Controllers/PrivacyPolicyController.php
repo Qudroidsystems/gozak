@@ -10,5 +10,10 @@ class PrivacyPolicyController extends Controller
     {
         return view('privacy.privacy');
     }
+
+    public function showUserDataSafety()
+    {
+        return view('privacy.user-safety');
+    }
 }
 ?>
