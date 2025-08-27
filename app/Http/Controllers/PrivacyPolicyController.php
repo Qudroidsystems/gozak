@@ -86,8 +86,8 @@ We may update this Privacy Policy from time to time. We will notify you of signi
 
 ## Contact Us
 If you have any questions about this Privacy Policy, please contact us at:
-- Email: [Your Contact Email]
-- Address: [Your Company Address]
+- Email: app@qudroid.co
+- Address: General Hospital road, Ondo City,Nigeria
 
 By using the App, you agree to the terms of this Privacy Policy.
 EOD;
