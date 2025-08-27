@@ -119,7 +119,7 @@
     <h2>Contact Us</h2>
     <p>If you have any questions about this Privacy Policy, please contact us at:</p>
     <ul>
-        <li>Email:app@qudroid.com</li>
+        <li>Email:app@qudroid.co</li>
         <li>Address: No 84, General Hospital road, Ondo City</li>
     </ul>
     <p>By using the App, you agree to the terms of this Privacy Policy.</p>
