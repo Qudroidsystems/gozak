@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\User;
+use App\Models\Address;
+use App\Models\OrderItem;
+use App\Models\Transaction;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Order extends Model
 {
@@ -70,4 +74,28 @@ class Order extends Model
     {
         return $this->belongsTo(Address::class, 'billing_address_id');
     }
+
+    /**
+ * Get the transactions for the order
+ */
+public function transactions()
+{
+    return $this->hasMany(Transaction::class);
+}
+
+/**
+ * Get the successful transaction for this order
+ */
+public function successfulTransaction()
+{
+    return $this->hasOne(Transaction::class)->where('status', 'success');
+}
+
+/**
+ * Check if order is paid
+ */
+public function isPaid()
+{
+    return $this->payment_status === 'paid';
+}
 }

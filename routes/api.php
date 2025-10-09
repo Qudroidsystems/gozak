@@ -1,19 +1,20 @@
 <?php
 
-use App\Http\Controllers\APIAddressController;
-use App\Http\Controllers\APIAuthController;
-use App\Http\Controllers\APIBannerController;
-use App\Http\Controllers\APIBrandController;
-use App\Http\Controllers\APICategoryController;
-use App\Http\Controllers\APIOrderController;
-use App\Http\Controllers\APIProductController;
-use App\Http\Controllers\APIProductReviewController;
-use App\Http\Controllers\APISettingsController;
-use App\Http\Controllers\APIUploadController;
-use App\Http\Controllers\APIUserController;
-use App\Http\Controllers\PrivacyPolicyController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\APIAuthController;
+use App\Http\Controllers\APIUserController;
+use App\Http\Controllers\APIBrandController;
+use App\Http\Controllers\APIOrderController;
+use App\Http\Controllers\APIBannerController;
+use App\Http\Controllers\APIUploadController;
+use App\Http\Controllers\APIAddressController;
+use App\Http\Controllers\APIProductController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\APICategoryController;
+use App\Http\Controllers\APISettingsController;
+use App\Http\Controllers\PrivacyPolicyController;
+use App\Http\Controllers\APIProductReviewController;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
 
 // Authentication Routes
@@ -86,8 +87,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/addresses/{id}', [APIAddressController::class, 'update']);
     Route::patch('/addresses/{id}', [APIAddressController::class, 'patch']);
     Route::delete('/addresses/{id}', [APIAddressController::class, 'destroy']);
+
+    // Initialize payment
+    Route::post('/payment/initialize', [PaymentController::class, 'initializePayment']);
+    
+    // Verify payment
+    Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
+    
+    // Get public key
+    Route::get('/payment/public-key', [PaymentController::class, 'getPublicKey']);
+    
+    // Get payment history
+    Route::get('/payment/history', [PaymentController::class, 'getPaymentHistory']);
 });
 
+// Webhook route (no authentication - Paystack calls this)
+Route::post('/payment/webhook', [PaymentController::class, 'webhook']);
 // CSRF Token Endpoint
 Route::get('/sanctum/csrf-cookie', [CsrfCookieController::class, 'show'])->name('sanctum.csrf-cookie');
 ?>
