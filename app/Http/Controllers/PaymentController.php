@@ -167,10 +167,11 @@ class PaymentController extends Controller
                 ], 400);
             }
 
-            // Prepare card data for Paystack
+            // Prepare card data for Paystack (FIX: Include reference)
             $cardData = [
                 'email' => $request->email,
-                'amount' => $request->amount * 100, // Convert to kobo
+                'amount' => $request->amount, // Service will *100
+                'reference' => $request->reference, // Added this line
                 'card' => [
                     'number' => $request->card['number'],
                     'cvv' => $request->card['cvv'],
