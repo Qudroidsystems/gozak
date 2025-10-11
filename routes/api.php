@@ -90,6 +90,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Initialize payment
     Route::post('/payment/initialize', [PaymentController::class, 'initializePayment']);
+    // Charge card
+    Route::post('/payment/charge', [PaymentController::class, 'chargeCard']);
+    
+    // Submit OTP for verification
+    Route::post('/payment/submit-otp', [PaymentController::class, 'submitOTP']);
+    
+    // Submit PIN for verification
+    Route::post('/payment/submit-pin', [PaymentController::class, 'submitPIN']);
     
     // Verify payment
     Route::post('/payment/verify', [PaymentController::class, 'verifyPayment']);
@@ -99,6 +107,8 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Get payment history
     Route::get('/payment/history', [PaymentController::class, 'getPaymentHistory']);
+    // Get payment details
+    Route::get('/payment/{reference}', [PaymentController::class, 'getPayment']);
 });
 
 // Webhook route (no authentication - Paystack calls this)

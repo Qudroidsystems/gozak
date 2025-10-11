@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Address;
 use App\Models\OrderItem;
 use App\Models\Transaction;
+use Faker\Provider\ar_EG\Payment;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -97,5 +98,10 @@ public function successfulTransaction()
 public function isPaid()
 {
     return $this->payment_status === 'paid';
+}
+
+public function payment()
+{
+    return $this->hasOne(Payment::class, 'order_id', 'id');
 }
 }
