@@ -128,6 +128,285 @@ class PaymentController extends Controller
     }
 
     /**
+     * Charge card directly
+     * POST /api/payment/charge
+     */
+    public function chargeCard(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'reference' => 'required|string',
+            'email' => 'required|email',
+            'amount' => 'required|numeric|min:0',
+            'card' => 'required|array',
+            'card.number' => 'required|string|size:16',
+            'card.cvv' => 'required|string|size:3',
+            'card.expiry_month' => 'required|string|size:2',
+            'card.expiry_year' => 'required|string|size:4',
+            'card.pin' => 'required|string|size:4',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            // Find existing transaction
+            $transaction = Transaction::where('reference', $request->reference)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
+
+            // Check if already processed
+            if ($transaction->status !== 'pending') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Transaction already processed'
+                ], 400);
+            }
+
+            // Prepare card data for Paystack
+            $cardData = [
+                'email' => $request->email,
+                'amount' => $request->amount * 100, // Convert to kobo
+                'card' => [
+                    'number' => $request->card['number'],
+                    'cvv' => $request->card['cvv'],
+                    'expiry_month' => $request->card['expiry_month'],
+                    'expiry_year' => substr($request->card['expiry_year'], -2), // Last 2 digits
+                    'pin' => $request->card['pin'],
+                ],
+                'metadata' => [
+                    'order_id' => $transaction->order_id,
+                    'transaction_id' => $transaction->id,
+                ]
+            ];
+
+            // Charge card with Paystack
+            $response = $this->paystackService->chargeCard($cardData);
+
+            Log::info('Card charge response', [
+                'reference' => $request->reference,
+                'status' => $response['data']['status'] ?? 'unknown',
+                'gateway_response' => $response['data']['gateway_response'] ?? null
+            ]);
+
+            // Handle different response statuses
+            $status = $response['data']['status'] ?? 'failed';
+
+            if ($status === 'success') {
+                // Update transaction immediately (full verification in webhook/verify)
+                $transaction->update([
+                    'status' => 'success',
+                    'paid_at' => now(),
+                    'payment_data' => $response['data']
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Card charged successfully',
+                    'data' => $response['data']
+                ], 200);
+            } elseif ($status === 'send_otp') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'OTP required',
+                    'data' => [
+                        'status' => 'send_otp',
+                        'reference' => $request->reference
+                    ]
+                ], 200);
+            } elseif ($status === 'send_pin') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'PIN required',
+                    'data' => [
+                        'status' => 'send_pin',
+                        'reference' => $request->reference
+                    ]
+                ], 200);
+            } elseif ($status === 'open_url') {
+                return response()->json([
+                    'success' => false,
+                    'message' => '3D Secure required',
+                    'data' => [
+                        'status' => 'open_url',
+                        'url' => $response['data']['redirect_url'] ?? null
+                    ]
+                ], 200);
+            } else {
+                // Update to failed
+                $transaction->update([
+                    'status' => 'failed',
+                    'payment_data' => $response['data']
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $response['data']['gateway_response'] ?? 'Charge failed',
+                    'data' => $response['data']
+                ], 400);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Card charge failed', [
+                'error' => $e->getMessage(),
+                'reference' => $request->reference ?? null
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Card charge failed',
+                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Submit OTP
+     * POST /api/payment/submit-otp
+     */
+    public function submitOtp(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'reference' => 'required|string',
+            'otp' => 'required|string|size:4'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $transaction = Transaction::where('reference', $request->reference)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
+
+            if ($transaction->status !== 'pending') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid transaction state'
+                ], 400);
+            }
+
+            // Submit OTP to Paystack
+            $response = $this->paystackService->submitOtp(
+                $request->reference,
+                $request->otp
+            );
+
+            if ($response['data']['status'] === 'success') {
+                $transaction->update([
+                    'status' => 'success',
+                    'paid_at' => now(),
+                    'payment_data' => $response['data']
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'OTP verified successfully',
+                    'data' => $response['data']
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $response['data']['gateway_response'] ?? 'OTP verification failed',
+                    'data' => $response['data']
+                ], 400);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('OTP submission failed', [
+                'error' => $e->getMessage(),
+                'reference' => $request->reference ?? null
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'OTP submission failed',
+                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Submit PIN
+     * POST /api/payment/submit-pin
+     */
+    public function submitPin(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'reference' => 'required|string',
+            'pin' => 'required|string|size:4'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $transaction = Transaction::where('reference', $request->reference)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
+
+            if ($transaction->status !== 'pending') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid transaction state'
+                ], 400);
+            }
+
+            // Submit PIN to Paystack
+            $response = $this->paystackService->submitPin(
+                $request->reference,
+                $request->pin
+            );
+
+            if ($response['data']['status'] === 'success') {
+                $transaction->update([
+                    'status' => 'success',
+                    'paid_at' => now(),
+                    'payment_data' => $response['data']
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'PIN verified successfully',
+                    'data' => $response['data']
+                ], 200);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $response['data']['gateway_response'] ?? 'PIN verification failed',
+                    'data' => $response['data']
+                ], 400);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('PIN submission failed', [
+                'error' => $e->getMessage(),
+                'reference' => $request->reference ?? null
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'PIN submission failed',
+                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred'
+            ], 500);
+        }
+    }
+
+    /**
      * Verify payment
      * POST /api/payment/verify
      */
