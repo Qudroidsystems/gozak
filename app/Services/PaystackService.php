@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Config;
 
 class PaystackService
 {
@@ -13,9 +14,13 @@ class PaystackService
 
     public function __construct()
     {
-        $this->secretKey = config('services.paystack.secret_key');
-        $this->publicKey = config('services.paystack.public_key');
-        $this->baseUrl = config('services.paystack.payment_url');
+        $this->secretKey = Config::get('services.paystack.secret_key');
+        $this->publicKey = Config::get('services.paystack.public_key');
+        $this->baseUrl = Config::get('services.paystack.payment_url', 'https://api.paystack.co');
+        
+        if (empty($this->secretKey)) {
+            throw new \Exception('Paystack secret key not configured');
+        }
     }
 
     /**
@@ -34,8 +39,8 @@ class PaystackService
         ];
 
         // Add callback URL if configured
-        if (config('services.paystack.callback_url')) {
-            $data['callback_url'] = config('services.paystack.callback_url');
+        if (Config::get('services.paystack.callback_url')) {
+            $data['callback_url'] = Config::get('services.paystack.callback_url');
         }
 
         try {
@@ -62,6 +67,154 @@ class PaystackService
         } catch (\Exception $e) {
             Log::error('Paystack: Exception during initialization', [
                 'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Charge a card directly (with PIN)
+     */
+    public function chargeCard($data)
+    {
+        $url = $this->baseUrl . '/transaction/charge';
+
+        // Ensure amount is in kobo
+        $data['amount'] = $data['amount'] * 100;
+
+        // Prepare card details
+        $cardData = $data['card'];
+        $payload = [
+            'email' => $data['email'],
+            'amount' => $data['amount'],
+            'reference' => $data['reference'],
+            'card' => [
+                'number' => $cardData['number'],
+                'cvv' => $cardData['cvv'],
+                'expiry_month' => $cardData['expiry_month'],
+                'expiry_year' => substr($cardData['expiry_year'], -2), // Paystack expects YY (last 2 digits)
+                'pin' => $cardData['pin'],
+            ],
+            'metadata' => $data['metadata'] ?? []
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->secretKey,
+                'Content-Type' => 'application/json',
+            ])->post($url, $payload);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                Log::info('Paystack: Card charge successful', [
+                    'reference' => $data['reference'],
+                    'status' => $result['data']['status'] ?? 'unknown'
+                ]);
+                return $result;
+            }
+
+            Log::error('Paystack: Card charge failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'request_data' => $payload
+            ]);
+
+            throw new \Exception('Card charge failed: ' . ($response->json()['message'] ?? $response->body()));
+
+        } catch (\Exception $e) {
+            Log::error('Paystack: Exception during card charge', [
+                'error' => $e->getMessage(),
+                'reference' => $data['reference'] ?? null
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Submit OTP for transaction authorization
+     */
+    public function submitOtp($reference, $otp)
+    {
+        $url = $this->baseUrl . '/charge_authorization';
+
+        $payload = [
+            'reference' => $reference,
+            'otp' => $otp
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->secretKey,
+                'Content-Type' => 'application/json',
+            ])->post($url, $payload);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                Log::info('Paystack: OTP submission successful', [
+                    'reference' => $reference,
+                    'status' => $result['data']['status'] ?? 'unknown'
+                ]);
+                return $result;
+            }
+
+            Log::error('Paystack: OTP submission failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'request_data' => $payload
+            ]);
+
+            throw new \Exception('OTP submission failed: ' . ($response->json()['message'] ?? $response->body()));
+
+        } catch (\Exception $e) {
+            Log::error('Paystack: Exception during OTP submission', [
+                'error' => $e->getMessage(),
+                'reference' => $reference
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Submit PIN for transaction (typically part of charge, but for re-auth if needed)
+     */
+    public function submitPin($reference, $pin)
+    {
+        // Note: PIN is usually submitted during initial charge. This method can be used for re-authorization if needed.
+        // For standard flow, it re-charges with PIN if previous attempt required it.
+        $url = $this->baseUrl . '/transaction/charge_authorization'; // Or use /transaction/charge if re-charging
+
+        $payload = [
+            'reference' => $reference,
+            'pin' => $pin
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->secretKey,
+                'Content-Type' => 'application/json',
+            ])->post($url, $payload);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                Log::info('Paystack: PIN submission successful', [
+                    'reference' => $reference,
+                    'status' => $result['data']['status'] ?? 'unknown'
+                ]);
+                return $result;
+            }
+
+            Log::error('Paystack: PIN submission failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'request_data' => $payload
+            ]);
+
+            throw new \Exception('PIN submission failed: ' . ($response->json()['message'] ?? $response->body()));
+
+        } catch (\Exception $e) {
+            Log::error('Paystack: Exception during PIN submission', [
+                'error' => $e->getMessage(),
+                'reference' => $reference
             ]);
             throw $e;
         }
