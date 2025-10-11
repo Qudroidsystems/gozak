@@ -98,6 +98,12 @@ class PaystackService
             'metadata' => $data['metadata'] ?? []
         ];
 
+        // Add logging before the API call
+        Log::info('Paystack charge attempt', [
+            'secret_key_prefix' => substr($this->secretKey, 0, 10) . '...',
+            'payload' => $payload
+        ]);
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->secretKey,
