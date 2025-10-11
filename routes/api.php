@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\APIAuthController;
 use App\Http\Controllers\APIUserController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\APIBrandController;
 use App\Http\Controllers\APIOrderController;
 use App\Http\Controllers\APIBannerController;
