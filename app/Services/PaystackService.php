@@ -122,21 +122,17 @@ public function chargeCard($data)
         $payload['reference'] = $data['reference'];
     }
 
-    Log::info('Paystack charge - Full request details', [
+    Log::info('Paystack charge attempt', [
         'url' => $url,
-        'secret_key_prefix' => substr($this->secretKey, 0, 10) . '...',
-        'payload' => array_merge($payload, [
-            'card' => array_merge($payload['card'], [
-                'number' => substr($cardData['number'], 0, 6) . '******' . substr($cardData['number'], -4),
-                'cvv' => '***',
-                'pin' => '****'
-            ])
-        ])
+        'using_key' => 'public_key', // Changed to public key
+        'public_key_prefix' => substr($this->publicKey, 0, 10) . '...',
+        'reference' => $data['reference'] ?? 'N/A'
     ]);
 
     try {
+        // IMPORTANT: Use PUBLIC key for /transaction/charge endpoint
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $this->secretKey,
+            'Authorization' => 'Bearer ' . $this->publicKey, // Changed from secretKey to publicKey
             'Content-Type' => 'application/json',
             'Cache-Control' => 'no-cache',
         ])->timeout(30)->post($url, $payload);
@@ -144,9 +140,11 @@ public function chargeCard($data)
         $statusCode = $response->status();
         $responseBody = $response->json();
 
-        Log::info('Paystack charge - Full response', [
+        Log::info('Paystack charge response', [
             'status_code' => $statusCode,
-            'response_body' => $responseBody
+            'response_status' => $responseBody['status'] ?? null,
+            'response_message' => $responseBody['message'] ?? null,
+            'data_status' => $responseBody['data']['status'] ?? null
         ]);
 
         if ($response->successful() && isset($responseBody['status']) && $responseBody['status'] === true) {
@@ -158,7 +156,7 @@ public function chargeCard($data)
         }
 
         // Log detailed error
-        Log::error('Paystack charge failed - Detailed error', [
+        Log::error('Paystack charge failed', [
             'status_code' => $statusCode,
             'response_status' => $responseBody['status'] ?? null,
             'message' => $responseBody['message'] ?? 'No message',
@@ -170,14 +168,12 @@ public function chargeCard($data)
     } catch (\Illuminate\Http\Client\RequestException $e) {
         Log::error('Paystack HTTP exception', [
             'error' => $e->getMessage(),
-            'response_body' => $e->response ? $e->response->body() : null,
-            'response_status' => $e->response ? $e->response->status() : null
+            'response_body' => $e->response ? $e->response->body() : null
         ]);
         throw new \Exception('Payment gateway error: ' . $e->getMessage());
     } catch (\Exception $e) {
-        Log::error('Paystack general exception', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
+        Log::error('Paystack exception', [
+            'error' => $e->getMessage()
         ]);
         throw $e;
     }
