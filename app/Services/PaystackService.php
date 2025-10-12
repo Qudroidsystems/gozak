@@ -12,16 +12,26 @@ class PaystackService
     protected $publicKey;
     protected $baseUrl;
 
-    public function __construct()
-    {
-        $this->secretKey = Config::get('services.paystack.secret_key');
-        $this->publicKey = Config::get('services.paystack.public_key');
-        $this->baseUrl = Config::get('services.paystack.payment_url', 'https://api.paystack.co');
-        
-        if (empty($this->secretKey)) {
-            throw new \Exception('Paystack secret key not configured');
-        }
+   public function __construct()
+{
+    $this->secretKey = Config::get('services.paystack.secret_key');
+    $this->publicKey = Config::get('services.paystack.public_key');
+    $this->baseUrl = Config::get('services.paystack.payment_url', 'https://api.paystack.co');
+    
+    // Temporary debug logging
+    Log::info('PaystackService initialized', [
+        'secret_key_prefix' => substr($this->secretKey, 0, 10) . '...',
+        'public_key_prefix' => substr($this->publicKey, 0, 10) . '...',
+        'base_url' => $this->baseUrl,
+        'secret_key_length' => strlen($this->secretKey),
+        'is_empty' => empty($this->secretKey)
+    ]);
+    
+    if (empty($this->secretKey)) {
+        Log::error('Paystack secret key is empty!');
+        throw new \Exception('Paystack secret key not configured');
     }
+}
 
     /**
      * Initialize a payment transaction
