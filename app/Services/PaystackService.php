@@ -82,11 +82,12 @@ class PaystackService
         }
     }
 
-    /**
-     * Charge a card directly (with PIN)
-     */
-    public function chargeCard($data)
-    public function chargeCard($data)
+   
+    
+/**
+ * Charge a card directly (with PIN)
+ */
+public function chargeCard($data)
 {
     $url = $this->baseUrl . '/transaction/charge';
 
@@ -182,6 +183,7 @@ class PaystackService
     }
 }
 
+    
     /**
      * Submit OTP for transaction authorization
      */
