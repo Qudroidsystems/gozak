@@ -86,76 +86,101 @@ class PaystackService
      * Charge a card directly (with PIN)
      */
     public function chargeCard($data)
-    {
-        $url = $this->baseUrl . '/transaction/charge';
+    public function chargeCard($data)
+{
+    $url = $this->baseUrl . '/transaction/charge';
 
-        // Prepare card details
-        $cardData = $data['card'];
-        $payload = [
-            'email' => $data['email'],
-            'amount' => $data['amount'] * 100, // Convert to kobo
-            'card' => [
-                'number' => $cardData['number'],
-                'cvv' => $cardData['cvv'],
-                'expiry_month' => $cardData['expiry_month'],
-                'expiry_year' => $cardData['expiry_year'], // Already formatted as 2 digits
-                'pin' => $cardData['pin'],
-            ],
-        ];
+    // Prepare card details
+    $cardData = $data['card'];
+    
+    // Ensure expiry_year is 2 digits
+    $expiryYear = $cardData['expiry_year'];
+    if (strlen($expiryYear) > 2) {
+        $expiryYear = substr($expiryYear, -2);
+    }
+    
+    $payload = [
+        'email' => $data['email'],
+        'amount' => $data['amount'] * 100, // Convert to kobo
+        'card' => [
+            'number' => $cardData['number'],
+            'cvv' => $cardData['cvv'],
+            'expiry_month' => $cardData['expiry_month'],
+            'expiry_year' => $expiryYear,
+            'pin' => $cardData['pin'],
+        ],
+    ];
 
-        // Add metadata if present
-        if (isset($data['metadata'])) {
-            $payload['metadata'] = $data['metadata'];
-        }
+    // Add metadata if present
+    if (isset($data['metadata'])) {
+        $payload['metadata'] = $data['metadata'];
+    }
 
-        Log::info('Paystack charge attempt', [
-            'url' => $url,
-            'email' => $payload['email'],
-            'amount' => $payload['amount'],
-            'card_last4' => substr($cardData['number'], -4)
+    // IMPORTANT: Add reference if present
+    if (isset($data['reference'])) {
+        $payload['reference'] = $data['reference'];
+    }
+
+    Log::info('Paystack charge - Full request details', [
+        'url' => $url,
+        'secret_key_prefix' => substr($this->secretKey, 0, 10) . '...',
+        'payload' => array_merge($payload, [
+            'card' => array_merge($payload['card'], [
+                'number' => substr($cardData['number'], 0, 6) . '******' . substr($cardData['number'], -4),
+                'cvv' => '***',
+                'pin' => '****'
+            ])
+        ])
+    ]);
+
+    try {
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $this->secretKey,
+            'Content-Type' => 'application/json',
+            'Cache-Control' => 'no-cache',
+        ])->timeout(30)->post($url, $payload);
+
+        $statusCode = $response->status();
+        $responseBody = $response->json();
+
+        Log::info('Paystack charge - Full response', [
+            'status_code' => $statusCode,
+            'response_body' => $responseBody
         ]);
 
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->secretKey,
-                'Content-Type' => 'application/json',
-                'Cache-Control' => 'no-cache',
-            ])->post($url, $payload);
-
-            $statusCode = $response->status();
-            $responseBody = $response->json();
-
-            Log::info('Paystack charge response', [
-                'status_code' => $statusCode,
-                'response' => $responseBody
+        if ($response->successful() && isset($responseBody['status']) && $responseBody['status'] === true) {
+            Log::info('Paystack charge successful', [
+                'reference' => $data['reference'] ?? 'N/A',
+                'data_status' => $responseBody['data']['status'] ?? 'unknown'
             ]);
-
-            if ($response->successful() && isset($responseBody['status']) && $responseBody['status'] === true) {
-                return $responseBody;
-            }
-
-            // Log error details
-            Log::error('Paystack charge failed', [
-                'status' => $statusCode,
-                'response' => $responseBody,
-                'message' => $responseBody['message'] ?? 'Unknown error'
-            ]);
-
-            throw new \Exception($responseBody['message'] ?? 'Card charge failed');
-
-        } catch (\Illuminate\Http\Client\RequestException $e) {
-            Log::error('Paystack HTTP exception', [
-                'error' => $e->getMessage(),
-                'response' => $e->response->body() ?? null
-            ]);
-            throw new \Exception('Payment gateway error: ' . $e->getMessage());
-        } catch (\Exception $e) {
-            Log::error('Paystack exception during card charge', [
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
+            return $responseBody;
         }
+
+        // Log detailed error
+        Log::error('Paystack charge failed - Detailed error', [
+            'status_code' => $statusCode,
+            'response_status' => $responseBody['status'] ?? null,
+            'message' => $responseBody['message'] ?? 'No message',
+            'full_response' => $responseBody
+        ]);
+
+        throw new \Exception($responseBody['message'] ?? 'Card charge failed');
+
+    } catch (\Illuminate\Http\Client\RequestException $e) {
+        Log::error('Paystack HTTP exception', [
+            'error' => $e->getMessage(),
+            'response_body' => $e->response ? $e->response->body() : null,
+            'response_status' => $e->response ? $e->response->status() : null
+        ]);
+        throw new \Exception('Payment gateway error: ' . $e->getMessage());
+    } catch (\Exception $e) {
+        Log::error('Paystack general exception', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        throw $e;
     }
+}
 
     /**
      * Submit OTP for transaction authorization
