@@ -46,12 +46,13 @@ class PaystackService
             'reference' => $reference ?? $this->generateReference(),
             'metadata' => $metadata,
             'currency' => 'NGN', // Nigerian Naira
+            'callback_url' => Config::get('services.paystack.callback_url'), // Add this
         ];
 
         // Add callback URL if configured
-        if (Config::get('services.paystack.callback_url')) {
-            $data['callback_url'] = Config::get('services.paystack.callback_url');
-        }
+        // if (Config::get('services.paystack.callback_url')) {
+        //     $data['callback_url'] = Config::get('services.paystack.callback_url');
+        // }
 
         try {
             $response = Http::withHeaders([
