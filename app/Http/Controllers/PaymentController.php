@@ -138,10 +138,10 @@ class PaymentController extends Controller
             'email' => 'required|email',
             'amount' => 'required|numeric|min:0',
             'card' => 'required|array',
-            'card.number' => 'required|string|size:16',
-            'card.cvv' => 'required|string|size:3',
+            'card.number' => 'required|string|min:13|max:19',
+            'card.cvv' => 'required|string|min:3|max:4',
             'card.expiry_month' => 'required|string|size:2',
-            'card.expiry_year' => 'required|string|size:4',
+            'card.expiry_year' => 'required|string', // Allow both 2 or 4 digit years
             'card.pin' => 'required|string|size:4',
         ]);
 
@@ -167,16 +167,22 @@ class PaymentController extends Controller
                 ], 400);
             }
 
-            // Prepare card data for Paystack (FIX: Include reference)
+            // FIX: Properly format the expiry year
+            $expiryYear = $request->card['expiry_year'];
+            // If 4 digits (e.g., "2030"), take last 2 digits
+            // If 2 digits (e.g., "30"), use as is
+            $formattedYear = strlen($expiryYear) === 4 ? substr($expiryYear, -2) : $expiryYear;
+
+            // Prepare card data - MATCH PaystackService structure
             $cardData = [
                 'email' => $request->email,
-                'amount' => $request->amount, // Service will *100
-                'reference' => $request->reference, // Added this line
+                'amount' => $request->amount, // Will be converted to kobo in service
+                'reference' => $request->reference,
                 'card' => [
                     'number' => $request->card['number'],
                     'cvv' => $request->card['cvv'],
                     'expiry_month' => $request->card['expiry_month'],
-                    'expiry_year' => substr($request->card['expiry_year'], -2), // Last 2 digits
+                    'expiry_year' => $formattedYear, // Use formatted year
                     'pin' => $request->card['pin'],
                 ],
                 'metadata' => [
@@ -185,82 +191,107 @@ class PaymentController extends Controller
                 ]
             ];
 
+            Log::info('Attempting card charge', [
+                'reference' => $request->reference,
+                'amount' => $request->amount,
+                'email' => $request->email
+            ]);
+
             // Charge card with Paystack
             $response = $this->paystackService->chargeCard($cardData);
 
-            Log::info('Card charge response', [
+            Log::info('Card charge response received', [
                 'reference' => $request->reference,
-                'status' => $response['data']['status'] ?? 'unknown',
-                'gateway_response' => $response['data']['gateway_response'] ?? null
+                'response_status' => $response['status'] ?? 'unknown',
+                'data_status' => $response['data']['status'] ?? 'unknown'
             ]);
 
-            // Handle different response statuses
-            $status = $response['data']['status'] ?? 'failed';
+            // Handle response
+            if ($response['status'] === true && isset($response['data'])) {
+                $status = $response['data']['status'];
 
-            if ($status === 'success') {
-                // Update transaction immediately (full verification in webhook/verify)
-                $transaction->update([
-                    'status' => 'success',
-                    'paid_at' => now(),
-                    'payment_data' => $response['data']
-                ]);
+                if ($status === 'success') {
+                    $transaction->update([
+                        'status' => 'success',
+                        'paid_at' => now(),
+                        'payment_data' => $response['data']
+                    ]);
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Card charged successfully',
-                    'data' => $response['data']
-                ], 200);
-            } elseif ($status === 'send_otp') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'OTP required',
-                    'data' => [
-                        'status' => 'send_otp',
-                        'reference' => $request->reference
-                    ]
-                ], 200);
-            } elseif ($status === 'send_pin') {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'PIN required',
-                    'data' => [
-                        'status' => 'send_pin',
-                        'reference' => $request->reference
-                    ]
-                ], 200);
-            } elseif ($status === 'open_url') {
-                return response()->json([
-                    'success' => false,
-                    'message' => '3D Secure required',
-                    'data' => [
-                        'status' => 'open_url',
-                        'url' => $response['data']['redirect_url'] ?? null
-                    ]
-                ], 200);
-            } else {
-                // Update to failed
-                $transaction->update([
-                    'status' => 'failed',
-                    'payment_data' => $response['data']
-                ]);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Card charged successfully',
+                        'data' => [
+                            'status' => 'success',
+                            'reference' => $request->reference
+                        ]
+                    ], 200);
+                } 
+                elseif ($status === 'send_otp') {
+                    return response()->json([
+                        'success' => true, // Changed to true since it's a valid response
+                        'message' => 'OTP required',
+                        'data' => [
+                            'status' => 'send_otp',
+                            'reference' => $request->reference
+                        ]
+                    ], 200);
+                } 
+                elseif ($status === 'send_pin') {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'PIN required',
+                        'data' => [
+                            'status' => 'send_pin',
+                            'reference' => $request->reference
+                        ]
+                    ], 200);
+                } 
+                elseif (in_array($status, ['open_url', 'pending'])) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => '3D Secure authentication required',
+                        'data' => [
+                            'status' => $status,
+                            'url' => $response['data']['url'] ?? null,
+                            'reference' => $request->reference
+                        ]
+                    ], 200);
+                } 
+                else {
+                    $transaction->update([
+                        'status' => 'failed',
+                        'payment_data' => $response['data']
+                    ]);
 
-                return response()->json([
-                    'success' => false,
-                    'message' => $response['data']['gateway_response'] ?? 'Charge failed',
-                    'data' => $response['data']
-                ], 400);
+                    return response()->json([
+                        'success' => false,
+                        'message' => $response['message'] ?? 'Charge failed',
+                        'data' => [
+                            'status' => $status,
+                            'gateway_response' => $response['data']['gateway_response'] ?? null
+                        ]
+                    ], 400);
+                }
             }
 
+            // If response doesn't have expected structure
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid response from payment gateway',
+                'error' => $response['message'] ?? 'Unknown error'
+            ], 500);
+
         } catch (\Exception $e) {
-            Log::error('Card charge failed', [
+            Log::error('Card charge exception', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'reference' => $request->reference ?? null
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Card charge failed',
-                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred'
+                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred during payment processing'
             ], 500);
         }
     }
