@@ -3,21 +3,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use Illuminate\Auth\Events\PasswordReset;
-use Illuminate\Auth\Events\Registered;
-use Illuminate\Auth\Events\Verified;
-use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use Illuminate\Auth\Events\Verified;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 
 class APIAuthController extends Controller
 {
-    public function register(Request $request)
+    
+    
+     public function register(Request $request)
     {
         try {
             $validated = $request->validate([
@@ -26,22 +29,26 @@ class APIAuthController extends Controller
                 'first_name' => 'required|string|max:255',
                 'last_name' => 'required|string|max:255',
                 'phone_number' => 'nullable|string|max:20',
-                // 'gender' => 'nullable|string|in:Male,Female,Other',
-                // 'date_of_birth' => 'nullable|date',
             ]);
 
             $user = User::create([
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
-                'username' => $validated['email'], // Use email as username or generate unique
+                'username' => $validated['email'], // Use email as username
                 'email' => $validated['email'],
-                'phone_number' => $validated['phone_number'],
-                // 'gender' => $validated['gender'],
-                // 'date_of_birth' => $validated['date_of_birth'],
+                'phone_number' => $validated['phone_number'] ?? null,
                 'password' => bcrypt($validated['password']),
             ]);
 
-            event(new Registered($user));
+            // Try to send verification email, but don't fail registration if it fails
+            try {
+                event(new Registered($user));
+                Log::info('Verification email sent successfully for user: ' . $user->email);
+            } catch (\Exception $emailError) {
+                // Log the error but continue with registration
+                Log::error('Failed to send verification email for user ' . $user->email . ': ' . $emailError->getMessage());
+                // Don't throw - let user complete registration even if email fails
+            }
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -73,7 +80,7 @@ class APIAuthController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Registration error: ' . $e->getMessage());
+            Log::error('Registration error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Registration failed',
