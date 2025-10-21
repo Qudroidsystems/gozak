@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Address;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
@@ -19,6 +20,7 @@ class APIAddressController extends Controller
      *
      * @param \App\Models\User $user
      * @param string|null $addressId
+     * @return void
      */
     private function setDefaultAddress($user, $addressId = null)
     {
@@ -26,7 +28,10 @@ class APIAddressController extends Controller
         if ($addressId) {
             $query->where('id', '!=', $addressId);
         }
-        $query->update(['is_default' => false]);
+        $updated = $query->update(['is_default' => false]);
+        if ($updated > 0) {
+            Log::info('Default addresses reset for user: ' . $user->id . ', excluded ID: ' . ($addressId ?? 'none'));
+        }
     }
 
     /**
@@ -36,13 +41,17 @@ class APIAddressController extends Controller
     {
         try {
             $addresses = $request->user()->addresses()->get();
+            Log::info('Addresses fetched for user: ' . $request->user()->id . ', count: ' . $addresses->count());
+
             return response()->json([
                 'success' => true,
                 'addresses' => $addresses,
                 'message' => 'Addresses retrieved successfully',
             ], 200);
         } catch (\Exception $e) {
-            // \Log::error('Addresses fetch error: ' . $e->getMessage());
+            Log::error('Addresses fetch error for user ' . $request->user()->id . ': ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch addresses: ' . $e->getMessage(),
@@ -73,6 +82,7 @@ class APIAddressController extends Controller
             }
 
             $address = $user->addresses()->create($validated);
+            Log::info('Address created for user: ' . $user->id . ', ID: ' . $address->id);
 
             return response()->json([
                 'success' => true,
@@ -80,13 +90,19 @@ class APIAddressController extends Controller
                 'message' => 'Address created successfully',
             ], 201);
         } catch (ValidationException $e) {
+            Log::warning('Address validation failed for user: ' . $request->user()->id, [
+                'errors' => $e->errors()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            // \Log::error('Address creation error: ' . $e->getMessage());
+            Log::error('Address creation error for user ' . $request->user()->id . ': ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create address: ' . $e->getMessage(),
@@ -118,20 +134,27 @@ class APIAddressController extends Controller
             }
 
             $address->update($validated);
+            Log::info('Address updated for user: ' . $request->user()->id . ', ID: ' . $id);
 
             return response()->json([
                 'success' => true,
-                'address' => $address,
+                'address' => $address->fresh(),
                 'message' => 'Address updated successfully',
             ], 200);
         } catch (ValidationException $e) {
+            Log::warning('Address update validation failed for user: ' . $request->user()->id . ', ID: ' . $id, [
+                'errors' => $e->errors()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            // \Log::error('Address update error: ' . $e->getMessage());
+            Log::error('Address update error for user ' . $request->user()->id . ', ID: ' . $id . ': ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update address: ' . $e->getMessage(),
@@ -158,20 +181,29 @@ class APIAddressController extends Controller
             }
 
             $address->update($validated);
+            $updatedAddress = $address->fresh();
+
+            Log::info('Address selection updated for user: ' . $request->user()->id . ', ID: ' . $id . ' to is_default: ' . ($validated['is_default'] ? 'true' : 'false'));
 
             return response()->json([
                 'success' => true,
-                'address' => $address->fresh(),
+                'address' => $updatedAddress,
                 'message' => 'Address selection updated successfully',
             ], 200);
         } catch (ValidationException $e) {
+            Log::warning('Address patch validation failed for user: ' . $request->user()->id . ', ID: ' . $id, [
+                'errors' => $e->errors()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            // \Log::error('Address selection update error: ' . $e->getMessage());
+            Log::error('Address patch error for user ' . $request->user()->id . ', ID: ' . $id . ': ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update address selection: ' . $e->getMessage(),
@@ -186,14 +218,21 @@ class APIAddressController extends Controller
     {
         try {
             $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
+            
+            // If this was the default address, you might want to set another as default, but for now, just delete
+            $wasDefault = $address->is_default;
             $address->forceDelete(); // Hard delete
+
+            Log::info('Address deleted for user: ' . $request->user()->id . ', ID: ' . $id . ', was default: ' . ($wasDefault ? 'true' : 'false'));
 
             return response()->json([
                 'success' => true,
                 'message' => 'Address deleted successfully',
             ], 200);
         } catch (\Exception $e) {
-            // \Log::error('Address deletion error: ' . $e->getMessage());
+            Log::error('Address deletion error for user ' . $request->user()->id . ', ID: ' . $id . ': ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete address: ' . $e->getMessage(),

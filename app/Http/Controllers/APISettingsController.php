@@ -174,8 +174,7 @@ class APISettingsController extends Controller
         }
     }
 
-
-     /**
+    /**
      * Fetch global settings
      */
     public function global(Request $request)
@@ -189,20 +188,42 @@ class APISettingsController extends Controller
                     'free_shipping_threshold' => null,
                     'app_name' => '',
                     'app_logo' => '',
+                    'geolocation_enabled' => true,  // NEW: Add your globals here
+                    'safe_mode_enabled' => false,
+                    'hd_image_quality' => false,
+                    'app_version' => '1.0.0',
                 ]
             );
 
+            $globals = [
+                'id' => $setting->id,
+                'tax_rate' => $setting->tax_rate,
+                'shipping_cost' => $setting->shipping_cost,
+                'free_shipping_threshold' => $setting->free_shipping_threshold,
+                'app_name' => $setting->app_name,
+                'app_logo' => $setting->app_logo,
+                'geolocation_enabled' => $setting->geolocation_enabled ?? true,
+                'safe_mode_enabled' => $setting->safe_mode_enabled ?? false,
+                'hd_image_quality' => $setting->hd_image_quality ?? false,
+                'app_version' => $setting->app_version ?? '1.0.0',
+                'updated_at' => $setting->updated_at?->toIso8601String(),
+            ];
+
+            // OPTIONAL: Merge with user settings if auth
+            if ($request->user()) {
+                $userSettings = Setting::where('user_id', $request->user()->id)->first();
+                if ($userSettings) {
+                    $globals = array_merge($globals, [
+                        'dark_mode' => $userSettings->dark_mode ?? false,
+                        'language' => $userSettings->language ?? 'en',
+                        'notifications_enabled' => $userSettings->notifications_enabled ?? true,
+                    ]);
+                }
+            }
+
             return response()->json([
                 'success' => true,
-                'settings' => [
-                    'id' => $setting->id,
-                    'tax_rate' => $setting->tax_rate,
-                    'shipping_cost' => $setting->shipping_cost,
-                    'free_shipping_threshold' => $setting->free_shipping_threshold,
-                    'app_name' => $setting->app_name,
-                    'app_logo' => $setting->app_logo,
-                    'updated_at' => $setting->updated_at?->toIso8601String(),
-                ],
+                'settings' => $globals,  // CHANGED: Use 'settings' key to match response expectation
                 'message' => 'Global settings retrieved successfully',
             ], 200);
         } catch (\Exception $e) {
