@@ -2,23 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use App\Models\User;
 use DB;
 use Hash;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use App\Models\User;  // NEW: Import Setting model
+use App\Models\Setting;
+use Illuminate\View\View;
 use Illuminate\Support\Arr;
+use Illuminate\Http\Request;
+use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Illuminate\View\View;
-use Spatie\Permission\Models\Role;
 
 class APIUserController extends Controller
 {
-
-
     function __construct()
     {
          $this->middleware('permission:user-list|user-create|user-edit|user-delete', ['only' => ['index','store']]);
@@ -31,6 +30,19 @@ class APIUserController extends Controller
     {
         try {
             $user = $request->user();
+            
+            // NEW: Fetch user-specific settings and format for response
+            $settings = Setting::where('user_id', $user->id)->first();
+            $userSettings = null;
+            if ($settings) {
+                $userSettings = [
+                    'dark_mode' => $settings->dark_mode,
+                    'language' => $settings->language,
+                    'notifications_enabled' => $settings->notifications_enabled,
+                    'updated_at' => $settings->updated_at?->toIso8601String(),
+                ];
+            }
+
             return response()->json([
                 'success' => true,
                 'user' => [
@@ -48,6 +60,7 @@ class APIUserController extends Controller
                     'created_at' => $user->created_at?->toIso8601String(),
                     'updated_at' => $user->updated_at?->toIso8601String(),
                     'addresses' => $user->addresses,
+                    'settings' => $userSettings,  // NEW: Include settings in response
                 ],
                 'message' => 'User details retrieved successfully',
             ], 200);

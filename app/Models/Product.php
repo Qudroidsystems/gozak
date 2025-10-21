@@ -18,12 +18,14 @@ class Product extends Model
         'is_featured',
         'category_id',
         'brand_id',
+        'is_nsfw',  // NEW: For safe_mode filtering (default: false via migration)
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'sale_price' => 'decimal:2',
         'is_featured' => 'boolean',
+        'is_nsfw' => 'boolean',  // NEW: Cast as boolean for safe_mode queries
     ];
 
     public function category()
