@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Category extends Model
 {
-    protected $fillable = ['name', 'image', 'parent_id', 'is_featured'];
+    protected $fillable = ['name', 'image', 'parent_id', 'is_featured', 'is_nsfw'];  // NEW: Add is_nsfw
+
+    protected $casts = [
+        'is_featured' => 'boolean',
+        'is_nsfw' => 'boolean',  // NEW: Cast as boolean for safe_mode queries
+    ];
 
     public function parent()
     {

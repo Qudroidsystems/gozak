@@ -1,13 +1,13 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Category;
-use App\Models\ProductCategory;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
+use App\Models\ProductCategory;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 
 class APICategoryController extends Controller
 {
@@ -20,7 +20,7 @@ class APICategoryController extends Controller
     public function index(Request $request)
     {
         $query = Category::query()
-            ->select('id', 'name', 'image', 'parent_id', 'is_featured');
+            ->select('id', 'name', 'image', 'parent_id', 'is_featured', 'is_nsfw');  // NEW: Include is_nsfw for filtering
 
         // Apply filters
         if ($request->has('is_featured') && $request->is_featured === 'true') {
@@ -29,6 +29,11 @@ class APICategoryController extends Controller
 
         if ($request->has('parent_id')) {
             $query->where('parent_id', $request->parent_id);
+        }
+
+        // NEW: Apply safe_mode filter from global settings (guests/auth)
+        if ($request->has('safe_mode') && $request->safe_mode === 'true') {
+            $query->where('is_nsfw', false);  // Assumes Category has 'is_nsfw' boolean field (default: false)
         }
 
         // Validate per_page
@@ -44,6 +49,7 @@ class APICategoryController extends Controller
                     'image' => $category->image ? url(Storage::url($category->image)) : null,
                     'parent_id' => $category->parent_id,
                     'is_featured' => $category->is_featured ?? false,
+                    'is_nsfw' => $category->is_nsfw ?? false,  // NEW: Include in response for client-side handling if needed
                 ];
             })->values();
 
@@ -77,6 +83,7 @@ class APICategoryController extends Controller
             'image' => 'nullable|string',
             'parent_id' => 'nullable|exists:categories,id',
             'is_featured' => 'nullable|boolean',
+            'is_nsfw' => 'nullable|boolean',  // NEW: Optional NSFW flag for safe_mode filtering
         ]);
 
         if ($validator->fails()) {
@@ -88,12 +95,14 @@ class APICategoryController extends Controller
         }
 
         try {
-            $category = Category::create([
+            $categoryData = [
                 'name' => $request->name,
                 'image' => $request->image,
                 'parent_id' => $request->parent_id,
                 'is_featured' => $request->is_featured ?? false,
-            ]);
+                'is_nsfw' => $request->is_nsfw ?? false,  // NEW
+            ];
+            $category = Category::create($categoryData);
 
             return response()->json([
                 'success' => true,
@@ -103,6 +112,7 @@ class APICategoryController extends Controller
                     'image' => $category->image ? url(Storage::url($category->image)) : null,
                     'parent_id' => $category->parent_id,
                     'is_featured' => $category->is_featured,
+                    'is_nsfw' => $category->is_nsfw,  // NEW
                 ],
                 'message' => 'Category created successfully',
             ], 201);

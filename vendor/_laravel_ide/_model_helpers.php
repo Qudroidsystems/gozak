@@ -1919,7 +1919,7 @@ namespace App\Models {
      *
      * @property \Illuminate\Support\Carbon|null $updated_at
      * @property \Illuminate\Support\Carbon|null $created_at
-     * @property bool $is_featured
+     * @property boolean $is_featured
      * @property int|null $parent_id
      * @property string|null $image
      * @property string $name
@@ -4110,6 +4110,7 @@ namespace App\Models {
      *
      * @property \Illuminate\Support\Carbon|null $updated_at
      * @property \Illuminate\Support\Carbon|null $created_at
+     * @property boolean $is_nsfw
      * @property int|null $brand_id
      * @property int|null $category_id
      * @property boolean $is_featured
@@ -4148,6 +4149,7 @@ namespace App\Models {
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereIsFeatured($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereCategoryId($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereBrandId($value)
+     * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereIsNsfw($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereCreatedAt($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereUpdatedAt($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product newModelQuery()
