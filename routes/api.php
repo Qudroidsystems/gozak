@@ -27,7 +27,6 @@ Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'
 
 // Public Routes
 Route::get('/categories', [APICategoryController::class, 'index']);
-
 Route::get('/brands', [APIBrandController::class, 'index']);
 Route::get('/brands/{id}', [APIBrandController::class, 'show']);
 Route::get('/brands/isFeatured', [APIBrandController::class, 'featured']);
@@ -56,6 +55,9 @@ Route::post('/banners', [APIBannerController::class, 'store']);
 Route::get('/privacy-policy', [PrivacyPolicyController::class, 'show']);
 Route::get('/user-data-safety', [PrivacyPolicyController::class, 'showUserDataSafety']);
 
+// MOVED: Global settings endpoint - now public (guests can read, but not write)
+Route::get('/settings/global', [APISettingsController::class, 'global']);
+
 // Authenticated Routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [APIAuthController::class, 'logout']);
@@ -68,12 +70,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/user/profile-picture', [APIUserController::class, 'uploadProfilePicture']);
     Route::delete('/user', [APIUserController::class, 'destroy']);
 
-    // Settings Routes
+    // User-specific Settings Routes (require authentication)
     Route::get('/settings', [APISettingsController::class, 'show']);
     Route::post('/settings', [APISettingsController::class, 'store']);
     Route::put('/settings', [APISettingsController::class, 'update']);
     Route::patch('/settings', [APISettingsController::class, 'updateField']);
-    Route::get('/settings/global', [APISettingsController::class, 'global']);
 
     // Order Routes
     Route::get('/orders', [APIOrderController::class, 'index']);
@@ -115,7 +116,3 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::post('/payment/webhook', [PaymentController::class, 'webhook']);
 // CSRF Token Endpoint
 Route::get('/sanctum/csrf-cookie', [CsrfCookieController::class, 'show'])->name('sanctum.csrf-cookie');
-
-
-
-?>
