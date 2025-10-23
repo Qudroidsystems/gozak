@@ -7,7 +7,7 @@
 <head>
 
         <meta charset="utf-8">
-        <title>Sign In | Vite-ESchool</title>
+        <title>Sign In | Gozakmart</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta content="school  App" name="description">
         <meta content="Themesbrand" name="author">
@@ -205,7 +205,7 @@
                                     <div class="card mb-0 border-0 shadow-none mb-0">
                                         <div class="card-body p-sm-5 m-lg-4">
                                             <div class="text-center mt-5">
-                                                <h5 class="fs-3xl">Poultritics Portal</h5>
+                                                <h5 class="fs-3xl">Gozakmart E-commerce</h5>
                                                 <p class="text-muted">Sign in to continue</p>
                                             </div>
                                             <div class="p-2 mt-5">
