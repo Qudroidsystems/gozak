@@ -85,6 +85,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders/{id}', [APIOrderController::class, 'show'])->name('orders.show');
     Route::put('/orders/{id}', [APIOrderController::class, 'update'])->name('orders.update');
     Route::delete('/orders/{id}', [APIOrderController::class, 'delete'])->name('orders.destroy');  // Use 'destroy' for consistency
+    // In routes/api.php (inside auth:sanctum middleware)
+    Route::patch('/orders/{id}', [APIOrderController::class, 'patch']);
     
     Route::get('/addresses', [APIAddressController::class, 'index'])->name('addresses.index');
     Route::post('/addresses', [APIAddressController::class, 'store'])->name('addresses.store');

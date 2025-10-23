@@ -1919,6 +1919,7 @@ namespace App\Models {
      *
      * @property \Illuminate\Support\Carbon|null $updated_at
      * @property \Illuminate\Support\Carbon|null $created_at
+     * @property boolean $is_nsfw
      * @property boolean $is_featured
      * @property int|null $parent_id
      * @property string|null $image
@@ -1936,6 +1937,7 @@ namespace App\Models {
      * @method static \Illuminate\Database\Eloquent\Builder<Category>|Category whereImage($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Category>|Category whereParentId($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Category>|Category whereIsFeatured($value)
+     * @method static \Illuminate\Database\Eloquent\Builder<Category>|Category whereIsNsfw($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Category>|Category whereCreatedAt($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Category>|Category whereUpdatedAt($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Category>|Category newModelQuery()

@@ -181,7 +181,7 @@
         </div>
         
         <h1>Payment Successful!</h1>
-        <p>Your payment has been processed successfully. Thank you for your order!</p>
+        <p>Your payment has been processed successfully. Gozak says thank you for your order!</p>
         
         @if(request('reference'))
         <div class="reference">
@@ -194,9 +194,9 @@
             <button class="btn btn-primary" onclick="returnToApp()">
                 Return to App
             </button>
-            <button class="btn btn-secondary" onclick="viewOrders()">
+            {{-- <button class="btn btn-secondary" onclick="viewOrders()">
                 View My Orders
-            </button>
+            </button> --}}
         </div>
         
         <p class="note">
@@ -219,8 +219,8 @@
             window.location.href = 'flutter://payment-success?reference={{ request("reference") }}';
         }
 
-        function viewOrders() {
-            // Navigate to orders page
+       function viewOrders() {
+            // Use correct route name for orders
             window.location.href = 'flutter://view-orders?reference={{ request("reference") }}';
         }
 

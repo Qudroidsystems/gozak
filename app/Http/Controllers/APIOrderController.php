@@ -3,15 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\Models\OrderItem;
 use App\Models\Address;
 use App\Models\Product;
+use App\Models\OrderItem;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
-use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 
 class APIOrderController extends Controller
 {
@@ -227,6 +227,30 @@ class APIOrderController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error deleting order: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function patch($id, Request $request)
+    {
+        try {
+            $order = Order::where('id', $id)
+                ->where('user_id', auth()->id())
+                ->firstOrFail();
+            
+            $order->update($request->all());
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Order updated successfully',
+                'data' => $order->fresh()
+            ], 200);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update order',
+                'error' => $e->getMessage()
             ], 500);
         }
     }
