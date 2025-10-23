@@ -50,15 +50,16 @@ class LoginController extends Controller
     protected function authenticated(Request $request, $user)
     {
         // Check if the user has 'staff' in the role column
-        if ($user->role !== 'staff') {
-            // Log out the user immediately
-            auth()->logout();
+        // if ($user->role !== 'staff') {
+        //     // Log out the user immediately
+        //     auth()->logout();
 
-            // Throw validation exception to mimic login failure
-            throw ValidationException::withMessages([
-                $this->username() => [trans('auth.failed_staff_role')],
-            ]);
-        }
+        //     // Throw validation exception to mimic login failure
+        //     throw ValidationException::withMessages([
+        //         $this->username() => [trans('auth.failed_staff_role')],
+        //     ]);
+        // }
+        echo $user->name;
 
         // If role check passes, proceed to default redirect
         return redirect()->intended($this->redirectPath());
