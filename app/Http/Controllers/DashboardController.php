@@ -2,168 +2,157 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Flock;
-use App\Models\DailyEntry;
 use Carbon\Carbon;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\PoultryAnalyticsExport;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\User;
+use App\Models\Brand;
+use App\Models\Order;
+use App\Models\Product;
+use App\Models\Category;
+use Illuminate\Http\Request;
+use App\Models\ProductReview;
+use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
 
 class DashboardController extends Controller
 {
-    public function __construct()
+    public function index()
     {
-        $this->middleware('permission:dashboard', ['only' => ['index', 'export']]);
-    }
+        // Total Revenue (sum of paid orders total_amount)
+        $totalRevenue = Order::where('payment_status', 'paid')->sum('total_amount');
 
-    public function index(Request $request)
-    {
-        $pagetitle = "Poultry Analytics";
+        // Total Orders
+        $totalOrders = Order::count();
 
-        // Date range from request or default to last 30 days
-        $startDate = $request->input('start_date')
-            ? Carbon::parse($request->input('start_date'))->startOfDay()
-            : Carbon::now()->subDays(30)->startOfDay();
-        $endDate = $request->input('end_date')
-            ? Carbon::parse($request->input('end_date'))->endOfDay()
-            : Carbon::now()->endOfDay();
+        // Total Products
+        $totalProducts = Product::count();
 
-        // Flock filter
-        $flockId = $request->input('flock_id');
-        $flocks = Flock::all();
-        $query = $flockId
-            ? DailyEntry::whereHas('weekEntry', fn($q) => $q->where('flock_id', $flockId))
-            : DailyEntry::query();
+        // Total Customers (unique users with orders)
+        $totalCustomers = User::whereHas('orders')->count();
 
-        // Key Metrics
-        $totalBirds = $flockId
-            ? Flock::where('id', $flockId)->sum('initial_bird_count')
-            : Flock::sum('initial_bird_count');
-        $currentBirds = $flockId
-            ? Flock::where('id', $flockId)->sum('current_bird_count')
-            : Flock::sum('current_bird_count');
-        $totalEggProduction = $query->whereBetween('created_at', [$startDate, $endDate])
-            ->sum('daily_egg_production') / 1000;
-        $totalMortality = $query->whereBetween('created_at', [$startDate, $endDate])
-            ->sum('daily_mortality');
-        $totalFeedConsumed = $query->whereBetween('created_at', [$startDate, $endDate])
-            ->sum('total_feeds_consumed');
-        $totalDrugUsage = $query->whereBetween('created_at', [$startDate, $endDate])
-            ->sum('drugs');
-        $totalEggsSold = $query->whereBetween('created_at', [$startDate, $endDate])
-            ->sum('total_sold_egg');
-        $totalRevenue = $totalEggsSold * 0.05; // $0.05 per egg
-        $avgProductionRate = $currentBirds > 0
-            ? ($query->whereBetween('created_at', [$startDate, $endDate])
-                ->avg('daily_egg_production') / $currentBirds) * 100
-            : 0;
-        $totalEggMortality = $query->whereBetween('created_at', [$startDate, $endDate])
-            ->sum('broken_egg');
+        // Average Rating
+        $avgRating = ProductReview::avg('rating') ?? 0;
 
-        // Flock Capital Analysis
-        $capitalInvestment = $flockId
-            ? Flock::where('id', $flockId)->sum('initial_bird_count') * 2
-            : Flock::sum('initial_bird_count') * 2; // $2 per bird
-        $feedCost = $totalFeedConsumed * 0.5; // $0.5 per kg
-        $drugCost = $totalDrugUsage * 1; // $1 per unit
-        $laborCost = 1000; // Fixed for 30 days
-        $operationalExpenses = $feedCost + $drugCost + $laborCost;
-        $netIncome = $totalRevenue - $operationalExpenses;
-        $capitalValue = $netIncome > 0 ? $netIncome / 0.1 : 0; // 10% cap rate
+        // Recent Sales (last 10 orders)
+        $recentSales = Order::with('user', 'items')
+            ->orderBy('order_date', 'desc')
+            ->take(10)
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'user_name' => $order->user->name ?? 'Unknown',
+                    'date' => $order->order_date->format('d M, Y'),
+                    'amount' => number_format($order->total_amount, 2),
+                ];
+            });
 
-        // Chart Data
-        $weeks = collect(range(0, 3))->map(function ($i) use ($startDate) {
-            return $startDate->copy()->addWeeks($i)->format('W');
-        })->toArray();
+        // Latest Orders (last 20 orders with details)
+        $latestOrders = Order::with(['items.product', 'user'])
+            ->orderBy('order_date', 'desc')
+            ->take(20)
+            ->get()
+            ->map(function ($order) {
+                return [
+                    'order_date' => $order->order_date->format('d M, Y'),
+                    'order_id' => $order->id,
+                    'shop' => $order->items->first()->product->brand->name ?? 'N/A',
+                    'customer' => $order->user->name ?? 'Unknown',
+                    'products' => $order->items->pluck('title')->implode(', '),
+                    'amount' => number_format($order->total_amount, 2),
+                    'status' => $order->status,
+                    'rating' => $order->items->first()->product->reviews->avg('rating') ?? '-',
+                ];
+            });
 
-        $feedChartData = array_fill(0, 4, 0);
-        $drugChartData = array_fill(0, 4, 0);
-        $eggProductionChartData = array_fill(0, 4, 0);
-        $eggSoldChartData = array_fill(0, 4, 0);
-        $productionRateChartData = array_fill(0, 4, 0);
-        $eggMortalityChartData = array_fill(0, 4, 0);
+        // Popular Products (top 6 by sold_quantity)
+        $popularProducts = Product::with('brand')
+            ->orderBy('sold_quantity', 'desc')
+            ->take(6)
+            ->get()
+            ->map(function ($product) {
+                return [
+                    'image' => $product->thumbnail ? asset('storage/' . $product->thumbnail) : asset('assets/images/products/32/img-1.png'),
+                    'title' => $product->title,
+                    'rating' => $product->reviews->avg('rating') ?? 0,
+                    'sales' => $product->sold_quantity,
+                    'price' => number_format($product->price, 2),
+                ];
+            });
 
-        $weeklyData = $query->whereBetween('created_at', [$startDate, $endDate])
-            ->groupBy(\DB::raw('WEEK(created_at)'))
-            ->selectRaw('
-                WEEK(created_at) as week,
-                SUM(total_feeds_consumed) as feed,
-                SUM(drugs) as drugs,
-                SUM(daily_egg_production) as eggs_produced,
-                SUM(total_sold_egg) as eggs_sold,
-                AVG(daily_egg_production / NULLIF(current_birds, 0)) * 100 as production_rate,
-                SUM(broken_egg) as egg_mortality
-            ')
-            ->get();
+        // Orders Status Counts
+        $orderStatuses = Order::selectRaw('status, count(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
 
-        foreach ($weeklyData as $entry) {
-            $index = array_search($entry->week, $weeks);
-            if ($index !== false) {
-                $feedChartData[$index] = (float) $entry->feed;
-                $drugChartData[$index] = (float) $entry->drugs;
-                $eggProductionChartData[$index] = (float) $entry->eggs_produced;
-                $eggSoldChartData[$index] = (float) $entry->eggs_sold;
-                $productionRateChartData[$index] = (float) $entry->production_rate;
-                $eggMortalityChartData[$index] = (float) $entry->egg_mortality;
-            }
-        }
+        // Revenue Chart Data (monthly revenue for last 12 months)
+        $revenueData = $this->getMonthlyRevenueData();
 
-        return view('dashboards.dashboard', compact(
-            'pagetitle',
-            'totalBirds',
-            'currentBirds',
-            'totalEggProduction',
-            'totalMortality',
-            'totalFeedConsumed',
-            'totalDrugUsage',
-            'totalEggsSold',
-            'totalRevenue',
-            'avgProductionRate',
-            'totalEggMortality',
-            'capitalInvestment',
-            'operationalExpenses',
-            'netIncome',
-            'capitalValue',
-            'flocks',
-            'flockId',
-            'startDate',
-            'endDate',
-            'weeks',
-            'feedChartData',
-            'drugChartData',
-            'eggProductionChartData',
-            'eggSoldChartData',
-            'productionRateChartData',
-            'eggMortalityChartData'
+        // Sales by Countries (mock data, replace with real if address has country)
+        $salesByCountries = [
+            ['country' => 'United States', 'sales' => 15364],
+            ['country' => 'Greenland', 'sales' => 12387],
+            ['country' => 'Serbia', 'sales' => 9123],
+            // Add more as needed
+        ];
+
+        // Traffic Source Chart Data (mock, replace with real analytics)
+        $trafficSources = [
+            ['source' => 'Direct', 'value' => 40],
+            ['source' => 'Referral', 'value' => 30],
+            ['source' => 'Social', 'value' => 20],
+            ['source' => 'Search', 'value' => 10],
+        ];
+
+        // Recent Activity (mock, integrate with logs or events)
+        $recentActivity = [
+            ['icon' => 'ph-shopping-cart', 'title' => 'Purchased by James Price', 'description' => 'Product noise evolve smartwatch', 'time' => '05:57 AM Today'],
+            // Add more
+        ];
+
+        // Insights (static or from config)
+        $insights = [
+            'The recognition that one has a mental illness',
+            'Review market characteristics and trends',
+            // Add more
+        ];
+
+        return view('dashboard', compact(
+            'totalRevenue', 'totalOrders', 'totalProducts', 'totalCustomers', 'avgRating',
+            'recentSales', 'latestOrders', 'popularProducts', 'orderStatuses',
+            'revenueData', 'salesByCountries', 'trafficSources', 'recentActivity', 'insights'
         ));
     }
 
-    public function export(Request $request)
+    private function getMonthlyRevenueData()
     {
-        $startDate = $request->input('start_date')
-            ? Carbon::parse($request->input('start_date'))->startOfDay()
-            : Carbon::now()->subDays(30)->startOfDay();
-        $endDate = $request->input('end_date')
-            ? Carbon::parse($request->input('end_date'))->endOfDay()
-            : Carbon::now()->endOfDay();
-        $flockId = $request->input('flock_id');
-        $format = $request->input('format', 'csv');
+        $startDate = Carbon::now()->subMonths(11)->startOfMonth();
+        $endDate = Carbon::now()->endOfMonth();
 
-        if ($format === 'pdf') {
-            $data = (new PoultryAnalyticsExport($startDate, $endDate, $flockId))->collection()->toArray();
-            $pdf = Pdf::loadView('exports.poultry_analytics_pdf', [
-                'data' => $data,
-                'startDate' => $startDate,
-                'endDate' => $endDate,
-                'flockId' => $flockId
-            ]);
-            return $pdf->download('poultry_analytics_' . now()->format('Ymd_His') . '.pdf');
+        $monthlyRevenue = Order::select(
+                DB::raw('DATE_FORMAT(order_date, "%Y-%m") as month'),
+                DB::raw('SUM(total_amount) as revenue')
+            )
+            ->whereBetween('order_date', [$startDate, $endDate])
+            ->where('payment_status', 'paid')
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'month' => $item->month,
+                    'revenue' => (float) $item->revenue,
+                ];
+            })
+            ->toArray();
+
+        // Fill missing months with 0
+        $fullData = [];
+        for ($i = 0; $i < 12; $i++) {
+            $date = Carbon::now()->subMonths(11 - $i)->format('Y-m');
+            $revenue = collect($monthlyRevenue)->firstWhere('month', $date)['revenue'] ?? 0;
+            $fullData[] = ['month' => $date, 'revenue' => $revenue];
         }
 
-        return Excel::download(
-            new PoultryAnalyticsExport($startDate, $endDate, $flockId),
-            'poultry_analytics_' . now()->format('Ymd_His') . '.csv'
-        );
+        return $fullData;
     }
 }

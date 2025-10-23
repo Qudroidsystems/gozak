@@ -1,228 +1,304 @@
-{{-- @extends('layouts.master')
+@extends('layouts.master')
+
+@section('title', 'Dashboard')
+
+@section('css')
+    <!-- ApexCharts CSS -->
+    <link href="{{ asset('assets/libs/apexcharts/apexcharts.css') }}" rel="stylesheet" type="text/css" />
+@endsection
+
 @section('content')
 <div class="main-content">
     <div class="page-content">
         <div class="container-fluid">
-            <!-- start page title -->
             <div class="row">
-                <div class="col-12">
-                    <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0">School Analytics</h4>
-                        <div class="page-title-right">
-                            <ol class="breadcrumb m-0">
-                                <li class="breadcrumb-item"><a href="javascript: void(0);">Dashboards</a></li>
-                                <li class="breadcrumb-item active">School Analytics</li>
-                            </ol>
+                <div class="col-xl-4">
+                    <div class="card card-height-100 border-0 overflow-hidden">
+                        <div class="card-body p-0">
+                            <div class="row g-0">
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border-end-md border-bottom rounded-0 mb-0">
+                                        <div class="card-body">
+                                            <div class="dropdown float-end">
+                                                <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                    <span class="text-muted fs-lg"><i class="mdi mdi-dots-vertical align-middle"></i></span>
+                                                </a>
+                                                <div class="dropdown-menu dropdown-menu-end">
+                                                    <a class="dropdown-item" href="#">Today</a>
+                                                    <a class="dropdown-item" href="#">Last Week</a>
+                                                    <a class="dropdown-item" href="#">Last Month</a>
+                                                    <a class="dropdown-item" href="#">Current Year</a>
+                                                </div>
+                                            </div>
+                                            <div class="avatar-sm">
+                                                <span class="avatar-title bg-primary-subtle text-primary rounded-circle fs-3">
+                                                    <i class="ph-wallet"></i>
+                                                </span>
+                                            </div>
+                                            <div class="mt-4">
+                                                <p class="text-uppercase fw-medium text-muted text-truncate fs-sm">Total Revenue</p>
+                                                <h4 class="fw-semibold mb-3">${{ number_format($totalRevenue / 1000000, 2) }}M</h4>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <h5 class="text-success fs-xs mb-0">
+                                                        <i class="ri-arrow-right-up-line fs-sm align-middle"></i> +19.07%
+                                                    </h5>
+                                                    <p class="text-muted mb-0">than last week</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border-bottom rounded-0 mb-0">
+                                        <div class="card-body">
+                                            <div class="dropdown float-end">
+                                                <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                    <span class="text-muted fs-lg"><i class="mdi mdi-dots-vertical align-middle"></i></span>
+                                                </a>
+                                                <div class="dropdown-menu dropdown-menu-end">
+                                                    <a class="dropdown-item" href="#">Today</a>
+                                                    <a class="dropdown-item" href="#">Last Week</a>
+                                                    <a class="dropdown-item" href="#">Last Month</a>
+                                                    <a class="dropdown-item" href="#">Current Year</a>
+                                                </div>
+                                            </div>
+                                            <div class="avatar-sm">
+                                                <span class="avatar-title bg-dark-subtle text-dark rounded-circle fs-3">
+                                                    <i class="ph-bag"></i>
+                                                </span>
+                                            </div>
+                                            <div class="mt-4">
+                                                <p class="text-uppercase fw-medium text-muted text-truncate fs-sm">Orders</p>
+                                                <h4 class="fw-semibold mb-3">{{ $totalOrders }}</h4>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <h5 class="text-success fs-xs mb-0">
+                                                        <i class="ri-arrow-right-up-line fs-sm align-middle"></i> +8.13%
+                                                    </h5>
+                                                    <p class="text-muted mb-0">than last week</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border-end-md rounded-0 mb-0">
+                                        <div class="card-body">
+                                            <div class="dropdown float-end">
+                                                <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                    <span class="text-muted fs-lg"><i class="mdi mdi-dots-vertical align-middle"></i></span>
+                                                </a>
+                                                <div class="dropdown-menu dropdown-menu-end">
+                                                    <a class="dropdown-item" href="#">Today</a>
+                                                    <a class="dropdown-item" href="#">Last Week</a>
+                                                    <a class="dropdown-item" href="#">Last Month</a>
+                                                    <a class="dropdown-item" href="#">Current Year</a>
+                                                </div>
+                                            </div>
+                                            <div class="avatar-sm">
+                                                <span class="avatar-title bg-light text-body rounded-circle fs-3">
+                                                    <i class="ph-eye"></i>
+                                                </span>
+                                            </div>
+                                            <div class="mt-4">
+                                                <p class="text-uppercase fw-medium text-muted text-truncate fs-sm">Products</p>
+                                                <h4 class="fw-semibold mb-3">{{ $totalProducts }}</h4>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <h5 class="text-danger fs-xs mb-0">
+                                                        <i class="ri-arrow-right-down-line fs-sm align-middle"></i> -2.01%
+                                                    </h5>
+                                                    <p class="text-muted mb-0">than last week</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card shadow-none border-top border-top-md-0 rounded-0 mb-0">
+                                        <div class="card-body">
+                                            <div class="dropdown float-end">
+                                                <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                                    <span class="text-muted fs-lg"><i class="mdi mdi-dots-vertical align-middle"></i></span>
+                                                </a>
+                                                <div class="dropdown-menu dropdown-menu-end">
+                                                    <a class="dropdown-item" href="#">Today</a>
+                                                    <a class="dropdown-item" href="#">Last Week</a>
+                                                    <a class="dropdown-item" href="#">Last Month</a>
+                                                    <a class="dropdown-item" href="#">Current Year</a>
+                                                </div>
+                                            </div>
+                                            <div class="avatar-sm">
+                                                <span class="avatar-title bg-info-subtle text-info rounded-circle fs-3">
+                                                    <i class="ph-users-three"></i>
+                                                </span>
+                                            </div>
+                                            <div class="mt-4">
+                                                <p class="text-uppercase fw-medium text-muted text-truncate fs-sm">Customers</p>
+                                                <h4 class="fw-semibold mb-3">{{ number_format($totalCustomers / 1000, 1) }}k</h4>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <h5 class="text-success fs-xs mb-0">
+                                                        <i class="ri-arrow-right-up-line fs-sm align-middle"></i> +10.42%
+                                                    </h5>
+                                                    <p class="text-muted mb-0">than last week</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-8">
+                    <div class="card">
+                        <div class="row g-0">
+                            <div class="col-xl-9">
+                                <div class="card-header border-0 align-items-center d-flex">
+                                    <h4 class="card-title mb-0 flex-grow-1">Revenue</h4>
+                                    <div>
+                                        <button type="button" class="btn btn-subtle-secondary btn-sm">ALL</button>
+                                        <button type="button" class="btn btn-subtle-secondary btn-sm">1M</button>
+                                        <button type="button" class="btn btn-subtle-secondary btn-sm">6M</button>
+                                        <button type="button" class="btn btn-subtle-primary btn-sm">1Y</button>
+                                    </div>
+                                </div>
+                                <div class="card-body ps-0">
+                                    <div class="w-100">
+                                        <div id="market-overview" data-colors='["--tb-primary", "--tb-secondary"]' class="apex-charts" dir="ltr"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-xl-3">
+                                <div class="card-body border-start-xl border-top border-top-xl-0 border-2 h-100">
+                                    <div>
+                                        <p class="text-muted mb-2">Budget (USD)</p>
+                                        <h4>${{ number_format($totalRevenue, 2) }} <small class="text-success fs-sm fw-normal"><i class="ph-arrow-up align-baseline"></i> 2.17%</small></h4>
+                                        <p class="text-muted">Budget than last years</p>
+                                        <div class="mx-3">
+                                            <div id="mini-chart-6" data-colors='["--tb-primary"]' class="apex-charts" dir="ltr"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <p class="text-muted mb-2">Avg Rating</p>
+                                        <h4>{{ number_format($avgRating, 1) }}/5 <small class="text-danger fs-sm fw-normal"><i class="ph-arrow-down align-baseline"></i> -1.36%</small></h4>
+                                        <p class="text-muted">Avg than last years</p>
+                                        <div class="mx-3">
+                                            <div id="mini-chart-7" data-colors='["--tb-info"]' class="apex-charts" dir="ltr"></div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#addAmount">Add Amount</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- end page title -->
 
-            @hasrole('Super Admin')
-                <div class="row">
-                    <div class="col-xxl-3 col-md-6">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex flex-column h-100">
-                                            <p class="fs-md text-muted mb-4">Population</p>
-                                            <h3 class="mb-0 mt-auto">
-                                                <span class="counter-value" data-target="{{ $total_population }}">0</span>
-                                                <small class="text-success fs-xs mb-0 ms-1"><i class="bi bi-arrow-up me-1"></i> 06.19%</small>
-                                            </h3>
-                                        </div>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <div id="population_chart" data-colors='["--tb-primary"]' dir="ltr"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div><!--end col-->
-                    <div class="col-xxl-3 col-md-6">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex flex-column h-100">
-                                            <p class="fs-md text-muted mb-4">Staff</p>
-                                            <h3 class="mb-0 mt-auto">
-                                                <span class="counter-value" data-target="{{ $staff_count }}">0</span>
-                                                <small class="text-success fs-xs mb-0 ms-1"><i class="bi bi-arrow-up me-1"></i> 02.33%</small>
-                                            </h3>
-                                        </div>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <div id="staff_chart" data-colors='["--tb-warning"]' dir="ltr"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div><!--end col-->
-                    <div class="col-xxl-3 col-md-6">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex flex-column h-100">
-                                            <p class="fs-md text-muted mb-4">Male</p>
-                                            <h3 class="mb-0 mt-auto">
-                                                <span class="counter-value" data-target="{{ $gender_counts['Male'] }}">0</span>
-                                                <small class="text-success fs-xs mb-0 ms-1"><i class="bi bi-arrow-up me-1"></i> 12.33%</small>
-                                            </h3>
-                                        </div>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <div id="male_chart" data-colors='["--tb-secondary"]' dir="ltr"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div><!--end col-->
-                    <div class="col-xxl-3 col-md-6">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex">
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex flex-column h-100">
-                                            <p class="fs-md text-muted mb-4">Female</p>
-                                            <h3 class="mb-0 mt-auto">
-                                                <span class="counter-value" data-target="{{ $gender_counts['Female'] }}">0</span>
-                                                <small class="text-danger fs-xs mb-0 ms-1"><i class="bi bi-arrow-down me-1"></i> 09.57%</small>
-                                            </h3>
-                                        </div>
-                                    </div>
-                                    <div class="flex-shrink-0">
-                                        <div id="female_chart" data-colors='["--tb-success"]' dir="ltr"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div><!--end col-->
-                </div><!--end row-->
-            @endhasrole
-            {{-- Commented sections remain unchanged --}}
-            {{-- <div class="row">
-                <div class="col-xxl-4 order-last order-xxl-first">
-                        <div class="card">
-                            <div class="card-header d-flex">
-                                <h4 class="card-title mb-0 flex-grow-1">School Population Census</h4>
-                                <div class="dropdown card-header-dropdown float-end">
-                                    <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </a>
-                                    <div class="dropdown-menu dropdown-menu-end">
-                                        <a class="dropdown-item" href="#">Today</a>
-                                        <a class="dropdown-item" href="#">Last Week</a>
-                                        <a class="dropdown-item" href="#">Last Month</a>
-                                        <a class="dropdown-item" href="#">Current Year</a>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <div id="property_type" data-colors='["--tb-primary", "--tb-secondary", "--tb-light","--tb-danger", "--tb-success"]' class="e-charts shadow-none" style="height: 336px;"></div>
-                            </div>
-                        </div>
-                    </div>
-                <!--end col-->
-                <div class="col-xxl-8">
+            <div class="row">
+                <div class="col-xl-6">
                     <div class="card">
-                        <div class="card-header d-flex align-items-center">
-                            <h5 class="card-title flex-grow-1 mb-0">Revenue Overview</h5>
+                        <div class="card-header align-items-center d-flex">
+                            <h4 class="card-title mb-0 flex-grow-1">Sales by Countries</h4>
                             <div class="flex-shrink-0">
-                                <input type="text" class="form-control form-control-sm" id="exampleInputPassword1" data-provider="flatpickr" data-range-date="true" data-date-format="d M, Y" data-default-date="01 Feb 2023 to 28 Feb 2023">
+                                <button type="button" class="btn btn-subtle-primary btn-sm">Export Report</button>
                             </div>
                         </div>
                         <div class="card-body">
-                            <div class="row align-items-center">
-                                <div class="col-lg-3">
-                                    <div class="nav flex-column nav-light nav-pills gap-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                                        <a class="nav-link d-flex p-2 gap-3 active" id="revenue-tab" data-bs-toggle="pill" href="#revenue" role="tab" aria-controls="revenue" aria-selected="true">
-                                            <div class="avatar-sm flex-shrink-0">
-                                                <div class="avatar-title rounded bg-warning-subtle text-warning fs-2xl">
-                                                    <i class="bi bi-coin"></i>
-                                                </div>
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h5 class="text-reset">$<span class="counter-value" data-target="2478">0</span>M</h5>
-                                                <p class="mb-0">Total Revenue</p>
-                                            </div>
-                                        </a>
-                                        <a class="nav-link d-flex p-2 gap-3" id="income-tab" data-bs-toggle="pill" href="#income" role="tab" aria-controls="income" aria-selected="false">
-                                            <div class="avatar-sm flex-shrink-0">
-                                                <div class="avatar-title rounded bg-success-subtle text-success fs-2xl">
-                                                    <i class="bi bi-coin"></i>
-                                                </div>
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h5 class="text-reset">$<span class="counter-value" data-target="14587.37">0</span></h5>
-                                                <p class="mb-0">Prev. Session</p>
-                                            </div>
-                                        </a>
-                                        <a class="nav-link d-flex p-2 gap-3" id="property-sale-tab" data-bs-toggle="pill" href="#property-sale" role="tab" aria-controls="property-sale" aria-selected="false">
-                                            <div class="avatar-sm flex-shrink-0">
-                                                <div class="avatar-title rounded bg-danger-subtle text-danger fs-2xl">
-                                                    <i class="bi bi-coin"></i>
-                                                </div>
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h5 class="text-reset"><span class="counter-value" data-target="2365">0</span></h5>
-                                                <p class="mb-0">Current Session</p>
-                                            </div>
-                                        </a>
-                                        <a class="nav-link d-flex p-2 gap-3" id="_-tab" data-bs-toggle="pill" href="#propetry-rent" role="tab" aria-controls="propetry-rent" aria-selected="false">
-                                            <div class="avatar-sm flex-shrink-0">
-                                                <div class="avatar-title rounded bg-primary-subtle text-primary fs-2xl">
-                                                    <i class="bi bi-coin"></i>
-                                                </div>
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h5 class="text-reset"><span class="counter-value" data-target="3456">0</span></h5>
-                                                <p class="mb-0">Total Expenditure</p>
-                                            </div>
-                                        </a>
+                            <div class="row">
+                                <div class="col-lg-8">
+                                    <div id="world-map-line-markers" data-colors='["--tb-light"]' style="height: 340px"></div>
+                                </div>
+                                <div class="col-lg-4">
+                                    <div class="mb-4">
+                                        <h6 class="text-muted mb-3 fw-medium fs-xs text-uppercase">Compared to last month</h6>
+                                        <h3><span class="counter-value" data-target="{{ array_sum(array_column($salesByCountries, 'sales')) }}"></span> <small class="text-muted fw-normal fs-sm">Sales</small></h3>
                                     </div>
-                                </div><!--end col-->
-                                <div class="col-lg-9">
-                                    <div class="tab-content text-muted">
-                                        <div class="tab-pane active" id="revenue" role="tabpanel">
-                                            <div id="total_revenue" data-colors='["--tb-primary"]' class="apex-charts effect-chart" dir="ltr"></div>
-                                        </div><!--end tab-->
-                                        <div class="tab-pane" id="income" role="tabpanel">
-                                            <div id="total_income" data-colors='["--tb-success"]' class="apex-charts" dir="ltr"></div>
-                                        </div>
-                                        <div class="tab-pane" id="property-sale" role="tabpanel">
-                                            <div id="property_sale_chart" data-colors='["--tb-danger"]' class="apex-charts" dir="ltr"></div>
-                                        </div>
-                                        <div class="tab-pane" id="propetry-rent" role="tabpanel">
-                                            <div id="propetry_rent" data-colors='["--tb-info"]' class="apex-charts" dir="ltr"></div>
-                                        </div>
+                                    <div>
+                                        <ul class="list-unstyled vstack gap-2">
+                                            @foreach($salesByCountries as $country)
+                                            <li class="p-2 rounded">
+                                                <i class="ri-checkbox-blank-circle-fill text-primary align-bottom me-1"></i> {{ $country['country'] }} <span class="float-end">{{ $country['sales'] }}</span>
+                                            </li>
+                                            @endforeach
+                                        </ul>
                                     </div>
-                                </div><!--end col-->
-                            </div><!--end row-->
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div><!--end col-->
-            </div>  --}}
-            <!--end row-->
+                </div>
+                <div class="col-xl-3 col-lg-6">
+                    <div class="card card-height-100">
+                        <div class="card-header d-flex">
+                            <h4 class="card-title mb-0 flex-grow-1">Traffic Source</h4>
+                            <div class="dropdown card-header-dropdown float-end">
+                                <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="ph-dots-three-outline-vertical"></i>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-end">
+                                    <a class="dropdown-item" href="#">Today</a>
+                                    <a class="dropdown-item" href="#">Last Week</a>
+                                    <a class="dropdown-item" href="#">Last Month</a>
+                                    <a class="dropdown-item" href="#">Current Year</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="column_chart" data-colors='["--tb-primary", "--tb-light"]' class="apex-charts" dir="ltr"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6">
+                    <div class="card card-height-100">
+                        <div class="card-header d-flex">
+                            <h4 class="card-title mb-0 flex-grow-1">Recent Sales</h4>
+                            <a href="#!" class="text-muted">View All <i class="ph-caret-right align-middle"></i></a>
+                        </div>
+                        <div class="card-body px-0">
+                            <div data-simplebar class="px-3" style="max-height: 360px;">
+                                <table class="table mb-0">
+                                    <tbody>
+                                        @foreach($recentSales as $sale)
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <div class="flex-shrink-0">
+                                                        <img src="{{ asset('assets/images/users/48/avatar-2.jpg') }}" alt="" class="avatar-sm rounded-circle p-1">
+                                                    </div>
+                                                    <div class="flex-grow-1">
+                                                        <h6 class="fs-md mb-1">{{ $sale['user_name'] }}</h6>
+                                                        <p class="text-muted mb-0">{{ $sale['date'] }}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="text-end">
+                                                <h6 class="fs-md">${{ $sale['amount'] }}</h6>
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            {{-- <div class="row">
-                <div class="col-xxl-9">
-                    <div class="card" id="propertyList">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card" id="contactList">
                         <div class="card-header align-items-center d-flex">
-                            <h4 class="card-title mb-0 flex-grow-1">Recently Added Property</h4>
+                            <h4 class="card-title mb-0 flex-grow-1">Latest Orders</h4>
                             <div class="flex-shrink-0">
                                 <div class="dropdown card-header-dropdown sortble-dropdown">
                                     <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                        <span class="fw-semibold text-uppercase fs-12">Sort by:
-                                        </span><span class="text-muted dropdown-title">Property Name</span> <i class="mdi mdi-chevron-down ms-1"></i>
+                                        <span class="fw-semibold text-uppercase fs-12">Sort by:</span><span class="text-muted dropdown-title">Order Date</span> <i class="mdi mdi-chevron-down ms-1"></i>
                                     </a>
                                     <div class="dropdown-menu dropdown-menu-end">
-                                        <button class="dropdown-item sort" data-sort="propert_name">Property Name</button>
-                                        <button class="dropdown-item sort" data-sort="price">Price</button>
-                                        <button class="dropdown-item sort" data-sort="agent_name">Agent Name</button>
+                                        <button class="dropdown-item sort" data-sort="order_date">Order Date</button>
+                                        <button class="dropdown-item sort" data-sort="order_id">Order ID</button>
+                                        <button class="dropdown-item sort" data-sort="amount">Amount</button>
                                         <button class="dropdown-item sort" data-sort="status">Status</button>
                                     </div>
                                 </div>
@@ -233,837 +309,227 @@
                                 <table class="table table-borderless table-centered align-middle table-nowrap mb-0">
                                     <thead class="text-muted table-light">
                                         <tr>
-                                            <th scope="col" class="sort cursor-pointer" data-sort="propert_id">#</th>
-                                            <th scope="col" class="sort cursor-pointer" data-sort="propert_type">Property Type</th>
-                                            <th scope="col" class="sort cursor-pointer" data-sort="propert_name">Property Name</th>
-                                            <th scope="col" class="sort cursor-pointer" data-sort="address">Address</th>
-                                            <th scope="col" class="sort cursor-pointer" data-sort="agent_name">Agent Name</th>
-                                            <th scope="col" class="sort cursor-pointer" data-sort="price">Price</th>
+                                            <th scope="col" class="sort cursor-pointer" data-sort="order_date">Order Date</th>
+                                            <th scope="col" class="sort cursor-pointer" data-sort="order_id">Order ID</th>
+                                            <th scope="col" class="sort cursor-pointer" data-sort="shop">Shop</th>
+                                            <th scope="col" class="sort cursor-pointer" data-sort="customer">Customers</th>
+                                            <th scope="col" class="sort cursor-pointer" data-sort="products">Products</th>
+                                            <th scope="col" class="sort cursor-pointer" data-sort="amount">Amount</th>
                                             <th scope="col" class="sort cursor-pointer" data-sort="status">Status</th>
-                                            <th scope="col" class="sort cursor-pointer">Action</th>
+                                            <th scope="col" class="sort cursor-pointer" data-sort="rating">Rating</th>
                                         </tr>
                                     </thead>
                                     <tbody class="list">
+                                        @foreach($latestOrders as $order)
                                         <tr>
-                                            <td class="propert_id">
-                                                <a href="apps-ecommerce-order-details.html" class="fw-medium link-primary">#TBS01</a>
+                                            <td class="order_date">{{ $order['order_date'] }}</td>
+                                            <td class="order_id">
+                                                <a href="#" class="fw-medium link-primary">#{{ $order['order_id'] }}</a>
                                             </td>
-                                            <td class="propert_type">Villa</td>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-2 position-relative">
-                                                    <img src="assets/images/real-estate/img-01.jpg" alt="" height="35" class="rounded">
-                                                    <a href="apps-real-estate-property-overview.html" class="propert_name text-reset stretched-link">The Country House</a>
-                                                </div>
+                                            <td class="shop">
+                                                <img src="{{ asset('assets/images/companies/img-1.png') }}" alt="" class="avatar-xxs rounded-circle">
                                             </td>
-                                            <td class="address">United Kingdom</td>
-                                            <td class="agent_name">Josefa Weissnat</td>
-                                            <td class="price"><span class="fw-medium">$2451.39</span></td>
-                                            <td><span class="badge bg-danger-subtle text-danger status">Sale</span></td>
-                                            <td>
-                                                <ul class="d-flex gap-2 list-unstyled mb-0">
-                                                    <li><a href="apps-real-estate-property-overview.html" class="btn btn-subtle-primary btn-icon btn-sm"><i class="ph-eye"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"><i class="ph-pencil"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn"><i class="ph-trash"></i></a></li>
-                                                </ul>
+                                            <td class="customer">{{ $order['customer'] }}</td>
+                                            <td class="products">{{ $order['products'] }}</td>
+                                            <td class="amount"><span class="fw-medium">${{ $order['amount'] }}</span></td>
+                                            <td class="status">
+                                                <span class="badge bg-{{ $order['status'] == 'delivered' ? 'success' : ($order['status'] == 'pending' ? 'warning' : 'secondary') }}-subtle text-{{ $order['status'] == 'delivered' ? 'success' : ($order['status'] == 'pending' ? 'warning' : 'secondary') }}">{{ ucfirst($order['status']) }}</span>
+                                            </td>
+                                            <td class="rating">
+                                                <h5 class="fs-md fw-medium mb-0">{{ $order['rating'] != '-' ? $order['rating'] : '-' }}</h5>
                                             </td>
                                         </tr>
-                                        <tr>
-                                            <td class="propert_id">
-                                                <a href="apps-ecommerce-order-details.html" class="fw-medium link-primary">#TBS02</a>
-                                            </td>
-                                            <td class="propert_type">Residency</td>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-2 position-relative">
-                                                    <img src="assets/images/real-estate/img-02.jpg" alt="" height="35" class="rounded">
-                                                    <a href="apps-real-estate-property-overview.html" class="propert_name text-reset stretched-link">Classic White House</a>
-                                                </div>
-                                            </td>
-                                            <td class="address">Germany</td>
-                                            <td class="agent_name">Jerry Emard</td>
-                                            <td class="price"><span class="fw-medium">$2451.20</span></td>
-                                            <td><span class="badge bg-info-subtle text-info status">Rent</span></td>
-                                            <td>
-                                                <ul class="d-flex gap-2 list-unstyled mb-0">
-                                                    <li><a href="apps-real-estate-property-overview.html" class="btn btn-subtle-primary btn-icon btn-sm"><i class="ph-eye"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"><i class="ph-pencil"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn"><i class="ph-trash"></i></a></li>
-                                                </ul>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td class="propert_id">
-                                                <a href="apps-ecommerce-order-details.html" class="fw-medium link-primary">#TBS03</a>
-                                            </td>
-                                            <td class="propert_type">Apartment</td>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-2 position-relative">
-                                                    <img src="assets/images/real-estate/img-03.jpg" alt="" height="35" class="rounded">
-                                                    <a href="apps-real-estate-property-overview.html" class="propert_name text-reset stretched-link">Vintage Apartment</a>
-                                                </div>
-                                            </td>
-                                            <td class="address">Brazil</td>
-                                            <td class="agent_name">Domenic Dach</td>
-                                            <td class="price"><span class="fw-medium">$1249.99</span></td>
-                                            <td><span class="badge bg-info-subtle text-info status">Rent</span></td>
-                                            <td>
-                                                <ul class="d-flex gap-2 list-unstyled mb-0">
-                                                    <li><a href="apps-real-estate-property-overview.html" class="btn btn-subtle-primary btn-icon btn-sm"><i class="ph-eye"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"><i class="ph-pencil"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn"><i class="ph-trash"></i></a></li>
-                                                </ul>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td class="propert_id">
-                                                <a href="apps-ecommerce-order-details.html" class="fw-medium link-primary">#TBS04</a>
-                                            </td>
-                                            <td class="propert_type">Villa</td>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-2 position-relative">
-                                                    <img src="assets/images/real-estate/img-04.jpg" alt="" height="35" class="rounded">
-                                                    <a href="apps-real-estate-property-overview.html" class="propert_name text-reset stretched-link">Whitespace Vintage Villa</a>
-                                                </div>
-                                            </td>
-                                            <td class="address">Spain</td>
-                                            <td class="agent_name">Axel Kozey</td>
-                                            <td class="price"><span class="fw-medium">$3495.76</span></td>
-                                            <td><span class="badge bg-danger-subtle text-danger status">Sale</span></td>
-                                            <td>
-                                                <ul class="d-flex gap-2 list-unstyled mb-0">
-                                                    <li><a href="apps-real-estate-property-overview.html" class="btn btn-subtle-primary btn-icon btn-sm"><i class="ph-eye"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"><i class="ph-pencil"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn"><i class="ph-trash"></i></a></li>
-                                                </ul>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td class="propert_id">
-                                                <a href="apps-ecommerce-order-details.html" class="fw-medium link-primary">#TBS05</a>
-                                            </td>
-                                            <td class="propert_type">Residency</td>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-2 position-relative">
-                                                    <img src="assets/images/real-estate/img-05.jpg" alt="" height="35" class="rounded">
-                                                    <a href="apps-real-estate-property-overview.html" class="propert_name text-reset stretched-link">Duplex Square Valley</a>
-                                                </div>
-                                            </td>
-                                            <td class="address">Mexico</td>
-                                            <td class="agent_name">Buck Roberts</td>
-                                            <td class="price"><span class="fw-medium">$2579.31</span></td>
-                                            <td><span class="badge bg-info-subtle text-info status">Rent</span></td>
-                                            <td>
-                                                <ul class="d-flex gap-2 list-unstyled mb-0">
-                                                    <li><a href="apps-real-estate-property-overview.html" class="btn btn-subtle-primary btn-icon btn-sm"><i class="ph-eye"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"><i class="ph-pencil"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn"><i class="ph-trash"></i></a></li>
-                                                </ul>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <td class="propert_id">
-                                                <a href="apps-ecommerce-order-details.html" class="fw-medium link-primary">#TBS06</a>
-                                            </td>
-                                            <td class="propert_type">Residency</td>
-                                            <td>
-                                                <div class="d-flex align-items-center gap-2 position-relative">
-                                                    <img src="assets/images/real-estate/img-06.jpg" alt="" height="35" class="rounded">
-                                                    <a href="apps-real-estate-property-overview.html" class="propert_name text-reset stretched-link">Small Grey Brick Home In A Subdivision</a>
-                                                </div>
-                                            </td>
-                                            <td class="address">USA</td>
-                                            <td class="agent_name">Josefa Weissnat</td>
-                                            <td class="price"><span class="fw-medium">$1478.00</span></td>
-                                            <td><span class="badge bg-danger-subtle text-danger status">Sale</span></td>
-                                            <td>
-                                                <ul class="d-flex gap-2 list-unstyled mb-0">
-                                                    <li><a href="apps-real-estate-property-overview.html" class="btn btn-subtle-primary btn-icon btn-sm"><i class="ph-eye"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"><i class="ph-pencil"></i></a></li>
-                                                    <li><a href="#!" class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn"><i class="ph-trash"></i></a></li>
-                                                </ul>
-                                            </td>
-                                        </tr>
+                                        @endforeach
                                     </tbody>
                                 </table>
-                                <div class="noresult" style="display: none">
-                                    <div class="text-center">
-                                        <lord-icon src="https://cdn.lordicon.com/msoeawqm.json" trigger="loop" colors="primary:#405189,secondary:#0ab39c" style="width:75px;height:75px"></lord-icon>
-                                        <h5 class="mt-2">Sorry! No Result Found</h5>
-                                        <p class="text-muted mb-0">We've searched more than 150+ transactions We did not find any transactions for you search.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header d-flex align-items-center">
+                            <h4 class="card-title mb-0 flex-grow-1">Popular Products</h4>
+                            <div class="flex-shrink-0">
+                                <div class="dropdown card-header-dropdown">
+                                    <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <span class="fw-semibold text-uppercase">Sort by:</span><span class="text-muted">Today<i class="mdi mdi-chevron-down ms-1"></i></span>
+                                    </a>
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        <a class="dropdown-item" href="#">Today</a>
+                                        <a class="dropdown-item" href="#">Yesterday</a>
+                                        <a class="dropdown-item" href="#">Last 7 Days</a>
+                                        <a class="dropdown-item" href="#">Last 30 Days</a>
+                                        <a class="dropdown-item" href="#">This Month</a>
+                                        <a class="dropdown-item" href="#">Last Month</a>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body px-0">
+                            <div data-simplebar class="px-3" style="max-height: 333px;">
+                                <div class="vstack gap-2">
+                                    @foreach($popularProducts as $product)
+                                    <div class="p-2 border border-dashed">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="avatar-sm flex-shrink-0">
+                                                <div class="avatar-title bg-light rounded">
+                                                    <img src="{{ $product['image'] }}" alt="" class="avatar-xs">
+                                                </div>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <a href="#">
+                                                    <h6 class="fs-md mb-2">{{ $product['title'] }}</h6>
+                                                </a>
+                                                <ul class="hstack list-unstyled gap-2 mb-0 fs-sm fw-medium text-muted">
+                                                    <li><i class="ph-star align-baseline"></i> {{ $product['rating'] }}</li>
+                                                    <li><i class="ph-shopping-cart align-baseline"></i> {{ $product['sales'] }}</li>
+                                                </ul>
+                                            </div>
+                                            <div class="text-end">
+                                                <h5 class="fs-md text-primary mb-0">${{ $product['price'] }}</h5>
+                                            </div>
+                                            <div class="flex-shrink-0">
+                                                <button class="btn btn-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#productModal"><i class="ph-arrow-right"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @endforeach
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-xxl-3 col-lg-6">
+            </div>
+
+            <div class="row">
+                <div class="col-xl-4">
                     <div class="card">
                         <div class="card-header d-flex align-items-center">
-                            <h4 class="card-title mb-0 flex-grow-1">Customer Feedback</h4>
-                            <div class="flex-shrink-0">
-                                <a href="#!" class="text-muted">View All <i class="bi bi-chevron-right align-baseline"></i></a>
+                            <h5 class="card-title mb-0 flex-grow-1">Orders Status</h5>
+                            <div class="dropdown card-header-dropdown">
+                                <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="ph-dots-three-outline-vertical"></i>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-end">
+                                    <a class="dropdown-item" href="#">Current Years</a>
+                                    <a class="dropdown-item" href="#">Last Years</a>
+                                </div>
                             </div>
                         </div>
-                        <div class="card-body px-0">
-                            <div data-simplebar style="max-height: 400px;">
-                                <div class="card border-bottom rounded-0 border-0 shadow-none mb-0">
-                                    <div class="card-body pt-0">
-                                        <div class="d-flex gap-2">
-                                            <div class="flex-shrink-0">
-                                                <img src="assets/images/users/48/avatar-2.jpg" alt="" class="avatar-sm rounded">
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <span class="text-muted clearfix float-end">04:47 PM</span>
-                                                <h6 class="fs-md mb-1"><a href="#!" class="text-reset">Josefa Weissnat</a></h6>
-                                                <div class="text-warning mb-2 fs-xs">
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                </div>
-                                                <p class="text-muted mb-0">" Themebrand used AnyDesk to fix the bug in Flask and django version. I highly recommend this product! "</p>
-                                            </div>
-                                        </div>
+                        <div class="card-body">
+                            <div class="mb-3 pb-1 text-center">
+                                <h6 class="mb-0">01 Jan, {{ date('Y') }} - {{ date('d M, Y') }}</h6>
+                            </div>
+                            @foreach($orderStatuses as $status => $count)
+                            <div class="row align-items-center mb-3">
+                                <div class="col-lg-4">
+                                    <div class="hstack gap-2">
+                                        <p class="mb-0 flex-grow-1">{{ ucfirst($status) }}</p>
+                                        <h6 class="mb-0">{{ $count }}</h6>
                                     </div>
                                 </div>
-                                <div class="card border-bottom rounded-0 border-0 shadow-none mb-0">
-                                    <div class="card-body">
-                                        <div class="d-flex gap-2">
-                                            <div class="flex-shrink-0">
-                                                <img src="assets/images/users/48/avatar-3.jpg" alt="" class="avatar-sm rounded">
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <span class="text-muted clearfix float-end">11:24 AM</span>
-                                                <h6 class="fs-md mb-1"><a href="#!" class="text-reset">Ophelia Steuber</a></h6>
-                                                <div class="text-warning mb-2 fs-xs">
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                </div>
-                                                <p class="text-muted mb-0">" Thank you for this awesome admin panel. I'm very happy with it, it's a pleasure to work with it! "</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="card border-bottom rounded-0 border-0 shadow-none mb-0">
-                                    <div class="card-body">
-                                        <div class="d-flex gap-2">
-                                            <div class="flex-shrink-0">
-                                                <img src="assets/images/users/48/avatar-4.jpg" alt="" class="avatar-sm rounded">
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <span class="text-muted clearfix float-end">03:19 PM</span>
-                                                <h6 class="fs-md mb-1"><a href="#!" class="text-reset">Dianna Bogan</a></h6>
-                                                <div class="text-warning mb-2 fs-xs">
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                </div>
-                                                <p class="text-muted mb-0">" High theme quality. Very good support, they spent almost an hour remotely to fix a problem. I hope this theme will have a long term support. "</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="card border-bottom rounded-0 border-0 shadow-none mb-0">
-                                    <div class="card-body">
-                                        <div class="d-flex gap-2">
-                                            <div class="flex-shrink-0">
-                                                <img src="assets/images/users/48/avatar-5.jpg" alt="" class="avatar-sm rounded">
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <span class="text-muted clearfix float-end">06:39 AM</span>
-                                                <h6 class="fs-md mb-1"><a href="#!" class="text-reset">Jerry Emard</a></h6>
-                                                <div class="text-warning mb-2 fs-xs">
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                </div>
-                                                <p class="text-muted mb-0">" There is as lot packed in this template. The savings in time and energy is so worth it. "</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="card border-bottom rounded-0 border-0 shadow-none mb-0">
-                                    <div class="card-body">
-                                        <div class="d-flex gap-2">
-                                            <div class="flex-shrink-0">
-                                                <img src="assets/images/users/48/avatar-6.jpg" alt="" class="avatar-sm rounded">
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <span class="text-muted clearfix float-end">09:18 AM</span>
-                                                <h6 class="fs-md mb-1"><a href="#!" class="text-reset">Axel Kozey</a></h6>
-                                                <div class="text-warning mb-2 fs-xs">
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                    <i class="bi bi-star-fill"></i>
-                                                </div>
-                                                <p class="text-muted mb-0">" Works like a component library, a crazy amount of design elements already built and given. "</p>
-                                            </div>
-                                        </div>
+                                <div class="col-lg-8">
+                                    <div class="progress animated-progress" role="progressbar" aria-valuenow="{{ ($count / array_sum($orderStatuses)) * 100 }}" aria-valuemin="0" aria-valuemax="100">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated bg-{{ $status == 'delivered' ? 'success' : ($status == 'pending' ? 'warning' : 'primary') }}" style="width: {{ ($count / array_sum($orderStatuses)) * 100 }}%"></div>
                                     </div>
                                 </div>
                             </div>
+                            @endforeach
                         </div>
                     </div>
                 </div>
-                <div class="col-xxl-4 col-lg-6">
-                    <div class="card">
-                        <div class="card-header d-flex align-items-center">
-                            <h4 class="card-title mb-0 flex-grow-1">Popular Property</h4>
+                <div class="col-xl-4 col-lg-6">
+                    <div class="card card-height-100">
+                        <div class="card-header d-flex">
+                            <h5 class="card-title flex-grow-1 mb-0">Recent Activity</h5>
                             <div class="flex-shrink-0">
-                                <div class="nav nav-pills gap-1" id="popularProperty" role="tablist" aria-orientation="vertical">
-                                    <button class="btn btn-ghost-danger btn-sm active" id="saleProperty" data-bs-toggle="pill" data-bs-target="#salePropertyTabs" type="button" role="tab" aria-controls="salePropertyTabs" aria-selected="true">Sale</button>
-                                    <button class="btn btn-ghost-info btn-sm" id="rentProperty" data-bs-toggle="pill" data-bs-target="#rentPropertyTabs" type="button" role="tab" aria-controls="rentPropertyTabs" aria-selected="false" tabindex="-1">Rent</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="tab-content mb-2" id="popularPropertyContent">
-                                <div class="tab-pane show active" id="salePropertyTabs" role="tabpanel" aria-labelledby="saleProperty" tabindex="0">
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-08.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Crystal House</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 2 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 1 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 1039 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.5</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-07.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Whitespace Vintage Villa</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 4 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 2 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 1145 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.9</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-05.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Northlight Residency</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 3 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 3 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 1859 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.7</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-08.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Park Side Colonial</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 5 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 3 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 5643 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.7</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-04.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Marina Hill Vintage</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 4 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 3 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 1963 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.8</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-07.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Grand Cub Hotel</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 3 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 1 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 1543 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.4</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-03.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Evergreen Villa with Residency</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 5 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 3 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 3652 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.5</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="tab-pane" id="rentPropertyTabs" role="tabpanel" aria-labelledby="rentProperty" tabindex="0">
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-01.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Liberty Property</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 1 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 1 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 958 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.3</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-02.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Duplex Square Valley</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 3 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 2 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 2659 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 3.8</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-03.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Small house on an autumn’s</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 2 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 1 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 2230 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.3</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-07.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>New Grand Hotel Room</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 3 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 2 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 2785 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.9</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-08.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Park Side Colonial</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 5 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 3 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 5643 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.7</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative mb-3">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-07.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Whitespace Vintage Villa</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 4 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 2 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 1145 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.9</span>
-                                        </div>
-                                    </div>
-                                    <div class="d-flex gap-2 align-items-center position-relative">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/real-estate/img-05.jpg" alt="" height="44" class="object-fit-cover rounded">
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <a href="apps-real-estate-property-overview.html" class="stretched-link">
-                                                <h6>Nightlight Residency</h6>
-                                            </a>
-                                            <ul class="d-flex align-items-center gap-2 flex-wrap list-unstyled mb-0">
-                                                <li><p class="text-muted mb-0"><i class="bi bi-house align-baseline text-primary me-1"></i> 2 Bedroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="ph ph-bathtub align-middle text-primary me-1"></i> 1 Bathroom</p></li>
-                                                <li><p class="text-muted mb-0"><i class="bi bi-columns align-baseline text-primary me-1"></i> 1324 sqft</p></li>
-                                            </ul>
-                                        </div>
-                                        <div class="flex-shrink-0">
-                                            <span class="badge bg-warning-subtle text-warning"><i class="bi bi-star-fill text-warning"></i> 4.9</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-center">
-                                <a href="apps-real-estate-list.html" class="icon-link">View All <i class="bi bi-arrow-right"></i></a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="row g-4">
-                                <div class="col-xxl-3 col-md-6 border-end-md border-dashed">
-                                    <div class="text-center">
-                                        <p class="text-muted">Project On Hold</p>
-                                        <div class="mx-3 mb-3 pb-1">
-                                            <div id="mini-chart-6" data-colors='["--tb-secondary"]' class="apex-charts" dir="ltr"></div>
-                                        </div>
-                                        <h5 class="mb-0">2451 <small class="badge fs-2xs bg-danger-subtle text-danger ms-1"><i class="ph-arrow-down align-baseline"></i> 1.02%</small></h5>
-                                    </div>
-                                </div>
-                                <div class="col-xxl-3 col-md-6 border-end-xxl border-dashed">
-                                    <div class="text-center">
-                                        <p class="text-muted">Ongoing Properties</p>
-                                        <div class="mx-3 mb-3 pb-1">
-                                            <div id="mini-chart-7" data-colors='["--tb-primary"]' class="apex-charts" dir="ltr"></div>
-                                        </div>
-                                        <h5 class="mb-0">$750.36M <small class="badge fs-2xs bg-success-subtle text-success ms-1"><i class="ph-arrow-up align-baseline"></i> 2.17%</small></h5>
-                                    </div>
-                                </div>
-                                <div class="col-xxl-3 col-md-6 border-end-md border-dashed">
-                                    <div class="text-center">
-                                        <p class="text-muted">Pending Properties</p>
-                                        <div class="mx-3 mb-3 pb-1">
-                                            <div id="mini-chart-8" data-colors='["--tb-warning"]' class="apex-charts" dir="ltr"></div>
-                                        </div>
-                                        <h5 class="mb-0">$750.36M <small class="badge fs-2xs bg-success-subtle text-success ms-1"><i class="ph-arrow-up align-baseline"></i> 07.26%</small></h5>
-                                    </div>
-                                </div>
-                                <div class="col-xxl-3 col-md-6">
-                                    <div class="text-center">
-                                        <p class="text-muted">Completed Project</p>
-                                        <div class="mx-3 mb-3 pb-1">
-                                            <div id="mini-chart-9" data-colors='["--tb-success"]' class="apex-charts" dir="ltr"></div>
-                                        </div>
-                                        <h5 class="mb-0">4689 <small class="badge fs-2xs bg-success-subtle text-success ms-1"><i class="ph-arrow-up align-baseline"></i> 3.62%</small></h5>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div class="card-header d-flex align-items-center">
-                            <h4 class="card-title mb-0 flex-grow-1">Recent Activity</h4>
-                            <div class="flex-shrink-0">
-                                <a href="pages-timeline.html" class="text-muted">View All <i class="bi bi-chevron-right align-baseline"></i></a>
+                                <a href="#" class="btn btn-subtle-info btn-sm">View More <i class="ph-caret-right align-middle"></i></a>
                             </div>
                         </div>
                         <div class="card-body px-0">
-                            <div class="px-3" data-simplebar style="height: 255px">
+                            <div data-simplebar class="px-3" style="max-height: 258px;">
                                 <div class="acitivity-timeline acitivity-main">
+                                    @foreach($recentActivity as $activity)
                                     <div class="acitivity-item d-flex">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/users/32/avatar-2.jpg" alt="" class="avatar-xs rounded-circle acitivity-avatar">
+                                        <div class="flex-shrink-0 avatar-xs acitivity-avatar">
+                                            <div class="avatar-title bg-success-subtle text-success rounded-circle">
+                                                <i class="{{ $activity['icon'] }}"></i>
+                                            </div>
                                         </div>
                                         <div class="flex-grow-1 ms-3">
-                                            <h6 class="mb-1 lh-base">Purchased by James Price</h6>
-                                            <p class="text-muted mb-2">Product noise evolve smartwatch </p>
-                                            <small class="mb-0 text-muted">05:57 AM Today</small>
+                                            <h6 class="mb-1 lh-base">{{ $activity['title'] }}</h6>
+                                            <p class="text-muted mb-2">{{ $activity['description'] }}</p>
+                                            <small class="mb-0 text-muted">{{ $activity['time'] }}</small>
                                         </div>
                                     </div>
-                                    <div class="acitivity-item py-3 d-flex">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/users/32/avatar-1.jpg" alt="" class="avatar-xs rounded-circle acitivity-avatar">
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <h6 class="mb-1 lh-base">Natasha Carey have liked the products</h6>
-                                            <p class="text-muted mb-2">Allow users to like products in your WooCommerce store.</p>
-                                            <small class="mb-0 text-muted">25 Dec, 2022</small>
-                                        </div>
-                                    </div>
-                                    <div class="acitivity-item py-3 d-flex">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/users/32/avatar-3.jpg" alt="" class="avatar-xs rounded-circle acitivity-avatar">
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <h6 class="mb-1 lh-base">Today offers by <a href="apps-ecommerce-seller-details.html" class="link-secondary">Digitech Galaxy</a></h6>
-                                            <p class="text-muted mb-2">Offer is valid on orders of $230 Or above for selected products only.</p>
-                                            <small class="mb-0 text-muted">12 Dec, 2022</small>
-                                        </div>
-                                    </div>
-                                    <div class="acitivity-item py-3 d-flex">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/users/32/avatar-2.jpg" alt="" class="avatar-xs rounded-circle acitivity-avatar">
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <h6 class="mb-1 lh-base">Favorites Product</h6>
-                                            <p class="text-muted mb-2">Esther James have favorites product.</p>
-                                            <small class="mb-0 text-muted">25 Nov, 2022</small>
-                                        </div>
-                                    </div>
-                                    <div class="acitivity-item py-3 d-flex">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/users/32/avatar-2.jpg" alt="" class="avatar-xs rounded-circle acitivity-avatar">
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <h6 class="mb-1 lh-base">Flash sale starting <span class="text-primary">Tomorrow.</span></h6>
-                                            <p class="text-muted mb-2">Flash sale by <a href="javascript:void(0);" class="link-secondary fw-medium">Zoetic Fashion</a></p>
-                                            <small class="mb-0 text-muted">22 Oct, 2022</small>
-                                        </div>
-                                    </div>
-                                    <div class="acitivity-item d-flex">
-                                        <div class="flex-shrink-0">
-                                            <img src="assets/images/users/32/avatar-5.jpg" alt="" class="avatar-xs rounded-circle acitivity-avatar">
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <h6 class="mb-1 lh-base">Monthly sales report</h6>
-                                            <p class="text-muted mb-2"><span class="text-danger">2 days left</span> notification to submit the monthly sales report. <a href="javascript:void(0);" class="link-warning text-decoration-underline">Reports Builder</a></p>
-                                            <small class="mb-0 text-muted">15 Oct, 2022</small>
-                                        </div>
-                                    </div>
+                                    @endforeach
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="card">
+                </div>
+                <div class="col-xl-4 col-lg-6">
+                    <div class="card card-height-100">
                         <div class="card-header d-flex align-items-center">
-                            <h4 class="card-title mb-0 flex-grow-1">Agent List</h4>
+                            <h5 class="card-title flex-grow-1 mb-0">Insight</h5>
                             <div class="flex-shrink-0">
-                                <a href="apps-real-estate-agent-list.html" class="text-muted">View All <i class="bi bi-chevron-right align-baseline"></i></a>
+                                <div class="dropdown card-header-dropdown">
+                                    <a class="text-reset dropdown-btn" href="#" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <span class="text-muted">This Month<i class="mdi mdi-chevron-down ms-1"></i></span>
+                                    </a>
+                                    <div class="dropdown-menu dropdown-menu-end">
+                                        <a class="dropdown-item" href="#">This Month</a>
+                                        <a class="dropdown-item" href="#">Last Month</a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="card-body pt-4">
-                            <div class="table-responsive table-card">
-                                <table class="table table-borderless table-centered align-middle table-nowrap mb-0">
-                                    <tbody>
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="flex-shrink-0 me-2">
-                                                        <img src="assets/images/users/avatar-1.jpg" alt="" class="avatar-xxs rounded-circle">
-                                                    </div>
-                                                    <div class="flex-grow-1">Dianna Bogan</div>
-                                                </div>
-                                            </td>
-                                            <td>United Kingdom</td>
-                                            <td>+(86) 9985-9220</td>
-                                        </tr>
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="flex-shrink-0 me-2">
-                                                        <img src="assets/images/users/avatar-2.jpg" alt="" class="avatar-xxs rounded-circle">
-                                                    </div>
-                                                    <div class="flex-grow-1">Jansh Brown</div>
-                                                </div>
-                                            </td>
-                                            <td>Germany</td>
-                                            <td>+(27) 3041-1766</td>
-                                        </tr>
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="flex-shrink-0 me-2">
-                                                        <img src="assets/images/users/avatar-3.jpg" alt="" class="avatar-xxs rounded-circle">
-                                                    </div>
-                                                    <div class="flex-grow-1">Ayaan Bowen</div>
-                                                </div>
-                                            </td>
-                                            <td>Brazil</td>
-                                            <td>+(51) 3233-7909</td>
-                                        </tr>
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="flex-shrink-0 me-2">
-                                                        <img src="assets/images/users/avatar-4.jpg" alt="" class="avatar-xxs rounded-circle">
-                                                    </div>
-                                                    <div class="flex-grow-1">Prezy Mark</div>
-                                                </div>
-                                            </td>
-                                            <td>Spain</td>
-                                            <td>+(48) 3877-9000</td>
-                                        </tr>
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="flex-shrink-0 me-2">
-                                                        <img src="assets/images/users/avatar-6.jpg" alt="" class="avatar-xxs rounded-circle">
-                                                    </div>
-                                                    <div class="flex-grow-1">Vihan Hudda</div>
-                                                </div>
-                                            </td>
-                                            <td>Brazil</td>
-                                            <td>+(11) 3885-1022</td>
-                                        </tr>
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="flex-shrink-0 me-2">
-                                                        <img src="assets/images/users/avatar-8.jpg" alt="" class="avatar-xxs rounded-circle">
-                                                    </div>
-                                                    <div class="flex-grow-1">Uriel King</div>
-                                                </div>
-                                            </td>
-                                            <td>USA</td>
-                                            <td>+(21) 2345-6789</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                        <div class="card-body">
+                            <div class="vstack gap-2">
+                                @foreach($insights as $insight)
+                                <div class="border py-2 px-3 w-100 rounded d-flex align-items-center gap-2">
+                                    <i class="bi bi-check2-square text-primary"></i>
+                                    <h6 class="mb-0">{{ $insight }}</h6>
+                                </div>
+                                @endforeach
                             </div>
                         </div>
                     </div>
                 </div>
-            </div> --}}
+            </div>
         </div>
-        <!-- container-fluid -->
     </div>
-    <!-- End Page-content -->
 
-    <!-- JAVASCRIPT -->
-    <script src="{{ asset('theme/layouts/assets/libs/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ asset('theme/layouts/assets/libs/simplebar/simplebar.min.js') }}"></script>
-    <script src="{{ asset('theme/layouts/assets/js/plugins.js') }}"></script>
-    <script src="{{ asset('theme/layouts/assets/libs/list.js/list.min.js') }}"></script>
-    <script src="{{ asset('theme/layouts/assets/libs/echarts/echarts.min.js') }}"></script>
-    <script src="{{ asset('theme/layouts/assets/libs/apexcharts/apexcharts.min.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{{ asset('theme/layouts/assets/js/pages/dashboard-real-estate.init.js') }}"></script>
-    <script src="{{ asset('theme/layouts/assets/js/app.js') }}"></script>
-  
-   <!-- Doughnut Chart Script -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const ctx = document.getElementById('property_type').getContext('2d');
-            const maleCount = {{ $gender_counts['Male'] }};
-            const femaleCount = {{ $gender_counts['Female'] }};
-            const staffCount = {{ $staff_count }};
-
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Male', 'Female', 'Staff'],
-                    datasets: [{
-                        data: [maleCount, femaleCount, staffCount],
-                        backgroundColor: [
-                            'rgba(113, 128, 150, 0.8)', // --tb-secondary
-                            'rgba(16, 185, 129, 0.8)',  // --tb-success
-                            'rgba(245, 158, 11, 0.8)'   // --tb-warning
-                        ],
-                        borderColor: [
-                            'rgba(113, 128, 150, 1)',
-                            'rgba(16, 185, 129, 1)',
-                            'rgba(245, 158, 11, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                font: {
-                                    size: 12
-                                }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function (context) {
-                                    let label = context.label || '';
-                                    let value = context.raw || 0;
-                                    return `${label}: ${value}`;
-                                }
-                            }
-                        }
-                    },
-                    cutout: '60%'
-                }
-            });
-        });
-    </script> 
+    <footer class="footer">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-sm-6">
+                    <script>document.write(new Date().getFullYear())</script> © Ecommerce.
+                </div>
+                <div class="col-sm-6">
+                    <div class="text-sm-end d-none d-sm-block">
+                        Design & Develop by Your Team
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
 </div>
-@endsection --}}
+@endsection
+
+@section('script')
+    <!-- ApexCharts JS -->
+    <script src="{{ asset('assets/libs/apexcharts/apexcharts.min.js') }}"></script>
+    <script src="{{ asset('assets/js/pages/dashboard-ecommerce.init.js') }}"></script>
+
+    <script>
+        // Revenue Chart Data
+        var revenueChartData = @json($revenueData);
+        var revenueLabels = revenueChartData.map(item => item.month);
+        var revenueSeries = [{ name: 'Revenue', data: revenueChartData.map(item => item.revenue) }];
+
+        // Initialize charts (assuming dashboard-ecommerce.init.js handles initialization)
+        // You may need to customize the JS file to use these dynamic data
+    </script>
+@endsection
