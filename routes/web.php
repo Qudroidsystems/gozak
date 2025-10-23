@@ -23,7 +23,7 @@ Route::get('/payment-callback', function () {
 })->name('payment.callback');
 
 // Admin Routes (Authenticated + Admin Middleware)
-Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::group(['middleware' => ['auth']], function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/export', [DashboardController::class, 'export'])->name('dashboard.export');
