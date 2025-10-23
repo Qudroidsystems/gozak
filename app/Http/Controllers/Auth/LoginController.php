@@ -59,7 +59,7 @@ class LoginController extends Controller
         //         $this->username() => [trans('auth.failed_staff_role')],
         //     ]);
         // }
-        dd($user->first_name);
+        dd($user->role);
 
         // If role check passes, proceed to default redirect
         //return redirect()->intended($this->redirectPath());
