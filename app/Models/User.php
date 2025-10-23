@@ -2,28 +2,26 @@
 
 namespace App\Models;
 
-use App\Models\Pictures\ImageModel;
+use Laravel\Sanctum\HasApiTokens;
 use App\Notifications\VerifyEmail;
+use App\Models\Pictures\ImageModel;
+use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\PermissionRegistrar;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
-use Spatie\Permission\PermissionRegistrar;
-use Spatie\Permission\Traits\HasRoles;
-
-
 
 class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
-
-
     protected $fillable = [
+        'name',  // Added: For full name, as used in forms/view
+        'role',  // Added: For staff/customer differentiation
         'first_name',
         'last_name',
         'username',
@@ -42,6 +40,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'date_of_birth' => 'date',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'role' => 'string',  // Added: Ensure role is treated as string
     ];
 
     public function addresses()
@@ -69,23 +68,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'remember_token',
     ];
 
-
-
-    public function isAdmin()
-    {
-        return $this->role === 'admin';
-    }
-
-    public function isUser()
-    {
-        return $this->role === 'user';
-    }
-
-
-
-
-
-
     public function roles_all(): BelongsToMany
     {
         return $this->morphToMany(
@@ -107,10 +89,8 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(WishlistItem::class);
     }
 
-
-     public function sendEmailVerificationNotification()
+    public function sendEmailVerificationNotification()
     {
         $this->notify(new VerifyEmail);
     }
-
 }

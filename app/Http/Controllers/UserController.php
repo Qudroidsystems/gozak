@@ -2,24 +2,23 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use App\Models\BioModel;
-use App\Models\Student;
-use App\Models\User;
 use DB;
 use Hash;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Log;
+use App\Models\User;
+use App\Models\Student;
+use App\Models\BioModel;
 use Illuminate\View\View;
+use Illuminate\Support\Arr;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\ValidationException;  // Added: For explicit use
 
 class UserController extends Controller
 {
-
-
     function __construct()
     {
          $this->middleware('permission:View user|Create user|Update user|Delete user', ['only' => ['index','store']]);
@@ -27,7 +26,6 @@ class UserController extends Controller
          $this->middleware('permission:Update user', ['only' => ['edit','update']]);
          $this->middleware('permission:Delete user', ['only' => ['destroy']]);
     }
-
 
     /**
      * Display a listing of the resource.
@@ -68,7 +66,6 @@ class UserController extends Controller
         return response()->json(['roles' => $roles]);
     }
 
-
     /**
      * Show the form for creating a new resource.
      *
@@ -76,10 +73,8 @@ class UserController extends Controller
      */
     public function create(): View
     {
-
           //page title
           $title = "Create User";
-
 
         $roles = Role::pluck('name','name')->all();
         return view('users.create',compact('roles'));
@@ -116,6 +111,7 @@ class UserController extends Controller
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
+                'role' => 'staff',  // Added: Set column-based role for admin-created users
             ]);
             $user->assignRole($validated['roles']);
 
@@ -127,6 +123,7 @@ class UserController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'role' => $user->role,  // Added: Include in response for JS if needed
                     'roles' => $user->roles->pluck('name')->toArray(),
                 ],
             ], 201);
@@ -146,8 +143,6 @@ class UserController extends Controller
         }
     }
 
-
-
     /**
      * Display the specified resource.
      *
@@ -156,7 +151,6 @@ class UserController extends Controller
      */
     public function show($id): View
     {
-
         //page title
         $pagetitle = "User Overview";
 
@@ -168,9 +162,6 @@ class UserController extends Controller
         ->with("userbio",$userbio)
         ->with("pagetitle",$pagetitle);
     }
-
-
-
 
     /**
      * Show the form for editing the specified resource.
@@ -213,6 +204,11 @@ class UserController extends Controller
                 $input = Arr::except($input, ['password']);
             }
 
+            // Optional: Preserve or set 'role' to 'staff' if it's an admin update (or add a form field for it)
+            if (!isset($input['role'])) {
+                $input['role'] = 'staff';  // Added: Default to 'staff' for admin updates
+            }
+
             $user = User::findOrFail($id);
             $user->update($input);
             \DB::table('model_has_roles')->where('model_id', $id)->delete();
@@ -228,6 +224,7 @@ class UserController extends Controller
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'role' => $user->role,  // Added: Include in response
                     'roles' => $user->roles->pluck('name')->toArray(),
                 ],
             ], 200);
@@ -279,6 +276,7 @@ class UserController extends Controller
         $user->email = $request->email;
         $user->password = Hash::make($request->password);
         $user->student_id = $student->id; // Link to student record
+        $user->role = 'staff';  // Added: Assuming staff for student-linked users; adjust if needed
         $user->save();
         
         // Assign role
@@ -310,8 +308,6 @@ class UserController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-
-
     public function destroy($id)
     {
         Log::debug("Attempting to delete user ID: {$id}");

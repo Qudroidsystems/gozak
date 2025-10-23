@@ -174,7 +174,7 @@ function handleEditClick(e) {
         editIdField.value = itemId;
         editNameField.value = tr.querySelector(".name a").innerText;
         editEmailField.value = tr.querySelector(".email").innerText;
-        var roles = tr.querySelector(".role").getAttribute("data-role")?.split(",") || [];
+        var roles = tr.querySelector(".role").getAttribute("data-roles")?.split(",") || [];  // Fixed: data-roles
         if (typeof Choices !== 'undefined' && editRoleVal) {
             editRoleVal.setChoiceByValue(roles.filter(role => role.trim()));
         } else {
@@ -289,10 +289,13 @@ function filterData() {
 
     console.log("Filtering with:", { search: searchInput, role: selectedRole, email: selectedEmail });
 
+    // Custom filter to handle role via data-roles (avoids HTML parsing issues)
     userList.filter(function (item) {
+        var itemElement = item.elm;  // Get the actual <tr> element
         var nameMatch = item.values().name.toLowerCase().includes(searchInput);
         var emailMatch = item.values().email.toLowerCase().includes(searchInput);
-        var roleMatch = selectedRole === "all" || item.values().role.split(",").includes(selectedRole);
+        var roleData = itemElement.querySelector(".role")?.getAttribute("data-roles") || "";
+        var roleMatch = selectedRole === "all" || roleData.split(",").some(r => r.trim() === selectedRole);
         var emailSelectMatch = selectedEmail === "all" || item.values().email === selectedEmail;
 
         return (nameMatch || emailMatch) && roleMatch && emailSelectMatch;
@@ -414,17 +417,18 @@ document.getElementById("edit-user-form").addEventListener("submit", function (e
         });
 });
 
+// Fixed modal events
 document.getElementById("showModal").addEventListener("show.bs.modal", function (e) {
     if (e.relatedTarget.classList.contains("add-btn")) {
         console.log("Opening showModal for adding user...");
-        document.getElementById("addModalLabel").innerHTML = "Add User";
+        document.getElementById("exampleModalLabel").innerHTML = "Add User";  // Fixed ID
         document.getElementById("add-btn").innerHTML = "Add User";
     }
 });
 
 document.getElementById("editModal").addEventListener("show.bs.modal", function () {
     console.log("Opening editModal...");
-    document.getElementById("editModalLabel").innerHTML = "Edit User";
+    document.getElementById("exampleModalLabel").innerHTML = "Edit User";  // Fixed ID (shared)
     document.getElementById("update-btn").innerHTML = "Update";
 });
 
