@@ -62,6 +62,6 @@ class LoginController extends Controller
         echo $user->first_name;
 
         // If role check passes, proceed to default redirect
-        return redirect()->intended($this->redirectPath());
+        //return redirect()->intended($this->redirectPath());
     }
 }
