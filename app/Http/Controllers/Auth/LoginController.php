@@ -49,8 +49,8 @@ class LoginController extends Controller
      */
     protected function authenticated(Request $request, $user)
     {
-        // Check if the user has the 'staff' role
-        if (!$user->hasRole('staff')) {
+        // Check if the user has 'staff' in the role column
+        if ($user->role !== 'staff') {
             // Log out the user immediately
             auth()->logout();
 
