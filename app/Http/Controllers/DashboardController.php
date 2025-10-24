@@ -2,23 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use Carbon\Carbon;
-use App\Models\User;
-use App\Models\Brand;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\Category;
-use Illuminate\Http\Request;
+use App\Models\User;
 use App\Models\ProductReview;
+use App\Models\Category;
+use App\Models\Brand;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
+use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        // Total Revenue (sum of paid orders total_amount)
-        $totalRevenue = Order::where('payment_status', 'paid')->sum('total_amount');
+        // Total Revenue (sum of orders with successful transactions)
+        $totalRevenue = Order::whereHas('transactions', function($query) {
+            $query->where('status', 'success');
+        })->sum('total_amount');
 
         // Total Orders
         $totalOrders = Order::count();
@@ -32,18 +33,21 @@ class DashboardController extends Controller
         // Average Rating
         $avgRating = ProductReview::avg('rating') ?? 0;
 
-        // Recent Sales (last 10 orders)
-        $recentSales = Order::with('user', 'items')
-            ->orderBy('order_date', 'desc')
-            ->take(10)
-            ->get()
-            ->map(function ($order) {
-                return [
-                    'user_name' => $order->user->name ?? 'Unknown',
-                    'date' => $order->order_date->format('d M, Y'),
-                    'amount' => number_format($order->total_amount, 2),
-                ];
-            });
+        // Recent Sales (last 10 orders with successful payment)
+        $recentSales = Order::whereHas('transactions', function($query) {
+            $query->where('status', 'success');
+        })
+        ->with('user')
+        ->orderBy('order_date', 'desc')
+        ->take(10)
+        ->get()
+        ->map(function ($order) {
+            return [
+                'user_name' => $order->user->name ?? 'Unknown',
+                'date' => $order->order_date->format('d M, Y'),
+                'amount' => number_format($order->total_amount, 2),
+            ];
+        });
 
         // Latest Orders (last 20 orders with details)
         $latestOrders = Order::with(['items.product', 'user'])
@@ -51,20 +55,23 @@ class DashboardController extends Controller
             ->take(20)
             ->get()
             ->map(function ($order) {
+                $product = $order->items->first();
+                $brandName = $product && $product->product ? ($product->product->brand->name ?? 'N/A') : 'N/A';
+                $avgProductRating = $product && $product->product ? ($product->product->reviews()->avg('rating') ?? '-') : '-';
                 return [
                     'order_date' => $order->order_date->format('d M, Y'),
                     'order_id' => $order->id,
-                    'shop' => $order->items->first()->product->brand->name ?? 'N/A',
+                    'shop' => $brandName,
                     'customer' => $order->user->name ?? 'Unknown',
                     'products' => $order->items->pluck('title')->implode(', '),
                     'amount' => number_format($order->total_amount, 2),
                     'status' => $order->status,
-                    'rating' => $order->items->first()->product->reviews->avg('rating') ?? '-',
+                    'rating' => $avgProductRating,
                 ];
             });
 
         // Popular Products (top 6 by sold_quantity)
-        $popularProducts = Product::with('brand')
+        $popularProducts = Product::with('brand', 'reviews')
             ->orderBy('sold_quantity', 'desc')
             ->take(6)
             ->get()
@@ -72,7 +79,7 @@ class DashboardController extends Controller
                 return [
                     'image' => $product->thumbnail ? asset('storage/' . $product->thumbnail) : asset('assets/images/products/32/img-1.png'),
                     'title' => $product->title,
-                    'rating' => $product->reviews->avg('rating') ?? 0,
+                    'rating' => number_format($product->reviews->avg('rating') ?? 0, 1),
                     'sales' => $product->sold_quantity,
                     'price' => number_format($product->price, 2),
                 ];
@@ -84,7 +91,7 @@ class DashboardController extends Controller
             ->pluck('count', 'status')
             ->toArray();
 
-        // Revenue Chart Data (monthly revenue for last 12 months)
+        // Revenue Chart Data (monthly revenue for last 12 months, based on successful transactions)
         $revenueData = $this->getMonthlyRevenueData();
 
         // Sales by Countries (mock data, replace with real if address has country)
@@ -128,22 +135,24 @@ class DashboardController extends Controller
         $startDate = Carbon::now()->subMonths(11)->startOfMonth();
         $endDate = Carbon::now()->endOfMonth();
 
-        $monthlyRevenue = Order::select(
-                DB::raw('DATE_FORMAT(order_date, "%Y-%m") as month'),
-                DB::raw('SUM(total_amount) as revenue')
-            )
-            ->whereBetween('order_date', [$startDate, $endDate])
-            ->where('payment_status', 'paid')
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'month' => $item->month,
-                    'revenue' => (float) $item->revenue,
-                ];
-            })
-            ->toArray();
+        $monthlyRevenue = Order::whereHas('transactions', function($query) {
+            $query->where('status', 'success');
+        })
+        ->select(
+            DB::raw('DATE_FORMAT(orders.order_date, "%Y-%m") as month'),
+            DB::raw('SUM(orders.total_amount) as revenue')
+        )
+        ->whereBetween('orders.order_date', [$startDate, $endDate])
+        ->groupBy('month')
+        ->orderBy('month')
+        ->get()
+        ->map(function ($item) {
+            return [
+                'month' => $item->month,
+                'revenue' => (float) $item->revenue,
+            ];
+        })
+        ->toArray();
 
         // Fill missing months with 0
         $fullData = [];

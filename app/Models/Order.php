@@ -97,11 +97,30 @@ public function successfulTransaction()
  */
 public function isPaid()
 {
-    return $this->payment_status === 'paid';
+    return $this->getPaymentStatusAttribute() === 'paid';
 }
 
 public function payment()
 {
     return $this->hasOne(Payment::class, 'order_id', 'id');
+    
+}
+
+/**
+ * Accessor for payment_status
+ */
+public function getPaymentStatusAttribute()
+{
+    return $this->transactions()->where('status', 'success')->exists() ? 'paid' : 'unpaid';
+}
+
+/**
+ * Scope for paid orders
+ */
+public function scopePaid($query)
+{
+    return $query->whereHas('transactions', function($q) {
+        $q->where('status', 'success');
+    });
 }
 }
