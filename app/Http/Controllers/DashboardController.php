@@ -2,20 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
+use App\Models\User;
+use App\Models\Brand;
 use App\Models\Order;
 use App\Models\Product;
-use App\Models\User;
-use App\Models\ProductReview;
 use App\Models\Category;
-use App\Models\Brand;
 use Illuminate\Http\Request;
+use App\Models\ProductReview;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
     public function index()
     {
+        $pagetitle = 'Dashboard';
+
         // Total Revenue (sum of orders with successful transactions)
         $totalRevenue = Order::whereHas('transactions', function($query) {
             $query->where('status', 'success');
@@ -124,6 +126,7 @@ class DashboardController extends Controller
         ];
 
         return view('dashboard', compact(
+            'pagetitle',
             'totalRevenue', 'totalOrders', 'totalProducts', 'totalCustomers', 'avgRating',
             'recentSales', 'latestOrders', 'popularProducts', 'orderStatuses',
             'revenueData', 'salesByCountries', 'trafficSources', 'recentActivity', 'insights'
