@@ -516,9 +516,9 @@
         </div>
     </footer>
 </div>
-@endsection
 
-@section('script')
+
+
     <!-- ApexCharts JS -->
     <script src="{{ asset('assets/libs/apexcharts/apexcharts.min.js') }}"></script>
     <script src="{{ asset('assets/js/pages/dashboard-ecommerce.init.js') }}"></script>
