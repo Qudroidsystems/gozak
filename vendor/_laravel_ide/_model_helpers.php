@@ -4138,6 +4138,8 @@ namespace App\Models {
      * @property-read int|null $categories_count
      * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Brand> $brands
      * @property-read int|null $brands_count
+     * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\ProductReview> $reviews
+     * @property-read int|null $reviews_count
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereId($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereTitle($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereSku($value)
