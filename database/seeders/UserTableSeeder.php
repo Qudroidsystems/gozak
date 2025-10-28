@@ -2,13 +2,13 @@
 
 namespace Database\Seeders;
 
-use App\Models\BioModel;
 use Hash;
 use App\Models\User;
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Traits\HasRoles;
+use App\Models\BioModel;
 use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Traits\HasRoles;
+use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\Hash as FacadesHash;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
@@ -25,10 +25,11 @@ class UserTableSeeder extends Seeder
     {
         $user = User::create([
             'name' => 'Ilemobayo Eliab',
-            'email' => 'eliabsiji@gmail.com',
+            'email' => 'eliabsiji@admin.com',
             'avatar' => 'unnamed.png',
             'password' => FacadesHash::make('12345678'),
             // 'wpassword' => '12345678',
+            'role'=>'staff'
         ]);
 
         BioModel::updateOrCreate(['user_id'=>$user->id],
