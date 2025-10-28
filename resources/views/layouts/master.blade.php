@@ -170,22 +170,7 @@
                         {{-- @endcan --}}
 
                         <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">INVENTORY MANAGEMENT</span></li>
-                        {{-- @can('View flock') --}}
-                            <li class="nav-item">
-                                <a class="nav-link menu-link collapsed" href="#sidebarflock" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
-                                    <i class="ph-user-circle"></i> <span data-key="t-authentication">Flock Managements</span>
-                                </a>
-                                <div class="collapse menu-dropdown" id="sidebarflock">
-                                    <ul class="nav nav-sm flex-column">
-                                    
-                                            <li class="nav-item">
-                                            <a href="{{ route('flocks.index') }}" class="nav-link" role="button" data-key="t-signin"> Flock </a>
-                                        </li>
-                                    
-                                    </ul>
-                                </div>
-                            </li>
-                        {{-- @endcan --}}
+                       
                         {{-- @can('View flock')
                               <li class="nav-item">
                             <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
