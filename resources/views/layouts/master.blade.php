@@ -111,11 +111,11 @@
                         </li>
 
 
-                        @if(auth()->user()->can('View user') || auth()->user()->can('View role') || auth()->user()->can('View user-account'))
+                        {{-- @if(auth()->user()->can('View user') || auth()->user()->can('View role') || auth()->user()->can('View user-account')) --}}
                         <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">USERS & PRIVILEDGES</span></li>
                         @endif
 
-                        @can('View user')
+                        {{-- @can('View user') --}}
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarusers" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarAuth">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">User Managements</span>
@@ -130,8 +130,8 @@
                                     </ul>
                                 </div>
                             </li>
-                        @endcan
-                        @can('View role')
+                        {{-- @endcan --}}
+                        {{-- @can('View role') --}}
                             <li class="nav-item">
                             <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
                                 <i class="ph-address-book"></i> <span data-key="t-pages">Roles And Permissions</span>
@@ -142,19 +142,19 @@
                                         <li class="nav-item">
                                         <a href="{{ route('roles.index') }}" class="nav-link" data-key="t-starter"> Roles </a>
                                     </li>
-                                    @endcan
-                                @can('View permission')
+                                    {{-- @endcan --}}
+                                {{-- @can('View permission') --}}
                                         <li class="nav-item">
                                         <a href="{{ route('permissions.index') }}" class="nav-link" data-key="t-profile"> Permissions </a>
                                     </li>
-                                @endcan
+                                {{-- @endcan --}}
                                 
                                 </ul>
                             </div>
                         </li>
                         @endcan
                     
-                        @can('View user-account')
+                        {{-- @can('View user-account') --}}
                         <li class="nav-item">
                             <a class="nav-link menu-link collapsed" href="#sidebaraccount" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebaraccoun">
                                 <i class="ph-address-book"></i> <span data-key="t-pages">User Account</span>
@@ -167,47 +167,9 @@
                                 </ul>
                             </div>
                         </li>
-                        @endcan
+                        {{-- @endcan --}}
 
-                        <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">INVENTORY MANAGEMENT</span></li>
-                        @can('View flock')
-                            <li class="nav-item">
-                                <a class="nav-link menu-link collapsed" href="#sidebarflock" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
-                                    <i class="ph-user-circle"></i> <span data-key="t-authentication">Flock Managements</span>
-                                </a>
-                                <div class="collapse menu-dropdown" id="sidebarflock">
-                                    <ul class="nav nav-sm flex-column">
-                                    
-                                            <li class="nav-item">
-                                            <a href="{{ route('flocks.index') }}" class="nav-link" role="button" data-key="t-signin"> Flock </a>
-                                        </li>
-                                    
-                                    </ul>
-                                </div>
-                            </li>
-                        @endcan
-                        {{-- @can('View flock')
-                              <li class="nav-item">
-                            <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
-                                <i class="ph-address-book"></i> <span data-key="t-pages">Roles And Permissions</span>
-                            </a>
-                            <div class="collapse menu-dropdown" id="sidebarroles">
-                                <ul class="nav nav-sm flex-column">
-                                    @can('View role')
-                                         <li class="nav-item">
-                                        <a href="{{ route('roles.index') }}" class="nav-link" data-key="t-starter"> Roles </a>
-                                    </li>
-                                    @endcan
-                                   @can('View permission')
-                                        <li class="nav-item">
-                                        <a href="{{ route('permissions.index') }}" class="nav-link" data-key="t-profile"> Permissions </a>
-                                    </li>
-                                   @endcan
-                                   
-                                </ul>
-                            </div>
-                        </li>
-                        @endcan --}}
+                      
 
                     </ul>
                 </div>
