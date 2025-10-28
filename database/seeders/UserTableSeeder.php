@@ -26,6 +26,7 @@ class UserTableSeeder extends Seeder
         $user = User::create([
             'first_name' => 'Ilemobayo',
             'last_name'=> 'Eliab',
+            'username'=>'eliabsiji@admin.com',
             'email' => 'eliabsiji@admin.com',
             'avatar' => 'unnamed.png',
             'password' => FacadesHash::make('12345678'),
