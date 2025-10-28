@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 
 class PermissionTableSeeder extends Seeder
 {
@@ -34,22 +34,6 @@ class PermissionTableSeeder extends Seeder
            'Delete permission',
 
            'dashboard',
-
-           'View flock',
-           'Create flock',
-           'Update flock',
-           'Delete flock',
-
-           'View weekly-entry',
-           'Create weekly-entry',
-           'Update weekly-entry',
-           'Delete weekly-entry',
-
-           'View daily-entry',
-           'Create daily-entry',
-           'Update daily-entry',
-           'Delete daily-entry',
-
         ];
 
         foreach ($permissions as $permission) {
@@ -69,18 +53,7 @@ class PermissionTableSeeder extends Seeder
 
                 if($word == "dashboard")
                 Permission::Create(['name' => $permission,'title'=>"Dashboard Management"]);
-
-                if($word == "flock")
-                Permission::Create(['name' => $permission,'title'=>"flock Management"]);
-
-                if($word == "weekly-entry")
-                Permission::Create(['name' => $permission,'title'=>"Week Entry Management"]);
-
-                if($word == "daily-entry")
-                Permission::Create(['name' => $permission,'title'=>"Daily Entry Management"]);
-
-               
-
+    
             }
             //  Permission::Create(['name' => $permission]);
         }
