@@ -112,7 +112,7 @@
 
 
                         <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">USERS & PRIVILEDGES</span></li>
-                        @can('View user')
+                        {{-- @can('View user') --}}
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarusers" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarAuth">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">User Managements</span>
@@ -127,29 +127,29 @@
                                     </ul>
                                 </div>
                             </li>
-                        @endcan
-                        @can('View role')
+                        {{-- @endcan --}}
+                        {{-- @can('View role') --}}
                               <li class="nav-item">
                             <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
                                 <i class="ph-address-book"></i> <span data-key="t-pages">Roles And Permissions</span>
                             </a>
                             <div class="collapse menu-dropdown" id="sidebarroles">
                                 <ul class="nav nav-sm flex-column">
-                                    @can('View role')
+                                    {{-- @can('View role') --}}
                                          <li class="nav-item">
                                         <a href="{{ route('roles.index') }}" class="nav-link" data-key="t-starter"> Roles </a>
                                     </li>
-                                    @endcan
-                                   @can('View permission')
+                                    {{-- @endcan --}}
+                                   {{-- @can('View permission') --}}
                                         <li class="nav-item">
                                         <a href="{{ route('permissions.index') }}" class="nav-link" data-key="t-profile"> Permissions </a>
                                     </li>
-                                   @endcan
+                                   {{-- @endcan --}}
                                    
                                 </ul>
                             </div>
                         </li>
-                        @endcan
+                        {{-- @endcan --}}
                       
 
                         <li class="nav-item">
