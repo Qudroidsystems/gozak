@@ -111,66 +111,25 @@
                         </li>
 
 
-                        {{-- @if(auth()->user()->can('View user') || auth()->user()->can('View role') || auth()->user()->can('View user-account')) --}}
-                        <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">USERS & PRIVILEDGES</span></li>
-                        {{-- @endif --}}
+                      
 
-                        {{-- @can('View user') --}}
+                        <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">INVENTORY MANAGEMENT</span></li>
+                        @can('View flock')
                             <li class="nav-item">
-                                <a class="nav-link menu-link collapsed" href="#sidebarusers" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarAuth">
-                                    <i class="ph-user-circle"></i> <span data-key="t-authentication">User Managements</span>
+                                <a class="nav-link menu-link collapsed" href="#sidebarflock" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
+                                    <i class="ph-user-circle"></i> <span data-key="t-authentication">Flock Managements</span>
                                 </a>
-                                <div class="collapse menu-dropdown" id="sidebarusers">
+                                <div class="collapse menu-dropdown" id="sidebarflock">
                                     <ul class="nav nav-sm flex-column">
                                     
                                             <li class="nav-item">
-                                            <a href="{{ route('users.index') }}" class="nav-link" role="button" data-key="t-signin"> Users </a>
+                                            <a href="{{ route('flocks.index') }}" class="nav-link" role="button" data-key="t-signin"> Flock </a>
                                         </li>
                                     
                                     </ul>
                                 </div>
                             </li>
-                        {{-- @endcan --}}
-                        {{-- @can('View role') --}}
-                            <li class="nav-item">
-                            <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
-                                <i class="ph-address-book"></i> <span data-key="t-pages">Roles And Permissions</span>
-                            </a>
-                            <div class="collapse menu-dropdown" id="sidebarroles">
-                                <ul class="nav nav-sm flex-column">
-                                    @can('View role')
-                                        <li class="nav-item">
-                                        <a href="{{ route('roles.index') }}" class="nav-link" data-key="t-starter"> Roles </a>
-                                    </li>
-                                    {{-- @endcan --}}
-                                {{-- @can('View permission') --}}
-                                        <li class="nav-item">
-                                        <a href="{{ route('permissions.index') }}" class="nav-link" data-key="t-profile"> Permissions </a>
-                                    </li>
-                                {{-- @endcan --}}
-                                
-                                </ul>
-                            </div>
-                        </li>
                         @endcan
-                    
-                        {{-- @can('View user-account') --}}
-                        <li class="nav-item">
-                            <a class="nav-link menu-link collapsed" href="#sidebaraccount" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebaraccoun">
-                                <i class="ph-address-book"></i> <span data-key="t-pages">User Account</span>
-                            </a>
-                            <div class="collapse menu-dropdown" id="sidebaraccount">
-                                <ul class="nav nav-sm flex-column">
-                                    <li class="nav-item">
-                                        <a href="pages-starter.html" class="nav-link" data-key="t-starter"> My Account </a>
-                                    </li>
-                                </ul>
-                            </div>
-                        </li>
-                        {{-- @endcan --}}
-
-                        <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">INVENTORY MANAGEMENT</span></li>
-                       
                         {{-- @can('View flock')
                               <li class="nav-item">
                             <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
