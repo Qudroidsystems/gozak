@@ -113,7 +113,7 @@
 
                         {{-- @if(auth()->user()->can('View user') || auth()->user()->can('View role') || auth()->user()->can('View user-account')) --}}
                         <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">USERS & PRIVILEDGES</span></li>
-                        @endif
+                        {{-- @endif --}}
 
                         {{-- @can('View user') --}}
                             <li class="nav-item">
