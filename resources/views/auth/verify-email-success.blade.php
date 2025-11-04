@@ -65,9 +65,9 @@
         <div class="content opacity-0 transition-opacity duration-500">
             <!-- Title and Email -->
             <div class="text-center space-y-4">
-                <h1 class="text-3xl font-bold text-gray-900">{{ TTexts.yourAccountCreatedTitle ?? 'Email Verified!' }}</h1>
+                <h1 class="text-3xl font-bold text-gray-900">Your Account Has Been Created</h1>
                 <p class="text-lg text-green-600 font-medium">{{ $email ?? 'Your email' }} is now confirmed.</p>
-                <p class="text-gray-600">{{ TTexts.yourAccountCreatedSubTitle ?? 'You can now log in to your account.' }}</p>
+                <p class="text-gray-600">You can now log in to your account.</p>
             </div>
 
             <!-- Illustration Placeholder (optional, below animation) -->
