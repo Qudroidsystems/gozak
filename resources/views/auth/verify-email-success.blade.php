@@ -40,7 +40,7 @@
             <div class="lottie-container">
                 <lottie-player
                     id="success-animation"
-                    src="{{ asset('animations/success-verified.json') }}"
+                    src="{{ asset('theme/assets/animations/success-verified.json') }}"
                     background="transparent"
                     speed="1"
                     style="width: 300px; height: 300px;"
