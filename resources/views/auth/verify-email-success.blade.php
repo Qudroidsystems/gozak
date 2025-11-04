@@ -16,34 +16,58 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .lottie-container {
-            height: 200px; /* Adjust based on your JSON animation size */
-            width: 200px;
+            height: 300px;
+            width: 300px;
             margin: 0 auto;
+            position: relative;
+        }
+        .lottie-fallback {
+            display: none; /* Hidden unless animation fails */
+            width: 100%;
+            height: 100%;
+            background-color: #f3f4f6;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            font-size: 14px;
         }
     </style>
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8 fade-in">
-        <!-- Lottie Animation -->
+        <!-- Lottie Animation with Fallback -->
         <div class="text-center">
-            <lottie-player
-                src="{{ asset('animations/success-verified.json') }}"
-                background="transparent"
-                speed="1"
-                style="width: 200px; height: 200px;"
-                loop="false"  <!-- Loop once for emphasis, or true for repeat -->
-                autoplay
-                @complete="this.style.opacity = 0; this.style.transition = 'opacity 0.5s'; document.querySelector('.content').style.opacity = 1;">
-            </lottie-player>
+            <div class="lottie-container">
+                <lottie-player
+                    id="success-animation"
+                    src="{{ asset('animations/success-verified.json') }}"
+                    background="transparent"
+                    speed="1"
+                    style="width: 300px; height: 300px;"
+                    loop="false"
+                    autoplay
+                    @complete="handleAnimationComplete(event)"
+                    @load="console.log('Lottie loaded successfully')"
+                    @error="handleLottieError(event)">
+                </lottie-player>
+                <div class="lottie-fallback">
+                    <svg class="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <p class="mt-2">Animation loading... (Check console for errors)</p>
+                </div>
+            </div>
         </div>
 
         <!-- Content (fades in after animation) -->
         <div class="content opacity-0 transition-opacity duration-500">
             <!-- Title and Email -->
             <div class="text-center space-y-4">
-                <h1 class="text-3xl font-bold text-gray-900">Email Verified!</h1>
+                <h1 class="text-3xl font-bold text-gray-900">{{ TTexts.yourAccountCreatedTitle ?? 'Email Verified!' }}</h1>
                 <p class="text-lg text-green-600 font-medium">{{ $email ?? 'Your email' }} is now confirmed.</p>
-                <p class="text-gray-600">You can now log in to your account.</p>
+                <p class="text-gray-600">{{ TTexts.yourAccountCreatedSubTitle ?? 'You can now log in to your account.' }}</p>
             </div>
 
             <!-- Illustration Placeholder (optional, below animation) -->
@@ -63,5 +87,30 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function handleAnimationComplete(event) {
+            console.log('Animation completed successfully');
+            event.target.style.opacity = 0;
+            event.target.style.transition = 'opacity 0.5s';
+            document.querySelector('.content').style.opacity = 1;
+        }
+
+        function handleLottieError(event) {
+            console.error('Lottie Error:', event.detail); // Logs full error (e.g., 404, parse error)
+            const player = document.getElementById('success-animation');
+            const fallback = player.parentElement.querySelector('.lottie-fallback');
+            fallback.style.display = 'flex';
+            player.style.display = 'none';
+        }
+
+        // Additional load check
+        window.addEventListener('load', () => {
+            const player = document.getElementById('success-animation');
+            if (!player) {
+                console.error('Lottie player not found - script failed to load');
+            }
+        });
+    </script>
 </body>
 </html>
