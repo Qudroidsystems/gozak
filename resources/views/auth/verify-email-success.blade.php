@@ -56,7 +56,7 @@
             </div>
         </div>
 
-        <div class="content opacity-0 transition-opacity duration-500" id="content">
+        <div class="content transition-opacity duration-500" id="content">
             <div class="text-center space-y-4 mb-6">
                 <h1 class="text-3xl font-bold text-gray-900">Your Account Has Been Created</h1>
                 <p class="text-lg text-green-600 font-medium">{{ $email ?? 'Your email' }} is now confirmed.</p>
