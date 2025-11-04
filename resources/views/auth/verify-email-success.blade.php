@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email Verified Successfully</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <!-- Lottie Player CDN -->
     <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
     <style>
         .fade-in {
@@ -37,7 +36,6 @@
 </head>
 <body class="bg-gray-50 flex items-center justify-center min-h-screen py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8 fade-in">
-        <!-- Lottie Animation with Fallback -->
         <div class="text-center">
             <div class="lottie-container">
                 <lottie-player
@@ -61,21 +59,17 @@
             </div>
         </div>
 
-        <!-- Content (fades in after animation) -->
         <div class="content opacity-0 transition-opacity duration-500">
-            <!-- Title and Email -->
             <div class="text-center space-y-4">
                 <h1 class="text-3xl font-bold text-gray-900">Your Account Has Been Created</h1>
                 <p class="text-lg text-green-600 font-medium">{{ $email ?? 'Your email' }} is now confirmed.</p>
                 <p class="text-gray-600">You can now return to the mobile app to continue.</p>
             </div>
 
-            <!-- Illustration Placeholder (optional, below animation) -->
             <div class="text-center">
                 <img src="{{ asset('images/delivered-email-illustration.png') }}" alt="Email Verified" class="mx-auto w-48 h-48 object-cover rounded-lg">
             </div>
 
-            <!-- Close Tab Button -->
             <div>
                 <button onclick="closeTab()" 
                         class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200 ease-in-out transform hover:scale-105">
