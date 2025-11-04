@@ -32,9 +32,15 @@
                 <p class="text-gray-600">You can now return to the mobile app to continue.</p>
             </div>
 
-            <div class="text-center mb-6">
-                <img src="{{ asset('images/delivered-email-illustration.png') }}" alt="Email Verified" class="mx-auto w-48 h-48 object-cover rounded-lg">
-            </div>
+           <lottie-player
+                    id="success-animation"
+                    src="{{ asset('animations/success-verified.json') }}"
+                    background="transparent"
+                    speed="1"
+                    style="width: 300px; height: 300px;"
+                    loop="false"
+                    autoplay>
+                </lottie-player>
 
             <div>
                 <button onclick="closeTab()" 
