@@ -45,10 +45,7 @@
                     speed="1"
                     style="width: 300px; height: 300px;"
                     loop="false"
-                    autoplay
-                    @complete="handleAnimationComplete(event)"
-                    @load="console.log('Lottie loaded successfully')"
-                    @error="handleLottieError(event)">
+                    autoplay>
                 </lottie-player>
                 <div class="lottie-fallback">
                     <svg class="w-16 h-16 text-green-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
