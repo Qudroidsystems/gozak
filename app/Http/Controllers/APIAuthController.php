@@ -254,13 +254,13 @@ class APIAuthController extends Controller
     }
 
     
-     /**
+    /**
      * Verify the user's email address.
      *
      * @param Request $request
      * @param int $id
      * @param string $hash
-     * @return \Illuminate\Http\JsonResponse
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function verifyEmail(Request $request, $id, $hash)
     {
@@ -270,35 +270,32 @@ class APIAuthController extends Controller
             // Verify the hash
             if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
                 Log::error('Email verification failed: Invalid hash for user ID ' . $id);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Email verification failed',
-                    'error' => 'Invalid verification link',
-                ], 403);
+                return view('auth.verify-email-failed', ['message' => 'Invalid verification link']);
             }
 
             if ($user->hasVerifiedEmail()) {
                 Log::info('Email already verified for user ID: ' . $id);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Email already verified',
-                ], 400);
+                $request->session()->flash('status', 'Email already verified.');
+                return redirect('/login'); // Or wherever you want to redirect after verification
             }
 
             $user->markEmailAsVerified();
+            event(new Verified($user)); // Fire the Verified event if needed for additional logic
             Log::info('Email verified for user ID: ' . $id);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Email verified successfully',
+            $request->session()->flash('verified', true);
+            $request->session()->flash('email', $user->email);
+
+            return view('auth.verify-email-success', [
+                'email' => $user->email,
+                'user' => $user
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             Log::error('Email verification failed: No user found with ID ' . $id);
-            return response()->json([
-                'success' => false,
-                'message' => 'Email verification failed',
-                'error' => 'No query results for model [App\\Models\\User] ' . $id,
-            ], 404);
+            return view('auth.verify-email-failed', ['message' => 'User not found']);
+        } catch (\Exception $e) {
+            Log::error('Email verification error: ' . $e->getMessage());
+            return view('auth.verify-email-failed', ['message' => 'Verification failed. Please try again.']);
         }
     }
     

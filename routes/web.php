@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\APIAuthController;
 use App\Http\Controllers\BiodataController;
 use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\DashboardController;
@@ -15,6 +16,10 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'])
+    ->middleware('signed')
+    ->name('verification.verify');
+    
 Auth::routes();
 
 Route::get('/home', [HomeController::class, 'index'])->name('home');
