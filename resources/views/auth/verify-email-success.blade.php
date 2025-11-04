@@ -22,12 +22,12 @@
             position: relative;
         }
         .lottie-fallback {
-            display: none; /* Hidden unless animation fails */
+            display: none;
             width: 100%;
             height: 100%;
             background-color: #f3f4f6;
             border-radius: 8px;
-            display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             color: #6b7280;
@@ -53,10 +53,10 @@
                     @error="handleLottieError(event)">
                 </lottie-player>
                 <div class="lottie-fallback">
-                    <svg class="w-16 h-16 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-16 h-16 text-green-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    <p class="mt-2">Animation loading... (Check console for errors)</p>
+                    <p>Animation loading... (Check console for errors)</p>
                 </div>
             </div>
         </div>
@@ -95,30 +95,27 @@
         }
 
         function handleLottieError(event) {
-            console.error('Lottie Error:', event.detail); // Logs full error (e.g., 404, parse error)
+            console.error('Lottie Error:', event.detail);
             const player = document.getElementById('success-animation');
             const fallback = player.parentElement.querySelector('.lottie-fallback');
             fallback.style.display = 'flex';
             player.style.display = 'none';
-            // Show content immediately on error
             document.querySelector('.content').style.opacity = 1;
         }
 
         function closeTab() {
             if (window.close()) {
-                window.close(); // Attempts to close the window/tab
+                window.close();
             } else {
-                // Fallback: Alert or just message (some browsers block close() if not opened by JS)
                 alert('Close this tab manually and return to the app.');
             }
         }
 
-        // Additional load check
         window.addEventListener('load', () => {
             const player = document.getElementById('success-animation');
             if (!player) {
                 console.error('Lottie player not found - script failed to load');
-                document.querySelector('.content').style.opacity = 1; // Show content on load fail
+                document.querySelector('.content').style.opacity = 1;
             }
         });
     </script>
