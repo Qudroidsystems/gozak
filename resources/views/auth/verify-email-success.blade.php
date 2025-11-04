@@ -43,7 +43,7 @@
             <div class="text-center space-y-4">
                 <h1 class="text-3xl font-bold text-gray-900">Email Verified!</h1>
                 <p class="text-lg text-green-600 font-medium">{{ $email ?? 'Your email' }} is now confirmed.</p>
-                <p class="text-gray-600">You can now log in to your account. Redirecting shortly...</p>
+                <p class="text-gray-600">You can now log in to your account.</p>
             </div>
 
             <!-- Illustration Placeholder (optional, below animation) -->
@@ -51,7 +51,7 @@
                 <img src="{{ asset('images/delivered-email-illustration.png') }}" alt="Email Verified" class="mx-auto w-48 h-48 object-cover rounded-lg">
             </div>
 
-            <!-- Continue Button -->
+            <!-- Continue Button (manual click required) -->
             <div>
                 <form id="redirectForm" action="{{ route('login') }}" method="GET" style="display: none;">
                     <input type="hidden" name="email" value="{{ $email ?? '' }}">
@@ -62,13 +62,6 @@
                 </button>
             </div>
         </div>
-
-        <script>
-            // Auto-redirect after 4 seconds (animation ~2s + buffer)
-            setTimeout(function() {
-                document.getElementById('redirectForm').submit();
-            }, 4000);
-        </script>
     </div>
 </body>
 </html>
