@@ -67,7 +67,7 @@
             <div class="text-center space-y-4">
                 <h1 class="text-3xl font-bold text-gray-900">Your Account Has Been Created</h1>
                 <p class="text-lg text-green-600 font-medium">{{ $email ?? 'Your email' }} is now confirmed.</p>
-                <p class="text-gray-600">You can now log in to your account.</p>
+                <p class="text-gray-600">You can now return to the mobile app to continue.</p>
             </div>
 
             <!-- Illustration Placeholder (optional, below animation) -->
@@ -75,15 +75,13 @@
                 <img src="{{ asset('images/delivered-email-illustration.png') }}" alt="Email Verified" class="mx-auto w-48 h-48 object-cover rounded-lg">
             </div>
 
-            <!-- Continue Button (manual click required) -->
+            <!-- Close Tab Button -->
             <div>
-                <form id="redirectForm" action="{{ route('login') }}" method="GET" style="display: none;">
-                    <input type="hidden" name="email" value="{{ $email ?? '' }}">
-                </form>
-                <button onclick="document.getElementById('redirectForm').submit();" 
+                <button onclick="closeTab()" 
                         class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200 ease-in-out transform hover:scale-105">
-                    Continue to Login
+                    Close This Tab
                 </button>
+                <p class="text-center text-sm text-gray-500 mt-2">Or simply close this window and switch back to the app.</p>
             </div>
         </div>
     </div>
@@ -102,6 +100,17 @@
             const fallback = player.parentElement.querySelector('.lottie-fallback');
             fallback.style.display = 'flex';
             player.style.display = 'none';
+            // Show content immediately on error
+            document.querySelector('.content').style.opacity = 1;
+        }
+
+        function closeTab() {
+            if (window.close()) {
+                window.close(); // Attempts to close the window/tab
+            } else {
+                // Fallback: Alert or just message (some browsers block close() if not opened by JS)
+                alert('Close this tab manually and return to the app.');
+            }
         }
 
         // Additional load check
@@ -109,6 +118,7 @@
             const player = document.getElementById('success-animation');
             if (!player) {
                 console.error('Lottie player not found - script failed to load');
+                document.querySelector('.content').style.opacity = 1; // Show content on load fail
             }
         });
     </script>
