@@ -273,11 +273,11 @@ class APIAuthController extends Controller
                 return view('auth.verify-email-failed', ['message' => 'Invalid verification link']);
             }
 
-            if ($user->hasVerifiedEmail()) {
-                Log::info('Email already verified for user ID: ' . $id);
-                $request->session()->flash('status', 'Email already verified.');
-                return redirect('/login'); // Or wherever you want to redirect after verification
-            }
+            // if ($user->hasVerifiedEmail()) {
+            //     Log::info('Email already verified for user ID: ' . $id);
+            //     $request->session()->flash('status', 'Email already verified.');
+            //     return redirect('/login'); // Or wherever you want to redirect after verification
+            // }
 
             $user->markEmailAsVerified();
             event(new Verified($user)); // Fire the Verified event if needed for additional logic
