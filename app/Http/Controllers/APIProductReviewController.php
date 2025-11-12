@@ -1,11 +1,12 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Models\ProductReview;
-use App\Models\Product;
 use App\Models\User;
+use App\Models\Product;
 use Illuminate\Http\Request;
+use App\Models\ProductReview;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 
 class APIProductReviewController extends Controller
@@ -24,7 +25,7 @@ class APIProductReviewController extends Controller
                     $q->select('id', 'title', 'thumbnail');
                 },
                 'user' => function ($q) {
-                    $q->select('id', 'name', 'image_url');
+                    $q->select('id', 'first_name', 'last_name', 'profile_image');
                 }
             ])
             ->select('id', 'product_id', 'user_id', 'rating', 'comment', 'user_name', 'user_image_url', 'company_comment', 'company_timestamp', 'created_at');
@@ -39,14 +40,24 @@ class APIProductReviewController extends Controller
             $reviews = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
             $formattedReviews = $reviews->map(function ($review) {
+                // Compute user_name from existing fields (fallback to stored or username if needed)
+                $userName = $review->user_name ?? 
+                    ($review->user && $review->user->first_name && $review->user->last_name 
+                        ? $review->user->first_name . ' ' . $review->user->last_name 
+                        : ($review->user->username ?? 'Anonymous')) 
+                    ?? null;
+
+                // Map profile_image to user_image_url
+                $userImageUrl = $review->user_image_url ?? ($review->user->profile_image ?? null);
+
                 return [
                     'id' => $review->id,
                     'user_id' => $review->user_id,
                     'rating' => $review->rating,
                     'comment' => $review->comment,
-                    'user_name' => $review->user_name ?? $review->user->name ?? null,
+                    'user_name' => $userName,
                     'timestamp' => $review->created_at->toIso8601String(),
-                    'user_image_url' => $review->user_image_url ?? $review->user->image_url ?? null,
+                    'user_image_url' => $userImageUrl,
                     'company_comment' => $review->company_comment,
                     'company_timestamp' => $review->company_timestamp?->toIso8601String(),
                 ];
@@ -119,18 +130,28 @@ class APIProductReviewController extends Controller
                     $q->select('id', 'title', 'thumbnail');
                 },
                 'user' => function ($q) {
-                    $q->select('id', 'name', 'image_url');
+                    $q->select('id', 'first_name', 'last_name', 'profile_image');
                 }
             ]);
+
+            // Compute user_name from existing fields (fallback to stored or username if needed)
+            $userName = $review->user_name ?? 
+                ($review->user && $review->user->first_name && $review->user->last_name 
+                    ? $review->user->first_name . ' ' . $review->user->last_name 
+                    : ($review->user->username ?? 'Anonymous')) 
+                ?? null;
+
+            // Map profile_image to user_image_url
+            $userImageUrl = $review->user_image_url ?? ($review->user->profile_image ?? null);
 
             $reviewData = [
                 'id' => $review->id,
                 'user_id' => $review->user_id,
                 'rating' => $review->rating,
                 'comment' => $review->comment,
-                'user_name' => $review->user_name ?? $review->user->name ?? null,
+                'user_name' => $userName,
                 'timestamp' => $review->created_at->toIso8601String(),
-                'user_image_url' => $review->user_image_url ?? $review->user->image_url ?? null,
+                'user_image_url' => $userImageUrl,
                 'company_comment' => $review->company_comment,
                 'company_timestamp' => $review->company_timestamp?->toIso8601String(),
             ];
@@ -195,18 +216,28 @@ class APIProductReviewController extends Controller
                     $q->select('id', 'title', 'thumbnail');
                 },
                 'user' => function ($q) {
-                    $q->select('id', 'name', 'image_url');
+                    $q->select('id', 'first_name', 'last_name', 'profile_image');
                 }
             ]);
+
+            // Compute user_name from existing fields (fallback to stored or username if needed)
+            $userName = $review->user_name ?? 
+                ($review->user && $review->user->first_name && $review->user->last_name 
+                    ? $review->user->first_name . ' ' . $review->user->last_name 
+                    : ($review->user->username ?? 'Anonymous')) 
+                ?? null;
+
+            // Map profile_image to user_image_url
+            $userImageUrl = $review->user_image_url ?? ($review->user->profile_image ?? null);
 
             $reviewData = [
                 'id' => $review->id,
                 'user_id' => $review->user_id,
                 'rating' => $review->rating,
                 'comment' => $review->comment,
-                'user_name' => $review->user_name ?? $review->user->name ?? null,
+                'user_name' => $userName,
                 'timestamp' => $review->created_at->toIso8601String(),
-                'user_image_url' => $review->user_image_url ?? $review->user->image_url ?? null,
+                'user_image_url' => $userImageUrl,
                 'company_comment' => $review->company_comment,
                 'company_timestamp' => $review->company_timestamp?->toIso8601String(),
             ];
@@ -278,18 +309,28 @@ class APIProductReviewController extends Controller
                     $q->select('id', 'title', 'thumbnail');
                 },
                 'user' => function ($q) {
-                    $q->select('id', 'name', 'image_url');
+                    $q->select('id', 'first_name', 'last_name', 'profile_image');
                 }
             ]);
+
+            // Compute user_name from existing fields (fallback to stored or username if needed)
+            $userName = $review->user_name ?? 
+                ($review->user && $review->user->first_name && $review->user->last_name 
+                    ? $review->user->first_name . ' ' . $review->user->last_name 
+                    : ($review->user->username ?? 'Anonymous')) 
+                ?? null;
+
+            // Map profile_image to user_image_url
+            $userImageUrl = $review->user_image_url ?? ($review->user->profile_image ?? null);
 
             $reviewData = [
                 'id' => $review->id,
                 'user_id' => $review->user_id,
                 'rating' => $review->rating,
                 'comment' => $review->comment,
-                'user_name' => $review->user_name ?? $review->user->name ?? null,
+                'user_name' => $userName,
                 'timestamp' => $review->created_at->toIso8601String(),
-                'user_image_url' => $review->user_image_url ?? $review->user->image_url ?? null,
+                'user_image_url' => $userImageUrl,
                 'company_comment' => $review->company_comment,
                 'company_timestamp' => $review->company_timestamp?->toIso8601String(),
             ];

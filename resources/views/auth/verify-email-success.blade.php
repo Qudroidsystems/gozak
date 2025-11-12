@@ -63,10 +63,6 @@
                 <p class="text-gray-600">You can now return to the mobile app to continue.</p>
             </div>
 
-            <div class="text-center mb-6">
-                <img src="{{ asset('images/delivered-email-illustration.png') }}" alt="Email Verified" class="mx-auto w-48 h-48 object-cover rounded-lg">
-            </div>
-
             <div>
                 <button onclick="closeTab()" 
                         class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-200 ease-in-out transform hover:scale-105">
