@@ -4,24 +4,18 @@ namespace App\Models;
 
 use Laravel\Sanctum\HasApiTokens;
 use App\Notifications\VerifyEmail;
-use App\Models\Pictures\ImageModel;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Notifications\Notifiable;
-use Spatie\Permission\PermissionRegistrar;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     protected $fillable = [
-        'name',  // Added: For full name, as used in forms/view
-        'role',  // Added: For staff/customer differentiation
+        'role',
         'first_name',
         'last_name',
         'username',
@@ -35,14 +29,19 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_verified_at',
     ];
 
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'date_of_birth' => 'date',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
-        'role' => 'string',  // Added: Ensure role is treated as string
+    protected $hidden = [
+        'password',
+        'remember_token',
     ];
 
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'date_of_birth'    => 'date',
+        'created_at'       => 'datetime',
+        'updated_at'       => 'datetime',
+    ];
+
+    // Relationships
     public function addresses()
     {
         return $this->hasMany(Address::class);
@@ -58,37 +57,42 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(Setting::class);
     }
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
-
-    public function roles_all(): BelongsToMany
-    {
-        return $this->morphToMany(
-            config('permission.models.role'),
-            'model',
-            config('permission.table_names.model_has_roles'),
-            config('permission.column_names.model_morph_key'),
-            PermissionRegistrar::$pivotRole
-        );
-    }
-
-    // public function cartItems()
-    // {
-    //     return $this->hasMany(CartItem::class);
-    // }
-
     public function wishlistItems()
     {
         return $this->hasMany(WishlistItem::class);
     }
 
+    // === ACCESSORS ===
+
+    /**
+     * Get the user's full name: "John Doe"
+     */
+    public function getFullNameAttribute(): string
+    {
+        return trim("{$this->first_name} {$this->last_name}");
+    }
+
+    /**
+     * Override the legacy "name" attribute
+     * This makes all old code using $user->name still work perfectly
+     * SAFE: No recursion!
+     */
+    public function getNameAttribute(): string
+    {
+        return $this->getFullNameAttribute(); // or just repeat the trim() logic
+    }
+
+    /**
+     * Optional: Allow setting full name via $user->name = "John Doe";
+     */
+    public function setNameAttribute($value): void
+    {
+        $parts = explode(' ', trim($value), 2);
+        $this->attributes['first_name'] = $parts[0] ?? '';
+        $this->attributes['last_name']  = $parts[1] ?? '';
+    }
+
+    // Custom email verification notification
     public function sendEmailVerificationNotification()
     {
         $this->notify(new VerifyEmail);
