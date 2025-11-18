@@ -38,9 +38,9 @@ Route::group(['middleware' => ['auth']], function () {
 
     // Roles Resource & Actions
     Route::resource('roles', RoleController::class);
-    Route::get('/roles/{role}/add-user', [RoleController::class, 'adduser'])->name('roles.add-user'); // Renamed for clarity
-    Route::post('/roles/update-user-role', [RoleController::class, 'updateuserrole'])->name('roles.update-user-role');
-    Route::delete('/roles/{role}/remove-user/{user}', [RoleController::class, 'removeuserrole'])->name('roles.remove-user'); // Better param binding
+    Route::get('/roles/{role}/add-user', [RoleController::class, 'adduser'])->name('roles.adduser'); // Renamed for clarity
+    Route::post('/roles/update-user-role', [RoleController::class, 'updateuserrole'])->name('roles.updateuserrole');
+    Route::delete('/roles/{role}/remove-user/{user}', [RoleController::class, 'removeuserrole'])->name('roles.removeuser'); // Better param binding
 
     // Users Resource & Custom Actions
     Route::resource('users', UserController::class);

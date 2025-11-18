@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ilemobayo Eliab Siji - CV</title>
+    <style>
+        @page {
+            margin: 2cm;
+        }
+        
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 21cm;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #2c3e50;
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 32px;
+            color: #2c3e50;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        .header .title {
+            font-size: 16px;
+            color: #555;
+            margin: 8px 0;
+            font-weight: 600;
+        }
+        
+        .contact-info {
+            font-size: 11px;
+            color: #666;
+            margin-top: 10px;
+            line-height: 1.8;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2c3e50;
+            text-transform: uppercase;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+            letter-spacing: 0.5px;
+        }
+        
+        .summary {
+            font-size: 11.5px;
+            text-align: justify;
+            line-height: 1.7;
+            color: #444;
+        }
+        
+        .skills-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 11px;
+        }
+        
+        .skill-item {
+            margin-bottom: 8px;
+        }
+        
+        .skill-label {
+            font-weight: 700;
+            color: #2c3e50;
+            display: inline-block;
+            min-width: 180px;
+        }
+        
+        .job {
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+        
+        .job-header {
+            margin-bottom: 8px;
+        }
+        
+        .job-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .company {
+            font-size: 12px;
+            color: #3498db;
+            font-weight: 600;
+            margin: 3px 0;
+        }
+        
+        .date {
+            font-size: 11px;
+            color: #777;
+            font-style: italic;
+        }
+        
+        .job ul {
+            margin: 8px 0 0 20px;
+            padding: 0;
+        }
+        
+        .job li {
+            font-size: 11px;
+            margin-bottom: 6px;
+            line-height: 1.6;
+            text-align: justify;
+        }
+        
+        .education-item {
+            margin-bottom: 15px;
+        }
+        
+        .degree {
+            font-size: 12px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .institution {
+            font-size: 11px;
+            color: #555;
+            font-style: italic;
+            margin: 3px 0;
+        }
+        
+        .project {
+            margin-bottom: 15px;
+            page-break-inside: avoid;
+        }
+        
+        .project-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin: 0 0 5px 0;
+        }
+        
+        .project-desc {
+            font-size: 11px;
+            margin: 0 0 5px 0;
+            line-height: 1.6;
+            text-align: justify;
+        }
+        
+        .tech-stack {
+            font-size: 10px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .references {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            font-size: 10px;
+        }
+        
+        .reference {
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 3px solid #3498db;
+        }
+        
+        .ref-name {
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 3px;
+        }
+        
+        .personal-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 11px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        
+        .detail-item {
+            display: flex;
+        }
+        
+        .detail-label {
+            font-weight: 700;
+            color: #2c3e50;
+            min-width: 120px;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ILEMOBAYO ELIAB SIJI</h1>
+        <div class="title">Software Developer | Python/Django & Node.js/NestJS Specialist</div>
+        <div class="contact-info">
+            Ilemobayo Close, Sabo, Ondo, Ondo State, Nigeria<br>
+            📞 +234 813 961 9559 | ✉️ eliabsiji@gmail.com | 💼 LinkedIn: [Your Profile] | 💻 GitHub: [Your Profile]
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Professional Summary</div>
+        <div class="summary">
+            Results-driven Software Developer with over 9 years of experience in full-stack web development, specializing in Python/Django and Node.js/NestJS frameworks for scalable backend solutions. Proven track record in leading development teams, architecting complex systems including cryptocurrency exchanges, logistics platforms, and enterprise management solutions. Expert in building RESTful APIs, implementing secure payment systems, and optimizing database performance with MySQL and PostgreSQL. Strong technical leader with experience mentoring development teams and delivering high-impact projects across fintech, education, and logistics sectors. Passionate about leveraging cutting-edge technologies to solve real-world problems and drive organizational growth.
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Professional Skills</div>
+        <div class="skills-grid">
+            <div class="skill-item">
+                <span class="skill-label">Backend Development:</span> Python (Django, Flask), Node.js (NestJS), PHP (Laravel)
+            </div>
+            <div class="skill-item">
+                <span class="skill-label">Database Management:</span> MySQL, PostgreSQL, Database Design & Optimization
+            </div>
+            <div class="skill-item">
+                <span class="skill-label">API Development:</span> RESTful APIs, GraphQL, JWT, OAuth Authentication
+            </div>
+            <div class="skill-item">
+                <span class="skill-label">Frontend Technologies:</span> HTML5, CSS3, JavaScript, Responsive Design
+            </div>
+            <div class="skill-item">
+                <span class="skill-label">Development Tools:</span> VS Code, Git/GitHub, Docker, Jupyter Notebook
+            </div>
+            <div class="skill-item">
+                <span class="skill-label">Cloud & DevOps:</span> CI/CD Pipelines, Server Management, Web Deployment
+            </div>
+            <div class="skill-item">
+                <span class="skill-label">Mobile Development:</span> .NET MAUI Framework
+            </div>
+            <div class="skill-item">
+                <span class="skill-label">Data Science:</span> Pandas, NumPy, Matplotlib, Data Analysis
+            </div>
+            <div class="skill-item">
+                <span class="skill-label">Specialized:</span> Blockchain/Crypto, Payment Systems, Fintech Solutions
+            </div>
+            <div class="skill-item">
+                <span class="skill-label">Methodologies:</span> Agile/Scrum, Team Leadership, Code Review
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Professional Experience</div>
+        
+        <div class="job">
+            <div class="job-header">
+                <div class="job-title">Tech Lead</div>
+                <div class="company">AlgoLog, Abuja, Nigeria</div>
+                <div class="date">2022 – Present</div>
+            </div>
+            <ul>
+                <li>Lead a team of software developers in designing and implementing enterprise-grade logistics and supply chain management solutions, improving operational efficiency by 35%.</li>
+                <li>Spearheaded the development of <strong>Spacer</strong>, a comprehensive logistics platform built with Python/Django and NestJS, handling real-time tracking, inventory management, and automated routing for 10,000+ daily transactions.</li>
+                <li>Architected scalable backend infrastructure using NestJS and PostgreSQL, reducing API response times by 40% through optimized query structures and caching strategies.</li>
+                <li>Implemented secure authentication systems and role-based access control (RBAC) for multi-tenant applications, ensuring data security compliance with industry standards.</li>
+                <li>Mentored junior and mid-level developers on best practices in Python/Django and NestJS, conducting code reviews and technical workshops that improved team productivity by 25%.</li>
+                <li>Established CI/CD pipelines using Git and automated testing frameworks, reducing deployment errors by 60% and accelerating release cycles.</li>
+            </ul>
+        </div>
+
+        <div class="job">
+            <div class="job-header">
+                <div class="job-title">Lead Software Developer (Laravel & Django)</div>
+                <div class="company">Qudroid Systems, Nigeria</div>
+                <div class="date">2021 – 2022</div>
+            </div>
+            <ul>
+                <li>Led the development of 8+ client-facing web applications using Django and Laravel frameworks, delivering scalable solutions for fintech, healthcare, and e-commerce sectors.</li>
+                <li>Developed a <strong>Cryptocurrency Exchange Platform</strong> with advanced trading features including real-time price updates, order matching engine, wallet management, and secure transaction processing using Django and WebSocket technology.</li>
+                <li>Built a <strong>Payment Audit Software</strong> for financial reconciliation, automating transaction verification processes and reducing manual audit time by 70% through intelligent data matching algorithms.</li>
+                <li>Created a <strong>School Result Management System</strong> for educational institutions, enabling automated grade calculation, report card generation, and parent portal access for 5,000+ students.</li>
+                <li>Designed and implemented RESTful APIs consumed by mobile and web applications, improving data retrieval efficiency by 30% through query optimization and database indexing.</li>
+                <li>Integrated third-party payment gateways (Paystack, Flutterwave) and cryptocurrency APIs, ensuring secure and compliant financial transactions.</li>
+            </ul>
+        </div>
+
+        <div class="job">
+            <div class="job-header">
+                <div class="job-title">Lead Web Developer (Backend)</div>
+                <div class="company">Help3 Organization, Nigeria</div>
+                <div class="date">2019 – 2021</div>
+            </div>
+            <ul>
+                <li>Spearheaded backend development for humanitarian aid platforms using PHP and Python, handling complex business logic for applications serving 50,000+ users.</li>
+                <li>Developed custom Django modules for donation management, volunteer coordination, and impact reporting, enhancing platform engagement by 45%.</li>
+                <li>Implemented secure payment processing systems integrating multiple payment providers, processing over ₦10M in monthly transactions.</li>
+                <li>Optimized database schemas and queries in MySQL, reducing page load times by 25% and improving overall system performance.</li>
+                <li>Conducted comprehensive code reviews and implemented automated testing protocols, reducing production bugs by 40%.</li>
+            </ul>
+        </div>
+
+        <div class="job">
+            <div class="job-header">
+                <div class="job-title">System Analyst</div>
+                <div class="company">Centre for Open Distance Learning (CoDEL), Federal University of Technology, Minna</div>
+                <div class="date">2015 – 2016</div>
+            </div>
+            <ul>
+                <li>Analyzed, designed, and implemented a <strong>Journal Management System for Adeyemi College of Education</strong>, streamlining academic publication workflows for 200+ researchers.</li>
+                <li>Built database-driven systems using PHP and MySQL for academic staff management, supporting 500+ users with features including profile management and performance analytics.</li>
+                <li>Performed comprehensive requirement analysis and system design, creating detailed technical documentation and UML diagrams.</li>
+                <li>Provided technical support and end-user training, ensuring smooth system adoption and maintaining 99% uptime during peak academic periods.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Key Projects & Technical Achievements</div>
+        
+        <div class="project">
+            <div class="project-title">Spacer - Logistics Management Platform</div>
+            <div class="project-desc">Comprehensive logistics solution handling real-time tracking, inventory management, and automated route optimization. Integrated GPS tracking, notification systems, and analytics dashboards serving multiple logistics partners across Nigeria.</div>
+            <div class="tech-stack"><strong>Technologies:</strong> Python, Django, NestJS, PostgreSQL, Redis, WebSocket, Docker</div>
+        </div>
+
+        <div class="project">
+            <div class="project-title">Cryptocurrency Exchange Platform</div>
+            <div class="project-desc">Full-featured crypto trading platform with real-time order matching, multi-currency wallet support, KYC integration, and advanced security features. Implemented trading pairs for BTC, ETH, and major altcoins with liquidity management capabilities.</div>
+            <div class="tech-stack"><strong>Technologies:</strong> Django, Django REST Framework, PostgreSQL, Redis, WebSocket, Celery</div>
+        </div>
+
+        <div class="project">
+            <div class="project-title">Journal Management System (Adeyemi College of Education)</div>
+            <div class="project-desc">Academic publication management system facilitating manuscript submission, peer review workflow, and editorial decision tracking. Reduced publication processing time by 50% through streamlined digital workflows.</div>
+            <div class="tech-stack"><strong>Technologies:</strong> Django, MySQL, HTML5, CSS3, JavaScript</div>
+        </div>
+
+        <div class="project">
+            <div class="project-title">School Result Management System</div>
+            <div class="project-desc">Automated grade processing and report generation system supporting continuous assessment, exam scoring, and transcript generation. Enabled parent/student portal access for real-time grade viewing.</div>
+            <div class="tech-stack"><strong>Technologies:</strong> Django, MySQL, Bootstrap, PDF Generation Libraries</div>
+        </div>
+
+        <div class="project">
+            <div class="project-title">Payment Audit Software</div>
+            <div class="project-desc">Financial reconciliation platform automating transaction verification across multiple payment channels. Machine learning-powered anomaly detection reducing audit completion time by 70%.</div>
+            <div class="tech-stack"><strong>Technologies:</strong> Django, Pandas, PostgreSQL, Data Analysis Libraries</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Education</div>
+        
+        <div class="education-item">
+            <div class="degree">Bachelor of Technology (B.Tech) in Computer Science</div>
+            <div class="institution">Federal University of Technology, Minna, Niger State, Nigeria</div>
+            <div class="date">Graduated: 2014</div>
+        </div>
+
+        <div class="education-item">
+            <div class="degree">West African Senior School Certificate Examination (WASSCE)</div>
+            <div class="institution">Blessing Comprehensive College, Ore, Odigbo L.G.A., Ondo State, Nigeria</div>
+            <div class="date">Completed: 2006</div>
+        </div>
+
+        <div class="education-item">
+            <div class="degree">National Youth Service Corps (NYSC) - Certificate of National Service</div>
+            <div class="institution">Federal Republic of Nigeria</div>
+            <div class="date">Completed: 2015</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Certifications</div>
+        
+        <div class="education-item">
+            <div class="degree">Certificate of Proficiency in Java Programming Language</div>
+            <div class="institution">Choicetech Computer Institute (in collaboration with IEEE)</div>
+            <div class="date">Issued: 2010</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">References</div>
+        <div class="references">
+            <div class="reference">
+                <div class="ref-name">Prof. (Mrs.) Esther Adesulu</div>
+                No. 1 Olufemi Adesulu Avenue,<br>
+                Off Ademulegun Rd, Ondo, Nigeria<br>
+                📞 +234 803 400 3560
+            </div>
+            <div class="reference">
+                <div class="ref-name">Mr. O.T. Kolebaje</div>
+                Department of Physics,<br>
+                Adeyemi College of Education,<br>
+                Ondo, Nigeria<br>
+                📞 +234 803 330 0818
+            </div>
+            <div class="reference">
+                <div class="ref-name">Mr. R.A. Awoyemi</div>
+                ACE Library,<br>
+                Adeyemi College of Education,<br>
+                P.M.B. 520, Ondo, Ondo State<br>
+                📞 +234 803 356 2845
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Personal Details</div>
+        <div class="personal-details">
+            <div class="detail-item">
+                <span class="detail-label">Date of Birth:</span> 4th January, 1987
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Sex:</span> Male
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Nationality:</span> Nigerian
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">State of Origin:</span> Ondo State
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Marital Status:</span> Single
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Languages:</span> English (Fluent)
+            </div>
+        </div>
+    </div>
+</body>
+</html>
