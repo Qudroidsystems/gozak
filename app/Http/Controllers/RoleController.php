@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\View\View;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Session;
@@ -55,12 +54,7 @@ class RoleController extends Controller
             'badge'      => 'nullable|string',
         ]);
 
-        $role = Role::create([
-            'name'  => $request->name,
-            'title' => $request->title,
-            'badge' => $request->badge,
-        ]);
-
+        $role = Role::create($request->only(['name', 'title', 'badge']));
         $permissions = Permission::whereIn('id', $request->permission)->pluck('name')->toArray();
         $role->syncPermissions($permissions);
 
@@ -74,14 +68,14 @@ class RoleController extends Controller
         $pagetitle = "Role Management";
         $role = Role::findOrFail($id);
 
-        // Fixed: Use proper relationship + name accessor works!
+        // CRITICAL FIX: Do NOT select 'name' → it doesn't exist in DB
+        // Just use whereHas + paginate → accessor will handle $user->name
         $usersWithRole = User::whereHas('roles', fn($q) => $q->where('id', $id))
-            ->select('id', 'name', 'email', 'created_at') // 'name' now returns full_name
             ->paginate(5);
 
         $userRoleCount = $usersWithRole->total();
 
-        $rolePermissions = $role->permissions;
+        $rolePermissions  = $role->permissions;
         $rolePermissions2 = $role->permissions->pluck('id')->toArray();
 
         $permission = Permission::get();
@@ -92,10 +86,10 @@ class RoleController extends Controller
 
         return view('roles.show', compact(
             'role',
-            'rolePermissions',
-            'rolePermissions2',
             'usersWithRole',
             'userRoleCount',
+            'rolePermissions',
+            'rolePermissions2',
             'pagetitle'
         ))->with('perm_title', $ex);
     }
@@ -127,10 +121,7 @@ class RoleController extends Controller
         ]);
 
         $role = Role::findOrFail($id);
-        $role->update([
-            'name'  => $request->name,
-            'badge' => $request->badge,
-        ]);
+        $role->update($request->only(['name', 'badge']));
 
         $permissions = Permission::whereIn('id', $request->permission)->pluck('name')->toArray();
         $role->syncPermissions($permissions);
@@ -165,8 +156,7 @@ class RoleController extends Controller
         $role = Role::findOrFail($request->roleid);
 
         foreach ($request->users as $userId) {
-            $user = User::findOrFail($userId);
-            $user->assignRole($role->name);
+            User::findOrFail($userId)->assignRole($role->name);
         }
 
         return redirect()->route('roles.show', $role->id)
@@ -174,7 +164,7 @@ class RoleController extends Controller
             ->with('pagetitle', $pagetitle);
     }
 
-    public function removeuserrole(Request $request, $userid, $roleid): JsonResponse
+    public function removeuserrole($userid, $roleid): JsonResponse
     {
         try {
             $user = User::findOrFail($userid);
