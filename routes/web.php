@@ -33,7 +33,8 @@ Route::group(['middleware' => ['auth']], function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/export', [DashboardController::class, 'export'])->name('dashboard.export');
 
-    // Permissions Resource
+  
+    Route::resource('roles', RoleController::class);
     Route::resource('permissions', PermissionController::class);
 
     // Roles Resource & Actions
