@@ -520,9 +520,6 @@
         .category-grid {
             max-width: 1400px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
         }
 
         .category-card {
@@ -534,6 +531,8 @@
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             height: 350px;
+            min-width: 280px;
+            flex-shrink: 0;
         }
 
         .category-card::before {
@@ -594,6 +593,102 @@
             background: var(--bg-secondary);
         }
 
+        .product-carousel-container {
+            position: relative;
+            max-width: 1400px;
+            margin: 0 auto;
+            overflow: hidden;
+            padding: 0 60px;
+        }
+
+        .product-carousel {
+            display: flex;
+            gap: 2rem;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 1rem 0;
+        }
+
+        .carousel-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--bg-primary);
+            border: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            z-index: 10;
+        }
+
+        .carousel-arrow:hover {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: #fff;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .carousel-arrow.left {
+            left: 0;
+        }
+
+        .carousel-arrow.right {
+            right: 0;
+        }
+
+        .carousel-arrow:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .carousel-arrow:disabled:hover {
+            background: var(--bg-primary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+            transform: translateY(-50%);
+        }
+
+        .category-section {
+            padding: 6rem 5%;
+            background: var(--bg-primary);
+        }
+
+        .category-carousel-container {
+            position: relative;
+            max-width: 1400px;
+            margin: 0 auto;
+            overflow: hidden;
+            padding: 0 60px;
+        }
+
+        .category-carousel {
+            display: flex;
+            gap: 2rem;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 1rem 0;
+        }
+
+        .testimonials-carousel-container {
+            position: relative;
+            max-width: 1400px;
+            margin: 0 auto;
+            overflow: hidden;
+            padding: 0 60px;
+        }
+
+        .testimonials-carousel {
+            display: flex;
+            gap: 2rem;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            padding: 1rem 0;
+        }
+
         .product-filters {
             max-width: 1400px;
             margin: 0 auto 3rem;
@@ -625,9 +720,6 @@
         .products-grid {
             max-width: 1400px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 2.5rem;
         }
 
         .product-card {
@@ -638,6 +730,8 @@
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             cursor: pointer;
             position: relative;
+            min-width: 300px;
+            flex-shrink: 0;
         }
 
         .product-card:hover {
@@ -1214,7 +1308,17 @@
     </nav>
 
     <section class="hero-video-section">
-        <div class="hero-video-bg"></div>
+        <div class="hero-slider">
+            <div class="hero-slide slide-1 active"></div>
+            <div class="hero-slide slide-2"></div>
+            <div class="hero-slide slide-3"></div>
+        </div>
+        
+        <div class="slider-arrows">
+            <button class="slider-arrow" onclick="previousSlide()">‹</button>
+            <button class="slider-arrow" onclick="nextSlide()">›</button>
+        </div>
+
         <div class="hero-content-overlay">
             <div class="hero-badge">
                 <span>✨</span>
@@ -1231,6 +1335,12 @@
                     <span>Explore Categories</span>
                 </a>
             </div>
+        </div>
+
+        <div class="slider-dots">
+            <div class="slider-dot active" onclick="goToSlide(0)"></div>
+            <div class="slider-dot" onclick="goToSlide(1)"></div>
+            <div class="slider-dot" onclick="goToSlide(2)"></div>
         </div>
     </section>
 
@@ -1593,6 +1703,43 @@
     </div>
 
     <script>
+        // Hero Slider
+        let currentSlide = 0;
+        const slides = document.querySelectorAll('.hero-slide');
+        const dots = document.querySelectorAll('.slider-dot');
+        const totalSlides = slides.length;
+
+        function showSlide(index) {
+            slides.forEach(slide => slide.classList.remove('active'));
+            dots.forEach(dot => dot.classList.remove('active'));
+            
+            if (index >= totalSlides) currentSlide = 0;
+            if (index < 0) currentSlide = totalSlides - 1;
+            
+            slides[currentSlide].classList.add('active');
+            dots[currentSlide].classList.add('active');
+        }
+
+        function nextSlide() {
+            currentSlide++;
+            if (currentSlide >= totalSlides) currentSlide = 0;
+            showSlide(currentSlide);
+        }
+
+        function previousSlide() {
+            currentSlide--;
+            if (currentSlide < 0) currentSlide = totalSlides - 1;
+            showSlide(currentSlide);
+        }
+
+        function goToSlide(index) {
+            currentSlide = index;
+            showSlide(currentSlide);
+        }
+
+        // Auto-advance slider every 5 seconds
+        setInterval(nextSlide, 5000);
+
         // Theme Toggle
         function toggleTheme() {
             const body = document.body;
