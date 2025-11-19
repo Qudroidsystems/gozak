@@ -26,6 +26,17 @@ Route::post('/password/reset', [APIAuthController::class, 'resetPassword'])->nam
 Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'])->middleware(['throttle:6,1'])->name('verification.verify');
 
 // Public Routes
+
+
+Route::prefix('fcm')->group(function () {
+    Route::get('/test-connection', [FcmTestController::class, 'testConnection']);
+    Route::post('/send-test', [FcmTestController::class, 'sendTestNotification']);
+    Route::post('/send-multicast', [FcmTestController::class, 'sendTestMulticast']);
+    Route::post('/send-with-options', [FcmTestController::class, 'sendTestWithOptions']);
+});
+
+
+
 Route::get('/categories', [APICategoryController::class, 'index'])->name('categories.index');
 // Route::apiResource('categories', APICategoryController::class)->only(['index']);  // Alternative: Resourceful
 
