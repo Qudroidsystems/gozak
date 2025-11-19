@@ -42,5 +42,9 @@ return [
         'merchant_email' => env('PAYSTACK_MERCHANT_EMAIL'),
         'callback_url' => env('PAYSTACK_CALLBACK_URL'),
     ],
+    'firebase' => [
+    'project_id' => env('FIREBASE_PROJECT_ID'),
+    'service_account_path' => env('FIREBASE_CREDENTIALS', storage_path('app/firebase/service-account.json')),
+],
 
 ];
