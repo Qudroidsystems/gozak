@@ -30,10 +30,10 @@ Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'
 
 
 Route::prefix('fcm')->group(function () {
-    Route::get('/test-connection', [App\Http\Controllers\FcmTestController::class, 'testConnection']);
-    Route::post('/send-test', [App\Http\Controllers\FcmTestController::class, 'sendTestNotification']);
-    Route::post('/send-multicast', [App\Http\Controllers\FcmTestController::class, 'sendTestMulticast']);
-    Route::post('/send-with-options', [App\Http\Controllers\FcmTestController::class, 'sendTestWithOptions']);
+    Route::get('/test-connection', [FcmTestController::class, 'testConnection']);
+    Route::post('/send-test', [FcmTestController::class, 'sendTestNotification']);
+    Route::post('/send-multicast', [FcmTestController::class, 'sendTestMulticast']);
+    Route::post('/send-with-options', [FcmTestController::class, 'sendTestWithOptions']);
 });
 
 
