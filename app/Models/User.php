@@ -158,40 +158,50 @@ class User extends Authenticatable implements MustVerifyEmail
         return !empty($this->getActiveFcmTokens());
     }
 
+    /**
+     * Check if user can receive push notifications
+     */
     public function canReceivePushNotifications(string $type = 'general'): bool
     {
-        if (!$this->push_notifications_enabled) {
+        // Check global notification setting
+        if (!($this->push_notifications_enabled ?? true)) {
             return false;
         }
 
+        // Check type-specific settings
         switch ($type) {
             case 'order_update':
-                if (!$this->order_updates_enabled) return false;
+                if (!($this->order_updates_enabled ?? true)) return false;
                 break;
             case 'promotional':
-                if (!$this->promotional_notifications_enabled) return false;
+                if (!($this->promotional_notifications_enabled ?? false)) return false;
                 break;
             case 'security':
-                if (!$this->security_alerts_enabled) return false;
+                if (!($this->security_alerts_enabled ?? true)) return false;
                 break;
         }
 
+        // Check quiet hours
         if ($this->isInQuietHours()) {
             return false;
         }
 
-        return true;
+        return $this->hasActiveFcmTokens();
     }
+
 
     public function canReceiveEmailNotifications(string $type = 'general'): bool
     {
-        if (!$this->email_notifications_enabled) {
+        if (!($this->email_notifications_enabled ?? true)) {
             return false;
         }
 
-        return true;
+        return !empty($this->email) && $this->hasVerifiedEmail();
     }
 
+    /**
+     * Check if current time is within user's quiet hours
+     */
     public function isInQuietHours(): bool
     {
         if (!$this->quiet_hours_start || !$this->quiet_hours_end) {
@@ -202,6 +212,7 @@ class User extends Authenticatable implements MustVerifyEmail
         $start = $this->quiet_hours_start;
         $end = $this->quiet_hours_end;
 
+        // Handle overnight quiet hours
         if ($start < $end) {
             return $now->between($start, $end);
         } else {
@@ -209,22 +220,25 @@ class User extends Authenticatable implements MustVerifyEmail
         }
     }
 
+
     public function recordNotificationSent(): void
     {
         $this->update([
             'last_notification_at' => now(),
-            'notification_count' => $this->notification_count + 1,
+            'notification_count' => ($this->notification_count ?? 0) + 1,
         ]);
     }
-
+    /**
+     * Get the user's notification preferences
+     */
     public function getNotificationPreferences(): array
     {
         return [
-            'push_notifications_enabled' => $this->push_notifications_enabled,
-            'order_updates_enabled' => $this->order_updates_enabled,
-            'promotional_notifications_enabled' => $this->promotional_notifications_enabled,
-            'security_alerts_enabled' => $this->security_alerts_enabled,
-            'email_notifications_enabled' => $this->email_notifications_enabled,
+            'push_notifications_enabled' => $this->push_notifications_enabled ?? true,
+            'order_updates_enabled' => $this->order_updates_enabled ?? true,
+            'promotional_notifications_enabled' => $this->promotional_notifications_enabled ?? false,
+            'security_alerts_enabled' => $this->security_alerts_enabled ?? true,
+            'email_notifications_enabled' => $this->email_notifications_enabled ?? true,
             'quiet_hours' => [
                 'start' => $this->quiet_hours_start?->format('H:i'),
                 'end' => $this->quiet_hours_end?->format('H:i'),
@@ -233,6 +247,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'device_count' => count($this->fcm_tokens ?? []),
         ];
     }
+
 
     public function sendEmailVerificationNotification()
     {
