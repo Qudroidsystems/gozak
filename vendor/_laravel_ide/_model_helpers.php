@@ -3488,6 +3488,8 @@ namespace App\Models {
      * @property decimal:2 $tax_cost
      * @property decimal:2 $shipping_cost
      * @property decimal:2 $total_amount
+     * @property array|null $barcode_data
+     * @property string|null $barcode_path
      * @property string $status
      * @property int $user_id
      * @property string $id
@@ -3508,6 +3510,8 @@ namespace App\Models {
      * @method static \Illuminate\Database\Eloquent\Builder<Order>|Order whereId($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Order>|Order whereUserId($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Order>|Order whereStatus($value)
+     * @method static \Illuminate\Database\Eloquent\Builder<Order>|Order whereBarcodePath($value)
+     * @method static \Illuminate\Database\Eloquent\Builder<Order>|Order whereBarcodeData($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Order>|Order whereTotalAmount($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Order>|Order whereShippingCost($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Order>|Order whereTaxCost($value)
