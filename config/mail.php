@@ -48,14 +48,6 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
-            'verify_peer' => false,
-            'stream' => [
-                'ssl' => [
-                    'allow_self_signed' => true,
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                ],
-            ],
         ],
 
         'ses' => [
@@ -94,7 +86,6 @@ return [
                 'smtp',
                 'log',
             ],
-            'retry_after' => 60,
         ],
 
         'roundrobin' => [
@@ -103,7 +94,6 @@ return [
                 'ses',
                 'postmark',
             ],
-            'retry_after' => 60,
         ],
 
     ],
@@ -120,8 +110,23 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', 'Example'),
+        'address' => env('MAIL_FROM_ADDRESS', 'noreply@example.com'),
+        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Global "Reply-To" Address
+    |--------------------------------------------------------------------------
+    |
+    | You may wish for all emails sent by your application to have a default
+    | "reply-to" address. You may specify the address here.
+    |
+    */
+
+    'reply_to' => [
+        'address' => env('MAIL_REPLY_TO_ADDRESS', 'support@example.com'),
+        'name' => env('MAIL_REPLY_TO_NAME', env('APP_NAME', 'Laravel') . ' Support'),
     ],
 
 ];

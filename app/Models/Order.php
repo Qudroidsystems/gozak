@@ -6,7 +6,6 @@ use App\Models\User;
 use App\Models\Address;
 use App\Models\OrderItem;
 use App\Models\Transaction;
-use Faker\Provider\ar_EG\Payment;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -27,6 +26,10 @@ class Order extends Model
         'billing_address_id',
         'delivery_date',
         'billing_address_same_as_shipping',
+        'barcode_path',
+        'barcode_data',
+        'paid_at',
+        'payment_status',
     ];
 
     protected $casts = [
@@ -35,92 +38,127 @@ class Order extends Model
         'tax_cost' => 'decimal:2',
         'order_date' => 'datetime',
         'delivery_date' => 'datetime',
-        'shipping_address' => 'array',
-        'billing_address' => 'array',
+        'paid_at' => 'datetime',
         'billing_address_same_as_shipping' => 'boolean',
+        'barcode_data' => 'array',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
     protected $keyType = 'string';
     public $incrementing = false;
 
-    
-    /**
-     * Get the user that placed the order.
-     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get the order items.
-     */
     public function items()
     {
         return $this->hasMany(OrderItem::class);
     }
 
-    /**
-     * Get the shipping address.
-     */
     public function shippingAddress()
     {
         return $this->belongsTo(Address::class, 'shipping_address_id');
     }
 
-    /**
-     * Get the billing address.
-     */
     public function billingAddress()
     {
         return $this->belongsTo(Address::class, 'billing_address_id');
     }
 
-    /**
- * Get the transactions for the order
- */
-public function transactions()
-{
-    return $this->hasMany(Transaction::class);
-}
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
 
-/**
- * Get the successful transaction for this order
- */
-public function successfulTransaction()
-{
-    return $this->hasOne(Transaction::class)->where('status', 'success');
-}
+    public function successfulTransaction()
+    {
+        return $this->hasOne(Transaction::class)->where('status', 'success');
+    }
 
-/**
- * Check if order is paid
- */
-public function isPaid()
-{
-    return $this->getPaymentStatusAttribute() === 'paid';
-}
+    public function isPaid()
+    {
+        return $this->getPaymentStatusAttribute() === 'paid';
+    }
 
-public function payment()
-{
-    return $this->hasOne(Payment::class, 'order_id', 'id');
-    
-}
+    public function getPaymentStatusAttribute()
+    {
+        if ($this->attributes['payment_status']) {
+            return $this->attributes['payment_status'];
+        }
+        
+        return $this->transactions()->where('status', 'success')->exists() ? 'paid' : 'unpaid';
+    }
 
-/**
- * Accessor for payment_status
- */
-public function getPaymentStatusAttribute()
-{
-    return $this->transactions()->where('status', 'success')->exists() ? 'paid' : 'unpaid';
-}
+    public function scopePaid($query)
+    {
+        return $query->whereHas('transactions', function($q) {
+            $q->where('status', 'success');
+        });
+    }
 
-/**
- * Scope for paid orders
- */
-public function scopePaid($query)
-{
-    return $query->whereHas('transactions', function($q) {
-        $q->where('status', 'success');
-    });
-}
+    public function getFormattedOrderDateAttribute(): string
+    {
+        return $this->order_date->format('M j, Y \a\t g:i A');
+    }
+
+    public function getFormattedDeliveryDateAttribute(): ?string
+    {
+        return $this->delivery_date?->format('M j, Y');
+    }
+
+    public function getOrderStatusTextAttribute(): string
+    {
+        $statusMap = [
+            'pending' => 'Order Placed',
+            'processing' => 'Processing',
+            'shipped' => 'Shipped',
+            'delivered' => 'Delivered',
+            'cancelled' => 'Cancelled',
+        ];
+
+        return $statusMap[$this->status] ?? ucfirst($this->status);
+    }
+
+    public function updateBarcodeInfo(string $path, array $data): void
+    {
+        $this->update([
+            'barcode_path' => $path,
+            'barcode_data' => $data,
+        ]);
+    }
+
+    public function hasBarcode(): bool
+    {
+        return !empty($this->barcode_path) && !empty($this->barcode_data);
+    }
+
+    public function getBarcodeUrlAttribute(): ?string
+    {
+        if ($this->barcode_path) {
+            return \Storage::disk('public')->url($this->barcode_path);
+        }
+        return null;
+    }
+
+    public function markAsPaid(): void
+    {
+        $this->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+            'status' => 'processing',
+        ]);
+    }
+
+    public function getTotalItemsAttribute(): int
+    {
+        return $this->items->sum('quantity');
+    }
+
+    public function canBeCancelled(): bool
+    {
+        return in_array($this->status, ['pending', 'processing']);
+    }
 }

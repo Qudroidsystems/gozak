@@ -5,25 +5,29 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
+use App\Services\BarcodeService;
 use App\Services\PaystackService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Http\Controllers\Controller;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Validator;
 
 class PaymentController extends Controller
 {
     protected $paystackService;
+    protected $notificationService;
+    protected $barcodeService;
 
-    public function __construct(PaystackService $paystackService)
-    {
+    public function __construct(
+        PaystackService $paystackService,
+        NotificationService $notificationService,
+        BarcodeService $barcodeService
+    ) {
         $this->paystackService = $paystackService;
+        $this->notificationService = $notificationService;
+        $this->barcodeService = $barcodeService;
     }
 
-    /**
-     * Initialize payment
-     * POST /api/payment/initialize
-     */
     public function initializePayment(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -40,9 +44,8 @@ class PaymentController extends Controller
         }
 
         try {
-            $order = Order::findOrFail($request->order_id);
+            $order = Order::with(['user', 'items.product'])->findOrFail($request->order_id);
 
-            // Check if order belongs to authenticated user
             if ($order->user_id !== auth()->id()) {
                 return response()->json([
                     'success' => false,
@@ -50,19 +53,24 @@ class PaymentController extends Controller
                 ], 403);
             }
 
-            // Check if order is already paid
-            if ($order->payment_status === 'paid') {
+            if ($order->isPaid()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Order already paid'
                 ], 400);
             }
 
-            // Prepare metadata for Paystack
             $metadata = [
                 'order_id' => $order->id,
                 'user_id' => auth()->id(),
-                'customer_name' => auth()->user()->name ?? $request->email,
+                'customer_name' => auth()->user()->full_name,
+                'order_items' => $order->items->map(function ($item) {
+                    return [
+                        'product' => $item->title,
+                        'quantity' => $item->quantity,
+                        'price' => $item->price,
+                    ];
+                })->toArray(),
                 'custom_fields' => [
                     [
                         'display_name' => 'Order ID',
@@ -72,20 +80,18 @@ class PaymentController extends Controller
                     [
                         'display_name' => 'Customer',
                         'variable_name' => 'customer_name',
-                        'value' => auth()->user()->name ?? $request->email
+                        'value' => auth()->user()->full_name
                     ]
                 ]
             ];
 
-            // Initialize payment with Paystack
             $response = $this->paystackService->initializePayment(
                 $request->email,
                 $order->total_amount,
-                null, // Let service generate reference
+                null,
                 $metadata
             );
 
-            // Save transaction record
             $transaction = Transaction::create([
                 'order_id' => $order->id,
                 'user_id' => auth()->id(),
@@ -95,7 +101,7 @@ class PaymentController extends Controller
                 'payment_method' => 'paystack',
             ]);
 
-            Log::info('Payment initialized', [
+            Log::info('Payment initialized successfully', [
                 'order_id' => $order->id,
                 'reference' => $transaction->reference,
                 'amount' => $order->total_amount
@@ -127,10 +133,6 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Charge card directly
-     * POST /api/payment/charge
-     */
     public function chargeCard(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -141,7 +143,7 @@ class PaymentController extends Controller
             'card.number' => 'required|string|min:13|max:19',
             'card.cvv' => 'required|string|min:3|max:4',
             'card.expiry_month' => 'required|string|size:2',
-            'card.expiry_year' => 'required|string', // Allow both 2 or 4 digit years
+            'card.expiry_year' => 'required|string',
             'card.pin' => 'required|string|size:4',
         ]);
 
@@ -154,12 +156,10 @@ class PaymentController extends Controller
         }
 
         try {
-            // Find existing transaction
             $transaction = Transaction::where('reference', $request->reference)
                 ->where('user_id', auth()->id())
                 ->firstOrFail();
 
-            // Check if already processed
             if ($transaction->status !== 'pending') {
                 return response()->json([
                     'success' => false,
@@ -167,22 +167,18 @@ class PaymentController extends Controller
                 ], 400);
             }
 
-            // FIX: Properly format the expiry year
             $expiryYear = $request->card['expiry_year'];
-            // If 4 digits (e.g., "2030"), take last 2 digits
-            // If 2 digits (e.g., "30"), use as is
             $formattedYear = strlen($expiryYear) === 4 ? substr($expiryYear, -2) : $expiryYear;
 
-            // Prepare card data - MATCH PaystackService structure
             $cardData = [
                 'email' => $request->email,
-                'amount' => $request->amount, // Will be converted to kobo in service
+                'amount' => $request->amount,
                 'reference' => $request->reference,
                 'card' => [
                     'number' => $request->card['number'],
                     'cvv' => $request->card['cvv'],
                     'expiry_month' => $request->card['expiry_month'],
-                    'expiry_year' => $formattedYear, // Use formatted year
+                    'expiry_year' => $formattedYear,
                     'pin' => $request->card['pin'],
                 ],
                 'metadata' => [
@@ -197,7 +193,6 @@ class PaymentController extends Controller
                 'email' => $request->email
             ]);
 
-            // Charge card with Paystack
             $response = $this->paystackService->chargeCard($cardData);
 
             Log::info('Card charge response received', [
@@ -206,29 +201,15 @@ class PaymentController extends Controller
                 'data_status' => $response['data']['status'] ?? 'unknown'
             ]);
 
-            // Handle response
             if ($response['status'] === true && isset($response['data'])) {
                 $status = $response['data']['status'];
 
                 if ($status === 'success') {
-                    $transaction->update([
-                        'status' => 'success',
-                        'paid_at' => now(),
-                        'payment_data' => $response['data']
-                    ]);
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Card charged successfully',
-                        'data' => [
-                            'status' => 'success',
-                            'reference' => $request->reference
-                        ]
-                    ], 200);
+                    return $this->handleSuccessfulPayment($transaction, $response);
                 } 
                 elseif ($status === 'send_otp') {
                     return response()->json([
-                        'success' => true, // Changed to true since it's a valid response
+                        'success' => true,
                         'message' => 'OTP required',
                         'data' => [
                             'status' => 'send_otp',
@@ -258,23 +239,10 @@ class PaymentController extends Controller
                     ], 200);
                 } 
                 else {
-                    $transaction->update([
-                        'status' => 'failed',
-                        'payment_data' => $response['data']
-                    ]);
-
-                    return response()->json([
-                        'success' => false,
-                        'message' => $response['message'] ?? 'Charge failed',
-                        'data' => [
-                            'status' => $status,
-                            'gateway_response' => $response['data']['gateway_response'] ?? null
-                        ]
-                    ], 400);
+                    return $this->handleFailedPayment($transaction, $response);
                 }
             }
 
-            // If response doesn't have expected structure
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid response from payment gateway',
@@ -296,10 +264,60 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Submit OTP
-     * POST /api/payment/submit-otp
-     */
+    protected function handleSuccessfulPayment(Transaction $transaction, array $response)
+    {
+        return DB::transaction(function () use ($transaction, $response) {
+            $transaction->update([
+                'status' => 'success',
+                'paid_at' => now(),
+                'payment_data' => $response['data']
+            ]);
+
+            $order = Order::with('user')->find($transaction->order_id);
+            $order->markAsPaid();
+
+            $barcodeResult = $this->barcodeService->generateBarcodeForOrder($order);
+            
+            $notificationResult = $this->notificationService->sendOrderConfirmation($order);
+
+            Log::info('Payment successful with notifications', [
+                'order_id' => $order->id,
+                'reference' => $transaction->reference,
+                'barcode_generated' => $barcodeResult['success'],
+                'notifications_sent' => !isset($notificationResult['error'])
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment successful! Order confirmed.',
+                'data' => [
+                    'status' => 'success',
+                    'reference' => $transaction->reference,
+                    'order' => $order->fresh(['items.product', 'shippingAddress', 'billingAddress']),
+                    'barcode_url' => $barcodeResult['barcode_url'] ?? null,
+                    'notifications' => $notificationResult
+                ]
+            ], 200);
+        });
+    }
+
+    protected function handleFailedPayment(Transaction $transaction, array $response)
+    {
+        $transaction->update([
+            'status' => 'failed',
+            'payment_data' => $response['data']
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => $response['message'] ?? 'Charge failed',
+            'data' => [
+                'status' => $response['data']['status'],
+                'gateway_response' => $response['data']['gateway_response'] ?? null
+            ]
+        ], 400);
+    }
+
     public function submitOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -327,30 +345,15 @@ class PaymentController extends Controller
                 ], 400);
             }
 
-            // Submit OTP to Paystack
             $response = $this->paystackService->submitOtp(
                 $request->reference,
                 $request->otp
             );
 
             if ($response['data']['status'] === 'success') {
-                $transaction->update([
-                    'status' => 'success',
-                    'paid_at' => now(),
-                    'payment_data' => $response['data']
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'OTP verified successfully',
-                    'data' => $response['data']
-                ], 200);
+                return $this->handleSuccessfulPayment($transaction, $response);
             } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => $response['data']['gateway_response'] ?? 'OTP verification failed',
-                    'data' => $response['data']
-                ], 400);
+                return $this->handleFailedPayment($transaction, $response);
             }
 
         } catch (\Exception $e) {
@@ -367,10 +370,6 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Submit PIN
-     * POST /api/payment/submit-pin
-     */
     public function submitPin(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -398,30 +397,15 @@ class PaymentController extends Controller
                 ], 400);
             }
 
-            // Submit PIN to Paystack
             $response = $this->paystackService->submitPin(
                 $request->reference,
                 $request->pin
             );
 
             if ($response['data']['status'] === 'success') {
-                $transaction->update([
-                    'status' => 'success',
-                    'paid_at' => now(),
-                    'payment_data' => $response['data']
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'PIN verified successfully',
-                    'data' => $response['data']
-                ], 200);
+                return $this->handleSuccessfulPayment($transaction, $response);
             } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => $response['data']['gateway_response'] ?? 'PIN verification failed',
-                    'data' => $response['data']
-                ], 400);
+                return $this->handleFailedPayment($transaction, $response);
             }
 
         } catch (\Exception $e) {
@@ -438,10 +422,6 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Verify payment
-     * POST /api/payment/verify
-     */
     public function verifyPayment(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -457,7 +437,6 @@ class PaymentController extends Controller
         }
 
         try {
-            // Verify payment with Paystack
             $response = $this->paystackService->verifyPayment($request->reference);
 
             Log::info('Payment verification response', [
@@ -466,56 +445,47 @@ class PaymentController extends Controller
             ]);
 
             if ($response['data']['status'] === 'success') {
-                DB::beginTransaction();
-
-                try {
-                    // Find transaction
+                return DB::transaction(function () use ($request, $response) {
                     $transaction = Transaction::where('reference', $request->reference)->first();
 
                     if (!$transaction) {
                         throw new \Exception('Transaction not found');
                     }
 
-                    // Check if transaction belongs to authenticated user
                     if ($transaction->user_id !== auth()->id()) {
                         throw new \Exception('Unauthorized access to transaction');
                     }
 
-                    // Check if already processed
                     if ($transaction->status === 'success') {
-                        DB::commit();
+                        $order = Order::with(['items.product', 'shippingAddress', 'billingAddress'])
+                                    ->find($transaction->order_id);
+                        
                         return response()->json([
                             'success' => true,
                             'message' => 'Payment already verified',
                             'data' => [
                                 'transaction' => $transaction,
-                                'order' => $transaction->order
+                                'order' => $order
                             ]
                         ], 200);
                     }
 
-                    // Update transaction
                     $transaction->update([
                         'status' => 'success',
                         'paid_at' => now(),
                         'payment_data' => $response['data']
                     ]);
 
-                    // Update order
                     $order = Order::find($transaction->order_id);
-                    $order->update([
-                        'payment_status' => 'paid',
-                        'payment_method' => 'paystack',
-                        'paid_at' => now(),
-                        'status' => 'processing' // Move order to processing
-                    ]);
+                    $order->markAsPaid();
 
-                    DB::commit();
+                    $barcodeResult = $this->barcodeService->generateBarcodeForOrder($order);
+                    $notificationResult = $this->notificationService->sendOrderConfirmation($order);
 
-                    Log::info('Payment verified successfully', [
+                    Log::info('Payment verified successfully with notifications', [
                         'reference' => $request->reference,
                         'order_id' => $order->id,
-                        'amount' => $transaction->amount
+                        'barcode_generated' => $barcodeResult['success']
                     ]);
 
                     return response()->json([
@@ -523,14 +493,12 @@ class PaymentController extends Controller
                         'message' => 'Payment verified successfully',
                         'data' => [
                             'transaction' => $transaction->fresh(),
-                            'order' => $order->fresh()
+                            'order' => $order->fresh(['items.product', 'shippingAddress', 'billingAddress']),
+                            'barcode_url' => $barcodeResult['barcode_url'] ?? null,
+                            'notifications' => $notificationResult
                         ]
                     ], 200);
-
-                } catch (\Exception $e) {
-                    DB::rollBack();
-                    throw $e;
-                }
+                });
             }
 
             return response()->json([
@@ -553,13 +521,8 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Paystack webhook handler
-     * POST /api/payment/webhook
-     */
     public function webhook(Request $request)
     {
-        // Verify webhook signature
         $signature = $request->header('x-paystack-signature');
         
         if (!$signature) {
@@ -586,7 +549,6 @@ class PaymentController extends Controller
         ]);
 
         try {
-            // Handle different event types
             if ($event['event'] === 'charge.success') {
                 $this->handleChargeSuccess($event['data']);
             } elseif ($event['event'] === 'charge.failed') {
@@ -604,9 +566,6 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Handle successful charge
-     */
     protected function handleChargeSuccess($data)
     {
         DB::beginTransaction();
@@ -620,34 +579,29 @@ class PaymentController extends Controller
                 return;
             }
 
-            // Skip if already processed
             if ($transaction->status === 'success') {
                 Log::info('Webhook: Transaction already processed', ['reference' => $data['reference']]);
                 DB::commit();
                 return;
             }
 
-            // Update transaction
             $transaction->update([
                 'status' => 'success',
                 'paid_at' => now(),
                 'payment_data' => $data
             ]);
 
-            // Update order
-            $order = Order::find($transaction->order_id);
+            $order = Order::with('user')->find($transaction->order_id);
             if ($order) {
-                $order->update([
-                    'payment_status' => 'paid',
-                    'payment_method' => 'paystack',
-                    'paid_at' => now(),
-                    'status' => 'processing'
-                ]);
+                $order->markAsPaid();
+
+                $this->barcodeService->generateBarcodeForOrder($order);
+                $this->notificationService->sendOrderConfirmation($order);
             }
 
             DB::commit();
 
-            Log::info('Webhook: Payment processed successfully', [
+            Log::info('Webhook: Payment processed successfully with notifications', [
                 'reference' => $data['reference'],
                 'order_id' => $order->id ?? null
             ]);
@@ -662,9 +616,6 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Handle failed charge
-     */
     protected function handleChargeFailed($data)
     {
         try {
@@ -690,10 +641,6 @@ class PaymentController extends Controller
         }
     }
 
-    /**
-     * Get Paystack public key for frontend
-     * GET /api/payment/public-key
-     */
     public function getPublicKey()
     {
         return response()->json([
@@ -702,15 +649,11 @@ class PaymentController extends Controller
         ], 200);
     }
 
-    /**
-     * Get payment history for authenticated user
-     * GET /api/payment/history
-     */
     public function getPaymentHistory()
     {
         try {
             $transactions = Transaction::where('user_id', auth()->id())
-                ->with('order')
+                ->with(['order.items.product', 'order.shippingAddress'])
                 ->orderBy('created_at', 'desc')
                 ->paginate(20);
 
