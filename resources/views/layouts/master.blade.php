@@ -41,6 +41,10 @@
           @include('layouts.pages-assets.css.permission-list-css')
     @endif
 
+    @if (Route::is('brands.*'))
+          @include('layouts.pages-assets.css.users-list-css')
+    @endif
+
 
      
     
@@ -1425,6 +1429,8 @@
       @if (Route::is('permissions.*'))
             @include('layouts.pages-assets.js.permissions-list-js')
       @endif  
+
+      
 
   
       </body>
