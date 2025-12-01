@@ -17,26 +17,12 @@ class OrderConfirmationMail extends Mailable implements ShouldQueue
     public $barcodePng;
 
     /**
-     * The number of times the job may be attempted.
-     */
-    public $tries = 3;
-
-    /**
-     * The number of seconds to wait before retrying the job.
-     */
-    public $backoff = [60, 120, 300];
-
-    /**
      * Create a new message instance.
      */
     public function __construct(Order $order, BarcodeService $barcodeService)
     {
         $this->order = $order;
         $this->barcodePng = $barcodeService->getBarcodeForEmail($order);
-        
-        // Set queue properties
-        $this->onQueue('emails');
-        $this->afterCommit = true;
     }
 
     /**
@@ -44,7 +30,7 @@ class OrderConfirmationMail extends Mailable implements ShouldQueue
      */
     public function build()
     {
-        $orderIdShort = substr($this->order->id, -8);
+        $orderIdShort = substr($this->order->id, -8); // Last 8 characters for brevity
 
         return $this->subject('🎉 Order Confirmation - ' . config('app.name'))
                     ->view('emails.order-confirmation')
@@ -53,19 +39,5 @@ class OrderConfirmationMail extends Mailable implements ShouldQueue
                         'barcodePng' => $this->barcodePng,
                         'orderIdShort' => $orderIdShort,
                     ]);
-    }
-
-    /**
-     * Handle a job failure.
-     */
-    public function failed(\Throwable $exception)
-    {
-        // Log the failure
-        \Log::error('Order confirmation email failed to send', [
-            'order_id' => $this->order->id,
-            'error' => $exception->getMessage(),
-        ]);
-
-        // You can also notify admins here if needed
     }
 }

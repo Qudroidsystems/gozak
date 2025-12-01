@@ -5,8 +5,6 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\Order;
 use App\Models\Notification;
-use App\Services\FcmService;
-use App\Services\BarcodeService;
 use App\Mail\OrderConfirmationMail;
 use App\Mail\OrderStatusUpdateMail;
 use Illuminate\Support\Facades\Log;
@@ -24,8 +22,8 @@ class NotificationService
         $this->barcodeService = $barcodeService;
     }
 
-  /**
-     * Send order confirmation with queue priority
+    /**
+     * Send order confirmation with both push notification and email
      */
     public function sendOrderConfirmation(Order $order): array
     {
@@ -38,18 +36,14 @@ class NotificationService
         try {
             $user = $order->user;
 
-            // Send push notification immediately (high priority)
+            // Send push notification
             if ($user->canReceivePushNotifications('order_update')) {
                 $results['push_notification'] = $this->fcmService->sendOrderStatusUpdate($order, 'pending');
             }
 
-            // Send email with queue (normal priority)
+            // Send email with barcode
             if ($user->canReceiveEmailNotifications('order_update')) {
-                // Use high priority queue for order confirmations
-                Mail::to($order->user->email)
-                    ->queue((new OrderConfirmationMail($order, $this->barcodeService))->onQueue('emails'));
-                
-                $results['email'] = ['success' => true, 'message' => 'Order confirmation email queued'];
+                $results['email'] = $this->sendOrderConfirmationEmail($order);
             }
 
             // Generate barcode for download
@@ -71,11 +65,11 @@ class NotificationService
 
             $user->recordNotificationSent();
 
-            Log::info('Order confirmation processed', [
+            Log::info('Order confirmation sent successfully', [
                 'order_id' => $order->id,
                 'user_id' => $user->id,
                 'push_sent' => !isset($results['push_notification']['error']),
-                'email_queued' => $results['email']['success'] ?? false,
+                'email_sent' => $results['email']['success'] ?? false,
                 'barcode_generated' => $results['barcode']['success'] ?? false,
             ]);
 
@@ -91,7 +85,7 @@ class NotificationService
     }
 
     /**
-     * Send order status update with queue priority
+     * Send order status update with both notification and email
      */
     public function sendOrderStatusUpdate(Order $order, string $newStatus): array
     {
@@ -103,18 +97,14 @@ class NotificationService
         try {
             $user = $order->user;
 
-            // Send push notification immediately
+            // Send push notification
             if ($user->canReceivePushNotifications('order_update')) {
                 $results['push_notification'] = $this->fcmService->sendOrderStatusUpdate($order, $newStatus);
             }
 
-            // Send status update email with queue
+            // Send status update email (only for important status changes)
             if ($user->canReceiveEmailNotifications('order_update') && in_array($newStatus, ['shipped', 'delivered', 'cancelled'])) {
-                // Use normal priority queue for status updates
-                Mail::to($order->user->email)
-                    ->queue((new OrderStatusUpdateMail($order, $this->barcodeService))->onQueue('emails'));
-                
-                $results['email'] = ['success' => true, 'message' => 'Status update email queued'];
+                $results['email'] = $this->sendOrderStatusUpdateEmail($order);
             }
 
             $this->createNotificationRecord(
@@ -131,11 +121,11 @@ class NotificationService
                 $results
             );
 
-            Log::info('Order status update processed', [
+            Log::info('Order status update sent', [
                 'order_id' => $order->id,
                 'new_status' => $newStatus,
                 'push_sent' => !isset($results['push_notification']['error']),
-                'email_queued' => $results['email']['success'] ?? false,
+                'email_sent' => $results['email']['success'] ?? false,
             ]);
 
         } catch (\Exception $e) {
