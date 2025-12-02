@@ -92,7 +92,7 @@
                                             <i class="ri-delete-bin-2-line"></i>
                                         </button>
                                         @can('Create product')
-                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal">
+                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">
                                                 <i class="bi bi-plus-circle align-baseline me-1"></i> Add Product
                                             </button>
                                         @endcan
@@ -225,7 +225,7 @@
             <div class="modal fade" id="showModal" tabindex="-1">
                 <div class="modal-dialog modal-xl modal-dialog-centered">
                     <div class="modal-content">
-                        <form id="productForm" enctype="multipart/form-data">
+                        <form id="productForm" enctype="multipart/form-data" method="POST">
                             @csrf
                             <input type="hidden" name="id" id="product_id">
                             <div class="modal-header">
@@ -236,18 +236,43 @@
                                 <div class="row g-4">
                                     <div class="col-lg-8">
                                         <div class="row g-3">
-                                            <div class="col-md-6"><label>Title <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" required></div>
-                                            <div class="col-md-6"><label>SKU <span class="text-danger">*</span></label><input type="text" name="sku" class="form-control" required></div>
-                                            <div class="col-md-4"><label>Price <span class="text-danger">*</span></label><input type="number" step="0.01" name="price" class="form-control" required></div>
-                                            <div class="col-md-4"><label>Sale Price</label><input type="number" step="0.01" name="sale_price" class="form-control"></div>
-                                            <div class="col-md-4"><label>Stock <span class="text-danger">*</span></label><input type="number" name="stock" class="form-control" required></div>
-                                            <div class="col-12"><label>Description</label><textarea name="description" rows="4" class="form-control"></textarea></div>
+                                            <div class="col-md-6">
+                                                <label>Title <span class="text-danger">*</span></label>
+                                                <input type="text" name="title" id="title" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>SKU <span class="text-danger">*</span></label>
+                                                <input type="text" name="sku" id="sku" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Price <span class="text-danger">*</span></label>
+                                                <input type="number" step="0.01" name="price" id="price" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Sale Price</label>
+                                                <input type="number" step="0.01" name="sale_price" id="sale_price" class="form-control">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label>Stock <span class="text-danger">*</span></label>
+                                                <input type="number" name="stock" id="stock" class="form-control" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label>Product Type <span class="text-danger">*</span></label>
+                                                <select name="product_type" id="product_type" class="form-control" required>
+                                                    <option value="simple">Simple</option>
+                                                    <option value="variable">Variable</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12">
+                                                <label>Description</label>
+                                                <textarea name="description" id="description" rows="4" class="form-control"></textarea>
+                                            </div>
                                         </div>
                                     </div>
                                     <div class="col-lg-4">
                                         <div class="border rounded p-3 mb-3">
                                             <label>Thumbnail</label>
-                                            <input type="file" name="thumbnail" class="form-control mb-2" accept="image/*">
+                                            <input type="file" name="thumbnail" class="form-control mb-2" accept="image/*" onchange="previewImage(event)">
                                             <img id="thumbnail_preview" src="" class="img-fluid rounded" style="max-height:180px; display:none;">
                                         </div>
                                         <div class="mb-3">
@@ -256,7 +281,7 @@
                                         </div>
                                         <div class="mb-3">
                                             <label>Brand</label>
-                                            <select name="brand_id" class="form-control">
+                                            <select name="brand_id" id="brand_id" class="form-control">
                                                 <option value="">No Brand</option>
                                                 @foreach($brands as $brand)
                                                     <option value="{{ $brand->id }}">{{ $brand->name }}</option>
@@ -265,7 +290,7 @@
                                         </div>
                                         <div class="mb-3">
                                             <label>Category</label>
-                                            <select name="category_id" class="form-control">
+                                            <select name="category_id" id="category_id" class="form-control">
                                                 <option value="">Select Category</option>
                                                 @foreach($categories as $cat)
                                                     <option value="{{ $cat->id }}">{{ $cat->name }}</option>
@@ -276,7 +301,7 @@
                                             </select>
                                         </div>
                                         <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured">
+                                            <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured" value="1">
                                             <label class="form-check-label" for="is_featured">Featured Product</label>
                                         </div>
                                     </div>
@@ -301,6 +326,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
+    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
     const list = new List('productList', {
         valueNames: ['title', 'category', 'stock', 'price', 'sold', 'created_at', 'featured'],
@@ -313,10 +339,12 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('input[name="chk_child"]').forEach(cb => cb.checked = this.checked);
         toggleBulk();
     });
+    
     function toggleBulk() {
         const checked = document.querySelectorAll('input[name="chk_child"]:checked').length;
         document.getElementById('remove-actions').classList.toggle('d-none', checked === 0);
     }
+    
     window.deleteMultiple = function () {
         const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked')).map(cb => cb.value);
         if (!ids.length) return;
@@ -331,58 +359,148 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 
-    // Edit
+    // Reset form when adding new product
+    window.resetForm = function() {
+        document.getElementById('productForm').reset();
+        document.getElementById('product_id').value = '';
+        document.getElementById('modalTitle').textContent = 'Add Product';
+        document.getElementById('submitBtn').textContent = 'Save Product';
+        document.getElementById('thumbnail_preview').style.display = 'none';
+        document.getElementById('product_type').value = 'simple';
+    };
+
+    // Edit product
     document.querySelectorAll('.edit-item-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             const id = this.dataset.id;
-            axios.get(`/products/${id}/edit`).then(res => {
-                const p = res.data;
-                document.getElementById('product_id').value = p.id;
-                document.querySelector('[name="title"]').value = p.title;
-                document.querySelector('[name="sku"]').value = p.sku;
-                document.querySelector('[name="price"]').value = p.price;
-                document.querySelector('[name="sale_price"]').value = p.sale_price || '';
-                document.querySelector('[name="stock"]').value = p.stock;
-                document.querySelector('[name="description"]').value = p.description || '';
-                document.querySelector('[name="brand_id"]').value = p.brand_id || '';
-                document.querySelector('[name="category_id"]').value = p.category_id || '';
-                document.querySelector('[name="is_featured"]').checked = p.is_featured;
+            axios.get(`/products/${id}/edit`)
+                .then(res => {
+                    const p = res.data;
+                    document.getElementById('product_id').value = p.id;
+                    document.getElementById('title').value = p.title;
+                    document.getElementById('sku').value = p.sku;
+                    document.getElementById('price').value = p.price;
+                    document.getElementById('sale_price').value = p.sale_price || '';
+                    document.getElementById('stock').value = p.stock;
+                    document.getElementById('description').value = p.description || '';
+                    document.getElementById('brand_id').value = p.brand_id || '';
+                    document.getElementById('category_id').value = p.category_id || '';
+                    document.getElementById('product_type').value = p.product_type || 'simple';
+                    document.getElementById('is_featured').checked = p.is_featured;
 
-                const preview = document.getElementById('thumbnail_preview');
-                if (p.thumbnail) {
-                    preview.src = p.thumbnail;
-                    preview.style.display = 'block';
-                } else preview.style.display = 'none';
+                    const preview = document.getElementById('thumbnail_preview');
+                    if (p.thumbnail) {
+                        preview.src = p.thumbnail;
+                        preview.style.display = 'block';
+                    } else {
+                        preview.style.display = 'none';
+                    }
 
-                document.getElementById('modalTitle').textContent = 'Edit Product';
-                document.getElementById('submitBtn').textContent = 'Update Product';
-            });
+                    document.getElementById('modalTitle').textContent = 'Edit Product';
+                    document.getElementById('submitBtn').textContent = 'Update Product';
+                })
+                .catch(err => {
+                    console.error('Error fetching product:', err);
+                    Swal.fire('Error!', 'Failed to load product data', 'error');
+                });
         });
     });
+
+    // Image preview
+    window.previewImage = function(event) {
+        const preview = document.getElementById('thumbnail_preview');
+        if (event.target.files.length > 0) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            }
+            reader.readAsDataURL(event.target.files[0]);
+        } else {
+            preview.style.display = 'none';
+        }
+    };
 
     // Submit form
     document.getElementById('productForm').addEventListener('submit', function (e) {
         e.preventDefault();
+        const form = this;
         const id = document.getElementById('product_id').value;
         const url = id ? `/products/${id}` : '/products';
-        const data = new FormData(this);
-        if (id) data.append('_method', 'PUT');
+        const method = id ? 'PUT' : 'POST';
+        
+        const submitBtn = document.getElementById('submitBtn');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
 
-        axios.post(url, data)
-            .then(() => location.reload())
-            .catch(err => Swal.fire('Error!', err.response?.data?.message || 'Something went wrong', 'error'));
+        const formData = new FormData(form);
+        if (!id) {
+            // For new products, remove the _method if present
+            formData.delete('_method');
+        }
+
+        axios({
+            method: method,
+            url: url,
+            data: formData,
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+        .then(response => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: response.data.message || 'Product saved successfully',
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload();
+            });
+        })
+        .catch(error => {
+            let errorMessage = 'Something went wrong';
+            if (error.response) {
+                if (error.response.data.errors) {
+                    // Handle validation errors
+                    const errors = Object.values(error.response.data.errors).flat();
+                    errorMessage = errors.join('<br>');
+                } else if (error.response.data.message) {
+                    errorMessage = error.response.data.message;
+                }
+            }
+            Swal.fire('Error!', errorMessage, 'error');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        });
     });
 
-    // Delete single
+    // Delete single product
     document.querySelectorAll('.remove-item-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             const id = this.dataset.id;
             Swal.fire({
-                title: 'Delete product?',
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
                 icon: 'warning',
                 showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete it!'
             }).then(r => {
-                if (r.isConfirmed) axios.delete(`/products/${id}`).then(() => location.reload());
+                if (r.isConfirmed) {
+                    axios.delete(`/products/${id}`)
+                        .then(() => {
+                            Swal.fire('Deleted!', 'Product has been deleted.', 'success')
+                                .then(() => location.reload());
+                        })
+                        .catch(err => {
+                            Swal.fire('Error!', 'Failed to delete product', 'error');
+                        });
+                }
             });
         });
     });
