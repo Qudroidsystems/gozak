@@ -206,13 +206,16 @@
 </div>
 
 <!-- ALL SCRIPTS - INLINE & CDN -->
+<!-- Replace the entire script section with this -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
+    // Setup axios defaults
+    axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
     // List.js
     new List('bannerList', {
@@ -223,121 +226,297 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Checkbox Select All
     const checkAll = document.getElementById('checkAll');
-    checkAll?.addEventListener('change', function () {
-        document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-            cb.checked = this.checked;
-            cb.closest('tr').classList.toggle('table-active', this.checked);
-        });
-        toggleRemoveBtn();
-    });
-
-    document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-        cb.addEventListener('change', () => {
-            cb.closest('tr').classList.toggle('table-active', cb.checked);
+    if (checkAll) {
+        checkAll.addEventListener('change', function () {
+            document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
+                cb.checked = this.checked;
+                const row = cb.closest('tr');
+                if (row) {
+                    row.classList.toggle('table-active', this.checked);
+                }
+            });
             toggleRemoveBtn();
         });
-    });
+    }
+
+    // Individual checkboxes
+    function attachCheckboxListeners() {
+        document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
+            cb.addEventListener('change', function() {
+                const row = this.closest('tr');
+                if (row) {
+                    row.classList.toggle('table-active', this.checked);
+                }
+                
+                const allCheckboxes = document.querySelectorAll('input[name="chk_child"]');
+                const checkedCount = document.querySelectorAll('input[name="chk_child"]:checked').length;
+                
+                if (checkAll) {
+                    checkAll.checked = checkedCount === allCheckboxes.length;
+                }
+                toggleRemoveBtn();
+            });
+        });
+    }
+
+    attachCheckboxListeners();
 
     function toggleRemoveBtn() {
         const count = document.querySelectorAll('input[name="chk_child"]:checked').length;
-        document.getElementById('remove-actions').classList.toggle('d-none', count === 0);
+        const removeBtn = document.getElementById('remove-actions');
+        if (removeBtn) {
+            removeBtn.classList.toggle('d-none', count === 0);
+        }
     }
 
-    const modal = new bootstrap.Modal('#showModal');
+    const modalElement = document.getElementById('showModal');
+    const modal = new bootstrap.Modal(modalElement);
     const form = document.getElementById('bannerForm');
     const imgPreview = document.getElementById('image_preview');
+    let deleteId = null;
 
     // Add button
-    document.querySelector('.add-btn')?.addEventListener('click', () => {
-        form.reset();
-        document.getElementById('banner_id').value = '';
-        document.getElementById('modalTitle').textContent = 'Add Banner';
-        document.getElementById('submitBtn').textContent = 'Save Banner';
-        imgPreview.style.display = 'none';
-    });
-
-    // Edit
-    document.querySelectorAll('.edit-item-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const id = this.dataset.id;
-            axios.get(`/banners/${id}/edit`)
-                .then(res => {
-                    const b = res.data;
-                    document.getElementById('banner_id').value = b.id;
-                    document.querySelector('[name="target_screen"]').value = b.target_screen;
-                    document.getElementById('active').checked = b.active;
-
-                    if (b.image_url) {
-                        imgPreview.src = b.image_url;
-                        imgPreview.style.display = 'block';
-                    } else {
-                        imgPreview.style.display = 'none';
-                    }
-
-                    document.getElementById('modalTitle').textContent = 'Edit Banner';
-                    document.getElementById('submitBtn').textContent = 'Update Banner';
-                    modal.show();
-                });
+    const addBtn = document.querySelector('.add-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            form.reset();
+            document.getElementById('banner_id').value = '';
+            document.getElementById('modalTitle').textContent = 'Add Banner';
+            document.getElementById('submitBtn').textContent = 'Save Banner';
+            imgPreview.style.display = 'none';
+            imgPreview.src = '';
+            // Make image required for add
+            form.querySelector('[name="image"]').required = true;
         });
-    });
+    }
 
-    // Image preview
-    form.querySelector('[name="image"]').addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (file) {
-            imgPreview.src = URL.createObjectURL(file);
-            imgPreview.style.display = 'block';
-        }
-    });
+    // Edit buttons
+    function attachEditListeners() {
+        document.querySelectorAll('.edit-item-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const id = this.dataset.id;
+                
+                console.log('Editing banner ID:', id);
+                
+                axios.get(`/banners/${id}/edit`)
+                    .then(res => {
+                        console.log('Edit response:', res.data);
+                        const b = res.data;
+                        
+                        document.getElementById('banner_id').value = b.id;
+                        form.querySelector('[name="target_screen"]').value = b.target_screen;
+                        document.getElementById('active').checked = b.active == 1;
 
-    // Submit
-    form.addEventListener('submit', e => {
+                        if (b.image_url) {
+                            const imageUrl = b.image_url.startsWith('http') ? b.image_url : `/storage/${b.image_url}`;
+                            imgPreview.src = imageUrl;
+                            imgPreview.style.display = 'block';
+                        } else {
+                            imgPreview.style.display = 'none';
+                        }
+
+                        // Make image optional for edit
+                        form.querySelector('[name="image"]').required = false;
+
+                        document.getElementById('modalTitle').textContent = 'Edit Banner';
+                        document.getElementById('submitBtn').textContent = 'Update Banner';
+                        modal.show();
+                    })
+                    .catch(err => {
+                        console.error('Edit error:', err);
+                        console.error('Error response:', err.response);
+                        
+                        let errorMsg = 'Failed to load banner data';
+                        if (err.response?.status === 404) {
+                            errorMsg = 'Banner not found. It may have been deleted.';
+                        } else if (err.response?.status === 403) {
+                            errorMsg = 'You do not have permission to edit this banner.';
+                        } else if (err.response?.data?.message) {
+                            errorMsg = err.response.data.message;
+                        }
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: errorMsg,
+                            footer: err.response?.status ? `Status: ${err.response.status}` : 'Check console for details'
+                        });
+                    });
+            });
+        });
+    }
+
+    attachEditListeners();
+
+    // Image preview on file select
+    const imageInput = form.querySelector('[name="image"]');
+    if (imageInput) {
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imgPreview.src = e.target.result;
+                    imgPreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    // Submit form
+    form.addEventListener('submit', function(e) {
         e.preventDefault();
+        
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+        
         const id = document.getElementById('banner_id').value;
         const url = id ? `/banners/${id}` : '/banners';
-        const data = new FormData(form);
-        if (id) data.append('_method', 'PUT');
+        const formData = new FormData(form);
+        
+        if (id) {
+            formData.append('_method', 'PUT');
+        }
 
-        axios.post(url, data)
-            .then(() => location.reload())
-            .catch(err => {
-                let msg = 'Error';
-                if (err.response?.status === 422) {
-                    msg = Object.values(err.response.data.errors).flat().join('<br>');
-                }
-                Swal.fire('Error!', msg, 'error');
+        // Debug: Log what we're sending
+        console.log('Submitting to:', url);
+        console.log('Form data:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+
+        axios.post(url, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+        .then(response => {
+            console.log('Success response:', response);
+            Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: id ? 'Banner updated successfully' : 'Banner added successfully',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload();
             });
-    });
-
-    // Delete
-    let deleteId = null;
-    document.querySelectorAll('.remove-item-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            deleteId = btn.dataset.id;
-            new bootstrap.Modal('#deleteRecordModal').show();
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = id ? 'Update Banner' : 'Save Banner';
+            
+            console.error('Full error:', err);
+            console.error('Error response:', err.response);
+            
+            let msg = 'An error occurred';
+            if (err.response?.status === 422) {
+                const errors = err.response.data.errors;
+                msg = Object.values(errors).flat().join('<br>');
+            } else if (err.response?.data?.message) {
+                msg = err.response.data.message;
+            } else if (err.response?.status === 404) {
+                msg = 'Route not found. Please check your routes configuration.';
+            } else if (err.response?.status === 500) {
+                msg = 'Server error. Please check the browser console and server logs.';
+            }
+            
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                html: msg,
+                footer: err.response?.status ? `Status: ${err.response.status}` : ''
+            });
         });
     });
 
-    document.getElementById('delete-record').addEventListener('click', () => {
-        axios.delete(`/banners/${deleteId}`)
-            .then(() => location.reload())
-            .catch(() => Swal.fire('Error', 'Cannot delete banner', 'error'));
-    });
+    // Delete buttons
+    function attachDeleteListeners() {
+        document.querySelectorAll('.remove-item-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                deleteId = this.dataset.id;
+                const deleteModal = new bootstrap.Modal('#deleteRecordModal');
+                deleteModal.show();
+            });
+        });
+    }
+
+    attachDeleteListeners();
+
+    // Confirm delete
+    const deleteRecordBtn = document.getElementById('delete-record');
+    if (deleteRecordBtn) {
+        deleteRecordBtn.addEventListener('click', function() {
+            if (!deleteId) return;
+            
+            this.disabled = true;
+            this.textContent = 'Deleting...';
+            
+            axios.delete(`/banners/${deleteId}`)
+                .then(() => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Deleted!',
+                        text: 'Banner has been deleted',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                })
+                .catch(err => {
+                    this.disabled = false;
+                    this.textContent = 'Yes, Delete';
+                    
+                    let errorMsg = 'Failed to delete banner';
+                    if (err.response?.data?.message) {
+                        errorMsg = err.response.data.message;
+                    }
+                    
+                    Swal.fire('Error!', errorMsg, 'error');
+                    console.error('Delete error:', err);
+                });
+        });
+    }
 
     // Multiple delete
     window.deleteMultiple = function () {
         const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
             .map(cb => cb.value);
-        if (!ids.length) return;
+        
+        if (ids.length === 0) {
+            Swal.fire('Warning', 'Please select banners to delete', 'warning');
+            return;
+        }
 
         Swal.fire({
-            title: 'Delete selected banners?',
+            title: `Delete ${ids.length} banner(s)?`,
+            text: 'This action cannot be undone',
             icon: 'warning',
-            showCancelButton: true
-        }).then(r => {
-            if (r.isConfirmed) {
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete them',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#d33'
+        }).then(result => {
+            if (result.isConfirmed) {
                 Promise.all(ids.map(id => axios.delete(`/banners/${id}`)))
-                    .then(() => location.reload());
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted!',
+                            text: 'Selected banners have been deleted',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            location.reload();
+                        });
+                    })
+                    .catch(err => {
+                        Swal.fire('Error!', 'Failed to delete some banners', 'error');
+                        console.error('Multiple delete error:', err);
+                    });
             }
         });
     };
