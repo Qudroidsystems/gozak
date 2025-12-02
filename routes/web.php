@@ -9,6 +9,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\APIAuthController;
 use App\Http\Controllers\BiodataController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\DashboardController;
@@ -72,6 +73,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::resource('categories', CategoryController::class)->except(['show']);
     Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
+
+    Route::resource('products', ProductController::class)->except(['show']);
+    Route::get('products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
 
     
 });

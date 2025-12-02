@@ -1482,6 +1482,10 @@
        @if (Route::is('banners.*'))
             @include('layouts.pages-assets.js.banner-list-js')
       @endif
+
+      @if (Route::is('products.*'))
+            @include('layouts.pages-assets.js.product-list-js')
+      @endif
       </body>
       
       </html>
