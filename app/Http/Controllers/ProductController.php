@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
 use App\Models\Brand;
+use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -14,7 +14,7 @@ class ProductController extends Controller
     {
         $this->middleware('permission:View product|Create product|Update product|Delete product', ['only' => ['index']]);
         $this->middleware('permission:Create product', ['only' => ['store']]);
-        $this->middleware('permission:Update product', ['only' => ['edit','update']]);
+        $this->middleware('permission:Update product', ['only' => ['edit', 'update']]);
         $this->middleware('permission:Delete product', ['only' => ['destroy']]);
     }
 
@@ -60,12 +60,11 @@ class ProductController extends Controller
             'price'        => 'required|numeric|min:0',
             'sale_price'   => 'nullable|numeric|min:0',
             'stock'        => 'required|integer|min:0',
-            'thumbnail'    => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'images.*'     => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'thumbnail'    => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3072',
+            'images.*'     => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3072',
             'brand_id'     => 'nullable|exists:brands,id',
             'category_id'  => 'nullable|exists:categories,id',
             'description'  => 'nullable|string',
-            => 'nullable|string',
             'product_type' => 'required|in:simple,variable',
             'is_featured'  => 'nullable|boolean',
         ]);
@@ -97,7 +96,10 @@ class ProductController extends Controller
             }
         }
 
-        return response()->json(['success' => true, 'message' => 'Product created']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Product created successfully'
+        ], 201);
     }
 
     public function update(Request $request, $id)
@@ -110,8 +112,8 @@ class ProductController extends Controller
             'price'        => 'required|numeric|min:0',
             'sale_price'   => 'nullable|numeric|min:0',
             'stock'        => 'required|integer|min:0',
-            'thumbnail'    => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'images.*'     => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'thumbnail'    => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3072',
+            'images.*'     => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3072',
             'brand_id'     => 'nullable|exists:brands,id',
             'category_id'  => 'nullable|exists:categories,id',
             'description'  => 'nullable|string',
@@ -120,8 +122,8 @@ class ProductController extends Controller
         ]);
 
         $data = $request->only([
-            'title','sku','price','sale_price','stock','description',
-            'product_type','is_featured','brand_id','category_id'
+            'title', 'sku', 'price', 'sale_price', 'stock', 'description',
+            'product_type', 'is_featured', 'brand_id', 'category_id'
         ]);
 
         if ($request->hasFile('thumbnail')) {
@@ -133,36 +135,47 @@ class ProductController extends Controller
 
         $product->update($data);
 
-        // Handle gallery
+        // Handle gallery images
         if ($request->hasFile('images')) {
+            // Delete old images
             foreach ($product->images as $img) {
                 Storage::disk('public')->delete($img->image_path);
             }
             $product->images()->delete();
 
+            // Save new ones
             foreach ($request->file('images') as $image) {
                 $path = $image->store('products', 'public');
                 $product->images()->create(['image_path' => $path]);
             }
         }
 
-        return response()->json(['success' => true, 'message' => 'Product updated']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Product updated successfully'
+        ]);
     }
 
     public function destroy($id)
     {
         $product = Product::findOrFail($id);
 
-        // Delete images
+        // Delete thumbnail
         if ($product->thumbnail) {
             Storage::disk('public')->delete($product->thumbnail);
         }
+
+        // Delete gallery images
         foreach ($product->images as $img) {
             Storage::disk('public')->delete($img->image_path);
         }
+        $product->images()->delete();
 
         $product->delete();
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Product deleted successfully'
+        ]);
     }
 }
