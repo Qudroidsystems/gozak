@@ -39,11 +39,36 @@ class BrandController extends Controller
             ->with('i', ($request->input('page', 1) - 1) * 10);
     }
 
+    public function edit($id)
+    {
+        try {
+            $brand = Brand::with('categories')->findOrFail($id);
+            
+            return response()->json([
+                'id' => $brand->id,
+                'name' => $brand->name,
+                'is_featured' => $brand->is_featured,
+                'logo' => $brand->logo ? asset('storage/' . $brand->logo) : null,
+                'categories' => $brand->categories->map(function($cat) {
+                    return [
+                        'id' => $cat->id,
+                        'name' => $cat->name
+                    ];
+                })
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'Brand not found: ' . $e->getMessage()
+            ], 404);
+        }
+    }
+
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:brands,name',
-            'logo' => 'required|image|mimes:jpeg,png,jpg|max:2048',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'is_featured' => 'nullable|boolean',
             'categories' => 'nullable|array',
             'categories.*' => 'exists:categories,id',
@@ -52,11 +77,14 @@ class BrandController extends Controller
         try {
             DB::beginTransaction();
 
-            $path = $request->file('logo')->store('public/brands');
+            $logoPath = null;
+            if ($request->hasFile('logo')) {
+                $logoPath = $request->file('logo')->store('brands', 'public');
+            }
 
             $brand = Brand::create([
                 'name' => $request->name,
-                'logo' => $path,
+                'logo' => $logoPath,
                 'is_featured' => $request->boolean('is_featured'),
             ]);
 
@@ -72,7 +100,7 @@ class BrandController extends Controller
                 'brand' => [
                     'id' => $brand->id,
                     'name' => $brand->name,
-                    'logo' => $brand->logo ? asset(Storage::url($brand->logo)) : '',
+                    'logo' => $brand->logo ? asset('storage/' . $brand->logo) : null,
                     'is_featured' => $brand->is_featured,
                     'products_count' => 0,
                     'categories' => $brand->categories->pluck('name')->implode(', '),
@@ -105,8 +133,12 @@ class BrandController extends Controller
             ];
 
             if ($request->hasFile('logo')) {
-                if ($brand->logo) Storage::delete($brand->logo);
-                $data['logo'] = $request->file('logo')->store('public/brands');
+                // Delete old logo
+                if ($brand->logo && Storage::disk('public')->exists($brand->logo)) {
+                    Storage::disk('public')->delete($brand->logo);
+                }
+                // Store new logo
+                $data['logo'] = $request->file('logo')->store('brands', 'public');
             }
 
             $brand->update($data);
@@ -125,9 +157,9 @@ class BrandController extends Controller
                 'brand' => [
                     'id' => $brand->id,
                     'name' => $brand->name,
-                    'logo' => $brand->logo ? asset(Storage::url($brand->logo)) : '',
+                    'logo' => $brand->logo ? asset('storage/' . $brand->logo) : null,
                     'is_featured' => $brand->is_featured,
-                    'products_count' => $brand->products_count,
+                    'products_count' => $brand->products_count ?? 0,
                     'categories' => $brand->categories->pluck('name')->implode(', '),
                 ]
             ]);
@@ -142,8 +174,9 @@ class BrandController extends Controller
         try {
             $brand = Brand::findOrFail($id);
 
-            if ($brand->logo) {
-                Storage::delete($brand->logo);
+            // Delete logo if exists
+            if ($brand->logo && Storage::disk('public')->exists($brand->logo)) {
+                Storage::disk('public')->delete($brand->logo);
             }
 
             $brand->categories()->detach();

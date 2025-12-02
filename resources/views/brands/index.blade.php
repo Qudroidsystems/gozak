@@ -213,6 +213,7 @@
 <!-- ALL JAVASCRIPT (inline - no external files) -->
 
 
+
 <!-- Replace the entire script section with this -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -337,15 +338,23 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.edit-item-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const id = this.dataset.id;
+                
+                console.log('Editing brand ID:', id);
+                console.log('Request URL:', `/brands/${id}/edit`);
+                
                 axios.get(`/brands/${id}/edit`)
                     .then(res => {
+                        console.log('Edit response:', res.data);
                         const b = res.data;
+                        
                         document.getElementById('brand_id').value = b.id;
                         form.querySelector('[name="name"]').value = b.name;
                         document.getElementById('is_featured').checked = b.is_featured == 1;
                         
                         if (b.logo) {
-                            logoPreview.src = b.logo;
+                            // Handle both full URL and storage path
+                            const logoUrl = b.logo.startsWith('http') ? b.logo : `/storage/${b.logo}`;
+                            logoPreview.src = logoUrl;
                             logoPreview.style.display = 'block';
                         } else {
                             logoPreview.style.display = 'none';
@@ -364,7 +373,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                     .catch(err => {
                         console.error('Edit error:', err);
-                        Swal.fire('Error!', 'Failed to load brand data', 'error');
+                        console.error('Error response:', err.response);
+                        console.error('Error status:', err.response?.status);
+                        console.error('Error data:', err.response?.data);
+                        
+                        let errorMsg = 'Failed to load brand data';
+                        if (err.response?.status === 404) {
+                            errorMsg = 'Brand not found. It may have been deleted.';
+                        } else if (err.response?.status === 403) {
+                            errorMsg = 'You do not have permission to edit this brand.';
+                        } else if (err.response?.data?.message) {
+                            errorMsg = err.response.data.message;
+                        }
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: errorMsg,
+                            footer: err.response?.status ? `Status: ${err.response.status}` : 'Check console for details'
+                        });
                     });
             });
         });
