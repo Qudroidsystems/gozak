@@ -45,6 +45,9 @@
           @include('layouts.pages-assets.css.users-list-css')
     @endif
 
+   @if (Route::is('categories.*'))
+          @include('layouts.pages-assets.css.users-list-css')
+    @endif
 
      
     
@@ -1434,7 +1437,9 @@
             @include('layouts.pages-assets.js.brand-list-js')
       @endif  
 
-  
+      @if (Route::is('categories.*'))
+            @include('layouts.pages-assets.js.category-list-js')
+      @endif
       </body>
       
       </html>

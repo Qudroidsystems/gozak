@@ -67,12 +67,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('brands/{brand}/edit', [BrandController::class, 'edit'])
         ->name('brands.edit');
 
-    // Optional: If you want a nice "show" page later
-    // Route::get('brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+    Route::resource('categories', CategoryController::class)->except(['show']);
+    Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
 
-    // ===================================================================
-    // FUTURE: Categories, Products, etc. (Just add like this)
-    // ===================================================================
-    // Route::resource('categories', CategoryController::class)->except(['show']);
-    // Route::resource('products', ProductController::class)->except(['show']);
+    
 });
