@@ -2,18 +2,21 @@
 
 namespace Database\Seeders;
 
-use App\Models\Banner;
+use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use App\Models\Brand;
-use App\Models\Category;
+use App\Models\Banner;
 use App\Models\Product;
-use App\Models\ProductAttribute;
+use App\Models\Category;
 use App\Models\ProductImage;
 use App\Models\ProductReview;
-use App\Models\ProductVariation;
-use App\Models\User;
 use Illuminate\Database\Seeder;
+use App\Models\ProductAttribute;
+use App\Models\ProductVariation;
 use Illuminate\Support\Facades\DB;
+use Database\Seeders\BrandPermissionTableSeeder;
+use Database\Seeders\BannerPermissionTableSeeder;
+use Database\Seeders\CategoryPermissionTableSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -28,6 +31,13 @@ class DatabaseSeeder extends Seeder
         //     'name' => 'Test User',
         //     'email' => 'test@example.com',
         // ]);
+
+        $this->call([
+        BrandPermissionTableSeeder::class,
+        CategoryPermissionTableSeeder::class,
+        BannerPermissionTableSeeder::class,   // ← this one
+        // ... others
+        ]);
 
 
          // Disable foreign key checks to avoid constraint issues during seeding

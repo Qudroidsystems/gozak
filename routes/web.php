@@ -6,6 +6,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\BannerController;
 use App\Http\Controllers\APIAuthController;
 use App\Http\Controllers\BiodataController;
 use App\Http\Controllers\CategoryController;
@@ -59,9 +60,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/users/{user}/overview', [OverviewController::class, 'show'])->name('user.overview');
     Route::get('/users/{user}/settings', [BiodataController::class, 'show'])->name('user.settings');
 
-    // ===================================================================
-    // BRAND MANAGEMENT (New – Same style as Users)
-    // ===================================================================
+    Route::resource('banners', BannerController::class)->except(['show']);
+    Route::get('banners/{banner}/edit', [BannerController::class, 'edit'])->name('banners.edit');
+
+    
     Route::resource('brands', BrandController::class)->except(['show']);
 
     // Extra route needed for Edit modal (AJAX)

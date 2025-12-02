@@ -47,8 +47,11 @@
 
    @if (Route::is('categories.*'))
           @include('layouts.pages-assets.css.users-list-css')
-    @endif
+   @endif
 
+   @if (Route::is('banners.*'))
+          @include('layouts.pages-assets.css.users-list-css')
+    @endif
      
     
 </head>
@@ -173,7 +176,23 @@
                         </li>
 
                         <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">INVENTORY MANAGEMENT</span></li>
-                         @can('View brand')
+                        @can('View banner')
+                            <li class="nav-item">
+                                <a class="nav-link menu-link collapsed" href="#sidebarbanner" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
+                                    <i class="ph-user-circle"></i> <span data-key="t-authentication">Banner Managements</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="sidebarbanner">
+                                    <ul class="nav nav-sm flex-column">
+                                    
+                                            <li class="nav-item">
+                                            <a href="{{ route('banners.index') }}" class="nav-link" role="button" data-key="t-signin"> Banner </a>
+                                        </li>
+                                    
+                                    </ul>
+                                </div>
+                            </li>
+                        @endcan
+                         @can('View category')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarcategories" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">Category Managements</span>
@@ -1458,6 +1477,10 @@
 
       @if (Route::is('categories.*'))
             @include('layouts.pages-assets.js.category-list-js')
+      @endif
+
+       @if (Route::is('banners.*'))
+            @include('layouts.pages-assets.js.banner-list-js')
       @endif
       </body>
       
