@@ -19,12 +19,13 @@ class CategoryController extends Controller
 
     public function index(Request $request)
     {
+        $pagetitle = "Category Management";
+
         $categories = Category::with(['parent', 'children'])
             ->withCount('products')
             ->latest()
             ->paginate(12);
 
-        // Chart data
         $chartData = Category::withCount('products')
             ->orderByDesc('products_count')
             ->limit(10)
@@ -33,10 +34,15 @@ class CategoryController extends Controller
         $chart_labels = $chartData->pluck('name')->toArray();
         $chart_data   = $chartData->pluck('products_count')->toArray();
 
-        // For parent dropdown in modal
         $allCategories = Category::whereNull('parent_id')->orderBy('name')->get();
 
-        return view('categories.index', compact('categories', 'allCategories', 'chart_labels', 'chart_data'));
+        return view('categories.index', compact(
+            'categories',
+            'allCategories',
+            'pagetitle',
+            'chart_labels',
+            'chart_data'
+        ));
     }
 
     public function edit($id)
