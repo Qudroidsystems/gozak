@@ -45,12 +45,16 @@
           @include('layouts.pages-assets.css.users-list-css')
     @endif
 
-   @if (Route::is('categories.*'))
-          @include('layouts.pages-assets.css.users-list-css')
-   @endif
+    @if (Route::is('categories.*'))
+            @include('layouts.pages-assets.css.users-list-css')
+    @endif
 
-   @if (Route::is('banners.*'))
-          @include('layouts.pages-assets.css.users-list-css')
+    @if (Route::is('banners.*'))
+            @include('layouts.pages-assets.css.users-list-css')
+    @endif
+
+    @if (Route::is('products.*'))
+            @include('layouts.pages-assets.css.users-list-css')
     @endif
      
     
