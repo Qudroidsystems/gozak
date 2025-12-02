@@ -211,152 +211,306 @@
 </div>
 
 <!-- ALL JAVASCRIPT (inline - no external files) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+
 
 <script>
-// Pass PHP data to JS
-const chartLabels = @json($chart_labels);
-const chartData   = @json($chart_data);
+document.addEventListener('DOMContentLoaded', function() {
+    // Setup axios defaults
+    axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-// Chart
-new Chart(document.getElementById('brandChart'), {
-    type: 'bar',
-    data: {
-        labels: chartLabels,
-        datasets: [{
-            label: 'Products',
-            data: chartData,
-            backgroundColor: '#405189'
-        }]
-    },
-    options: {
-        scales: { y: { beginAtZero: true } },
-        plugins: { legend: { display: false } }
-    }
-});
+    // Pass PHP data to JS
+    const chartLabels = @json($chart_labels);
+    const chartData   = @json($chart_data);
 
-// List.js
-var options = {
-    valueNames: ['id', 'name', 'categories', 'products', 'featured'],
-    page: 10,
-    pagination: true,
-    plugins: [ListPagination({ left: 2, right: 2 })]
-};
-var brandList = new List('brandList', options);
-
-// Checkbox Select All
-document.getElementById('checkAll')?.addEventListener('click', function () {
-    document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-        cb.checked = this.checked;
-        cb.closest('tr').classList.toggle('table-active', this.checked);
-    });
-    document.getElementById('remove-actions').classList.toggle('d-none', !this.checked && document.querySelectorAll('input[name="chk_child"]:checked').length === 0);
-});
-
-// Individual checkboxes
-document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-    cb.addEventListener('click', function () {
-        this.closest('tr').classList.toggle('table-active', this.checked);
-        const checkedCount = document.querySelectorAll('input[name="chk_child"]:checked').length;
-        document.getElementById('checkAll').checked = checkedCount === document.querySelectorAll('input[name="chk_child"]').length;
-        document.getElementById('remove-actions').classList.toggle('d-none', checkedCount === 0);
-    });
-});
-
-// Choices.js
-let choices = new Choices('#categories_select', {
-    removeItemButton: true,
-    searchEnabled: true
-});
-
-// Modal
-const modal = new bootstrap.Modal('#showModal');
-const form = document.getElementById('brandForm');
-const logoPreview = document.getElementById('logo_preview');
-
-// Reset form when Add button clicked
-document.querySelector('.add-btn')?.addEventListener('click', () => {
-    form.reset();
-    document.getElementById('brand_id').value = '';
-    document.getElementById('modalTitle').textContent = 'Add Brand';
-    document.getElementById('submitBtn').textContent = 'Save Brand';
-    logoPreview.style.display = 'none';
-    choices.setValue([]);
-});
-
-// Edit
-document.querySelectorAll('.edit-item-btn').forEach(btn => {
-    btn.addEventListener('click', function () {
-        const id = this.dataset.id;
-        axios.get(`/brands/${id}/edit`)
-            .then(res => {
-                const b = res.data;
-                document.getElementById('brand_id').value = b.id;
-                form.name.value = b.name;
-                document.getElementById('is_featured').checked = b.is_featured;
-                if (b.logo) {
-                    logoPreview.src = b.logo;
-                    logoPreview.style.display = 'block';
-                }
-                choices.setValue(b.categories.map(c => ({ value: c.id, label: c.name })));
-                document.getElementById('modalTitle').textContent = 'Edit Brand';
-                document.getElementById('submitBtn').textContent = 'Update Brand';
-                modal.show();
-            });
-    });
-});
-
-// Submit (Add & Update)
-form.addEventListener('submit', e => {
-    e.preventDefault();
-    const id = document.getElementById('brand_id').value;
-    const url = id ? `/brands/${id}` : '/brands';
-    const formData = new FormData(form);
-    if (id) formData.append('_method', 'PUT');
-
-    axios.post(url, formData)
-        .then(() => location.reload())
-        .catch(err => {
-            let msg = 'Error';
-            if (err.response?.status === 422) {
-                msg = Object.values(err.response.data.errors).flat().join('<br>');
-            }
-            Swal.fire('Error!', msg, 'error');
-        });
-});
-
-// Single Delete
-document.querySelectorAll('.remove-item-btn').forEach(btn => {
-    btn.addEventListener('click', function () {
-        const id = this.dataset.id;
-        document.getElementById('delete-record').onclick = () => {
-            axios.delete(`/brands/${id}`).then(() => location.reload());
-        };
-        new bootstrap.Modal('#deleteRecordModal').show();
-    });
-});
-
-// Multiple Delete
-function deleteMultiple() {
-    const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
-        .map(cb => cb.value);
-    if (ids.length === 0) return;
-    Swal.fire({
-        title: 'Delete selected?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Yes'
-    }).then(res => {
-        if (res.isConfirmed) {
-            Promise.all(ids.map(id => axios.delete(`/brands/${id}`)))
-                .then(() => location.reload());
+    // Chart
+    new Chart(document.getElementById('brandChart'), {
+        type: 'bar',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Products',
+                data: chartData,
+                backgroundColor: '#405189'
+            }]
+        },
+        options: {
+            scales: { y: { beginAtZero: true } },
+            plugins: { legend: { display: false } }
         }
     });
-}
+
+    // List.js - Fixed pagination plugin
+    var options = {
+        valueNames: ['id', 'name', 'categories', 'products', 'featured'],
+        page: 10,
+        pagination: true
+    };
+    var brandList = new List('brandList', options);
+
+    // Choices.js
+    let choices = new Choices('#categories_select', {
+        removeItemButton: true,
+        searchEnabled: true,
+        placeholder: true,
+        placeholderValue: 'Select categories'
+    });
+
+    // Modal
+    const modalElement = document.getElementById('showModal');
+    const modal = new bootstrap.Modal(modalElement);
+    const form = document.getElementById('brandForm');
+    const logoPreview = document.getElementById('logo_preview');
+    let deleteId = null;
+
+    // Checkbox Select All
+    const checkAllBtn = document.getElementById('checkAll');
+    if (checkAllBtn) {
+        checkAllBtn.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('input[name="chk_child"]');
+            checkboxes.forEach(cb => {
+                cb.checked = this.checked;
+                const row = cb.closest('tr');
+                if (row) {
+                    row.classList.toggle('table-active', this.checked);
+                }
+            });
+            updateRemoveButton();
+        });
+    }
+
+    // Individual checkboxes
+    function attachCheckboxListeners() {
+        document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
+            cb.addEventListener('change', function() {
+                const row = this.closest('tr');
+                if (row) {
+                    row.classList.toggle('table-active', this.checked);
+                }
+                
+                const allCheckboxes = document.querySelectorAll('input[name="chk_child"]');
+                const checkedCount = document.querySelectorAll('input[name="chk_child"]:checked').length;
+                
+                if (checkAllBtn) {
+                    checkAllBtn.checked = checkedCount === allCheckboxes.length;
+                }
+                updateRemoveButton();
+            });
+        });
+    }
+
+    function updateRemoveButton() {
+        const checkedCount = document.querySelectorAll('input[name="chk_child"]:checked').length;
+        const removeBtn = document.getElementById('remove-actions');
+        if (removeBtn) {
+            removeBtn.classList.toggle('d-none', checkedCount === 0);
+        }
+    }
+
+    attachCheckboxListeners();
+
+    // Reset form when Add button clicked
+    const addBtn = document.querySelector('.add-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            form.reset();
+            document.getElementById('brand_id').value = '';
+            document.getElementById('modalTitle').textContent = 'Add Brand';
+            document.getElementById('submitBtn').textContent = 'Save Brand';
+            logoPreview.style.display = 'none';
+            logoPreview.src = '';
+            choices.removeActiveItems();
+            choices.setChoiceByValue([]);
+        });
+    }
+
+    // Edit buttons
+    function attachEditListeners() {
+        document.querySelectorAll('.edit-item-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                axios.get(`/brands/${id}/edit`)
+                    .then(res => {
+                        const b = res.data;
+                        document.getElementById('brand_id').value = b.id;
+                        form.querySelector('[name="name"]').value = b.name;
+                        document.getElementById('is_featured').checked = b.is_featured == 1;
+                        
+                        if (b.logo) {
+                            logoPreview.src = b.logo;
+                            logoPreview.style.display = 'block';
+                        } else {
+                            logoPreview.style.display = 'none';
+                        }
+                        
+                        // Set categories in Choices.js
+                        choices.removeActiveItems();
+                        if (b.categories && b.categories.length > 0) {
+                            const categoryIds = b.categories.map(c => String(c.id));
+                            choices.setChoiceByValue(categoryIds);
+                        }
+                        
+                        document.getElementById('modalTitle').textContent = 'Edit Brand';
+                        document.getElementById('submitBtn').textContent = 'Update Brand';
+                        modal.show();
+                    })
+                    .catch(err => {
+                        console.error('Edit error:', err);
+                        Swal.fire('Error!', 'Failed to load brand data', 'error');
+                    });
+            });
+        });
+    }
+
+    attachEditListeners();
+
+    // Submit form (Add & Update)
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+        
+        const id = document.getElementById('brand_id').value;
+        const url = id ? `/brands/${id}` : '/brands';
+        const formData = new FormData(form);
+        
+        if (id) {
+            formData.append('_method', 'PUT');
+        }
+
+        axios.post(url, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+        .then(response => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: id ? 'Brand updated successfully' : 'Brand added successfully',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload();
+            });
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = id ? 'Update Brand' : 'Save Brand';
+            
+            let msg = 'An error occurred';
+            if (err.response?.status === 422) {
+                const errors = err.response.data.errors;
+                msg = Object.values(errors).flat().join('<br>');
+            } else if (err.response?.data?.message) {
+                msg = err.response.data.message;
+            }
+            
+            Swal.fire('Error!', msg, 'error');
+            console.error('Submit error:', err);
+        });
+    });
+
+    // Delete buttons
+    function attachDeleteListeners() {
+        document.querySelectorAll('.remove-item-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                deleteId = this.dataset.id;
+                const deleteModal = new bootstrap.Modal('#deleteRecordModal');
+                deleteModal.show();
+            });
+        });
+    }
+
+    attachDeleteListeners();
+
+    // Confirm delete
+    const deleteRecordBtn = document.getElementById('delete-record');
+    if (deleteRecordBtn) {
+        deleteRecordBtn.addEventListener('click', function() {
+            if (!deleteId) return;
+            
+            this.disabled = true;
+            this.textContent = 'Deleting...';
+            
+            axios.delete(`/brands/${deleteId}`)
+                .then(() => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Deleted!',
+                        text: 'Brand has been deleted',
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        location.reload();
+                    });
+                })
+                .catch(err => {
+                    this.disabled = false;
+                    this.textContent = 'Yes, Delete';
+                    Swal.fire('Error!', 'Failed to delete brand', 'error');
+                    console.error('Delete error:', err);
+                });
+        });
+    }
+
+    // Multiple Delete
+    window.deleteMultiple = function() {
+        const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
+            .map(cb => cb.value);
+        
+        if (ids.length === 0) {
+            Swal.fire('Warning', 'Please select brands to delete', 'warning');
+            return;
+        }
+        
+        Swal.fire({
+            title: `Delete ${ids.length} brand(s)?`,
+            text: 'This action cannot be undone',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete them',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#d33'
+        }).then(result => {
+            if (result.isConfirmed) {
+                Promise.all(ids.map(id => axios.delete(`/brands/${id}`)))
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted!',
+                            text: 'Selected brands have been deleted',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            location.reload();
+                        });
+                    })
+                    .catch(err => {
+                        Swal.fire('Error!', 'Failed to delete some brands', 'error');
+                        console.error('Multiple delete error:', err);
+                    });
+            }
+        });
+    };
+
+    // Logo preview on file select
+    const logoInput = form.querySelector('[name="logo"]');
+    if (logoInput) {
+        logoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    logoPreview.src = e.target.result;
+                    logoPreview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
 </script>
 @endsection
