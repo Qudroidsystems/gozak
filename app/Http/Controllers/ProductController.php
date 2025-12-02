@@ -123,13 +123,14 @@ class ProductController extends Controller
         ])
         ->withCount([
             'variations',
-            'reviews as reviews_count',
-            'orderItems as total_sold' => function($query) {
-                $query->select(DB::raw('COALESCE(SUM(quantity), 0)'));
-            }
+            'reviews',
+            'orderItems as order_items_count'
         ])
         ->findOrFail($id);
 
+        // Calculate total sold from order items
+        $totalSold = $product->orderItems()->sum('quantity');
+        
         // Calculate average rating
         $averageRating = $product->reviews->avg('rating') ?? 0;
         $ratingBreakdown = [
@@ -141,7 +142,8 @@ class ProductController extends Controller
         ];
 
         // Calculate revenue
-        $revenue = ($product->total_sold ?? 0) * ($product->sale_price ?? $product->price);
+        $price = $product->sale_price ?? $product->price;
+        $revenue = $totalSold * $price;
 
         $pagetitle = $product->title . ' - Product Details';
 
@@ -150,7 +152,8 @@ class ProductController extends Controller
             'pagetitle', 
             'averageRating', 
             'ratingBreakdown',
-            'revenue'
+            'revenue',
+            'totalSold'
         ));
     }
 

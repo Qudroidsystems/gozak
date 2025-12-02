@@ -97,6 +97,21 @@
     .badge.bg-success { background-color: #0a3622 !important; }
     .badge.bg-warning { background-color: #664d03 !important; }
     .badge.bg-danger { background-color: #58151c !important; }
+    
+    /* Custom styles for better UI */
+    .card-height-100 {
+        height: 100%;
+    }
+    
+    .rounded-start-0 {
+        border-top-left-radius: 0 !important;
+        border-bottom-left-radius: 0 !important;
+    }
+    
+    .rounded-end-0 {
+        border-top-right-radius: 0 !important;
+        border-bottom-right-radius: 0 !important;
+    }
 </style>
 @endpush
 
@@ -193,9 +208,9 @@
                                     </div>
 
                                     <div class="hstack gap-3 flex-wrap mb-4">
-                                        <div class="text-muted"><b class="text-body fw-medium">{{ $product->total_sold ?? 0 }}</b> Sold</div>
+                                        <div class="text-muted"><b class="text-body fw-medium">{{ $totalSold ?? 0 }}</b> Sold</div>
                                         <div class="vr"></div>
-                                        <div class="text-muted"><b class="text-body fw-medium">{{ $product->reviews_count ?? 0 }}</b> Reviews</div>
+                                        <div class="text-muted"><b class="text-body fw-medium">{{ $product->reviews->count() ?? 0 }}</b> Reviews</div>
                                         <div class="vr"></div>
                                         <div class="text-muted">Published : <span class="text-body fw-medium">{{ $product->created_at->format('d M, Y') }}</span></div>
                                     </div>
@@ -303,7 +318,7 @@
                                                         <div class="card-body p-2">
                                                             <div class="text-center">
                                                                 <p class="text-muted text-truncate mb-2">No. of Orders</p>
-                                                                <h6 class="fs-lg">{{ $product->total_sold ?? 0 }}</h6>
+                                                                <h6 class="fs-lg">{{ $totalSold ?? 0 }}</h6>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -420,8 +435,8 @@
                     <!-- Reviews Section -->
                     <div class="card mt-4">
                         <div class="card-header d-flex flex-wrap align-items-center gap-3 mb-2">
-                            <h6 class="card-title flex-grow-1 mb-0">Ratings & Reviews ({{ $product->reviews_count ?? 0 }})</h6>
-                            @if($product->reviews_count > 0)
+                            <h6 class="card-title flex-grow-1 mb-0">Ratings & Reviews ({{ $product->reviews->count() ?? 0 }})</h6>
+                            @if($product->reviews->count() > 0)
                                 <div class="text-warning hstack gap-1">
                                     @for($i = 1; $i <= 5; $i++)
                                         @if($i <= floor($averageRating))
@@ -457,7 +472,7 @@
                         </div>
                         <div class="card-body">
                             <div class="row gy-3">
-                                @if($product->reviews_count > 0)
+                                @if($product->reviews->count() > 0)
                                 <div class="col-lg-2">
                                     <div class="text-center mt-3 mt-lg-5">
                                         <h1 class="mb-3">{{ number_format($averageRating, 1) }} <small class="fs-sm text-muted fw-normal">/ 5.0</small></h1>
@@ -472,7 +487,7 @@
                                                 @endif
                                             @endfor
                                         </div>
-                                        <p class="mb-0"><b>{{ $product->reviews_count }}</b> Reviews</p>
+                                        <p class="mb-0"><b>{{ $product->reviews->count() }}</b> Reviews</p>
                                     </div>
                                 </div>
                                 <div class="col-lg-10">
@@ -789,6 +804,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
                 .catch(error => {
                     console.error('Error loading review:', error);
+                    Swal.fire('Error!', 'Failed to load review data', 'error');
                 });
         });
     });

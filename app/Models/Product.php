@@ -1,7 +1,15 @@
 <?php
 namespace App\Models;
 
+use App\Models\Brand;
+use App\Models\Category;
+use App\Models\OrderItem;
+use App\Models\ProductImage;
+use App\Models\ProductReview;
+use App\Models\ProductAttribute;
+use App\Models\ProductVariation;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
@@ -18,14 +26,14 @@ class Product extends Model
         'is_featured',
         'category_id',
         'brand_id',
-        'is_nsfw',  // NEW: For safe_mode filtering (default: false via migration)
+        'is_nsfw',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'sale_price' => 'decimal:2',
         'is_featured' => 'boolean',
-        'is_nsfw' => 'boolean',  // NEW: Cast as boolean for safe_mode queries
+        'is_nsfw' => 'boolean',
     ];
 
     public function category()
@@ -66,5 +74,37 @@ class Product extends Model
     public function reviews()
     {
         return $this->hasMany(ProductReview::class);
+    }
+
+    // Add the missing relationship for order items
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+    
+    // Add total sold calculation
+    public function getTotalSoldAttribute()
+    {
+        return $this->orderItems()->sum('quantity');
+    }
+    
+    // Add reviews count accessor
+    public function getReviewsCountAttribute()
+    {
+        return $this->reviews()->count();
+    }
+    
+    // Add average rating accessor
+    public function getAverageRatingAttribute()
+    {
+        return $this->reviews()->avg('rating') ?? 0;
+    }
+    
+    // Add revenue calculation
+    public function getRevenueAttribute()
+    {
+        $totalSold = $this->getTotalSoldAttribute();
+        $price = $this->sale_price ?? $this->price;
+        return $totalSold * $price;
     }
 }

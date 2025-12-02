@@ -4484,6 +4484,10 @@ namespace App\Models {
      * @property string|null $sku
      * @property string $title
      * @property int $id
+     * @property-read mixed $total_sold
+     * @property-read mixed $reviews_count
+     * @property-read mixed $average_rating
+     * @property-read mixed $revenue
      * @property-read \App\Models\Category $category
      * @property-read \App\Models\Brand $brand
      * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\ProductAttribute> $attributes
@@ -4498,6 +4502,8 @@ namespace App\Models {
      * @property-read int|null $brands_count
      * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\ProductReview> $reviews
      * @property-read int|null $reviews_count
+     * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OrderItem> $orderItems
+     * @property-read int|null $orderItems_count
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereId($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereTitle($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereSku($value)
