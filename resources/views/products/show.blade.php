@@ -11,96 +11,99 @@
         top: 100px;
     }
     
-    .product-img-slider .swiper-slide {
+    /* Swiper container styling */
+    .product-thumbnail-slider {
+        height: 400px;
+        width: 100%;
+    }
+    
+    .product-thumbnail-slider .swiper-wrapper {
+        height: 100%;
+    }
+    
+    .product-thumbnail-slider .swiper-slide {
         display: flex;
         align-items: center;
         justify-content: center;
+        background: #fff;
+        height: 100%;
     }
     
-    .product-img-slider .swiper-slide img {
-        max-height: 450px;
-        width: auto;
+    .product-thumbnail-slider .swiper-slide img {
+        max-width: 100%;
+        max-height: 100%;
         object-fit: contain;
+    }
+    
+    .product-nav-slider {
+        margin-top: 15px;
+        height: 100px;
+    }
+    
+    .product-nav-slider .swiper-slide {
+        width: 80px;
+        height: 80px;
+        opacity: 0.5;
+        transition: opacity 0.3s;
+        cursor: pointer;
+    }
+    
+    .product-nav-slider .swiper-slide-thumb-active {
+        opacity: 1;
     }
     
     .nav-slide-item {
         border: 2px solid transparent;
-        padding: 2px;
         border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.3s;
+        padding: 2px;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+        transition: border-color 0.3s;
     }
     
-    .nav-slide-item:hover,
-    .swiper-slide-thumb-active .nav-slide-item {
+    .product-nav-slider .swiper-slide-thumb-active .nav-slide-item {
         border-color: #0d6efd;
     }
     
     .nav-slide-item img {
         border-radius: 4px;
-        height: 80px;
-        object-fit: cover;
         width: 100%;
-    }
-    
-    .description-table th {
-        width: 200px;
-        font-weight: 600;
-        background-color: #f8f9fa;
-    }
-    
-    .rating-summary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 20px;
-    }
-    
-    .rating-progress {
-        height: 8px;
-        border-radius: 4px;
-    }
-    
-    .review-gallery-img .avatar-title img {
-        object-fit: cover;
         height: 100%;
-        width: 100%;
+        object-fit: cover;
     }
     
-    .input-step {
-        display: flex;
-        align-items: center;
-        gap: 5px;
+    .swiper-button-next,
+    .swiper-button-prev {
+        color: #fff;
+        background: rgba(0,0,0,0.5);
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        transition: background 0.3s;
     }
     
-    .input-step button {
-        width: 32px;
-        height: 32px;
-        border: 1px solid #dee2e6;
-        background: white;
-        border-radius: 4px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
+    .swiper-button-next:after,
+    .swiper-button-prev:after {
+        font-size: 20px;
     }
     
-    .input-step input {
-        width: 60px;
-        text-align: center;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        height: 32px;
+    .swiper-button-next:hover,
+    .swiper-button-prev:hover {
+        background: rgba(0,0,0,0.8);
     }
     
     /* Badge styles for stock */
-    .badge.bg-success { background-color: #0a3622 !important; }
-    .badge.bg-warning { background-color: #664d03 !important; }
-    .badge.bg-danger { background-color: #58151c !important; }
+    .badge.bg-success { background-color: #0a3622 !important; color: white !important; }
+    .badge.bg-warning { background-color: #664d03 !important; color: white !important; }
+    .badge.bg-danger { background-color: #58151c !important; color: white !important; }
     
-    /* Custom styles for better UI */
+    /* Custom styles */
     .card-height-100 {
-        height: 100%;
+        min-height: 100%;
     }
     
     .rounded-start-0 {
@@ -111,6 +114,24 @@
     .rounded-end-0 {
         border-top-right-radius: 0 !important;
         border-bottom-right-radius: 0 !important;
+    }
+    
+    .description-table th {
+        width: 200px;
+        font-weight: 600;
+        background-color: #f8f9fa;
+    }
+    
+    .rating-input .btn-outline-warning {
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .rating-input .btn-outline-warning i {
+        font-size: 1.5rem;
     }
 </style>
 @endpush
@@ -145,21 +166,17 @@
                                 <div class="swiper-wrapper">
                                     @if($product->thumbnail)
                                         <div class="swiper-slide">
-                                            <div class="p-5 mx-4">
-                                                <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="{{ $product->title }}" class="img-fluid d-block">
-                                            </div>
+                                            <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="{{ $product->title }}" class="img-fluid">
                                         </div>
                                     @endif
                                     @foreach($product->images as $img)
                                         <div class="swiper-slide">
-                                            <div class="p-5 mx-4">
-                                                <img src="{{ asset('storage/' . $img->image_path) }}" alt="Gallery" class="img-fluid d-block">
-                                            </div>
+                                            <img src="{{ asset('storage/' . $img->image_path) }}" alt="Gallery" class="img-fluid">
                                         </div>
                                     @endforeach
                                     @if(!$product->thumbnail && $product->images->isEmpty())
                                         <div class="swiper-slide">
-                                            <div class="p-5 mx-4 d-flex align-items-center justify-content-center bg-white" style="height: 450px;">
+                                            <div class="d-flex align-items-center justify-content-center h-100">
                                                 <i class="bi bi-image fs-1 text-muted"></i>
                                             </div>
                                         </div>
@@ -175,14 +192,14 @@
                                     @if($product->thumbnail)
                                         <div class="swiper-slide">
                                             <div class="nav-slide-item">
-                                                <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid d-block">
+                                                <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid">
                                             </div>
                                         </div>
                                     @endif
                                     @foreach($product->images as $img)
                                         <div class="swiper-slide">
                                             <div class="nav-slide-item">
-                                                <img src="{{ asset('storage/' . $img->image_path) }}" alt="" class="img-fluid d-block">
+                                                <img src="{{ asset('storage/' . $img->image_path) }}" alt="" class="img-fluid">
                                             </div>
                                         </div>
                                     @endforeach
@@ -664,31 +681,51 @@
     </div>
 </div>
 
-@push('scripts')
+
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Initialize Swiper
-    const productNavSlider = new Swiper(".product-nav-slider", {
-        loop: true,
-        spaceBetween: 10,
-        slidesPerView: 4,
-        freeMode: true,
-        watchSlidesProgress: true,
-    });
+    // Initialize Swiper Sliders
+    let thumbnailSlider, navSlider;
+    
+    function initSwiper() {
+        // Thumbnail navigation slider
+        navSlider = new Swiper('.product-nav-slider', {
+            slidesPerView: 4,
+            spaceBetween: 10,
+            freeMode: true,
+            watchSlidesProgress: true,
+            breakpoints: {
+                320: {
+                    slidesPerView: 3,
+                },
+                640: {
+                    slidesPerView: 4,
+                },
+                1024: {
+                    slidesPerView: 4,
+                }
+            }
+        });
 
-    const productThumbnailSlider = new Swiper(".product-thumbnail-slider", {
-        loop: true,
-        spaceBetween: 24,
-        navigation: {
-            nextEl: ".swiper-button-next",
-            prevEl: ".swiper-button-prev",
-        },
-        thumbs: {
-            swiper: productNavSlider,
-        },
-    });
+        // Main image slider
+        thumbnailSlider = new Swiper('.product-thumbnail-slider', {
+            spaceBetween: 10,
+            navigation: {
+                nextEl: '.swiper-button-next',
+                prevEl: '.swiper-button-prev',
+            },
+            thumbs: {
+                swiper: navSlider
+            }
+        });
+        
+        console.log('Swiper initialized successfully');
+    }
+    
+    // Initialize swiper when DOM is loaded
+    initSwiper();
 
     // Rating stars functionality
     function setupRatingStars(starClass, ratingInputId, textElementId) {
@@ -937,7 +974,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     // Reset add review form when modal is closed
-    document.getElementById('addReviewModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('addReviewModal')?.addEventListener('hidden.bs.modal', function() {
         document.getElementById('addReviewForm').reset();
         document.getElementById('rating').value = 0;
         document.getElementById('rating-text').textContent = 'Select a rating';
@@ -951,7 +988,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // Reset edit review form when modal is closed
-    document.getElementById('editReviewModal').addEventListener('hidden.bs.modal', function() {
+    document.getElementById('editReviewModal')?.addEventListener('hidden.bs.modal', function() {
         document.getElementById('editReviewForm').reset();
         document.getElementById('edit_rating').value = 0;
         document.getElementById('edit-rating-text').textContent = 'Select a rating';
@@ -963,7 +1000,17 @@ document.addEventListener('DOMContentLoaded', function () {
             star.classList.add('btn-outline-warning');
         });
     });
+
+    // Update swiper when images load (if any images are loaded async)
+    window.addEventListener('load', function() {
+        if (thumbnailSlider) {
+            thumbnailSlider.update();
+        }
+        if (navSlider) {
+            navSlider.update();
+        }
+    });
 });
 </script>
-@endpush
+
 @endsection

@@ -46,7 +46,7 @@ class BannerController extends Controller
             'active'        => 'required|boolean',
         ]);
 
-        $path = $request->file('image')->store('banners', 'public');
+        $path = $request->file('image')->store('banner', 'public');
 
         Banner::create([
             'image_url'     => $path,
@@ -80,7 +80,7 @@ class BannerController extends Controller
             if ($banner->image_url) {
                 Storage::disk('public')->delete($banner->image_url);
             }
-            $data['image_url'] = $request->file('image')->store('banners', 'public');
+            $data['image_url'] = $request->file('image')->store('banner', 'public');
         }
 
         $banner->update($data);

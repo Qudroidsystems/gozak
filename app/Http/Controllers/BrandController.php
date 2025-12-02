@@ -79,7 +79,7 @@ class BrandController extends Controller
 
             $logoPath = null;
             if ($request->hasFile('logo')) {
-                $logoPath = $request->file('logo')->store('brands', 'public');
+                $logoPath = $request->file('logo')->store('brand', 'public');
             }
 
             $brand = Brand::create([
@@ -138,7 +138,7 @@ class BrandController extends Controller
                     Storage::disk('public')->delete($brand->logo);
                 }
                 // Store new logo
-                $data['logo'] = $request->file('logo')->store('brands', 'public');
+                $data['logo'] = $request->file('logo')->store('brand', 'public');
             }
 
             $brand->update($data);

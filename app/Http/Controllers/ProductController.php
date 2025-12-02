@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use App\Models\ProductReview;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
@@ -225,7 +226,7 @@ class ProductController extends Controller
         try {
             $thumbnailPath = null;
             if ($request->hasFile('thumbnail')) {
-                $thumbnailPath = $request->file('thumbnail')->store('products', 'public');
+                $thumbnailPath = $request->file('thumbnail')->store('product', 'public');
             }
 
             $product = Product::create([
@@ -245,7 +246,7 @@ class ProductController extends Controller
             // Save gallery images
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $image) {
-                    $path = $image->store('products/gallery', 'public');
+                    $path = $image->store('product/gallery', 'public');
                     $product->images()->create(['image_path' => $path]);
                 }
             }
@@ -306,7 +307,7 @@ class ProductController extends Controller
                 if ($product->thumbnail) {
                     Storage::disk('public')->delete($product->thumbnail);
                 }
-                $data['thumbnail'] = $request->file('thumbnail')->store('products', 'public');
+                $data['thumbnail'] = $request->file('thumbnail')->store('product', 'public');
             }
 
             $product->update($data);
@@ -314,7 +315,7 @@ class ProductController extends Controller
             // Handle gallery images - Only add new ones, don't delete old ones
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $image) {
-                    $path = $image->store('products/gallery', 'public');
+                    $path = $image->store('product/gallery', 'public');
                     $product->images()->create(['image_path' => $path]);
                 }
             }

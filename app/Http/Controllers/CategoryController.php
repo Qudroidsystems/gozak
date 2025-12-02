@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Storage;
 
 class CategoryController extends Controller
@@ -74,7 +75,7 @@ class CategoryController extends Controller
 
             $imagePath = null;
             if ($request->hasFile('image')) {
-                $imagePath = $request->file('image')->store('categories', 'public');
+                $imagePath = $request->file('image')->store('category', 'public');
             }
 
             $category = Category::create([
@@ -124,7 +125,7 @@ class CategoryController extends Controller
                 if ($category->image) {
                     Storage::disk('public')->delete($category->image);
                 }
-                $data['image'] = $request->file('image')->store('categories', 'public');
+                $data['image'] = $request->file('image')->store('category', 'public');
             }
 
             $category->update($data);
