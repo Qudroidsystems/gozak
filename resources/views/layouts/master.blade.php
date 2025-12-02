@@ -1430,7 +1430,9 @@
             @include('layouts.pages-assets.js.permissions-list-js')
       @endif  
 
-      
+      @if (Route::is('brands.*'))
+            @include('layouts.pages-assets.js.brand-list-js')
+      @endif  
 
   
       </body>
