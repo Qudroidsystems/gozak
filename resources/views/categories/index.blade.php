@@ -73,7 +73,7 @@
                                             <th>Parent</th>
                                             <th>Products</th>
                                             <th>Featured</th>
-                                            <th>Action</th>
+                                            <th width="100">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody class="list form-check-all">
@@ -86,8 +86,8 @@
                                             </td>
                                             <td class="fw-medium">{{ $loop->iteration }}</td>
                                             <td>
-                                                @if($cat->image && \Illuminate\Support\Facades\Storage::disk('public')->exists($cat->image))
-                                                    <img src="{{ asset('storage/' . $cat->image) }}?v={{ time() }}"
+                                                @if($cat->image && \Storage::disk('public')->exists($cat->image))
+                                                    <img src="{{ asset('storage/' . $cat->image) }}"
                                                          class="avatar-lg rounded object-fit-cover"
                                                          alt="{{ $cat->name }}">
                                                 @else
@@ -113,18 +113,22 @@
                                                 </span>
                                             </td>
                                             <td>
-                                                <div class="hstack gap-2">
+                                                <ul class="list-inline hstack gap-2 mb-0">
                                                     @can('Update category')
-                                                        <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn" data-id="{{ $cat->id }}">
-                                                            Edit
-                                                        </button>
+                                                        <li>
+                                                            <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn" data-id="{{ $cat->id }}">
+                                                                <i class="ph-pencil"></i>
+                                                            </button>
+                                                        </li>
                                                     @endcan
                                                     @can('Delete category')
-                                                        <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn" data-id="{{ $cat->id }}">
-                                                            Delete
-                                                        </button>
+                                                        <li>
+                                                            <button class="btn btn-subtle-danger btn-icon btn-icon btn-sm remove-item-btn" data-id="{{ $cat->id }}">
+                                                                <i class="ph-trash"></i>
+                                                            </button>
+                                                        </li>
                                                     @endcan
-                                                </div>
+                                                </ul>
                                             </td>
                                         </tr>
                                         @empty
@@ -138,9 +142,9 @@
 
                             <div class="d-flex justify-content-end mt-4">
                                 <div class="pagination-wrap hstack gap-2">
-                                    <a class="page-item pagination-prev disabled" href="#">< Previous</a>
+                                    <a class="page-item pagination-prev disabled" href="#">Previous</a>
                                     <ul class="pagination listjs-pagination mb-0"></ul>
-                                    <a class="page-item pagination-next" href="#">Next ></a>
+                                    <a class="page-item pagination-next" href="#">Next</a>
                                 </div>
                             </div>
                         </div>
@@ -165,7 +169,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Category Name <span class="text-danger">*</span></label>
+                        <label class="form-label">Category Name *</label>
                         <input type="text" class="form-control" name="name" required>
                     </div>
                     <div class="mb-3">
@@ -178,7 +182,7 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Category Image</label>
+                        <label class="form-label">Image</label>
                         <input type="file" class="form-control" name="image" accept="image/*">
                         <div class="mt-2">
                             <img id="image_preview" class="rounded shadow-sm" style="max-height:120px; display:none;">
@@ -217,7 +221,7 @@
     </div>
 </div>
 
-<!-- ALL SCRIPTS - CDN ONLY - NO LOCAL FILES -->
+<!-- ALL SCRIPTS - CDN ONLY -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -226,8 +230,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // CSRF Token
-    axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
 
     // Chart
     new Chart(document.getElementById('categoryChart'), {
@@ -239,9 +242,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 backgroundColor: ['#405189','#f1b44c','#34c38f','#556ee6','#f46a6a','#50a5f1','#f1b44c','#6f42c1']
             }]
         },
-        options: {
-            plugins: { legend: { position: 'right' } }
-        }
+        options: { plugins: { legend: { position: 'right' } } }
     });
 
     // List.js
@@ -263,7 +264,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
         cb.addEventListener('change', () => {
-            this.closest('tr').classList.toggle('table-active', this.checked);
+            cb.closest('tr').classList.toggle('table-active', cb.checked);
             toggleRemoveBtn();
         });
     });
@@ -300,7 +301,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('is_nsfw').checked = c.is_nsfw;
 
                     if (c.image) {
-                        imgPreview.src = c.image + '?v=' + new Date().getTime(); // cache bust
+                        imgPreview.src = c.image;
                         imgPreview.style.display = 'block';
                     } else {
                         imgPreview.style.display = 'none';
@@ -332,8 +333,46 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     });
 
-    // Delete & Multiple Delete (same as before)
-    // ... (your delete code from previous message)
+    // Delete
+    let deleteId = null;
+    document.querySelectorAll('.remove-item-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            deleteId = btn.dataset.id;
+            new bootstrap.Modal('#deleteRecordModal').show();
+        });
+    });
+
+    document.getElementById('delete-record').addEventListener('click', () => {
+        axios.delete(`/categories/${deleteId}`)
+            .then(() => location.reload())
+            .catch(() => Swal.fire('Error', 'Cannot delete', 'error'));
+    });
+
+    // Multiple Delete
+    window.deleteMultiple = function () {
+        const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
+            .map(cb => cb.value);
+        if (!ids.length) return;
+        Swal.fire({
+            title: 'Delete selected?',
+            icon: 'warning',
+            showCancelButton: true
+        }).then(r => {
+            if (r.isConfirmed) {
+                Promise.all(ids.map(id => axios.delete(`/categories/${id}`)))
+                    .then(() => location.reload());
+            }
+        });
+    };
+
+    // Image preview
+    form.querySelector('[name="image"]').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (file) {
+            imgPreview.src = URL.createObjectURL(file);
+            imgPreview.style.display = 'block';
+        }
+    });
 });
 </script>
 @endsection
