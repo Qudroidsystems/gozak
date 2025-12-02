@@ -23,15 +23,15 @@
                 </div>
             </div>
 
-            <!-- Chart: Categories with most products -->
+            <!-- Chart -->
             <div class="row mb-4">
                 <div class="col-lg-12">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="card-title mb-0">Products per Category</h5>
+                            <h5 class="card-title mb-0">Top 10 Categories by Products</h5>
                         </div>
                         <div class="card-body">
-                            <canvas id="categoryChart" height="100px"></canvas>
+                            <canvas id="categoryChart" height="100"></canvas>
                         </div>
                     </div>
                 </div>
@@ -71,7 +71,7 @@
                                             <th class="sort" data-sort="id">#</th>
                                             <th class="sort" data-sort="image">Image</th>
                                             <th class="sort" data-sort="name">Category Name</th>
-                                            <th class="sort" data-sort="parent">Parent</th>
+                                            <th class="sort" data-sort="parent">Parent Category</th>
                                             <th class="sort" data-sort="products">Products</th>
                                             <th class="sort" data-sort="featured">Featured</th>
                                             <th>Action</th>
@@ -87,19 +87,27 @@
                                             </td>
                                             <td class="id">{{ $cat->id }}</td>
                                             <td class="image">
-                                                @if($cat->image)
-                                                    <img src="{{ asset('storage/'.$cat->image) }}" class="avatar-sm rounded" alt="{{ $cat->name }}">
+                                                @if($cat->image && \Storage::disk('public')->exists($cat->image))
+                                                    <img src="{{ asset('storage/' . $cat->image) }}"
+                                                         class="avatar-sm rounded object-fit-cover"
+                                                         alt="{{ $cat->name }}">
                                                 @else
                                                     <div class="avatar-sm bg-light rounded d-flex align-items-center justify-content-center">
-                                                        <i class="bi bi-image text-muted"></i>
+                                                        <i class="bi bi-image text-muted fs-4"></i>
                                                     </div>
                                                 @endif
                                             </td>
                                             <td class="name"><strong>{{ $cat->name }}</strong></td>
                                             <td class="parent">
-                                                {{ $cat->parent?->name ?? '<span class="text-muted">—</span>' }}
+                                                @if($cat->parent)
+                                                    {{ $cat->parent->name }}
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
                                             </td>
-                                            <td class="products">{{ $cat->products_count ?? 0 }}</td>
+                                            <td class="products">
+                                                <span class="badge bg-info-subtle text-info">{{ $cat->products_count ?? 0 }}</span>
+                                            </td>
                                             <td class="featured">
                                                 <span class="badge {{ $cat->is_featured ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}">
                                                     {{ $cat->is_featured ? 'Yes' : 'No' }}
@@ -108,16 +116,28 @@
                                             <td>
                                                 <ul class="list-inline hstack gap-2 mb-0">
                                                     @can('Update category')
-                                                        <li><button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn" data-id="{{ $cat->id }}"><i class="ph-pencil"></i></button></li>
+                                                        <li>
+                                                            <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn" data-id="{{ $cat->id }}">
+                                                                <i class="ph-pencil"></i>
+                                                            </button>
+                                                        </li>
                                                     @endcan
                                                     @can('Delete category')
-                                                        <li><button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn" data-id="{{ $cat->id }}"><i class="ph-trash"></i></button></li>
+                                                        <li>
+                                                            <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn" data-id="{{ $cat->id }}">
+                                                                <i class="ph-trash"></i>
+                                                            </button>
+                                                        </li>
                                                     @endcan
                                                 </ul>
                                             </td>
                                         </tr>
                                         @empty
-                                        <tr class="noresult"><td colspan="8" class="text-center py-5">No categories found</td></tr>
+                                        <tr>
+                                            <td colspan="8" class="text-center py-5 noresult" style="display:none;">
+                                                No categories found
+                                            </td>
+                                        </tr>
                                         @endforelse
                                     </tbody>
                                 </table>
@@ -132,9 +152,9 @@
 
                             <div class="d-flex justify-content-end mt-3">
                                 <div class="pagination-wrap hstack gap-2">
-                                    <a class="page-item pagination-prev disabled" href="#"><i class="mdi mdi-chevron-left"></i></a>
+                                    <a class="page-item pagination-prev disabled" href="javascript:void(0);"><i class="mdi mdi-chevron-left"></i></a>
                                     <ul class="pagination listjs-pagination mb-0"></ul>
-                                    <a class="page-item pagination-next" href="#"><i class="mdi mdi-chevron-right"></i></a>
+                                    <a class="page-item pagination-next" href="javascript:void(0);"><i class="mdi mdi-chevron-right"></i></a>
                                 </div>
                             </div>
                         </div>
@@ -164,23 +184,27 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Parent Category</label>
-                        <select class="form-select" name="parent_id">
+                        <select class="form-select" name="parent_id" id="parent_id">
                             <option value="">No Parent (Top Level)</option>
-                            @foreach($categories as $cat)
-                                <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                            @foreach($allCategories as $c)
+                                <option value="{{ $c->id }}">{{ $c->name }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Image</label>
+                        <label class="form-label">Category Image</label>
                         <input type="file" class="form-control" name="image" accept="image/*">
                         <div class="mt-2">
-                            <img id="image_preview" class="rounded" style="max-height:120px; display:none;">
+                            <img id="image_preview" class="rounded shadow-sm" style="max-height:120px; display:none;">
                         </div>
                     </div>
-                    <div class="form-check">
+                    <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" name="is_featured" value="1" id="is_featured">
-                        <label class="form-check-label">Featured Category</label>
+                        <label class="form-check-label">Mark as Featured</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_nsfw" value="1" id="is_nsfw">
+                        <label class="form-check-label text-danger">NSFW / Adult Content</label>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -199,7 +223,7 @@
             <div class="modal-body text-center py-5">
                 <i class="bi bi-trash text-danger display-4"></i>
                 <h4 class="mt-4">Delete Category?</h4>
-                <p class="text-muted">This will also delete all sub-categories and products!</p>
+                <p class="text-muted">This will also remove all sub-categories and products!</p>
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger" id="delete-record">Yes, Delete</button>
             </div>
@@ -207,7 +231,7 @@
     </div>
 </div>
 
-<!-- ALL SCRIPTS (inline) -->
+<!-- ALL SCRIPTS INLINE -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -215,19 +239,17 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // CSRF for Axios
+    // CSRF
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
 
     // Chart
-    const chartLabels = @json($chart_labels);
-    const chartData   = @json($chart_data);
     new Chart(document.getElementById('categoryChart'), {
         type: 'doughnut',
         data: {
-            labels: chartLabels,
+            labels: @json($chart_labels),
             datasets: [{
-                data: chartData,
-                backgroundColor: ['#405189','#f1b44c','#34c38f','#556ee6','#f46a6a','#50a5f1','#f1b44c']
+                data: @json($chart_data),
+                backgroundColor: ['#405189','#f1b44c','#34c38f','#556ee6','#f46a6a','#50a5f1','#f1b44c','#6f42c1','#e83e8c','#20c997']
             }]
         },
         options: {
@@ -236,7 +258,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // List.js
-    var categoryList = new List('categoryList', {
+    new List('categoryList', {
         valueNames: ['id', 'name', 'parent', 'products', 'featured'],
         page: 10,
         pagination: true
@@ -267,13 +289,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('categoryForm');
     const imgPreview = document.getElementById('image_preview');
 
-    // Reset form
+    // Add button
     document.querySelector('.add-btn')?.addEventListener('click', () => {
         form.reset();
         document.getElementById('category_id').value = '';
         document.getElementById('modalTitle').textContent = 'Add Category';
         document.getElementById('submitBtn').textContent = 'Save Category';
         imgPreview.style.display = 'none';
+        document.getElementById('parent_id').selectedIndex = 0;
     });
 
     // Edit
@@ -287,6 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     form.name.value = c.name;
                     document.getElementById('parent_id').value = c.parent_id || '';
                     document.getElementById('is_featured').checked = c.is_featured;
+                    document.getElementById('is_nsfw').checked = c.is_nsfw;
 
                     if (c.image) {
                         imgPreview.src = c.image;
@@ -333,7 +357,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('delete-record').addEventListener('click', () => {
         axios.delete(`/categories/${deleteId}`)
             .then(() => location.reload())
-            .catch(() => Swal.fire('Error', 'Cannot delete category', 'error'));
+            .catch(() => Swal.fire('Error', 'Cannot delete', 'error'));
     });
 
     // Multiple delete
@@ -341,7 +365,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
             .map(cb => cb.value);
         if (!ids.length) return;
-
         Swal.fire({
             title: 'Delete selected?',
             icon: 'warning',
