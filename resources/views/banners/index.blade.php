@@ -15,7 +15,7 @@
                         <h4 class="mb-sm-0">Banners</h4>
                         <div class="page-title-right">
                             <ol class="breadcrumb m-0">
-                                <li class="breadcrumb-item"><a href="javascript:void(0);">Marketing</a></li>
+                                <li class="breadcrumb-item"><a href="#">Marketing</a></li>
                                 <li class="breadcrumb-item active">Banners</li>
                             </ol>
                         </div>
@@ -26,7 +26,7 @@
             <!-- Banners Table -->
             <div class="row">
                 <div class="col-lg-12">
-                    <div class="card" id="bannerList">
+                    <div class="card">
                         <div class="card-header d-flex align-items-center">
                             <h5 class="card-title mb-0 flex-grow-1">All Banners</h5>
                             <div class="flex-shrink-0">
@@ -58,7 +58,7 @@
                                             <th>Target Screen</th>
                                             <th>Status</th>
                                             <th>Created</th>
-                                            <th width="120">Action</th>
+                                            <th>Action</th>
                                         </tr>
                                     </thead>
                                     <tbody class="list form-check-all">
@@ -98,16 +98,15 @@
                                                 <div class="hstack gap-2">
                                                     @can('Update banner')
                                                         <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"
-                                                                data-id="{{ $banner->id }}"
-                                                                data-image="{{ $banner->image_url ? asset('storage/' . $banner->image_url) : '' }}"
-                                                                data-screen="{{ $banner->target_screen }}"
-                                                                data-active="{{ $banner->active }}">
+                                                            data-id="{{ $banner->id }}"
+                                                            data-image="{{ $banner->image_url ? asset('storage/' . $banner->image_url) : '' }}"
+                                                            data-screen="{{ $banner->target_screen }}"
+                                                            data-active="{{ $banner->active }}">
                                                             <i class="ph-pencil"></i>
                                                         </button>
                                                     @endcan
                                                     @can('Delete banner')
-                                                        <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn"
-                                                                data-id="{{ $banner->id }}">
+                                                        <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn" data-id="{{ $banner->id }}">
                                                             <i class="ph-trash"></i>
                                                         </button>
                                                     @endcan
@@ -125,83 +124,88 @@
 
                             <!-- Pagination -->
                             <div class="d-flex justify-content-end mt-4">
-                                {{ $banners->links() }}
+                                <div class="pagination-wrap hstack gap-2">
+                                    <a class="page-item pagination-prev {{ $banners->onFirstPage() ? 'disabled' : '' }}"
+                                       href="{{ $banners->previousPageUrl() }}">Previous</a>
+                                    <span class="px-3 py-2 bg-light rounded">{{ $banners->currentPage() }} / {{ $banners->lastPage() }}</span>
+                                    <a class="page-item pagination-next {{ $banners->hasMorePages() ? '' : 'disabled' }}"
+                                       href="{{ $banners->nextPageUrl() }}">Next</a>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-        </div>
-    </div>
-</div>
-
-<!-- Add/Edit Modal -->
-<div class="modal fade" id="showModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <form id="bannerForm" enctype="multipart/form-data">
-                @csrf
-                <input type="hidden" name="id" id="banner_id">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalTitle">Add Banner</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <!-- Add/Edit Modal -->
+            <div class="modal fade" id="showModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content">
+                        <form id="bannerForm" enctype="multipart/form-data">
+                            @csrf
+                            <input type="hidden" name="id" id="banner_id">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="modalTitle">Add Banner</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row g-3">
+                                    <div class="col-lg-8">
+                                        <div class="mb-3">
+                                            <label class="form-label">Banner Image <span class="text-danger">*</span></label>
+                                            <input type="file" class="form-control" name="image" accept="image/*">
+                                            <small class="text-muted">Recommended: 1200×600px</small>
+                                        </div>
+                                        <div class="text-center mb-3">
+                                            <img id="image_preview" class="rounded shadow" style="max-width:100%; max-height:300px; display:none;" alt="Preview">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-4">
+                                        <div class="mb-3">
+                                            <label class="form-label">Target Screen</label>
+                                            <select class="form-select" name="target_screen" id="target_screen" required>
+                                                <option value="home">Home Screen</option>
+                                                <option value="category">Category Page</option>
+                                                <option value="product">Product Detail</option>
+                                                <option value="offers">Offers Page</option>
+                                                <option value="all">All Pages</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" name="active" value="1" id="active" checked>
+                                            <label class="form-check-label">Active</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="submit" class="btn btn-primary" id="submitBtn">Save Banner</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-lg-8">
-                            <div class="mb-3">
-                                <label class="form-label">Banner Image <span class="text-danger">*</span></label>
-                                <input type="file" class="form-control" name="image" accept="image/*">
-                                <small class="text-muted">Recommended: 1200×600px</small>
-                            </div>
-                            <div class="text-center mb-3">
-                                <img id="id="image_preview" class="rounded shadow" style="max-width:100%; max-height:300px; display:none;">
-                            </div>
-                        </div>
-                        <div class="col-lg-4">
-                            <div class="mb-3">
-                                <label class="form-label">Target Screen</label>
-                                <select class="form-select" name="target_screen" id="target_screen" required>
-                                    <option value="home">Home Screen</option>
-                                    <option value="category">Category Page</option>
-                                    <option value="product">Product Detail</option>
-                                    <option value="offers">Offers Page</option>
-                                    <option value="all">All Pages</option>
-                                </select>
-                            </div>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" name="active" value="1" id="active" checked>
-                                <label class="form-check-label">Active</label>
-                            </div>
+            </div>
+
+            <!-- Delete Modal -->
+            <div class="modal fade" id="deleteRecordModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-body text-center py-5">
+                            <i class="bi bi-trash text-danger display-4"></i>
+                            <h4 class="mt-4">Delete Banner?</h4>
+                            <p class="text-muted">This action cannot be undone.</p>
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" class="btn btn-danger" id="confirm-delete">Yes, Delete</button>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary" id="submitBtn">Save Banner</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Delete Modal -->
-<div class="modal fade" id="deleteRecordModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-body text-center py-5">
-                <i class="bi bi-trash text-danger display-4"></i>
-                <h4 class="mt-4">Delete Banner?</h4>
-                <p class="text-muted">This action cannot be undone.</p>
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="confirm-delete">Yes, Delete</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ONLY REQUIRED SCRIPTS - CDN -->
+<!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
@@ -211,7 +215,11 @@ document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
 
     // List.js
-    new List('bannerList', { valueNames: ['target_screen', 'active'], page: 10, pagination: true });
+    new List('bannerList', {
+        valueNames: ['target_screen', 'active'],
+        page: 10,
+        pagination: true
+    });
 
     // Checkbox
     const checkAll = document.getElementById('checkAll');
@@ -224,7 +232,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-        cb.addEventListener('change', () => toggleRemoveBtn());
+        cb.addEventListener('change', () => {
+            cb.closest('tr')?.classList.toggle('table-active', cb.checked);
+            toggleRemoveBtn();
+        });
     });
 
     function toggleRemoveBtn() {
@@ -246,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function () {
         modal.show();
     });
 
-    // Edit button - now uses data attributes (no AJAX needed for edit)
+    // Edit
     document.querySelectorAll('.edit-item-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             document.getElementById('banner_id').value = this.dataset.id;
@@ -295,12 +306,10 @@ document.addEventListener('DOMContentLoaded', function () {
             Swal.fire({
                 title: 'Delete banner?',
                 icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Yes'
+                showCancelButton: true
             }).then(r => {
                 if (r.isConfirmed) {
-                    axios.delete(`/banners/${id}`)
-                        .then(() => location.reload());
+                    axios.delete(`/banners/${id}`).then(() => location.reload());
                 }
             });
         });
@@ -313,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!ids.length) return;
 
         Swal.fire({
-            title: 'Delete selected banners?',
+            title: 'Delete selected?',
             icon: 'warning',
             showCancelButton: true
         }).then(r => {
@@ -325,4 +334,4 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 });
 </script>
-@endsection
+@endsection>
