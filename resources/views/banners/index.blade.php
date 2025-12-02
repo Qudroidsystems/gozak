@@ -35,7 +35,7 @@
                                         Delete Selected
                                     </button>
                                     @can('Create banner')
-                                        <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal">
+                                        <button type="button" class="btn btn-primary add-btn">
                                             Add Banner
                                         </button>
                                     @endcan
@@ -97,12 +97,17 @@
                                             <td>
                                                 <div class="hstack gap-2">
                                                     @can('Update banner')
-                                                        <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn" data-id="{{ $banner->id }}">
+                                                        <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"
+                                                                data-id="{{ $banner->id }}"
+                                                                data-image="{{ $banner->image_url ? asset('storage/' . $banner->image_url) : '' }}"
+                                                                data-screen="{{ $banner->target_screen }}"
+                                                                data-active="{{ $banner->active }}">
                                                             <i class="ph-pencil"></i>
                                                         </button>
                                                     @endcan
                                                     @can('Delete banner')
-                                                        <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn" data-id="{{ $banner->id }}">
+                                                        <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn"
+                                                                data-id="{{ $banner->id }}">
                                                             <i class="ph-trash"></i>
                                                         </button>
                                                     @endcan
@@ -118,14 +123,9 @@
                                 </table>
                             </div>
 
+                            <!-- Pagination -->
                             <div class="d-flex justify-content-end mt-4">
-                                <div class="pagination-wrap hstack gap-2">
-                                    <a class="page-item pagination-prev {{ $banners->onFirstPage() ? 'disabled' : '' }}"
-                                       href="{{ $banners->previousPageUrl() }}">Previous</a>
-                                    <span class="px-3 py-2 bg-light rounded">{{ $banners->currentPage() }} / {{ $banners->lastPage() ?: 1 }}</span>
-                                    <a class="page-item pagination-next {{ $banners->hasMorePages() ? '' : 'disabled' }}"
-                                       href="{{ $banners->nextPageUrl() }}">Next</a>
-                                </div>
+                                {{ $banners->links() }}
                             </div>
                         </div>
                     </div>
@@ -137,7 +137,7 @@
 </div>
 
 <!-- Add/Edit Modal -->
-<div class="modal fade" id="showModal" tabindex="-1">
+<div class="modal fade" id="showModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <form id="bannerForm" enctype="multipart/form-data">
@@ -153,16 +153,16 @@
                             <div class="mb-3">
                                 <label class="form-label">Banner Image <span class="text-danger">*</span></label>
                                 <input type="file" class="form-control" name="image" accept="image/*">
-                                <small class="text-muted">Recommended: 1200×600px or larger</small>
+                                <small class="text-muted">Recommended: 1200×600px</small>
                             </div>
-                            <div class="text-center">
-                                <img id="image_preview" class="rounded shadow" style="max-width:100%; max-height:300px; display:none;" alt="Preview">
+                            <div class="text-center mb-3">
+                                <img id="id="image_preview" class="rounded shadow" style="max-width:100%; max-height:300px; display:none;">
                             </div>
                         </div>
                         <div class="col-lg-4">
                             <div class="mb-3">
                                 <label class="form-label">Target Screen</label>
-                                <select class="form-select" name="target_screen" required>
+                                <select class="form-select" name="target_screen" id="target_screen" required>
                                     <option value="home">Home Screen</option>
                                     <option value="category">Category Page</option>
                                     <option value="product">Product Detail</option>
@@ -172,7 +172,7 @@
                             </div>
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" name="active" value="1" id="active" checked>
-                                <label class="form-check-label">Active (Visible)</label>
+                                <label class="form-check-label">Active</label>
                             </div>
                         </div>
                     </div>
@@ -195,26 +195,25 @@
                 <h4 class="mt-4">Delete Banner?</h4>
                 <p class="text-muted">This action cannot be undone.</p>
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="delete-record">Yes, Delete</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete">Yes, Delete</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ONLY NEEDED SCRIPTS - CDN -->
+<!-- ONLY REQUIRED SCRIPTS - CDN -->
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
 
     // List.js
-    new List('bannerList', {
-        valueNames: ['target_screen', 'active'],
-        page: 10,
-        pagination: true
-    });
+    new List('bannerList', { valueNames: ['target_screen', 'active'], page: 10, pagination: true });
 
-    // Checkbox logic
+    // Checkbox
     const checkAll = document.getElementById('checkAll');
     checkAll?.addEventListener('change', function () {
         document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
@@ -225,10 +224,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-        cb.addEventListener('change', () => {
-            cb.closest('tr')?.classList.toggle('table-active', cb.checked);
-            toggleRemoveBtn();
-        });
+        cb.addEventListener('change', () => toggleRemoveBtn());
     });
 
     function toggleRemoveBtn() {
@@ -247,30 +243,26 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('modalTitle').textContent = 'Add Banner';
         document.getElementById('submitBtn').textContent = 'Save Banner';
         imgPreview.style.display = 'none';
+        modal.show();
     });
 
-    // Edit
+    // Edit button - now uses data attributes (no AJAX needed for edit)
     document.querySelectorAll('.edit-item-btn').forEach(btn => {
         btn.addEventListener('click', function () {
-            const id = this.dataset.id;
-            axios.get(`/banners/${id}/edit`)
-                .then(res => {
-                    const b = res.data;
-                    document.getElementById('banner_id').value = b.id;
-                    form.querySelector('[name="target_screen"]').value = b.target_screen;
-                    document.getElementById('active').checked = b.active;
+            document.getElementById('banner_id').value = this.dataset.id;
+            document.getElementById('target_screen').value = this.dataset.screen;
+            document.getElementById('active').checked = this.dataset.active == '1';
 
-                    if (b.image_url) {
-                        imgPreview.src = b.image_url;
-                        imgPreview.style.display = 'block';
-                    } else {
-                        imgPreview.style.display = 'none';
-                    }
+            if (this.dataset.image) {
+                imgPreview.src = this.dataset.image;
+                imgPreview.style.display = 'block';
+            } else {
+                imgPreview.style.display = 'none';
+            }
 
-                    document.getElementById('modalTitle').textContent = 'Edit Banner';
-                    document.getElementById('submitBtn').textContent = 'Update Banner';
-                    modal.show();
-                });
+            document.getElementById('modalTitle').textContent = 'Edit Banner';
+            document.getElementById('submitBtn').textContent = 'Update Banner';
+            modal.show();
         });
     });
 
@@ -293,37 +285,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
         axios.post(url, data)
             .then(() => location.reload())
-            .catch(err => {
-                let msg = 'Error';
-                if (err.response?.status === 422) {
-                    msg = Object.values(err.response.data.errors).flat().join('<br>');
-                }
-                Swal.fire('Error!', msg, 'error');
-            });
+            .catch(() => Swal.fire('Error!', 'Something went wrong', 'error'));
     });
 
     // Delete
-    let deleteId = null;
     document.querySelectorAll('.remove-item-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            deleteId = btn.dataset.id;
-            new bootstrap.Modal('#deleteRecordModal').show();
+            const id = btn.dataset.id;
+            Swal.fire({
+                title: 'Delete banner?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes'
+            }).then(r => {
+                if (r.isConfirmed) {
+                    axios.delete(`/banners/${id}`)
+                        .then(() => location.reload());
+                }
+            });
         });
     });
 
-    document.getElementById('delete-record').addEventListener('click', () => {
-        axios.delete(`/banners/${deleteId}`)
-            .then(() => location.reload())
-            .catch(() => Swal.fire('Error', 'Cannot delete', 'error'));
-    });
-
     // Multiple delete
-    window.deleteMultiple = function () {
+    window.deleteMultiple = function() {
         const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
             .map(cb => cb.value);
         if (!ids.length) return;
+
         Swal.fire({
-            title: 'Delete selected?',
+            title: 'Delete selected banners?',
             icon: 'warning',
             showCancelButton: true
         }).then(r => {
