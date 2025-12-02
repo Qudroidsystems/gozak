@@ -2,283 +2,181 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Banner;
+use App\Models\Brand;
 use App\Models\Product;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
 
-class BannerController extends Controller
+class ProductController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('permission:View banner|Create banner|Update banner|Delete banner', ['only' => ['index']]);
-        $this->middleware('permission:Create banner', ['only' => ['store']]);
-        $this->middleware('permission:Update banner', ['only' => ['edit', 'update']]);
-        $this->middleware('permission:Delete banner', ['only' => ['destroy']]);
+        $this->middleware('permission:View product|Create product|Update product|Delete product', ['only' => ['index']]);
+        $this->middleware('permission:Create product', ['only' => ['store']]);
+        $this->middleware('permission:Update product', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:Delete product', ['only' => ['destroy']]);
     }
 
     public function index(Request $request)
     {
-        $pagetitle = "Banners Management";
-        
-        // Get banners with product relationship
-        $banners = Banner::with('product')
+        $pagetitle = "Product Management";
+        $products = Product::with(['brand', 'category'])
+            ->withCount('variations')
             ->latest()
-            ->paginate(10);
-        
-        // Get products for dropdown
-        $products = Product::where('active', true)
-            ->orderBy('title')
-            ->get(['id', 'title', 'sku']);
-        
-        return view('banners.index', compact('banners', 'products', 'pagetitle'));
-    }
+            ->paginate(12);
 
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-            'target_screen' => 'required|string|in:home,category,product,offers,all',
-            'product_id' => 'nullable|required_if:target_screen,product|exists:products,id',
-            'title' => 'nullable|string|max:255',
-            'subtitle' => 'nullable|string|max:255',
-            'link' => 'nullable|string|max:500',
-            'active' => 'nullable|boolean',
-            'order' => 'nullable|integer|min:0',
-        ]);
+        $brands = Brand::orderBy('name')->get();
+        $categories = Category::whereNull('parent_id')->with('children')->orderBy('name')->get();
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            // Handle image upload
-            $imagePath = $request->file('image')->store('banners', 'public');
-            
-            // Optimize image if needed
-            $this->optimizeImage($imagePath);
-
-            $bannerData = [
-                'image_url' => $imagePath,
-                'target_screen' => $request->target_screen,
-                'product_id' => $request->product_id,
-                'title' => $request->title,
-                'subtitle' => $request->subtitle,
-                'link' => $request->link,
-                'active' => $request->boolean('active'),
-                'order' => $request->order ?? 0,
-            ];
-
-            // Only add product_id if target_screen is 'product'
-            if ($request->target_screen !== 'product') {
-                $bannerData['product_id'] = null;
-            }
-
-            $banner = Banner::create($bannerData);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Banner created successfully',
-                'data' => $banner
-            ], 201);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create banner: ' . $e->getMessage()
-            ], 500);
-        }
+        return view('products.index', compact('products', 'brands', 'categories','pagetitle'));
     }
 
     public function edit($id)
     {
-        try {
-            $banner = Banner::with('product')->findOrFail($id);
-            
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'id' => $banner->id,
-                    'image_url' => $banner->image_url ? asset('storage/' . $banner->image_url) : '',
-                    'target_screen' => $banner->target_screen,
-                    'product_id' => $banner->product_id,
-                    'title' => $banner->title,
-                    'subtitle' => $banner->subtitle,
-                    'link' => $banner->link,
-                    'active' => $banner->active,
-                    'order' => $banner->order,
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Banner not found'
-            ], 404);
+        $product = Product::with(['brand', 'category', 'images'])->findOrFail($id);
+
+        return response()->json([
+            'id'            => $product->id,
+            'title'         => $product->title,
+            'sku'           => $product->sku,
+            'price'         => $product->price,
+            'sale_price'    => $product->sale_price,
+            'stock'         => $product->stock,
+            'description'   => $product->description,
+            'product_type'  => $product->product_type ?? 'simple',
+            'is_featured'   => $product->is_featured,
+            'brand_id'      => $product->brand_id,
+            'category_id'   => $product->category_id,
+            'thumbnail'     => $product->thumbnail ? asset('storage/' . $product->thumbnail) : null,
+            'images'        => $product->images->pluck('image_path')->map(fn($path) => asset('storage/' . $path))->toArray(),
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'title'        => 'required|string|max:255',
+            'sku'          => 'required|string|unique:products,sku',
+            'price'        => 'required|numeric|min:0',
+            'sale_price'   => 'nullable|numeric|min:0',
+            'stock'        => 'required|integer|min:0',
+            'thumbnail'    => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3072',
+            'images.*'     => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3072',
+            'brand_id'     => 'nullable|exists:brands,id',
+            'category_id'  => 'nullable|exists:categories,id',
+            'description'  => 'nullable|string',
+            'product_type' => 'required|in:simple,variable',
+            'is_featured'  => 'nullable|boolean',
+        ]);
+
+        $thumbnailPath = null;
+        if ($request->hasFile('thumbnail')) {
+            $thumbnailPath = $request->file('thumbnail')->store('products', 'public');
         }
+
+        $product = Product::create([
+            'title'         => $request->title,
+            'sku'           => $request->sku,
+            'price'         => $request->price,
+            'sale_price'    => $request->sale_price,
+            'stock'         => $request->stock,
+            'thumbnail'     => $thumbnailPath,
+            'description'   => $request->description,
+            'product_type'  => $request->product_type,
+            'is_featured'   => $request->boolean('is_featured'),
+            'brand_id'      => $request->brand_id,
+            'category_id'   => $request->category_id,
+        ]);
+
+        // Save gallery images
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('products', 'public');
+                $product->images()->create(['image_path' => $path]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product created successfully'
+        ], 201);
     }
 
     public function update(Request $request, $id)
     {
-        $banner = Banner::findOrFail($id);
+        $product = Product::findOrFail($id);
 
-        $validator = Validator::make($request->all(), [
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-            'target_screen' => 'required|string|in:home,category,product,offers,all',
-            'product_id' => 'nullable|required_if:target_screen,product|exists:products,id',
-            'title' => 'nullable|string|max:255',
-            'subtitle' => 'nullable|string|max:255',
-            'link' => 'nullable|string|max:500',
-            'active' => 'nullable|boolean',
-            'order' => 'nullable|integer|min:0',
+        $request->validate([
+            'title'        => 'required|string|max:255',
+            'sku'          => 'required|string|unique:products,sku,' . $id,
+            'price'        => 'required|numeric|min:0',
+            'sale_price'   => 'nullable|numeric|min:0',
+            'stock'        => 'required|integer|min:0',
+            'thumbnail'    => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3072',
+            'images.*'     => 'nullable|image|mimes:jpeg,png,jpg,gif|max:3072',
+            'brand_id'     => 'nullable|exists:brands,id',
+            'category_id'  => 'nullable|exists:categories,id',
+            'description'  => 'nullable|string',
+            'product_type' => 'required|in:simple,variable',
+            'is_featured'  => 'nullable|boolean',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
+        $data = $request->only([
+            'title', 'sku', 'price', 'sale_price', 'stock', 'description',
+            'product_type', 'is_featured', 'brand_id', 'category_id'
+        ]);
+
+        if ($request->hasFile('thumbnail')) {
+            if ($product->thumbnail) {
+                Storage::disk('public')->delete($product->thumbnail);
+            }
+            $data['thumbnail'] = $request->file('thumbnail')->store('products', 'public');
         }
 
-        try {
-            $data = [
-                'target_screen' => $request->target_screen,
-                'title' => $request->title,
-                'subtitle' => $request->subtitle,
-                'link' => $request->link,
-                'active' => $request->boolean('active'),
-                'order' => $request->order ?? $banner->order,
-            ];
+        $product->update($data);
 
-            // Handle product_id based on target screen
-            if ($request->target_screen === 'product') {
-                $data['product_id'] = $request->product_id;
-                $data['link'] = null; // Clear link if product is selected
-            } else {
-                $data['product_id'] = null;
-                $data['link'] = $request->link;
+        // Handle gallery images
+        if ($request->hasFile('images')) {
+            // Delete old images
+            foreach ($product->images as $img) {
+                Storage::disk('public')->delete($img->image_path);
             }
+            $product->images()->delete();
 
-            // Handle image update
-            if ($request->hasFile('image')) {
-                // Delete old image
-                if ($banner->image_url) {
-                    Storage::disk('public')->delete($banner->image_url);
-                }
-                
-                // Store new image
-                $imagePath = $request->file('image')->store('banners', 'public');
-                $this->optimizeImage($imagePath);
-                $data['image_url'] = $imagePath;
+            // Save new ones
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('products', 'public');
+                $product->images()->create(['image_path' => $path]);
             }
-
-            $banner->update($data);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Banner updated successfully',
-                'data' => $banner->fresh('product')
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update banner: ' . $e->getMessage()
-            ], 500);
         }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product updated successfully'
+        ]);
     }
 
     public function destroy($id)
     {
-        try {
-            $banner = Banner::findOrFail($id);
+        $product = Product::findOrFail($id);
 
-            // Delete image file
-            if ($banner->image_url) {
-                Storage::disk('public')->delete($banner->image_url);
-            }
-
-            $banner->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Banner deleted successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete banner: ' . $e->getMessage()
-            ], 500);
+        // Delete thumbnail
+        if ($product->thumbnail) {
+            Storage::disk('public')->delete($product->thumbnail);
         }
-    }
 
-    public function bulkDestroy(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'ids' => 'required|array',
-            'ids.*' => 'exists:banners,id'
+        // Delete gallery images
+        foreach ($product->images as $img) {
+            Storage::disk('public')->delete($img->image_path);
+        }
+        $product->images()->delete();
+
+        $product->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product deleted successfully'
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            $banners = Banner::whereIn('id', $request->ids)->get();
-
-            foreach ($banners as $banner) {
-                if ($banner->image_url) {
-                    Storage::disk('public')->delete($banner->image_url);
-                }
-            }
-
-            Banner::whereIn('id', $request->ids)->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Selected banners deleted successfully'
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete banners: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function toggleStatus($id)
-    {
-        try {
-            $banner = Banner::findOrFail($id);
-            $banner->update(['active' => !$banner->active]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Banner status updated',
-                'active' => $banner->active
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update status'
-            ], 500);
-        }
-    }
-
-    private function optimizeImage($path)
-    {
-        // You can implement image optimization here
-        // Example using intervention/image if installed
-        // Image::make(storage_path('app/public/' . $path))->resize(1200, 600)->save();
-        
-        return true;
     }
 }
