@@ -175,14 +175,32 @@
                         <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">INVENTORY MANAGEMENT</span></li>
                         @can('View brand')
                             <li class="nav-item">
-                                <a class="nav-link menu-link collapsed" href="#sidebarflock" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
+                                <a class="nav-link menu-link collapsed" href="#sidebarbrand" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">Brand Managements</span>
                                 </a>
-                                <div class="collapse menu-dropdown" id="sidebarflock">
+                                <div class="collapse menu-dropdown" id="sidebarbrand">
                                     <ul class="nav nav-sm flex-column">
                                     
                                             <li class="nav-item">
                                             <a href="{{ route('brands.index') }}" class="nav-link" role="button" data-key="t-signin"> Brand </a>
+                                        </li>
+                                    
+                                    </ul>
+                                </div>
+                            </li>
+                        @endcan
+
+                       
+                        @can('View brand')
+                            <li class="nav-item">
+                                <a class="nav-link menu-link collapsed" href="#sidebarcategories" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
+                                    <i class="ph-user-circle"></i> <span data-key="t-authentication">Category Managements</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="sidebarcategories">
+                                    <ul class="nav nav-sm flex-column">
+                                    
+                                            <li class="nav-item">
+                                            <a href="{{ route('categories.index') }}" class="nav-link" role="button" data-key="t-signin"> Category </a>
                                         </li>
                                     
                                     </ul>
