@@ -339,12 +339,16 @@ namespace App\Models {
      * @property string $target_screen
      * @property string $image_url
      * @property int $id
+     * @property-read \App\Models\Product $product
      * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner whereId($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner whereImageUrl($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner whereTargetScreen($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner whereActive($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner whereCreatedAt($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner whereUpdatedAt($value)
+     * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner active()
+     * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner forScreen()
+     * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner ordered()
      * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner newModelQuery()
      * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner newQuery()
      * @method static \Illuminate\Database\Eloquent\Builder<Banner>|Banner query()

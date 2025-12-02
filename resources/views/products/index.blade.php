@@ -1,6 +1,7 @@
+{{-- resources/views/banners/index.blade.php --}}
 @extends('layouts.master')
 
-@section('title', 'Products Management')
+@section('title', 'Banners Management')
 
 @section('content')
 <div class="main-content">
@@ -11,434 +12,726 @@
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0">Products</h4>
+                        <h4 class="mb-sm-0">{{ $pagetitle ?? 'Banners' }}</h4>
                         <div class="page-title-right">
                             <ol class="breadcrumb m-0">
-                                <li class="breadcrumb-item"><a href="#">Ecommerce</a></li>
-                                <li class="breadcrumb-item active">Products</li>
+                                <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">Dashboard</a></li>
+                                <li class="breadcrumb-item"><a href="#">Marketing</a></li>
+                                <li class="breadcrumb-item active">Banners</li>
                             </ol>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div id="productList">
-                <!-- Filters -->
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <div class="col-xxl-3">
-                                        <div class="search-box">
-                                            <input type="text" class="form-control search" placeholder="Search products, SKU, price...">
-                                            <i class="ri-search-line search-icon"></i>
-                                        </div>
-                                    </div>
-                                    <div class="col-xxl-3 col-sm-6">
-                                        <select class="form-control" name="brand_filter" data-choices data-choices-search-false multiple>
-                                            <option value="">All Brands</option>
-                                            @foreach($brands as $brand)
-                                                <option value="{{ $brand->id }}">{{ $brand->name }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-xxl-3 col-sm-6">
-                                        <select class="form-control" name="category_filter" data-choices data-choices-search-false>
-                                            <option value="">All Categories</option>
-                                            @foreach($categories as $category)
-                                                <option value="{{ $category->id }}">{{ $category->name }}</option>
-                                                @if($category->children->count())
-                                                    @foreach($category->children as $child)
-                                                        <option value="{{ $child->id }}">— {{ $child->name }}</option>
-                                                    @endforeach
-                                                @endif
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-xxl-2 col-sm-6">
-                                        <select class="form-control" name="stock_status">
-                                            <option value="">All Stock</option>
-                                            <option value="in_stock">In Stock</option>
-                                            <option value="low_stock">Low Stock (&lt;10)</option>
-                                            <option value="out_of_stock">Out of Stock</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-xxl-1 col-sm-6">
-                                        <button type="button" class="btn btn-secondary w-100" onclick="filterData();">
-                                            <i class="bi bi-funnel align-baseline me-1"></i> Filter
+            <!-- Banners Table -->
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-header d-flex align-items-center">
+                            <h5 class="card-title mb-0 flex-grow-1">All Banners</h5>
+                            <div class="flex-shrink-0">
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button class="btn btn-danger d-none" id="remove-actions" onclick="deleteMultiple()">
+                                        <i class="bi bi-trash"></i> Delete Selected
+                                    </button>
+                                    @can('Create banner')
+                                        <button type="button" class="btn btn-primary add-btn">
+                                            <i class="bi bi-plus-circle"></i> Add Banner
                                         </button>
-                                    </div>
+                                    @endcan
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Product List -->
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="card">
-                            <div class="card-header d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <h5 class="card-title mb-0">
-                                        Products <span class="badge bg-dark-subtle text-dark ms-1">{{ $products->total() }}</span>
-                                    </h5>
+                        <div class="card-body">
+                            @if(session('success'))
+                                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                    <i class="bi bi-check-circle"></i> {{ session('success') }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                                 </div>
-                                <div class="flex-shrink-0">
-                                    <div class="d-flex flex-wrap align-items-start gap-2">
-                                        <button class="btn btn-subtle-danger d-none" id="remove-actions" onclick="deleteMultiple()">
-                                            <i class="ri-delete-bin-2-line"></i>
-                                        </button>
-                                        @can('Create product')
-                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal">
-                                                <i class="bi bi-plus-circle align-baseline me-1"></i> Add Product
-                                            </button>
-                                        @endcan
-                                    </div>
-                                </div>
-                            </div>
+                            @endif
 
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-centered align-middle table-nowrap mb-0">
-                                        <thead class="table-active">
-                                            <tr>
-                                                <th>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="checkbox" id="checkAll">
-                                                        <label class="form-check-label" for="checkAll"></label>
+                            @if($errors->any())
+                                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                    <i class="bi bi-exclamation-triangle"></i> Please fix the errors below
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            @endif
+
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0" id="bannersTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th width="50">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="checkAll">
+                                                </div>
+                                            </th>
+                                            <th>#</th>
+                                            <th>Image</th>
+                                            <th>Title</th>
+                                            <th>Target Screen</th>
+                                            <th>Product / Link</th>
+                                            <th>Status</th>
+                                            <th>Order</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="list form-check-all">
+                                        @forelse($banners as $banner)
+                                        <tr class="border-bottom border-light-subtle">
+                                            <td>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="chk_child" value="{{ $banner->id }}">
+                                                </div>
+                                            </td>
+                                            <td class="fw-medium">{{ $loop->iteration + (($banners->currentPage() - 1) * $banners->perPage()) }}</td>
+                                            <td>
+                                                @if($banner->image_url && Storage::disk('public')->exists($banner->image_url))
+                                                    <img src="{{ asset('storage/' . $banner->image_url) }}"
+                                                         class="rounded shadow-sm"
+                                                         style="width: 180px; height: 90px; object-fit: cover;"
+                                                         alt="Banner">
+                                                @else
+                                                    <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                                         style="width:180px;height:90px;">
+                                                        <i class="bi bi-image text-muted fs-3"></i>
                                                     </div>
-                                                </th>
-                                                <th class="sort cursor-pointer" data-sort="title">Product</th>
-                                                <th class="sort cursor-pointer" data-sort="category">Category</th>
-                                                <th class="sort cursor-pointer" data-sort="stock">Stock</th>
-                                                <th class="sort cursor-pointer" data-sort="price">Price</th>
-                                                <th class="sort cursor-pointer" data-sort="sold">Sold</th>
-                                                <th class="sort cursor-pointer" data-sort="featured">Featured</th>
-                                                <th class="sort cursor-pointer" data-sort="created_at">Published</th>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="list form-check-all">
-                                            @forelse($products as $product)
-                                            <tr>
-                                                <td>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="checkbox" name="chk_child" value="{{ $product->id }}">
-                                                    </div>
-                                                </td>
-                                                <td class="title">
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div class="fw-medium">{{ $banner->title ?? 'No Title' }}</div>
+                                                @if($banner->subtitle)
+                                                    <small class="text-muted">{{ $banner->subtitle }}</small>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info-subtle text-info fs-6">
+                                                    {{ ucwords(str_replace('_', ' ', $banner->target_screen)) }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                @if($banner->target_screen === 'product' && $banner->product)
                                                     <div class="d-flex align-items-center">
-                                                        <div class="avatar-sm bg-light rounded p-1 me-3">
-                                                            @if($product->thumbnail)
-                                                                <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid">
-                                                            @else
-                                                                <i class="bi bi-image text-muted fs-3"></i>
-                                                            @endif
-                                                        </div>
+                                                        @if($banner->product->thumbnail)
+                                                            <img src="{{ asset('storage/' . $banner->product->thumbnail) }}"
+                                                                 class="rounded me-2" 
+                                                                 style="width: 40px; height: 40px; object-fit: cover;">
+                                                        @endif
                                                         <div>
-                                                            <h6 class="mb-1">
-                                                                <a href="{{ route('products.show', $product->id) }}" class="text-reset">{{ Str::limit($product->title, 50) }}</a>
-                                                            </h6>
-                                                            <p class="mb-0 text-muted small">SKU: {{ $product->sku }}</p>
+                                                            <div class="fw-medium">{{ $banner->product->title }}</div>
+                                                            <small class="text-muted">{{ $banner->product->sku }}</small>
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td class="category">
-                                                    {{ $product->category?->name ?? 'Uncategorized' }}
-                                                </td>
-                                                <td class="stock">
-                                                    <span class="badge {{ $product->stock > 10 ? 'bg-success' : ($product->stock > 0 ? 'bg-warning' : 'bg-danger') }}-subtle text-{{ $product->stock > 10 ? 'success' : ($product->stock > 0 ? 'warning' : 'danger') }}">
-                                                        {{ $product->stock }}
-                                                    </span>
-                                                </td>
-                                                <td class="price">
-                                                    @if($product->sale_price)
-                                                        <del class="text-muted">${{ number_format($product->price, 2) }}</del>
-                                                        <span class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</span>
-                                                    @else
-                                                        <span class="fw-bold">${{ number_format($product->price, 2) }}</span>
-                                                    @endif
-                                                </td>
-                                                <td class="sold text-center">{{ $product->sold_quantity ?? 0 }}</td>
-                                                <td class="featured">
-                                                    @if($product->is_featured)
-                                                        <i class="bi bi-star-fill text-warning"></i>
-                                                    @else
-                                                        <i class="bi bi-star text-muted"></i>
-                                                    @endif
-                                                </td>
-                                                <td class="created_at">{{ $product->created_at->format('d M, Y') }}</td>
-                                                <td>
-                                                    <div class="dropdown">
-                                                        <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
-                                                            <i class="bi bi-three-dots-vertical"></i>
-                                                        </button>
-                                                        <ul class="dropdown-menu dropdown-menu-end">
-                                                            <li>
-                                                                <a class="dropdown-item" href="{{ route('products.show', $product->id) }}">
-                                                                    <i class="ph-eye align-middle me-1"></i> View
-                                                                </a>
-                                                            </li>
-                                                            @can('Update product')
-                                                            <li>
-                                                                <a class="dropdown-item edit-item-btn" href="#showModal" data-bs-toggle="modal"
-                                                                   data-id="{{ $product->id }}">
-                                                                    <i class="ph-pencil align-middle me-1"></i> Edit
-                                                                </a>
-                                                            </li>
-                                                            @endcan
-                                                            @can('Delete product')
-                                                            <li>
-                                                                <a class="dropdown-item remove-item-btn" href="javascript:void(0);"
-                                                                   data-id="{{ $product->id }}">
-                                                                    <i class="ph-trash align-middle me-1"></i> Delete
-                                                                </a>
-                                                            </li>
-                                                            @endcan
-                                                        </ul>
+                                                @elseif($banner->link)
+                                                    <a href="{{ $banner->link }}" target="_blank" class="text-truncate d-block" style="max-width: 150px;">
+                                                        <i class="bi bi-link-45deg"></i> {{ Str::limit($banner->link, 30) }}
+                                                    </a>
+                                                @else
+                                                    <span class="text-muted">No link</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input status-toggle" 
+                                                               type="checkbox" 
+                                                               data-id="{{ $banner->id }}"
+                                                               {{ $banner->active ? 'checked' : '' }}>
                                                     </div>
-                                                </td>
-                                            </tr>
-                                            @empty
-                                            <tr>
-                                                <td colspan="9" class="text-center py-5 text-muted">No products found</td>
-                                            </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div class="noresult" style="display: none">
-                                    <div class="text-center py-4">
-                                        <i class="bi bi-search display-4 text-primary"></i>
-                                        <h5 class="mt-2">Sorry! No Result Found</h5>
-                                    </div>
-                                </div>
-
-                                <!-- Pagination -->
-                                <div class="row mt-3 align-items-center">
-                                    <div class="col-sm">
-                                        <div class="text-muted text-center text-sm-start">
-                                            Showing <span class="fw-semibold">{{ $products->firstItem() }}</span> to
-                                            <span class="fw-semibold">{{ $products->lastItem() }}</span> of
-                                            <span class="fw-semibold">{{ $products->total() }}</span> Results
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-auto mt-3 mt-sm-0">
-                                        {!! $products->appends(request()->query())->links('pagination::bootstrap-5') !!}
-                                    </div>
-                                </div>
+                                                    <span class="badge ms-2 {{ $banner->active ? 'bg-success' : 'bg-secondary' }}">
+                                                        {{ $banner->active ? 'Active' : 'Inactive' }}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark">{{ $banner->order ?? 0 }}</span>
+                                            </td>
+                                            <td>{{ $banner->created_at->format('d M Y') }}</td>
+                                            <td>
+                                                <div class="hstack gap-2">
+                                                    @can('Update banner')
+                                                        <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"
+                                                            data-id="{{ $banner->id }}"
+                                                            data-image="{{ $banner->image_url ? asset('storage/' . $banner->image_url) : '' }}"
+                                                            data-screen="{{ $banner->target_screen }}"
+                                                            data-product-id="{{ $banner->product_id }}"
+                                                            data-title="{{ $banner->title ?? '' }}"
+                                                            data-subtitle="{{ $banner->subtitle ?? '' }}"
+                                                            data-link="{{ $banner->link ?? '' }}"
+                                                            data-active="{{ $banner->active }}"
+                                                            data-order="{{ $banner->order ?? 0 }}">
+                                                            <i class="ph-pencil"></i>
+                                                        </button>
+                                                    @endcan
+                                                    @can('Delete banner')
+                                                        <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn" 
+                                                                data-id="{{ $banner->id }}">
+                                                            <i class="ph-trash"></i>
+                                                        </button>
+                                                    @endcan
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        @empty
+                                        <tr>
+                                            <td colspan="10" class="text-center py-5 text-muted">
+                                                <i class="bi bi-inbox fs-1"></i>
+                                                <p class="mt-2">No banners found</p>
+                                                @can('Create banner')
+                                                    <button class="btn btn-primary add-btn mt-2">
+                                                        <i class="bi bi-plus-circle"></i> Create First Banner
+                                                    </button>
+                                                @endcan
+                                            </td>
+                                        </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
                             </div>
+
+                            <!-- Pagination -->
+                            @if($banners->hasPages())
+                                <div class="d-flex justify-content-end mt-4">
+                                    <div class="pagination-wrap hstack gap-2">
+                                        <a class="page-item pagination-prev {{ $banners->onFirstPage() ? 'disabled' : '' }}"
+                                           href="{{ $banners->previousPageUrl() }}">
+                                            <i class="bi bi-chevron-left"></i> Previous
+                                        </a>
+                                        <span class="px-3 py-2 bg-light rounded">{{ $banners->currentPage() }} / {{ $banners->lastPage() }}</span>
+                                        <a class="page-item pagination-next {{ $banners->hasMorePages() ? '' : 'disabled' }}"
+                                           href="{{ $banners->nextPageUrl() }}">
+                                            Next <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Add/Edit Modal -->
-            <div class="modal fade" id="showModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
                     <div class="modal-content">
-                        <form id="productForm" enctype="multipart/form-data">
+                        <form id="bannerForm" enctype="multipart/form-data">
                             @csrf
-                            <input type="hidden" name="id" id="product_id">
+                            <input type="hidden" name="id" id="banner_id">
                             <div class="modal-header">
-                                <h5 class="modal-title" id="modalTitle">Add Product</h5>
+                                <h5 class="modal-title" id="modalTitle">Add Banner</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <div class="row g-4">
-                                    <div class="col-lg-8">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <label>Title <span class="text-danger">*</span></label>
-                                                <input type="text" name="title" class="form-control" required>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label>SKU <span class="text-danger">*</span></label>
-                                                <input type="text" name="sku" class="form-control" required>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label>Price <span class="text-danger">*</span></label>
-                                                <input type="number" step="0.01" name="price" class="form-control" required>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label>Sale Price</label>
-                                                <input type="number" step="0.01" name="sale_price" class="form-control">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label>Stock <span class="text-danger">*</span></label>
-                                                <input type="number" name="stock" class="form-control" required>
-                                            </div>
-                                            <div class="col-12">
-                                                <label>Description</label>
-                                                <textarea name="description" rows="4" class="form-control"></textarea>
-                                            </div>
+                                <div class="row g-3">
+                                    <div class="col-lg-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Banner Image <span class="text-danger">*</span></label>
+                                            <input type="file" class="form-control" name="image" id="image_input" accept="image/*">
+                                            <small class="text-muted">Recommended: 1200×600px, Max: 5MB</small>
+                                            <div class="invalid-feedback" id="image_error"></div>
+                                        </div>
+                                        <div class="text-center mb-3">
+                                            <img id="image_preview" class="rounded shadow" 
+                                                 style="max-width:100%; max-height:250px; display:none; object-fit: contain;" 
+                                                 alt="Preview">
                                         </div>
                                     </div>
-                                    <div class="col-lg-4">
-                                        <div class="border rounded p-3">
-                                            <label>Thumbnail</label>
-                                            <input type="file" name="thumbnail" class="form-control mb-3" accept="image/*">
-                                            <img id="thumbnail_preview" src="" class="img-fluid rounded" style="max-height: 200px; display: none;">
-
-                                            <label class="mt-3">Gallery Images</label>
-                                            <input type="file" name="images[]" multiple class="form-control" accept="image/*">
+                                    <div class="col-lg-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Title</label>
+                                            <input type="text" class="form-control" name="title" id="title" 
+                                                   placeholder="Banner title (optional)">
                                         </div>
-
-                                        <div class="mt-3">
-                                            <label>Brand</label>
-                                            <select name="brand_id" class="form-control">
-                                                <option value="">No Brand</option>
-                                                @foreach($brands as $brand)
-                                                    <option value="{{ $brand->id }}">{{ $brand->name }}</option>
-                                                @endforeach
+                                        <div class="mb-3">
+                                            <label class="form-label">Subtitle</label>
+                                            <input type="text" class="form-control" name="subtitle" id="subtitle" 
+                                                   placeholder="Subtitle (optional)">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Target Screen <span class="text-danger">*</span></label>
+                                            <select class="form-select" name="target_screen" id="target_screen" required>
+                                                <option value="home">Home Screen</option>
+                                                <option value="category">Category Page</option>
+                                                <option value="product">Product Detail</option>
+                                                <option value="offers">Offers Page</option>
+                                                <option value="all">All Pages</option>
                                             </select>
                                         </div>
-
-                                        <div class="mt-3">
-                                            <label>Category</label>
-                                            <select name="category_id" class="form-control">
-                                                <option value="">Select Category</option>
-                                                @foreach($categories as $cat)
-                                                    <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                                                    @foreach($cat->children as $child)
-                                                        <option value="{{ $child->id }}">— {{ $child->name }}</option>
-                                                    @endforeach
+                                        
+                                        <!-- Product Selection (shown only when target_screen is 'product') -->
+                                        <div class="mb-3" id="product_select_container" style="display: none;">
+                                            <label class="form-label">Select Product <span class="text-danger">*</span></label>
+                                            <select class="form-select" name="product_id" id="product_id">
+                                                <option value="">-- Select Product --</option>
+                                                @foreach($products as $product)
+                                                    <option value="{{ $product->id }}" 
+                                                            data-thumbnail="{{ $product->thumbnail ? asset('storage/' . $product->thumbnail) : asset('images/default-product.png') }}">
+                                                        {{ $product->title }} ({{ $product->sku }})
+                                                    </option>
                                                 @endforeach
                                             </select>
+                                            <div class="mt-2" id="product_preview" style="display: none;">
+                                                <img src="" id="product_image" class="rounded" style="width: 60px; height: 60px; object-fit: cover;">
+                                                <div class="d-inline-block ms-2">
+                                                    <div id="product_title" class="fw-medium"></div>
+                                                    <small id="product_sku" class="text-muted"></small>
+                                                </div>
+                                            </div>
                                         </div>
-
-                                        <div class="mt-3 form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured">
-                                            <label class="form-check-label" for="is_featured">Featured Product</label>
+                                        
+                                        <!-- Custom Link (shown when NOT 'product') -->
+                                        <div class="mb-3" id="link_container">
+                                            <label class="form-label">Custom Link</label>
+                                            <input type="url" class="form-control" name="link" id="link" 
+                                                   placeholder="https://example.com (optional)">
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Order</label>
+                                                    <input type="number" class="form-control" name="order" id="order" 
+                                                           min="0" value="0">
+                                                    <small class="text-muted">Lower number shows first</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Status</label>
+                                                    <div class="form-check form-switch mt-2">
+                                                        <input class="form-check-input" type="checkbox" name="active" value="1" id="active" checked>
+                                                        <label class="form-check-label">Active</label>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                <button type="submit" class="btn btn-primary" id="submitBtn">Save Product</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary" id="submitBtn">
+                                    <span id="submitText">Save Banner</span>
+                                    <span id="spinner" class="spinner-border spinner-border-sm d-none"></span>
+                                </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delete Modal -->
+            <div class="modal fade" id="deleteRecordModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-body text-center py-5">
+                            <i class="bi bi-trash text-danger display-4"></i>
+                            <h4 class="mt-4">Delete Banner?</h4>
+                            <p class="text-muted">This action cannot be undone.</p>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-danger" id="confirm-delete">Yes, Delete</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+@endsection
 
-<!-- Scripts -->
+@push('styles')
+<style>
+    .banner-image {
+        transition: transform 0.2s;
+    }
+    .banner-image:hover {
+        transform: scale(1.05);
+    }
+    .product-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .product-option img {
+        width: 30px;
+        height: 30px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+</style>
+@endpush
+
+@push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // CSRF Token setup
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
+    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-    var options = {
-        valueNames: ['title', 'category', 'stock', 'price', 'sold', 'created_at'],
-        page: 12,
-        pagination: true
-    };
-    var productList = new List('productList', options);
+    // Modal instances
+    const bannerModal = new bootstrap.Modal('#showModal');
+    const deleteModal = new bootstrap.Modal('#deleteRecordModal');
+    const form = document.getElementById('bannerForm');
+    const imagePreview = document.getElementById('image_preview');
+    const imageInput = document.getElementById('image_input');
+    const productSelect = document.getElementById('product_id');
+    const productPreview = document.getElementById('product_preview');
+    const productImage = document.getElementById('product_image');
+    const productTitle = document.getElementById('product_title');
+    const productSku = document.getElementById('product_sku');
+    
+    let deleteId = null;
 
-    // Checkbox & Bulk Delete
-    document.getElementById('checkAll')?.addEventListener('change', function () {
+    // Initialize
+    initCheckboxes();
+    initFormValidation();
+    initEventListeners();
+
+    function initCheckboxes() {
+        // Check all functionality
+        const checkAll = document.getElementById('checkAll');
+        if (checkAll) {
+            checkAll.addEventListener('change', function () {
+                document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
+                    cb.checked = this.checked;
+                    cb.closest('tr')?.classList.toggle('table-active', this.checked);
+                });
+                toggleDeleteBtn();
+            });
+        }
+
+        // Individual checkbox handling
         document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-            cb.checked = this.checked;
+            cb.addEventListener('change', () => {
+                cb.closest('tr')?.classList.toggle('table-active', cb.checked);
+                toggleDeleteBtn();
+            });
         });
-        toggleBulkDelete();
-    });
 
-    function toggleBulkDelete() {
-        const checked = document.querySelectorAll('input[name="chk_child"]:checked').length;
-        document.getElementById('remove-actions').classList.toggle('d-none', checked === 0);
+        function toggleDeleteBtn() {
+            const count = document.querySelectorAll('input[name="chk_child"]:checked').length;
+            const deleteBtn = document.getElementById('remove-actions');
+            if (deleteBtn) {
+                deleteBtn.classList.toggle('d-none', count === 0);
+            }
+        }
     }
 
-    // Edit Product
-    document.querySelectorAll('.edit-item-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const id = this.dataset.id;
-            axios.get(`/products/${id}/edit`)
-                .then(res => {
-                    const p = res.data;
-                    document.getElementById('product_id').value = p.id;
-                    document.querySelector('[name="title"]').value = p.title;
-                    document.querySelector('[name="sku"]').value = p.sku;
-                    document.querySelector('[name="price"]').value = p.price;
-                    document.querySelector('[name="sale_price"]').value = p.sale_price || '';
-                    document.querySelector('[name="stock"]').value = p.stock;
-                    document.querySelector('[name="description"]').value = p.description || '';
-                    document.querySelector('[name="brand_id"]').value = p.brand_id || '';
-                    document.querySelector('[name="category_id"]').value = p.category_id || '';
-                    document.querySelector('[name="is_featured"]').checked = p.is_featured;
-
-                    const thumb = document.getElementById('thumbnail_preview');
-                    if (p.thumbnail) {
-                        thumb.src = p.thumbnail;
-                        thumb.style.display = 'block';
-                    } else {
-                        thumb.style.display = 'none';
-                    }
-
-                    document.getElementById('modalTitle').textContent = 'Edit Product';
-                    document.getElementById('submitBtn').textContent = 'Update Product';
-                });
+    function initFormValidation() {
+        // Reset form validation styles
+        form.addEventListener('reset', () => {
+            form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
         });
-    });
 
-    // Form Submit
-    document.getElementById('productForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const id = document.getElementById('product_id').value;
-        const url = id ? `/products/${id}` : '/products';
-        const method = id ? 'PUT' : 'POST';
-        const formData = new FormData(this);
-        if (id) formData.append('_method', 'PUT');
-
-        axios.post(url, formData)
-            .then(() => location.reload())
-            .catch(err => {
-                Swal.fire('Error!', err.response?.data?.message || 'Something went wrong', 'error');
-            });
-    });
-
-    // Delete Single
-    document.querySelectorAll('.remove-item-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const id = this.dataset.id;
-            Swal.fire({
-                title: 'Delete Product?',
-                text: "This action cannot be undone!",
-                icon: 'warning',
-                showCancelButton: true,
-            }).then(result => {
-                if (result.isConfirmed) {
-                    axios.delete(`/products/${id}`).then(() => location.reload());
+        // Image preview
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 5 * 1024 * 1024) {
+                    showError('image', 'Image size must be less than 5MB');
+                    return;
                 }
-            });
-        });
-    });
-
-    window.deleteMultiple = function () {
-        const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
-            .map(cb => cb.value);
-        if (!ids.length) return;
-
-        Swal.fire({
-            title: `Delete ${ids.length} products?`,
-            icon: 'warning',
-            showCancelButton: true,
-        }).then(result => {
-            if (result.isConfirmed) {
-                Promise.all(ids.map(id => axios.delete(`/products/${id}`)))
-                    .then(() => location.reload());
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
             }
         });
-    };
+
+        // Target screen change handler
+        document.getElementById('target_screen').addEventListener('change', function() {
+            const isProductScreen = this.value === 'product';
+            const productContainer = document.getElementById('product_select_container');
+            const linkContainer = document.getElementById('link_container');
+            
+            productContainer.style.display = isProductScreen ? 'block' : 'none';
+            
+            if (isProductScreen) {
+                productSelect.required = true;
+                document.getElementById('link').value = '';
+            } else {
+                productSelect.required = false;
+                productSelect.value = '';
+                productPreview.style.display = 'none';
+            }
+        });
+
+        // Product selection handler
+        productSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (this.value) {
+                productImage.src = selectedOption.getAttribute('data-thumbnail');
+                productTitle.textContent = selectedOption.text.split(' (')[0];
+                productSku.textContent = selectedOption.text.match(/\((.*?)\)/)[1];
+                productPreview.style.display = 'flex';
+            } else {
+                productPreview.style.display = 'none';
+            }
+        });
+    }
+
+    function initEventListeners() {
+        // Add button
+        document.querySelectorAll('.add-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                resetForm();
+                document.getElementById('modalTitle').textContent = 'Add Banner';
+                document.getElementById('submitBtn').textContent = 'Save Banner';
+                bannerModal.show();
+            });
+        });
+
+        // Edit buttons
+        document.querySelectorAll('.edit-item-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                resetForm();
+                
+                const id = this.dataset.id;
+                const screen = this.dataset.screen;
+                const productId = this.dataset.productId;
+                
+                document.getElementById('banner_id').value = id;
+                document.getElementById('target_screen').value = screen;
+                document.getElementById('product_id').value = productId || '';
+                document.getElementById('title').value = this.dataset.title || '';
+                document.getElementById('subtitle').value = this.dataset.subtitle || '';
+                document.getElementById('link').value = this.dataset.link || '';
+                document.getElementById('active').checked = this.dataset.active == '1';
+                document.getElementById('order').value = this.dataset.order || '0';
+                
+                // Handle image preview
+                if (this.dataset.image) {
+                    imagePreview.src = this.dataset.image;
+                    imagePreview.style.display = 'block';
+                }
+                
+                // Handle product preview
+                if (productId) {
+                    const selectedOption = productSelect.querySelector(`option[value="${productId}"]`);
+                    if (selectedOption) {
+                        productSelect.value = productId;
+                        productImage.src = selectedOption.getAttribute('data-thumbnail');
+                        productTitle.textContent = selectedOption.text.split(' (')[0];
+                        productSku.textContent = selectedOption.text.match(/\((.*?)\)/)[1];
+                        productPreview.style.display = 'flex';
+                    }
+                }
+                
+                // Show/hide product select based on screen
+                const productContainer = document.getElementById('product_select_container');
+                productContainer.style.display = screen === 'product' ? 'block' : 'none';
+                
+                document.getElementById('modalTitle').textContent = 'Edit Banner';
+                document.getElementById('submitBtn').textContent = 'Update Banner';
+                bannerModal.show();
+            });
+        });
+
+        // Status toggle
+        document.querySelectorAll('.status-toggle').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const id = this.dataset.id;
+                const isActive = this.checked;
+                
+                axios.post(`/banners/${id}/toggle-status`)
+                    .then(response => {
+                        if (response.data.success) {
+                            showToast('success', 'Status updated successfully');
+                        }
+                    })
+                    .catch(error => {
+                        this.checked = !isActive;
+                        showToast('error', 'Failed to update status');
+                    });
+            });
+        });
+
+        // Delete buttons
+        document.querySelectorAll('.remove-item-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                deleteId = this.dataset.id;
+                deleteModal.show();
+            });
+        });
+
+        // Confirm delete
+        document.getElementById('confirm-delete')?.addEventListener('click', () => {
+            if (deleteId) {
+                axios.delete(`/banners/${deleteId}`)
+                    .then(response => {
+                        if (response.data.success) {
+                            location.reload();
+                        }
+                    })
+                    .catch(error => {
+                        deleteModal.hide();
+                        showToast('error', 'Failed to delete banner');
+                    });
+            }
+        });
+
+        // Multiple delete
+        window.deleteMultiple = function() {
+            const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
+                .map(cb => cb.value);
+            
+            if (!ids.length) {
+                showToast('warning', 'Please select at least one banner');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Delete Selected Banners?',
+                text: `This will delete ${ids.length} banner(s). This action cannot be undone.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete!'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    axios.post('/banners/bulk-delete', { ids: ids })
+                        .then(response => {
+                            if (response.data.success) {
+                                location.reload();
+                            }
+                        })
+                        .catch(error => {
+                            showToast('error', 'Failed to delete banners');
+                        });
+                }
+            });
+        };
+    }
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        if (!validateForm()) {
+            return;
+        }
+
+        const id = document.getElementById('banner_id').value;
+        const url = id ? `/banners/${id}` : '/banners';
+        const method = id ? 'PUT' : 'POST';
+        const data = new FormData(this);
+        
+        if (id) {
+            data.append('_method', 'PUT');
+        }
+
+        // Show loading
+        const submitBtn = document.getElementById('submitBtn');
+        const submitText = document.getElementById('submitText');
+        const spinner = document.getElementById('spinner');
+        
+        submitBtn.disabled = true;
+        submitText.textContent = id ? 'Updating...' : 'Saving...';
+        spinner.classList.remove('d-none');
+
+        axios.post(url, data, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+        .then(response => {
+            if (response.data.success) {
+                bannerModal.hide();
+                showToast('success', response.data.message);
+                setTimeout(() => location.reload(), 1500);
+            }
+        })
+        .catch(error => {
+            if (error.response?.status === 422) {
+                // Validation errors
+                const errors = error.response.data.errors;
+                Object.keys(errors).forEach(field => {
+                    showError(field, errors[field][0]);
+                });
+            } else {
+                showToast('error', error.response?.data?.message || 'Something went wrong');
+            }
+        })
+        .finally(() => {
+            // Reset button state
+            submitBtn.disabled = false;
+            submitText.textContent = id ? 'Update Banner' : 'Save Banner';
+            spinner.classList.add('d-none');
+        });
+    });
+
+    function validateForm() {
+        let isValid = true;
+        
+        // Clear previous errors
+        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        
+        // Check image for new banners
+        const bannerId = document.getElementById('banner_id').value;
+        if (!bannerId && !imageInput.files[0]) {
+            showError('image', 'Please select an image');
+            isValid = false;
+        }
+        
+        // Check product selection for product screen
+        const screen = document.getElementById('target_screen').value;
+        if (screen === 'product' && !document.getElementById('product_id').value) {
+            showError('product_id', 'Please select a product');
+            isValid = false;
+        }
+        
+        return isValid;
+    }
+
+    function showError(field, message) {
+        const input = document.querySelector(`[name="${field}"]`) || document.getElementById(field);
+        const errorDiv = document.getElementById(`${field}_error`);
+        
+        if (input) {
+            input.classList.add('is-invalid');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+            } else {
+                const div = document.createElement('div');
+                div.className = 'invalid-feedback';
+                div.textContent = message;
+                input.parentNode.appendChild(div);
+            }
+        }
+    }
+
+    function resetForm() {
+        form.reset();
+        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        imagePreview.style.display = 'none';
+        productPreview.style.display = 'none';
+        document.getElementById('product_select_container').style.display = 'none';
+    }
+
+    function showToast(icon, message) {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+        });
+        
+        Toast.fire({
+            icon: icon,
+            title: message
+        });
+    }
 });
 </script>
-@endsection
+@endpush
