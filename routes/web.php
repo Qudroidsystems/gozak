@@ -13,7 +13,8 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\PermissionController;        // <-- ADD THIS
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProductReviewController;        // <-- ADD THIS
 
 // Public Routes
 Route::get('/', function () {
@@ -78,5 +79,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
     Route::delete('/products/{id}/images/{imageId}', [ProductController::class, 'deleteImage'])->name('products.images.destroy');
 
-    
+    // Product Reviews Routes
+    Route::group(['prefix' => 'products/{product}/reviews'], function() {
+        Route::post('/', [ProductReviewController::class, 'store'])->name('products.reviews.store');
+    });
+
+    // Admin Reviews Routes
+    Route::resource('reviews', ProductReviewController::class)->except(['show']);
+    Route::get('/reviews/{id}/edit', [ProductReviewController::class, 'edit'])->name('reviews.edit');
+    Route::post('/reviews/{id}/company-comment', [ProductReviewController::class, 'addCompanyComment'])->name('reviews.company-comment');
+        
 });

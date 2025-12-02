@@ -83,15 +83,75 @@ class ProductController extends Controller
         return view('products.index', compact('products', 'brands', 'categories', 'pagetitle'));
     }
 
+    public function storeReview(Request $request, $id)
+    {
+        $product = Product::findOrFail($id);
+        
+        $request->validate([
+            'rating' => 'required|numeric|min:1|max:5',
+            'comment' => 'required|string|max:1000',
+            'user_name' => 'nullable|string|max:255',
+        ]);
+        
+        $review = ProductReview::create([
+            'product_id' => $product->id,
+            'user_id' => auth()->id() ?? null,
+            'rating' => $request->rating,
+            'comment' => $request->comment,
+            'user_name' => $request->user_name ?? (auth()->user() ? auth()->user()->name : 'Anonymous'),
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Review added successfully',
+            'review' => $review
+        ]);
+    }
+
     public function show($id)
     {
-        $product = Product::with(['brand', 'category', 'images', 'reviews.user'])
-            ->withCount(['reviews', 'variations'])
-            ->findOrFail($id);
+        $product = Product::with([
+            'brand', 
+            'category', 
+            'images', 
+            'reviews.user',
+            'reviews' => function($query) {
+                $query->with(['user' => function($q) {
+                    $q->select('id', 'first_name', 'last_name', 'profile_image');
+                }])->orderBy('created_at', 'desc');
+            }
+        ])
+        ->withCount([
+            'variations',
+            'reviews as reviews_count',
+            'orderItems as total_sold' => function($query) {
+                $query->select(DB::raw('COALESCE(SUM(quantity), 0)'));
+            }
+        ])
+        ->findOrFail($id);
+
+        // Calculate average rating
+        $averageRating = $product->reviews->avg('rating') ?? 0;
+        $ratingBreakdown = [
+            '5' => $product->reviews->where('rating', 5)->count(),
+            '4' => $product->reviews->where('rating', 4)->count(),
+            '3' => $product->reviews->where('rating', 3)->count(),
+            '2' => $product->reviews->where('rating', 2)->count(),
+            '1' => $product->reviews->where('rating', 1)->count(),
+        ];
+
+        // Calculate revenue
+        $revenue = ($product->total_sold ?? 0) * ($product->sale_price ?? $product->price);
 
         $pagetitle = $product->title . ' - Product Details';
 
-        return view('products.show', compact('product', 'pagetitle'));
+        return view('products.show', compact(
+            'product', 
+            'pagetitle', 
+            'averageRating', 
+            'ratingBreakdown',
+            'revenue'
+        ));
     }
 
     public function create()
