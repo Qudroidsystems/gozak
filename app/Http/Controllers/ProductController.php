@@ -20,6 +20,7 @@ class ProductController extends Controller
 
     public function index(Request $request)
     {
+        $pagetitle = "Product Management";
         $products = Product::with(['brand', 'category'])
             ->withCount('variations')
             ->latest()
@@ -28,7 +29,7 @@ class ProductController extends Controller
         $brands = Brand::orderBy('name')->get();
         $categories = Category::whereNull('parent_id')->with('children')->orderBy('name')->get();
 
-        return view('products.index', compact('products', 'brands', 'categories'));
+        return view('products.index', compact('products', 'brands', 'categories','pagetitle'));
     }
 
     public function edit($id)
