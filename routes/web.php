@@ -75,7 +75,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
 
     Route::resource('products', ProductController::class)->except(['show']);
-    Route::get('products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+    Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
+    Route::delete('/products/{id}/images/{imageId}', [ProductController::class, 'deleteImage'])->name('products.images.destroy');
 
     
 });
