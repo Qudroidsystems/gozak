@@ -8,9 +8,10 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\APIAuthController;
 use App\Http\Controllers\BiodataController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\OverviewController;
-use App\Http\Controllers\DashboardController;        // <-- ADD THIS
-use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PermissionController;        // <-- ADD THIS
 
 // Public Routes
 Route::get('/', function () {
