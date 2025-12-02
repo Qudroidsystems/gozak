@@ -6,6 +6,39 @@
 @push('css')
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
 <link rel="stylesheet" href="https://unpkg.com/dropzone@6/dist/dropzone.css">
+<style>
+    /* Stock color improvements */
+    .bg-success { background-color: #0a3622 !important; }
+    .bg-warning { background-color: #664d03 !important; }
+    .bg-danger { background-color: #58151c !important; }
+    
+    /* Swiper custom styles */
+    .swiper-slide img {
+        max-height: 450px;
+        object-fit: contain;
+    }
+    .product-nav-slider .swiper-slide {
+        opacity: 0.5;
+        transition: opacity 0.3s;
+    }
+    .product-nav-slider .swiper-slide-thumb-active {
+        opacity: 1;
+        border-color: #0d6efd !important;
+    }
+    
+    /* Sticky sidebar */
+    .sticky-side-div {
+        position: sticky;
+        top: 100px;
+    }
+    
+    /* Custom badge colors for better visibility */
+    .badge.bg-warning-subtle.text-warning {
+        color: #664d03 !important;
+        background-color: #fff3cd !important;
+        border: 1px solid #ffecb5;
+    }
+</style>
 @endpush
 
 @section('content')
@@ -115,17 +148,21 @@
                                         @endif
                                     </div>
 
-                                    <!-- Stock -->
+                                    <!-- Stock with clearer colors -->
                                     <div class="mb-4">
-                                        <span class="badge {{ $product->stock > 10 ? 'bg-success' : ($product->stock > 0 ? 'bg-warning' : 'bg-danger') }}">
-                                            @if($product->stock > 10)
-                                                In Stock ({{ $product->stock }} left)
-                                            @elseif($product->stock > 0)
-                                                Low Stock (Only {{ $product->stock }} left!)
-                                            @else
-                                                Out of Stock
-                                            @endif
-                                        </span>
+                                        @if($product->stock > 10)
+                                            <span class="badge bg-success text-white">
+                                                <i class="bi bi-check-circle me-1"></i> In Stock ({{ $product->stock }} left)
+                                            </span>
+                                        @elseif($product->stock > 0)
+                                            <span class="badge bg-warning text-white">
+                                                <i class="bi bi-exclamation-triangle me-1"></i> Low Stock (Only {{ $product->stock }} left!)
+                                            </span>
+                                        @else
+                                            <span class="badge bg-danger text-white">
+                                                <i class="bi bi-x-circle me-1"></i> Out of Stock
+                                            </span>
+                                        @endif
                                     </div>
 
                                     <!-- Description -->
@@ -135,6 +172,34 @@
                                             <p class="text-muted">{!! nl2br(e($product->description)) !!}</p>
                                         </div>
                                     @endif
+
+                                    <!-- Additional Info -->
+                                    <div class="row mt-4">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <h6 class="text-muted mb-2">Product Type</h6>
+                                                <p class="fw-semibold">{{ ucfirst($product->product_type ?? 'simple') }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <h6 class="text-muted mb-2">Published Date</h6>
+                                                <p class="fw-semibold">{{ $product->created_at->format('F d, Y') }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <h6 class="text-muted mb-2">Last Updated</h6>
+                                                <p class="fw-semibold">{{ $product->updated_at->format('F d, Y') }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <h6 class="text-muted mb-2">Product ID</h6>
+                                                <p class="fw-semibold">#{{ $product->id }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -172,23 +237,30 @@
                                             <div class="card border shadow-none">
                                                 <div class="card-body p-3">
                                                     <p class="text-muted mb-1">Reviews</p>
-                                                    <h5>{{ $product->reviews->count() }}</h5>
+                                                    <h5>{{ $product->reviews_count ?? 0 }}</h5>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="mt-4 d-flex gap-2">
+                                    <div class="mt-4 d-grid gap-2">
                                         @can('Update product')
-                                            <button type="button" class="btn btn-primary w-100 edit-item-btn" data-id="{{ $product->id }}" data-bs-toggle="modal" data-bs-target="#showModal">
+                                            <a href="{{ route('products.index') }}#showModal" 
+                                               class="btn btn-primary edit-item-btn" 
+                                               data-bs-toggle="modal" 
+                                               data-id="{{ $product->id }}"
+                                               onclick="editProductFromShow({{ $product->id }})">
                                                 <i class="ph-pencil me-1"></i> Edit Product
-                                            </button>
+                                            </a>
                                         @endcan
                                         @can('Delete product')
-                                            <button type="button" class="btn btn-danger w-100" onclick="deleteProduct({{ $product->id }})">
+                                            <button type="button" class="btn btn-danger" onclick="deleteProduct({{ $product->id }})">
                                                 <i class="ph-trash me-1"></i> Delete
                                             </button>
                                         @endcan
+                                        <a href="{{ route('products.index') }}" class="btn btn-outline-secondary">
+                                            <i class="bi bi-arrow-left me-1"></i> Back to Products
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -196,22 +268,29 @@
                     </div>
 
                     <!-- Reviews Section -->
+                    @if($product->reviews->count() > 0)
                     <div class="card mt-4">
                         <div class="card-header d-flex flex-wrap align-items-center gap-3 mb-2">
                             <h6 class="card-title flex-grow-1 mb-0">
                                 Ratings & Reviews ({{ $product->reviews->count() }})
                             </h6>
-                            @if($product->reviews->count() > 0)
-                                <div class="text-warning hstack gap-1">
-                                    @for($i = 1; $i <= 5; $i++)
-                                        <i class="bi {{ $i <= round($product->reviews->avg('rating')) ? 'bi-star-fill' : 'bi-star' }}"></i>
-                                    @endfor
-                                    <span class="ms-2 text-muted">{{ number_format($product->reviews->avg('rating'), 1) }}/5.0</span>
-                                </div>
-                            @endif
-                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addReview">
-                                <i class="ph-plus-circle align-middle me-1"></i> Add Review
-                            </button>
+                            <div class="text-warning hstack gap-1">
+                                @php
+                                    $avgRating = $product->reviews->avg('rating');
+                                    $fullStars = floor($avgRating);
+                                    $hasHalfStar = ($avgRating - $fullStars) >= 0.5;
+                                @endphp
+                                @for($i = 1; $i <= 5; $i++)
+                                    @if($i <= $fullStars)
+                                        <i class="bi bi-star-fill"></i>
+                                    @elseif($hasHalfStar && $i == $fullStars + 1)
+                                        <i class="bi bi-star-half"></i>
+                                    @else
+                                        <i class="bi bi-star"></i>
+                                    @endif
+                                @endfor
+                                <span class="ms-2 text-muted">{{ number_format($avgRating, 1) }}/5.0</span>
+                            </div>
                         </div>
                         <div class="card-body">
                             <div class="me-lg-n3 pe-lg-4" data-simplebar style="max-height: 500px;">
@@ -221,37 +300,18 @@
                                             <div class="border border-dashed rounded p-3">
                                                 <div class="hstack flex-wrap gap-3 mb-4">
                                                     <div class="badge rounded-pill bg-danger-subtle text-danger mb-0">
-                                                        <i class="mdi mdi-star"></i> <span class="rate-num">{{ number_format($review->rating, 1) }}</span>
+                                                        <i class="bi bi-star-fill"></i> <span class="rate-num">{{ number_format($review->rating, 1) }}</span>
                                                     </div>
                                                     <div class="vr"></div>
                                                     <div class="flex-grow-1">
-                                                        <p class="mb-0"><a href="#!">{{ $review->user_name ?? 'Anonymous' }}</a></p>
+                                                        <p class="mb-0"><strong>{{ $review->user->name ?? $review->user_name ?? 'Anonymous' }}</strong></p>
                                                     </div>
                                                     <div class="flex-shrink-0">
                                                         <span class="text-muted fs-13 mb-0">{{ $review->created_at->format('d M, Y') }}</span>
                                                     </div>
-                                                    <div class="flex-shrink-0">
-                                                        <a href="#addReview" class="badge bg-secondary-subtle text-secondary edit-item-list" data-bs-toggle="modal">
-                                                            <i class="ph-pencil align-baseline me-1"></i> Edit
-                                                        </a>
-                                                        <a href="#removeItemModal" class="badge bg-danger-subtle text-danger" data-bs-toggle="modal">
-                                                            <i class="ph-trash align-baseline"></i>
-                                                        </a>
-                                                    </div>
                                                 </div>
                                                 <h6 class="review-title fs-md">{{ $review->comment_title ?? 'Great Product!' }}</h6>
                                                 <p class="review-desc mb-0">{{ $review->comment }}</p>
-                                                @if($review->images?->count())
-                                                    <div class="d-flex flex-grow-1 gap-2 review-gallery-img mt-3">
-                                                        @foreach($review->images as $img)
-                                                            <a href="{{ asset('storage/' . $img->path) }}" class="avatar-md">
-                                                                <div class="avatar-title bg-light rounded">
-                                                                    <img src="{{ asset('storage/' . $img->path) }}" class="product-img avatar-sm" alt="">
-                                                                </div>
-                                                            </a>
-                                                        @endforeach
-                                                    </div>
-                                                @endif
                                             </div>
                                         </li>
                                     @empty
@@ -264,309 +324,21 @@
                             </div>
                         </div>
                     </div>
+                    @endif
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Add Review Modal -->
-<div class="modal fade" id="addReview" tabindex="-1" aria-labelledby="addReviewLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form class="review-form">
-                @csrf
-                <input type="hidden" id="id-field">
-                <div class="modal-header">
-                    <h5 class="modal-title">Write a Review</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" id="review-close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-danger d-none" id="alert-error-msg"></div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Rating <span class="text-danger">*</span></label>
-                        <div id="basic-rater"></div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Review Title</label>
-                        <input type="text" class="form-control" id="reviewTitle-input" placeholder="Enter title">
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Your Review <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="reviewDesc-input" rows="4" placeholder="Write your review..."></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label">Add Photos (Optional)</label>
-                        <form action="#" class="dropzone border-dashed">
-                            <div class="fallback">
-                                <input name="file" type="file" multiple>
-                            </div>
-                            <div class="dz-message needsclick">
-                                <div class="mb-3">
-                                    <i class="display-4 text-muted ri-upload-cloud-2-fill"></i>
-                                </div>
-                                <h5>Drop images here or click to upload.</h5>
-                            </div>
-                        </form>
-                        <ul class="list-unstyled mb-0" id="dropzone-preview"></ul>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit Review</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Delete Review Modal -->
-<div class="modal fade" id="removeItemModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <div class="modal-body text-center py-5">
-                <i class="bi bi-trash text-danger display-4"></i>
-                <h4 class="mt-4">Delete Review?</h4>
-                <p class="text-muted">This action cannot be undone.</p>
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="remove-product">Yes, Delete</button>
-            </div>
-        </div>
-    </div>
-</div>
+@endsection
 
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-<script src="https://unpkg.com/dropzone@6/dist/dropzone-min.js"></script>
-<script src="https://unpkg.com/rater-js@1.0.1/lib/rater-js.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-
-        // Swiper: Product Image Gallery
-        const productNavSlider = new Swiper(".product-nav-slider", {
-            loop: true,
-            spaceBetween: 10,
-            slidesPerView: 4,
-            freeMode: true,
-            watchSlidesProgress: true,
-        });
-
-        const productThumbnailSlider = new Swiper(".product-thumbnail-slider", {
-            loop: true,
-            spaceBetween: 24,
-            autoplay: {
-                delay: 3500,
-                disableOnInteraction: false,
-            },
-            navigation: {
-                nextEl: ".swiper-button-next",
-                prevEl: ".swiper-button-prev",
-            },
-            thumbs: {
-                swiper: productNavSlider,
-            },
-        });
-
-        // Dropzone: Review Image Upload
-        let previewTemplate, dropzone;
-        const dropzonePreviewNode = document.querySelector("#dropzone-preview-list");
-        let editList = false;
-
-        if (dropzonePreviewNode) {
-            previewTemplate = dropzonePreviewNode.parentNode.innerHTML;
-            dropzonePreviewNode.parentNode.removeChild(dropzonePreviewNode);
-
-            dropzone = new Dropzone(".dropzone", {
-                url: "https://httpbin.org/post", // Change to your actual endpoint later
-                method: "post",
-                previewTemplate: previewTemplate,
-                previewsContainer: "#dropzone-preview",
-                clickable: ".file-upload",
-                maxFiles: 5,
-                maxFilesize: 5, // MB
-                acceptedFiles: "image/*",
-            });
-        }
-
-        // Rater.js: Star Rating
-        let basicRating;
-        const ratingElement = document.querySelector("#basic-rater");
-        if (ratingElement) {
-            basicRating = raterJs({
-                starSize: 22,
-                rating: 0,
-                step: 0.5,
-                element: ratingElement,
-                rateCallback: function (rating, done) {
-                    this.setRating(rating);
-                    done();
-                }
-            });
-        }
-
-        // Review Form Elements
-        const reviewTitleInput = document.getElementById("reviewTitle-input");
-        const reviewDescInput = document.getElementById("reviewDesc-input");
-        const userNameVal = document.querySelector(".user-name-text")?.innerHTML || "You";
-        const currentDate = new Date().toUTCString().slice(5, 16);
-
-        // Clear form fields
-        function clearFields() {
-            if (basicRating) {
-                basicRating.setRating(0);
-                ratingElement.removeAttribute("data-rating");
-            }
-            if (reviewTitleInput) reviewTitleInput.value = "";
-            if (reviewDescInput) reviewDescInput.value = "";
-            if (dropzone) dropzone.removeAllFiles();
-            document.getElementById("dropzone-preview").innerHTML = "";
-            editList = false;
-        }
-
-        // Submit Review (Add or Edit)
-        document.querySelectorAll(".review-form").forEach(form => {
-            form.addEventListener("submit", function (e) {
-                e.preventDefault();
-
-                const rating = ratingElement?.getAttribute("data-rating") || 0;
-                const errorMsg = document.getElementById("alert-error-msg");
-
-                if (!rating || rating == 0) {
-                    errorMsg.innerHTML = "Please select a rating";
-                    errorMsg.classList.remove("d-none");
-                    setTimeout(() => errorMsg.classList.add("d-none"), 3000);
-                    return false;
-                }
-
-                if (!reviewTitleInput.value.trim()) {
-                    errorMsg.innerHTML = "Please enter a review title";
-                    errorMsg.classList.remove("d-none");
-                    setTimeout(() => errorMsg.classList.add("d-none"), 3000);
-                    return false;
-                }
-
-                if (!reviewDescInput.value.trim()) {
-                    errorMsg.innerHTML = "Please enter a review description";
-                    errorMsg.classList.remove("d-none");
-                    setTimeout(() => errorMsg.classList.add("d-none"), 3000);
-                    return false;
-                }
-
-                // Build gallery HTML from uploaded images
-                let galleryHTML = '<div class="d-flex flex-grow-1 gap-2 review-gallery-img mt-3">';
-                document.querySelectorAll("#dropzone-preview .dz-image-preview").forEach(preview => {
-                    const img = preview.querySelector("[data-dz-thumbnail]");
-                    const name = preview.querySelector("[data-dz-name]")?.innerHTML || "image.jpg";
-                    galleryHTML += `
-                        <a href="${img.src}" class="avatar-md">
-                            <div class="avatar-title bg-light rounded">
-                                <img src="${img.src}" alt="${name}" class="product-img avatar-sm">
-                            </div>
-                        </a>`;
-                });
-                galleryHTML += '</div>';
-
-                const reviewId = editList ? document.getElementById("id-field").value : "review-" + Math.floor(Math.random() * 10000);
-
-                const reviewHTML = `
-                    <li class="review-list py-2" id="${reviewId}">
-                        <div class="border border-dashed rounded p-3">
-                            <div class="hstack flex-wrap gap-3 mb-4">
-                                <div class="badge rounded-pill bg-danger-subtle text-danger mb-0">
-                                    <i class="mdi mdi-star"></i> <span class="rate-num">${parseFloat(rating).toFixed(1)}</span>
-                                </div>
-                                <div class="vr"></div>
-                                <div class="flex-grow-1">
-                                    <p class="mb-0"><a href="#!">${userNameVal}</a></p>
-                                </div>
-                                <div class="flex-shrink-0">
-                                    <span class="text-muted fs-13 mb-0">${currentDate}</span>
-                                </div>
-                                <div class="flex-shrink-0">
-                                    <a href="#addReview" class="badge bg-secondary-subtle text-secondary edit-item-list" data-bs-toggle="modal">
-                                        <i class="ph-pencil align-baseline me-1"></i> Edit
-                                    </a>
-                                    <a href="#removeItemModal" class="badge bg-danger-subtle text-danger" data-bs-toggle="modal">
-                                        <i class="ph-trash align-baseline"></i>
-                                    </a>
-                                </div>
-                            </div>
-                            <h6 class="review-title fs-md">${reviewTitleInput.value}</h6>
-                            <p class="review-desc mb-0">${reviewDescInput.value}</p>
-                            ${galleryHTML}
-                        </div>
-                    </li>`;
-
-                if (!editList) {
-                    // Add new review
-                    document.getElementById("review-list").insertAdjacentHTML("afterbegin", reviewHTML);
-                } else {
-                    // Update existing review
-                    const reviewEl = document.getElementById(reviewId);
-                    reviewEl.querySelector(".rate-num").innerHTML = parseFloat(rating).toFixed(1);
-                    reviewEl.querySelector(".review-title").innerHTML = reviewTitleInput.value;
-                    reviewEl.querySelector(".review-desc").innerHTML = reviewDescInput.value;
-                    reviewEl.querySelector(".review-gallery-img") ? 
-                        reviewEl.querySelector(".review-gallery-img").outerHTML = galleryHTML :
-                        reviewEl.insertAdjacentHTML("beforeend", galleryHTML);
-                }
-
-                // Close modal & reset
-                document.getElementById("review-close")?.click();
-                clearFields();
-            });
-        });
-
-        // Edit Review
-        function setupReviewEditButtons() {
-            document.querySelectorAll(".edit-item-list").forEach(btn => {
-                btn.addEventListener("click", function () {
-                    editList = true;
-                    const reviewItem = this.closest(".review-list");
-                    const id = reviewItem.id;
-
-                    document.getElementById("id-field").value = id;
-                    reviewTitleInput.value = reviewItem.querySelector(".review-title").innerHTML;
-                    reviewDescInput.value = reviewItem.querySelector(".review-desc").innerHTML;
-
-                    // Load images into Dropzone
-                    if (dropzone) dropzone.removeAllFiles();
-                    reviewItem.querySelectorAll(".review-gallery-img img").forEach(img => {
-                        const mockFile = { name: "review-image.jpg", size: 12345, accepted: true };
-                        dropzone.emit("addedfile", mockFile);
-                        dropzone.emit("thumbnail", mockFile, img.src);
-                        dropzone.emit("complete", mockFile);
-                    });
-
-                    // Set rating
-                    const rateNum = reviewItem.querySelector(".rate-num").innerHTML;
-                    basicRating.setRating(parseFloat(rateNum));
-                });
-            });
-        }
-
-        // Delete Review
-        document.getElementById("removeItemModal")?.addEventListener("show.bs.modal", function (e) {
-            document.getElementById("remove-product").onclick = function () {
-                e.relatedTarget.closest(".review-list")?.remove();
-                document.getElementById("close-modal-review")?.click();
-            };
-        });
-
-        // Reset form when modal is closed
-        document.getElementById("addReview")?.addEventListener("hidden.bs.modal", clearFields);
-
-        // Re-bind edit buttons after adding new review
-        document.getElementById("review-list").addEventListener("DOMNodeInserted", setupReviewEditButtons);
-
-        // Initial setup
-        setupReviewEditButtons();
-
-
+document.addEventListener('DOMContentLoaded', function () {
+    // Swiper: Product Image Gallery
     const productNavSlider = new Swiper(".product-nav-slider", {
         loop: true,
         spaceBetween: 10,
@@ -578,25 +350,63 @@
     const productThumbnailSlider = new Swiper(".product-thumbnail-slider", {
         loop: true,
         spaceBetween: 24,
-        autoplay: { delay: 3500, disableOnInteraction: false },
-        navigation: { nextEl: ".swiper-button-next", prevEl: ".swiper-button-prev" },
-        thumbs: { swiper: productNavSlider },
+        autoplay: {
+            delay: 3500,
+            disableOnInteraction: false,
+        },
+        navigation: {
+            nextEl: ".swiper-button-next",
+            prevEl: ".swiper-button-prev",
+        },
+        thumbs: {
+            swiper: productNavSlider,
+        },
     });
-
-    function deleteProduct(id) {
-        Swal.fire({
-            title: 'Delete Product?',
-            text: "This will delete the product and all its data!",
-            icon: 'warning',
-            showCancelButton: true,
-        }).then((result) => {
-            if (result.isConfirmed) {
-                axios.delete(`/products/${id}`).then(() => {
-                    window.location = "{{ route('products.index') }}";
-                });
-            }
+    
+    // Add click event to thumbnail slider to change main image
+    document.querySelectorAll('.nav-slide-item').forEach((item, index) => {
+        item.addEventListener('click', () => {
+            productThumbnailSlider.slideTo(index);
         });
-    }
+    });
+});
+
+function editProductFromShow(id) {
+    // This will trigger when user clicks "Edit Product" from show page
+    // The modal should open on the index page
+    localStorage.setItem('editProductId', id);
+}
+
+function deleteProduct(id) {
+    Swal.fire({
+        title: 'Delete Product?',
+        text: "This will delete the product and all its data!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            axios.delete(`/products/${id}`)
+                .then(response => {
+                    if (response.data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted!',
+                            text: response.data.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = "{{ route('products.index') }}";
+                        });
+                    }
+                })
+                .catch(error => {
+                    Swal.fire('Error!', 'Failed to delete product', 'error');
+                });
+        }
+    });
+}
 </script>
 @endpush
-@endsection

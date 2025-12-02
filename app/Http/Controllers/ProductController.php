@@ -83,6 +83,17 @@ class ProductController extends Controller
         return view('products.index', compact('products', 'brands', 'categories', 'pagetitle'));
     }
 
+    public function show($id)
+    {
+        $product = Product::with(['brand', 'category', 'images', 'reviews.user'])
+            ->withCount(['reviews', 'variations'])
+            ->findOrFail($id);
+
+        $pagetitle = $product->title . ' - Product Details';
+
+        return view('products.show', compact('product', 'pagetitle'));
+    }
+
     public function create()
     {
         $brands = Brand::orderBy('name')->get();
