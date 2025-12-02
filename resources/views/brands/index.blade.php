@@ -213,6 +213,14 @@
 <!-- ALL JAVASCRIPT (inline - no external files) -->
 
 
+<!-- Replace the entire script section with this -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Setup axios defaults
@@ -380,12 +388,20 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('_method', 'PUT');
         }
 
+        // Debug: Log what we're sending
+        console.log('Submitting to:', url);
+        console.log('Form data:');
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + pair[1]);
+        }
+
         axios.post(url, formData, {
             headers: {
                 'Content-Type': 'multipart/form-data'
             }
         })
         .then(response => {
+            console.log('Success response:', response);
             Swal.fire({
                 icon: 'success',
                 title: 'Success!',
@@ -400,16 +416,27 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = false;
             submitBtn.textContent = id ? 'Update Brand' : 'Save Brand';
             
+            console.error('Full error:', err);
+            console.error('Error response:', err.response);
+            
             let msg = 'An error occurred';
             if (err.response?.status === 422) {
                 const errors = err.response.data.errors;
                 msg = Object.values(errors).flat().join('<br>');
             } else if (err.response?.data?.message) {
                 msg = err.response.data.message;
+            } else if (err.response?.status === 404) {
+                msg = 'Route not found. Please check your routes configuration.';
+            } else if (err.response?.status === 500) {
+                msg = 'Server error. Please check the browser console and server logs.';
             }
             
-            Swal.fire('Error!', msg, 'error');
-            console.error('Submit error:', err);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                html: msg,
+                footer: err.response?.status ? `Status: ${err.response.status}` : ''
+            });
         });
     });
 
