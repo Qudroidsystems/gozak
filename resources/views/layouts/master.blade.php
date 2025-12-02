@@ -178,7 +178,7 @@
                         <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">INVENTORY MANAGEMENT</span></li>
                         @can('View banner')
                             <li class="nav-item">
-                                <a class="nav-link menu-link collapsed" href="#sidebarbanner" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
+                                <a class="nav-link menu-link collapsed" href="#sidebarbanner" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarbanner">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">Banner Managements</span>
                                 </a>
                                 <div class="collapse menu-dropdown" id="sidebarbanner">
@@ -194,7 +194,7 @@
                         @endcan
                          @can('View category')
                             <li class="nav-item">
-                                <a class="nav-link menu-link collapsed" href="#sidebarcategories" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
+                                <a class="nav-link menu-link collapsed" href="#sidebarcategories" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarcategories">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">Category Managements</span>
                                 </a>
                                 <div class="collapse menu-dropdown" id="sidebarcategories">
@@ -210,7 +210,7 @@
                         @endcan
                         @can('View brand')
                             <li class="nav-item">
-                                <a class="nav-link menu-link collapsed" href="#sidebarbrand" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarflock">
+                                <a class="nav-link menu-link collapsed" href="#sidebarbrand" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarbrand">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">Brand Managements</span>
                                 </a>
                                 <div class="collapse menu-dropdown" id="sidebarbrand">
@@ -218,6 +218,22 @@
                                     
                                             <li class="nav-item">
                                             <a href="{{ route('brands.index') }}" class="nav-link" role="button" data-key="t-signin"> Brand </a>
+                                        </li>
+                                    
+                                    </ul>
+                                </div>
+                            </li>
+                        @endcan
+                        @can('View product')
+                              <li class="nav-item">
+                                <a class="nav-link menu-link collapsed" href="#sidebarproduct" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarproduct">
+                                    <i class="ph-user-circle"></i> <span data-key="t-authentication">Product Managements</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="sidebarproduct">
+                                    <ul class="nav nav-sm flex-column">
+                                    
+                                            <li class="nav-item">
+                                            <a href="{{ route('products.index') }}" class="nav-link" role="button" data-key="t-signin"> Product </a>
                                         </li>
                                     
                                     </ul>
