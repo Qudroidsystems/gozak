@@ -15,9 +15,10 @@
                         <h4 class="mb-sm-0">Banners</h4>
                         <div class="page-title-right">
                             <ol class="breadcrumb m-0">
-                            <li class="breadcrumb-item"><a href="javascript:void(0);">Marketing</a></li>
-                            <li class="breadcrumb-item active">Banners</li>
-                        </ol>
+                                <li class="breadcrumb-item"><a href="javascript:void(0);">Marketing</a></li>
+                                <li class="breadcrumb-item active">Banners</li>
+                            </ol>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -73,16 +74,19 @@
                                                 @if($banner->image_url)
                                                     <img src="{{ asset('storage/' . $banner->image_url) }}"
                                                          class="rounded shadow-sm"
-                                                         style="width: 200px; height: 100px; object-fit: cover;"
+                                                         style="width: 220px; height: 110px; object-fit: cover;"
                                                          alt="Banner">
                                                 @else
-                                                    <div class="bg-light rounded d-flex align-items-center justify-content-center" style="width:200px;height:100px;">
+                                                    <div class="bg-light rounded d-flex align-items-center justify-content-center"
+                                                         style="width:220px;height:110px;">
                                                         <i class="bi bi-image text-muted fs-3"></i>
                                                     </div>
                                                 @endif
                                             </td>
                                             <td>
-                                                <span class="badge bg-info-subtle text-info fs-6">{{ ucfirst(str_replace('_', ' ', $banner->target_screen)) }}</span>
+                                                <span class="badge bg-info-subtle text-info fs-6">
+                                                    {{ ucwords(str_replace('_', ' ', $banner->target_screen)) }}
+                                                </span>
                                             </td>
                                             <td>
                                                 <span class="badge {{ $banner->active ? 'bg-success' : 'bg-secondary' }}">
@@ -120,9 +124,11 @@
 
                             <div class="d-flex justify-content-end mt-4">
                                 <div class="pagination-wrap hstack gap-2">
-                                    <a class="page-item pagination-prev" href="{{ $banners->previousPageUrl() }}">Previous</a>
+                                    <a class="page-item pagination-prev {{ $banners->onFirstPage() ? 'disabled' : '' }}"
+                                       href="{{ $banners->previousPageUrl() }}">Previous</a>
                                     <span class="px-3 py-2 bg-light rounded">{{ $banners->currentPage() }} / {{ $banners->lastPage() }}</span>
-                                    <a class="page-item pagination-next" href="{{ $banners->nextPageUrl() }}">Next</a>
+                                    <a class="page-item pagination-next {{ $banners->hasMorePages() ? '' : 'disabled' }}"
+                                       href="{{ $banners->nextPageUrl() }}">Next</a>
                                 </div>
                             </div>
                         </div>
@@ -146,18 +152,18 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-8">
+                    <div class="row g-3">
+                        <div class="col-lg-8">
                             <div class="mb-3">
                                 <label class="form-label">Banner Image <span class="text-danger">*</span></label>
                                 <input type="file" class="form-control" name="image" accept="image/*" required>
-                                <small class="text-muted">Recommended: 1200x600px or larger</small>
+                                <small class="text-muted">Recommended size: 1200×600px or larger</small>
                             </div>
-                            <div class="text-center mb-3">
+                            <div class="text-center">
                                 <img id="image_preview" class="rounded shadow" style="max-width:100%; max-height:300px; display:none;" alt="Preview">
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-lg-4">
                             <div class="mb-3">
                                 <label class="form-label">Target Screen</label>
                                 <select class="form-select" name="target_screen" required>
@@ -168,9 +174,9 @@
                                     <option value="all">All Pages</option>
                                 </select>
                             </div>
-                            <div class="form-check form-switch mb-3">
+                            <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" name="active" value="1" id="active" checked>
-                                <label class="form-check-label">Active (Visible)</label>
+                                <label class="form-check-label">Active (Visible to users)</label>
                             </div>
                         </div>
                     </div>
@@ -199,7 +205,7 @@
     </div>
 </div>
 
-<!-- ALL SCRIPTS - CDN ONLY -->
+<!-- ALL SCRIPTS - INLINE & CDN -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
@@ -210,12 +216,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // List.js
     new List('bannerList', {
-        valueNames: ['id', 'target_screen', 'active'],
+        valueNames: ['target_screen', 'active'],
         page: 10,
         pagination: true
     });
 
-    // Checkbox logic
+    // Checkbox Select All
     const checkAll = document.getElementById('checkAll');
     checkAll?.addEventListener('change', function () {
         document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
@@ -315,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('delete-record').addEventListener('click', () => {
         axios.delete(`/banners/${deleteId}`)
             .then(() => location.reload())
-            .catch(() => Swal.fire('Error', 'Cannot delete', 'error'));
+            .catch(() => Swal.fire('Error', 'Cannot delete banner', 'error'));
     });
 
     // Multiple delete
@@ -323,6 +329,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
             .map(cb => cb.value);
         if (!ids.length) return;
+
         Swal.fire({
             title: 'Delete selected banners?',
             icon: 'warning',
