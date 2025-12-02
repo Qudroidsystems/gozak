@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 
-class CategoryPermissionSeeder extends Seeder
+class CategoryPermissionTableSeeder extends Seeder
 {
     public function run(): void
     {
