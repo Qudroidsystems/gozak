@@ -3,7 +3,7 @@
 
 @section('title', $product->title . ' - Product Details')
 
-@push('css')
+
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
 <style>
     .sticky-side-div {
@@ -134,7 +134,7 @@
         font-size: 1.5rem;
     }
 </style>
-@endpush
+
 
 @section('content')
 <div class="main-content">
