@@ -1,7 +1,7 @@
 {{-- resources/views/brands/index.blade.php --}}
 @extends('layouts.master')
 
-@section('title', 'Brands Management')
+
 
 @section('content')
 <div class="main-content">
@@ -195,7 +195,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
-
+{{-- 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // Chart
@@ -305,5 +305,5 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(() => Swal.fire('Error', 'Cannot delete brand', 'error'));
     });
 });
-</script>
+</script> --}}
 @endsection
