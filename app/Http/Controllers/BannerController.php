@@ -19,9 +19,11 @@ class BannerController extends Controller
 
     public function index(Request $request)
     {
+        $pagetitle = "Banner Management";
+
         $banners = Banner::latest()->paginate(12);
 
-        return view('banners.index', compact('banners'));
+        return view('banners.index', compact('banners', 'pagetitle'));
     }
 
     public function edit($id)
