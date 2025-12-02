@@ -28,7 +28,7 @@
                 <div class="col-lg-12">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="card-title mb-0">Top 10 Categories by Products</h5>
+                            <h5 class="card-title mb-0">Top Categories by Products</h5>
                         </div>
                         <div class="card-body">
                             <canvas id="categoryChart" height="100"></canvas>
@@ -58,85 +58,82 @@
                         </div>
 
                         <div class="card-body">
-                            <div class="table-responsive table-card">
-                                <table class="table table-borderless table-centered align-middle table-nowrap mb-0">
-                                    <thead class="text-muted table-light">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
                                         <tr>
-                                            <th>
+                                            <th width="50">
                                                 <div class="form-check">
                                                     <input class="form-check-input" type="checkbox" id="checkAll">
-                                                    <label class="form-check-label" for="checkAll"></label>
                                                 </div>
                                             </th>
-                                            <th class="sort" data-sort="id">#</th>
-                                            <th class="sort" data-sort="image">Image</th>
-                                            <th class="sort" data-sort="name">Category Name</th>
-                                            <th class="sort" data-sort="parent">Parent Category</th>
-                                            <th class="sort" data-sort="products">Products</th>
-                                            <th class="sort" data-sort="featured">Featured</th>
-                                            <th>Action</th>
+                                            <th>#</th>
+                                            <th>Image</th>
+                                            <th>Category Name</th>
+                                            <th>Parent</th>
+                                            <th>Products</th>
+                                            <th>Featured</th>
+                                            <th width="100">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody class="list form-check-all">
                                         @forelse($categories as $cat)
-                                        <tr>
+                                        <tr class="border-bottom border-light-subtle">
                                             <td>
                                                 <div class="form-check">
                                                     <input class="form-check-input" type="checkbox" name="chk_child" value="{{ $cat->id }}">
                                                 </div>
                                             </td>
-                                            <td class="id">{{ $cat->id }}</td>
-                                            <td class="image">
-                                                @if($cat->image && \Storage::disk('public')->exists($cat->image))
+                                            <td class="fw-medium">{{ $loop->iteration }}</td>
+                                            <td>
+                                                @if($cat->image)
                                                     <img src="{{ asset('storage/' . $cat->image) }}"
-                                                         class="avatar-sm rounded object-fit-cover"
-                                                         alt="{{ $cat->name }}">
+                                                         class="avatar-lg rounded object-fit-cover"
+                                                         alt="{{ $cat->name }}"
+                                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                                                    <div class="avatar-lg bg-light rounded d-flex align-items-center justify-content-center" style="display:none;">
+                                                        <i class="bi bi-image text-muted fs-3"></i>
+                                                    </div>
                                                 @else
-                                                    <div class="avatar-sm bg-light rounded d-flex align-items-center justify-content-center">
-                                                        <i class="bi bi-image text-muted fs-4"></i>
+                                                    <div class="avatar-lg bg-light rounded d-flex align-items-center justify-content-center">
+                                                        <i class="bi bi-image text-muted fs-3"></i>
                                                     </div>
                                                 @endif
                                             </td>
-                                            <td class="name"><strong>{{ $cat->name }}</strong></td>
-                                            <td class="parent">
+                                            <td><strong>{{ $cat->name }}</strong></td>
+                                            <td>
                                                 @if($cat->parent)
-                                                    {{ $cat->parent->name }}
+                                                    <span class="badge bg-primary-subtle text-primary">{{ $cat->parent->name }}</span>
                                                 @else
                                                     <span class="text-muted">—</span>
                                                 @endif
                                             </td>
-                                            <td class="products">
-                                                <span class="badge bg-info-subtle text-info">{{ $cat->products_count ?? 0 }}</span>
+                                            <td>
+                                                <span class="badge bg-info fs-6">{{ $cat->products_count ?? 0 }}</span>
                                             </td>
-                                            <td class="featured">
-                                                <span class="badge {{ $cat->is_featured ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}">
+                                            <td>
+                                                <span class="badge {{ $cat->is_featured ? 'bg-success' : 'bg-secondary' }}">
                                                     {{ $cat->is_featured ? 'Yes' : 'No' }}
                                                 </span>
                                             </td>
                                             <td>
-                                                <ul class="list-inline hstack gap-2 mb-0">
+                                                <div class="hstack gap-2">
                                                     @can('Update category')
-                                                        <li>
-                                                            <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn" data-id="{{ $cat->id }}">
-                                                                <i class="ph-pencil"></i>
-                                                            </button>
-                                                        </li>
+                                                        <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn" data-id="{{ $cat->id }}">
+                                                            <i class="ph-pencil"></i>
+                                                        </button>
                                                     @endcan
                                                     @can('Delete category')
-                                                        <li>
-                                                            <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn" data-id="{{ $cat->id }}">
-                                                                <i class="ph-trash"></i>
-                                                            </button>
-                                                        </li>
+                                                        <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn" data-id="{{ $cat->id }}">
+                                                            <i class="ph-trash"></i>
+                                                        </button>
                                                     @endcan
-                                                </ul>
+                                                </div>
                                             </td>
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="8" class="text-center py-5 noresult" style="display:none;">
-                                                No categories found
-                                            </td>
+                                            <td colspan="8" class="text-center py-5 text-muted noresult">No categories found</td>
                                         </tr>
                                         @endforelse
                                     </tbody>
@@ -150,11 +147,12 @@
                                 </div>
                             </div>
 
-                            <div class="d-flex justify-content-end mt-3">
+                            <!-- Pagination -->
+                            <div class="d-flex justify-content-end mt-4">
                                 <div class="pagination-wrap hstack gap-2">
-                                    <a class="page-item pagination-prev disabled" href="javascript:void(0);"><i class="mdi mdi-chevron-left"></i></a>
+                                    <a class="page-item pagination-prev disabled" href="#"><i class="mdi mdi-chevron-left"></i></a>
                                     <ul class="pagination listjs-pagination mb-0"></ul>
-                                    <a class="page-item pagination-next" href="javascript:void(0);"><i class="mdi mdi-chevron-right"></i></a>
+                                    <a class="page-item pagination-next" href="#"><i class="mdi mdi-chevron-right"></i></a>
                                 </div>
                             </div>
                         </div>
@@ -195,12 +193,12 @@
                         <label class="form-label">Category Image</label>
                         <input type="file" class="form-control" name="image" accept="image/*">
                         <div class="mt-2">
-                            <img id="image_preview" class="rounded shadow-sm" style="max-height:120px; display:none;">
+                            <img id="image_preview" class="rounded shadow-sm" style="max-height:120px; display:none;" alt="Preview">
                         </div>
                     </div>
                     <div class="form-check mb-3">
                         <input class="form-check-input" type="checkbox" name="is_featured" value="1" id="is_featured">
-                        <label class="form-check-label">Mark as Featured</label>
+                        <label class="form-check-label">Featured Category</label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="is_nsfw" value="1" id="is_nsfw">
@@ -223,7 +221,7 @@
             <div class="modal-body text-center py-5">
                 <i class="bi bi-trash text-danger display-4"></i>
                 <h4 class="mt-4">Delete Category?</h4>
-                <p class="text-muted">This will also remove all sub-categories and products!</p>
+                <p class="text-muted">This will also delete all sub-categories and products!</p>
                 <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger" id="delete-record">Yes, Delete</button>
             </div>
@@ -231,15 +229,14 @@
     </div>
 </div>
 
-<!-- ALL SCRIPTS INLINE -->
+<!-- ALL JAVASCRIPT – FULLY WORKING -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // CSRF
+document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
 
     // Chart
@@ -249,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function() {
             labels: @json($chart_labels),
             datasets: [{
                 data: @json($chart_data),
-                backgroundColor: ['#405189','#f1b44c','#34c38f','#556ee6','#f46a6a','#50a5f1','#f1b44c','#6f42c1','#e83e8c','#20c997']
+                backgroundColor: ['#405189','#f1b44c','#34c38f','#556ee6','#f46a6a','#50a5f1','#f1b44c','#6f42c1']
             }]
         },
         options: {
@@ -264,8 +261,9 @@ document.addEventListener('DOMContentLoaded', function() {
         pagination: true
     });
 
-    // Checkbox logic
-    document.getElementById('checkAll')?.addEventListener('change', function() {
+    // Checkbox Select All
+    const checkAll = document.getElementById('checkAll');
+    checkAll?.addEventListener('change', function () {
         document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
             cb.checked = this.checked;
             cb.closest('tr').classList.toggle('table-active', this.checked);
@@ -274,8 +272,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-        cb.addEventListener('change', () => {
-            cb.closest('tr').classList.toggle('table-active', cb.checked);
+        cb.addEventListener('change', function () {
+            this.closest('tr').classList.toggle('table-active', this.checked);
+            const all = document.querySelectorAll('input[name="chk_child"]');
+            checkAll.checked = Array.from(all).every(c => c.checked);
             toggleRemoveBtn();
         });
     });
@@ -296,12 +296,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('modalTitle').textContent = 'Add Category';
         document.getElementById('submitBtn').textContent = 'Save Category';
         imgPreview.style.display = 'none';
-        document.getElementById('parent_id').selectedIndex = 0;
     });
 
     // Edit
     document.querySelectorAll('.edit-item-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const id = this.dataset.id;
             axios.get(`/categories/${id}/edit`)
                 .then(res => {
@@ -360,8 +359,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(() => Swal.fire('Error', 'Cannot delete', 'error'));
     });
 
-    // Multiple delete
-    window.deleteMultiple = function() {
+    // Multiple Delete
+    window.deleteMultiple = function () {
         const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
             .map(cb => cb.value);
         if (!ids.length) return;
