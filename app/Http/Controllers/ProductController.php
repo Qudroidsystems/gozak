@@ -130,7 +130,7 @@ class ProductController extends Controller
             'category_id'  => 'nullable|exists:categories,id',
             'description'  => 'nullable|string',
             'product_type' => 'required|in:simple,variable',
-            'is_featured'  => 'nullable|boolean',
+            'is_featured'  => 'required|boolean', // now accepts true/false
         ];
 
         $validator = Validator::make($request->all(), $rules, [
@@ -198,7 +198,7 @@ class ProductController extends Controller
             'category_id'  => 'nullable|exists:categories,id',
             'description'  => 'nullable|string',
             'product_type' => 'required|in:simple,variable',
-            'is_featured'  => 'nullable|boolean',
+            'is_featured'  => 'required|boolean', // now accepts true/false
         ];
 
         $validator = Validator::make($request->all(), $rules, [
