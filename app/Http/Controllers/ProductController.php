@@ -416,4 +416,15 @@ class ProductController extends Controller
             }
         }
     }
+
+    public function search(Request $request)
+    {
+        $query = $request->q;
+        $products = Product::where('title', 'like', "%{$query}%")
+            ->orWhere('sku', 'like', "%{$query}%")
+            ->limit(10)
+            ->get(['id', 'title', 'sku', 'price', 'thumbnail']);
+
+        return response()->json($products);
+    }
 }

@@ -7,7 +7,7 @@
     <div class="page-content">
         <div class="container-fluid">
 
-            <!-- YOUR ORIGINAL PAGE TITLE -->
+            <!-- Page Title -->
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -23,7 +23,7 @@
             </div>
 
             <div id="productList">
-                <!-- YOUR ORIGINAL FILTERS - UNCHANGED -->
+                <!-- Filters -->
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="card">
@@ -74,13 +74,13 @@
                                         </div>
                                         <div class="col-xxl-1 col-sm-4">
                                             <button type="submit" class="btn btn-secondary w-100">
-                                                <i class="bi bi-funnel align-baseline me-1"></i> Filter
+                                                Filter
                                             </button>
                                         </div>
                                         @if(request()->hasAny(['search', 'brands', 'category', 'stock', 'featured']))
                                         <div class="col-xxl-1 col-sm-4">
                                             <a href="{{ route('products.index') }}" class="btn btn-outline-secondary w-100">
-                                                <i class="bi bi-x-circle align-baseline me-1"></i> Clear
+                                                Clear
                                             </a>
                                         </div>
                                         @endif
@@ -91,7 +91,7 @@
                     </div>
                 </div>
 
-                <!-- YOUR ORIGINAL PRODUCT LIST -->
+                <!-- Product List -->
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="card">
@@ -104,11 +104,11 @@
                                 <div class="flex-shrink-0">
                                     <div class="d-flex flex-wrap align-items-start gap-2">
                                         <button class="btn btn-subtle-danger d-none" id="remove-actions" onclick="deleteMultiple()">
-                                            <i class="ri-delete-bin-2-line"></i>
+                                            Delete Selected
                                         </button>
                                         @can('Create product')
                                             <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">
-                                                <i class="bi bi-plus-circle align-baseline me-1"></i> Add Product
+                                                Add Product
                                             </button>
                                         @endcan
                                     </div>
@@ -148,7 +148,7 @@
                                                         <div class="d-flex align-items-center">
                                                             <div class="avatar-sm bg-light rounded p-1 me-3">
                                                                 @if($product->thumbnail)
-                                                                    <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height: 40px; width: auto;">
+                                                                    <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height: 40px;">
                                                                 @else
                                                                     <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
                                                                         <i class="bi bi-image text-muted fs-5"></i>
@@ -169,22 +169,21 @@
                                                     <td class="stock">
                                                         @if($product->stock > 10)
                                                             <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
-                                                                <i class="bi bi-check-circle me-1"></i> {{ $product->stock }} in stock
+                                                                {{ $product->stock }} in stock
                                                             </span>
                                                         @elseif($product->stock > 0)
                                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                                                                <i class="bi bi-exclamation-triangle me-1"></i> {{ $product->stock }} low stock
+                                                                {{ $product->stock }} low stock
                                                             </span>
                                                         @else
                                                             <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
-                                                                <i class="bi bi-x-circle me-1"></i> Out of stock
+                                                                Out of stock
                                                             </span>
                                                         @endif
                                                     </td>
                                                     <td class="price">
                                                         @if($product->sale_price)
-                                                            <del class="text-muted small">${{ number_format($product->price, 2) }}</del>
-                                                            <br>
+                                                            <del class="text-muted small">${{ number_format($product->price, 2) }}</del><br>
                                                             <span class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</span>
                                                         @else
                                                             <span class="fw-bold">${{ number_format($product->price, 2) }}</span>
@@ -196,11 +195,11 @@
                                                     <td class="featured">
                                                         @if($product->is_featured)
                                                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                                                <i class="bi bi-star-fill me-1"></i> Featured
+                                                                Featured
                                                             </span>
                                                         @else
                                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                                                                <i class="bi bi-star me-1"></i> Regular
+                                                                Regular
                                                             </span>
                                                         @endif
                                                     </td>
@@ -213,12 +212,12 @@
                                                                 <i class="bi bi-three-dots-vertical"></i>
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                                <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}"><i class="ph-eye me-1"></i> View</a></li>
+                                                                <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
                                                                 @can('Update product')
-                                                                    <li><a class="dropdown-item edit-item-btn" href="#showModal" data-bs-toggle="modal" data-id="{{ $product->id }}"><i class="ph-pencil me-1"></i> Edit</a></li>
+                                                                    <li><a class="dropdown-item edit-item-btn" href="#showModal" data-bs-toggle="modal" data-id="{{ $product->id }}">Edit</a></li>
                                                                 @endcan
                                                                 @can('Delete product')
-                                                                    <li><a class="dropdown-item remove-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}"><i class="ph-trash me-1"></i> Delete</a></li>
+                                                                    <li><a class="dropdown-item remove-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
                                                                 @endcan
                                                             </ul>
                                                         </div>
@@ -246,7 +245,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Pagination -->
                                 <div class="row mt-3 align-items-center">
                                     <div class="col-sm">
                                         <div class="text-muted text-center text-sm-start">
@@ -263,18 +261,20 @@
                 </div>
             </div>
 
-            <!-- YOUR ORIGINAL MODAL - ONLY FIXED + ENHANCED -->
+            <!-- ADD/EDIT MODAL - FULLY SCROLLABLE -->
             <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
-                        <form id="productForm" enctype="multipart/form-data" method="POST">
+                        <form id="productForm" enctype="multipart/form-data">
                             @csrf
                             <input type="hidden" name="id" id="product_id">
+
                             <div class="modal-header">
                                 <h5 class="modal-title" id="modalTitle">Add Product</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetForm()"></button>
                             </div>
-                            <div class="modal-body">
+
+                            <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
                                 <div class="row g-4">
                                     <div class="col-lg-8">
                                         <div class="card">
@@ -284,32 +284,28 @@
                                                     <div class="col-md-6">
                                                         <label class="form-label">Title <span class="text-danger">*</span></label>
                                                         <input type="text" name="title" id="title" class="form-control" required>
-                                                        <div class="invalid-feedback">Please enter product title</div>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label">SKU <span class="text-danger">*</span></label>
                                                         <input type="text" name="sku" id="sku" class="form-control" required>
-                                                        <div class="invalid-feedback">Please enter SKU</div>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <label class="form-label">Price <span class="text-danger">*</span></label>
                                                         <div class="input-group">
                                                             <span class="input-group-text">$</span>
-                                                            <input type="number" step="0.01" name="price" id="price" class="form-control" required min="0">
+                                                            <input type="number" step="0.01" name="price" id="price" class="form-control" required>
                                                         </div>
-                                                        <div class="invalid-feedback">Please enter valid price</div>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <label class="form-label">Sale Price</label>
                                                         <div class="input-group">
                                                             <span class="input-group-text">$</span>
-                                                            <input type="number" step="0.01" name="sale_price" id="sale_price" class="form-control" min="0">
+                                                            <input type="number" step="0.01" name="sale_price" id="sale_price" class="form-control">
                                                         </div>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <label class="form-label">Stock <span class="text-danger">*</span></label>
-                                                        <input type="number" name="stock" id="stock" class="form-control" required min="0">
-                                                        <div class="invalid-feedback">Please enter stock quantity</div>
+                                                        <input type="number" name="stock" id="stock" class="form-control" required>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label">Product Type <span class="text-danger">*</span></label>
@@ -326,8 +322,8 @@
                                             </div>
                                         </div>
 
-                                        <!-- VARIABLE PRODUCT SECTION - UNCHANGED UI -->
-                                        <div id="variationsSection" style="display: none;">
+                                        <!-- VARIABLE PRODUCT SECTION -->
+                                        <div id="variationsSection" style="display:none;">
                                             <div class="card mt-4">
                                                 <div class="card-header d-flex justify-content-between align-items-center">
                                                     <h6 class="mb-0">Product Variations</h6>
@@ -355,7 +351,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- YOUR ORIGINAL RIGHT SIDEBAR - UNCHANGED -->
                                     <div class="col-lg-4">
                                         <!-- Thumbnail -->
                                         <div class="card mb-3">
@@ -372,12 +367,12 @@
                                             </div>
                                         </div>
 
-                                        <!-- Gallery Images -->
+                                        <!-- Gallery -->
                                         <div class="card mb-3">
                                             <div class="card-body">
-                                                <label class="form-label">Gallery Images</label>
+                                                <label class="form-label">Gallery Images (Drag to sort)</label>
                                                 <input type="file" name="images[]" id="gallery_input" multiple class="form-control mb-3" accept="image/*">
-                                                <div id="imageGallery" class="row g-2"></div>
+                                                <div id="imageGallery" class="row g-2" style="min-height:100px; border:2px dashed #ddd; padding:10px;"></div>
                                             </div>
                                         </div>
 
@@ -408,11 +403,11 @@
                                             </div>
                                         </div>
 
-                                        <!-- Featured Switch -->
+                                        <!-- Featured -->
                                         <div class="card">
                                             <div class="card-body">
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured" value="1">
+                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured">
                                                     <label class="form-check-label" for="is_featured">Featured Product</label>
                                                 </div>
                                             </div>
@@ -421,7 +416,8 @@
                                 </div>
                             </div>
 
-                            <div class="modal-footer">
+                            <!-- Fixed Footer - Always Visible -->
+                            <div class="modal-footer border-top pt-3 bg-light">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="resetForm()">Cancel</button>
                                 <button type="submit" class="btn btn-primary" id="submitBtn">
                                     <span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span>
@@ -432,11 +428,19 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Product Search Autocomplete Dropdown -->
+            <div id="searchResults" class="position-absolute bg-white border rounded shadow-lg" style="top: 100px; left: 20px; width: 350px; max-height: 400px; overflow-y: auto; z-index: 9999; display: none;">
+                <div class="p-2 border-bottom">
+                    <small class="text-muted">Search Products</small>
+                </div>
+                <div id="resultsList"></div>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- YOUR ORIGINAL SCRIPTS + ONLY THE FIXES -->
+<!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
@@ -445,60 +449,77 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
-    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-    // YOUR ORIGINAL LIST.JS + BULK + LIVE SEARCH + CHOICES
-    const list = new List('productList', {
-        valueNames: ['title', 'category', 'stock', 'price', 'sold', 'created_at', 'featured'],
-        page: 12,
-        pagination: true
-    });
+    // Your original List.js + bulk + search
+    new List('productList', { valueNames: ['title', 'category', 'stock', 'price', 'sold', 'created_at', 'featured'], page: 12, pagination: true });
 
-    document.getElementById('checkAll')?.addEventListener('change', function () {
+    document.getElementById('checkAll')?.addEventListener('change', function() {
         document.querySelectorAll('input[name="chk_child"]').forEach(cb => cb.checked = this.checked);
-        toggleBulkActions();
+        document.getElementById('remove-actions').classList.toggle('d-none', !this.checked);
     });
 
-    function toggleBulkActions() {
-        const checked = document.querySelectorAll('input[name="chk_child"]:checked').length;
-        document.getElementById('remove-actions').classList.toggle('d-none', checked === 0);
-    }
-
-    window.deleteMultiple = function () {
+    window.deleteMultiple = function() {
         const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked')).map(cb => cb.value);
         if (!ids.length) return;
-        Swal.fire({
-            title: `Delete ${ids.length} product(s)?`,
-            text: "This action cannot be undone!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete them!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({ title: 'Deleting...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-                Promise.all(ids.map(id => axios.delete(`/products/${id}`)))
-                    .then(() => location.reload())
-                    .catch(() => Swal.fire('Error!', 'Failed to delete some products', 'error'));
-            }
-        });
+        Swal.fire({ title: 'Delete selected?', icon: 'warning', showCancelButton: true })
+            .then(res => { if (res.isConfirmed) { Promise.all(ids.map(id => axios.delete(`/products/${id}`))).then(() => location.reload()); } });
     };
 
-    document.querySelectorAll('input[name="chk_child"]').forEach(cb => cb.addEventListener('change', toggleBulkActions));
-
-    let searchTimeout;
-    document.querySelector('.search')?.addEventListener('input', function(e) {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => document.getElementById('filterForm').submit(), 500);
+    let timeout;
+    document.querySelector('.search')?.addEventListener('input', function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => document.getElementById('filterForm').submit(), 500);
     });
 
     if (typeof Choices !== 'undefined') {
-        new Choices('#brandFilter', { removeItemButton: true, searchEnabled: true, shouldSort: false });
-        new Choices('#categoryFilter', { searchEnabled: true, shouldSort: false });
+        new Choices('#brandFilter', { removeItemButton: true });
+        new Choices('#categoryFilter');
     }
 });
 
-// === ONLY FUNCTIONALITY FIXES (NO UI CHANGE) ===
+// PRODUCT SEARCH AUTOCOMPLETE
+document.querySelector('.search').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    const dropdown = document.getElementById('searchResults');
+    const list = document.getElementById('resultsList');
+
+    if (query.length < 2) {
+        dropdown.style.display = 'none';
+        return;
+    }
+
+    axios.get('/products/search', { params: { q: query } })
+        .then(res => {
+            if (res.data.length === 0) {
+                list.innerHTML = '<div class="p-3 text-center text-muted">No products found</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+
+            list.innerHTML = res.data.map(p => `
+                <a href="${route('products.show', p.id)}" class="d-block p-3 border-bottom text-decoration-none hover-bg-light">
+                    <div class="d-flex align-items-center">
+                        <img src="${p.thumbnail ? asset('storage/' + p.thumbnail) : '/img/no-image.png'}" class="rounded me-3" style="width:40px; height:40px; object-fit:cover;">
+                        <div>
+                            <div class="fw-semibold">${p.title}</div>
+                            <small class="text-muted">SKU: ${p.sku} • $${p.price}</small>
+                        </div>
+                    </div>
+                </a>
+            `).join('');
+            dropdown.style.display = 'block';
+        })
+        .catch(() => { dropdown.style.display = 'none'; });
+});
+
+// Hide dropdown when clicking outside
+document.addEventListener('click', e => {
+    if (!e.target.closest('.search') && !e.target.closest('#searchResults')) {
+        document.getElementById('searchResults').style.display = 'none';
+    }
+});
+
+// VARIABLE PRODUCT + IMAGE PREVIEW + DRAG & DROP
 let attrIndex = 1;
 
 // Toggle variations
@@ -517,31 +538,28 @@ document.getElementById('addAttribute')?.addEventListener('click', () => {
     attrIndex++;
 });
 
-// Generate variations
+// Generate variations (now includes SKU)
 document.getElementById('generateVariations')?.addEventListener('click', () => {
-    const attributes = [];
+    const attrs = [];
     document.querySelectorAll('.attribute-row').forEach(row => {
         const name = row.querySelector('input[name$="[name]"]').value.trim();
         const values = row.querySelector('input[name$="[values]"]').value.split(',').map(v => v.trim()).filter(v => v);
-        if (name && values.length) attributes.push({ name, values });
+        if (name && values.length) attrs.push({ name, values });
     });
-    if (!attributes.length) return Swal.fire('Error', 'Add at least one attribute', 'error');
+    if (!attrs.length) return Swal.fire('Error', 'Add attributes first', 'error');
 
-    const combinations = attributes.reduce((a, b) => 
-        a.flatMap(x => b.values.map(y => ({ ...x, [b.name]: y }))), [{}]
-    );
+    const combos = attrs.reduce((a, b) => a.flatMap(x => b.values.map(y => ({...x, [b.name]: y}))), [{}]);
 
     let html = `<table class="table table-bordered"><thead><tr>
-        <th>Variant</th><th>Price</th><th>Sale Price</th><th>Stock</th><th>Image</th><th></th>
+        <th>Variant</th><th>SKU</th><th>Price</th><th>Sale</th><th>Stock</th><th>Image</th><th></th>
     </tr></thead><tbody>`;
-    combinations.forEach((combo, i) => {
-        const name = Object.entries(combo).map(([k,v]) => `${k}: ${v}`).join(' | ');
+    combos.forEach((c, i) => {
+        const name = Object.entries(c).map(([k,v]) => `${k}: ${v}`).join(' | ');
         html += `<tr>
             <td><small>${name}</small>
-                ${Object.entries(combo).map(([k,v]) => 
-                    `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`
-                ).join('')}
+                ${Object.entries(c).map(([k,v]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('')}
             </td>
+            <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" placeholder="SKU" required></td>
             <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm" required></td>
             <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm"></td>
             <td><input type="number" name="variations[${i}][stock]" class="form-control form-control-sm" required></td>
@@ -556,8 +574,8 @@ document.getElementById('generateVariations')?.addEventListener('click', () => {
     document.getElementById('variationsTable').innerHTML = html;
 });
 
-// Image previews
-document.getElementById('thumbnail_input')?.addEventListener('change', function(e) {
+// Image previews + drag & drop + remove buttons
+document.getElementById('thumbnail_input')?.addEventListener('change', e => {
     if (e.target.files[0]) {
         const reader = new FileReader();
         reader.onload = ev => {
@@ -569,31 +587,25 @@ document.getElementById('thumbnail_input')?.addEventListener('change', function(
     }
 });
 
-document.getElementById('gallery_input')?.addEventListener('change', function(e) {
+document.getElementById('gallery_input')?.addEventListener('change', e => {
     const container = document.getElementById('imageGallery');
     container.innerHTML = '';
     Array.from(e.target.files).forEach(file => {
         const reader = new FileReader();
         reader.onload = ev => {
             const div = document.createElement('div');
-            div.className = 'col-6 col-md-4';
-            div.innerHTML = `<div class="gallery-image">
-                <img src="${ev.target.result}" class="img-fluid rounded" alt="Gallery">
-                <div class="delete-btn" onclick="this.closest('.col-6,.col-md-4').remove()">X</div>
-            </div>`;
+            div.className = 'col-6 col-md-4 position-relative gallery-item';
+            div.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="height:100px; object-fit:cover;">
+                             <button type="button" class="btn-close position-absolute top-0 end-0" onclick="this.parentElement.remove()"></button>`;
             container.appendChild(div);
         };
         reader.readAsDataURL(file);
     });
 });
 
-// Drag & drop for gallery
-new Sortable(document.getElementById('imageGallery'), {
-    animation: 150,
-    ghostClass: 'bg-light'
-});
+new Sortable(document.getElementById('imageGallery'), { animation: 150 });
 
-// Variation image preview + remove button fix
+// Variation image preview
 document.addEventListener('change', e => {
     if (e.target.classList.contains('variation-image') && e.target.files[0]) {
         const reader = new FileReader();
@@ -605,17 +617,13 @@ document.addEventListener('change', e => {
     }
 });
 
-// Fixed remove buttons (delegated)
+// Remove buttons
 document.addEventListener('click', e => {
-    if (e.target.classList.contains('remove-attribute')) {
-        e.target.closest('.attribute-row').remove();
-    }
-    if (e.target.classList.contains('remove-variation')) {
-        e.target.closest('tr').remove();
-    }
+    if (e.target.classList.contains('remove-attribute')) e.target.closest('.attribute-row').remove();
+    if (e.target.classList.contains('remove-variation')) e.target.closest('tr').remove();
 });
 
-// FIXED SAVE BUTTON
+// SAVE BUTTON - WORKS
 document.getElementById('productForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const id = document.getElementById('product_id').value;
@@ -629,15 +637,9 @@ document.getElementById('productForm').addEventListener('submit', function(e) {
     spinner.classList.remove('d-none');
 
     axios.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-        .then(r => {
-            if (r.data.success) {
-                Swal.fire('Success!', r.data.message, 'success').then(() => location.reload());
-            }
-        })
+        .then(r => { if (r.data.success) { Swal.fire('Success!', r.data.message, 'success').then(() => location.reload()); } })
         .catch(err => {
-            const msg = err.response?.data?.errors 
-                ? Object.values(err.response.data.errors).flat().join('<br>')
-                : err.response?.data?.message || 'Error';
+            const msg = err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join('<br>') : err.response?.data?.message || 'Error';
             Swal.fire('Error!', msg, 'error');
         })
         .finally(() => {
@@ -646,7 +648,7 @@ document.getElementById('productForm').addEventListener('submit', function(e) {
         });
 });
 
-// Your original edit/delete
+// Edit + Delete + Reset
 document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('click', function() {
     axios.get(`/products/${this.dataset.id}/edit`).then(r => {
         const d = r.data;
@@ -688,14 +690,8 @@ document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('cli
 }));
 
 document.querySelectorAll('.remove-item-btn').forEach(b => b.addEventListener('click', function() {
-    Swal.fire({
-        title: 'Are you sure?', text: "You won't be able to revert this!", icon: 'warning',
-        showCancelButton: true, confirmButtonText: 'Yes, delete it!'
-    }).then(res => {
-        if (res.isConfirmed) {
-            axios.delete(`/products/${this.dataset.id}`).then(() => location.reload());
-        }
-    });
+    Swal.fire({ title: 'Delete?', icon: 'warning', showCancelButton: true })
+        .then(res => { if (res.isConfirmed) axios.delete(`/products/${this.dataset.id}`).then(() => location.reload()); });
 }));
 
 function resetForm() {
@@ -705,8 +701,8 @@ function resetForm() {
     document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Save Product';
     document.getElementById('variationsSection').style.display = 'none';
     document.getElementById('attributesContainer').innerHTML = `<div class="row g-3 align-items-end attribute-row">
-        <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
-        <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
+        <div class="col-md-5"><input type="text" class="form-control" placeholder="Color" name="attributes[0][name]"></div>
+        <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue" name="attributes[0][values]"></div>
         <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
     </div>`;
     document.getElementById('variationsTable').innerHTML = '';

@@ -83,7 +83,7 @@ Route::middleware(['auth'])->group(function () {
     Route::group(['prefix' => 'products/{product}/reviews'], function() {
         Route::post('/', [ProductReviewController::class, 'store'])->name('products.reviews.store');
     });
-
+    Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
     // Admin Reviews Routes
     Route::resource('reviews', ProductReviewController::class)->except(['show']);
     Route::get('/reviews/{id}/edit', [ProductReviewController::class, 'edit'])->name('reviews.edit');
