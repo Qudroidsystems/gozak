@@ -23,7 +23,7 @@
             </div>
 
             <div id="productList">
-                <!-- Filters - EXACTLY YOUR ORIGINAL -->
+                <!-- YOUR ORIGINAL FILTERS -->
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="card">
@@ -74,13 +74,13 @@
                                         </div>
                                         <div class="col-xxl-1 col-sm-4">
                                             <button type="submit" class="btn btn-secondary w-100">
-                                                <i class="bi bi-funnel align-baseline me-1"></i> Filter
+                                                Filter
                                             </button>
                                         </div>
                                         @if(request()->hasAny(['search', 'brands', 'category', 'stock', 'featured']))
                                         <div class="col-xxl-1 col-sm-4">
                                             <a href="{{ route('products.index') }}" class="btn btn-outline-secondary w-100">
-                                                <i class="bi bi-x-circle align-baseline me-1"></i> Clear
+                                                Clear
                                             </a>
                                         </div>
                                         @endif
@@ -91,7 +91,7 @@
                     </div>
                 </div>
 
-                <!-- Product List - YOUR ORIGINAL TABLE -->
+                <!-- YOUR ORIGINAL PRODUCT TABLE -->
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="card">
@@ -104,11 +104,11 @@
                                 <div class="flex-shrink-0">
                                     <div class="d-flex flex-wrap align-items-start gap-2">
                                         <button class="btn btn-subtle-danger d-none" id="remove-actions" onclick="deleteMultiple()">
-                                            <i class="ri-delete-bin-2-line"></i>
+                                            Delete Selected
                                         </button>
                                         @can('Create product')
                                             <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">
-                                                <i class="bi bi-plus-circle align-baseline me-1"></i> Add Product
+                                                Add Product
                                             </button>
                                         @endcan
                                     </div>
@@ -137,7 +137,6 @@
                                             </tr>
                                         </thead>
                                         <tbody class="list form-check-all">
-                                            <!-- YOUR ORIGINAL ROWS -->
                                             @forelse($products as $product)
                                                 <tr>
                                                     <td>
@@ -170,15 +169,15 @@
                                                     <td class="stock">
                                                         @if($product->stock > 10)
                                                             <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
-                                                                <i class="bi bi-check-circle me-1"></i> {{ $product->stock }} in stock
+                                                                {{ $product->stock }} in stock
                                                             </span>
                                                         @elseif($product->stock > 0)
                                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                                                                <i class="bi bi-exclamation-triangle me-1"></i> {{ $product->stock }} low stock
+                                                                {{ $product->stock }} low stock
                                                             </span>
                                                         @else
                                                             <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
-                                                                <i class="bi bi-x-circle me-1"></i> Out of stock
+                                                                Out of stock
                                                             </span>
                                                         @endif
                                                     </td>
@@ -196,11 +195,11 @@
                                                     <td class="featured">
                                                         @if($product->is_featured)
                                                             <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                                                <i class="bi bi-star-fill me-1"></i> Featured
+                                                                Featured
                                                             </span>
                                                         @else
                                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                                                                <i class="bi bi-star me-1"></i> Regular
+                                                                Regular
                                                             </span>
                                                         @endif
                                                     </td>
@@ -213,12 +212,12 @@
                                                                 <i class="bi bi-three-dots-vertical"></i>
                                                             </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
-                                                                <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}"><i class="ph-eye me-1"></i> View</a></li>
+                                                                <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
                                                                 @can('Update product')
-                                                                    <li><a class="dropdown-item edit-item-btn" href="#showModal" data-bs-toggle="modal" data-id="{{ $product->id }}"><i class="ph-pencil me-1"></i> Edit</a></li>
+                                                                    <li><a class="dropdown-item edit-item-btn" href="#showModal" data-bs-toggle="modal" data-id="{{ $product->id }}">Edit</a></li>
                                                                 @endcan
                                                                 @can('Delete product')
-                                                                    <li><a class="dropdown-item remove-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}"><i class="ph-trash me-1"></i> Delete</a></li>
+                                                                    <li><a class="dropdown-item remove-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
                                                                 @endcan
                                                             </ul>
                                                         </div>
@@ -262,20 +261,23 @@
                 </div>
             </div>
 
-            <!-- ADD/EDIT MODAL - FULLY UPGRADED WITH VARIABLE SUPPORT -->
+            <!-- ADD/EDIT MODAL - FULLY SCROLLABLE + IMAGE PREVIEW + WORKING REMOVE -->
             <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
-                        <form id="productForm" enctype="multipart/form-data" method="POST">
+                        <form id="productForm" enctype="multipart/form-data">
                             @csrf
                             <input type="hidden" name="id" id="product_id">
+
                             <div class="modal-header">
                                 <h5 class="modal-title" id="modalTitle">Add Product</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetForm()"></button>
                             </div>
-                            <div class="modal-body">
+
+                            <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
                                 <div class="row g-4">
                                     <div class="col-lg-8">
+                                        <!-- Basic Info -->
                                         <div class="card">
                                             <div class="card-body">
                                                 <h6 class="card-title mb-3">Basic Information</h6>
@@ -292,19 +294,19 @@
                                                         <label class="form-label">Price <span class="text-danger">*</span></label>
                                                         <div class="input-group">
                                                             <span class="input-group-text">$</span>
-                                                            <input type="number" step="0.01" name="price" id="price" class="form-control" required min="0">
+                                                            <input type="number" step="0.01" name="price" id="price" class="form-control" required>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <label class="form-label">Sale Price</label>
                                                         <div class="input-group">
                                                             <span class="input-group-text">$</span>
-                                                            <input type="number" step="0.01" name="sale_price" id="sale_price" class="form-control" min="0">
+                                                            <input type="number" step="0.01" name="sale_price" id="sale_price" class="form-control">
                                                         </div>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <label class="form-label">Stock <span class="text-danger">*</span></label>
-                                                        <input type="number" name="stock" id="stock" class="form-control" required min="0">
+                                                        <input type="number" name="stock" id="stock" class="form-control" required>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label">Product Type <span class="text-danger">*</span></label>
@@ -321,8 +323,8 @@
                                             </div>
                                         </div>
 
-                                        <!-- VARIABLE PRODUCT SECTION -->
-                                        <div id="variationsSection" style="display: none;">
+                                        <!-- Variations Section -->
+                                        <div id="variationsSection" style="display:none;">
                                             <div class="card mt-4">
                                                 <div class="card-header d-flex justify-content-between align-items-center">
                                                     <h6 class="mb-0">Product Variations</h6>
@@ -350,32 +352,30 @@
                                         </div>
                                     </div>
 
+                                    <!-- Right Sidebar -->
                                     <div class="col-lg-4">
-                                        <!-- Thumbnail -->
                                         <div class="card mb-3">
                                             <div class="card-body">
                                                 <label class="form-label">Thumbnail Image</label>
-                                                <input type="file" name="thumbnail" class="form-control mb-2" accept="image/*">
+                                                <input type="file" name="thumbnail" id="thumbnail_input" class="form-control mb-2" accept="image/*">
                                                 <div class="text-center mt-3">
                                                     <img id="thumbnail_preview" src="" class="img-fluid rounded" style="max-height:200px; display:none;">
                                                     <div id="thumbnail_placeholder" class="text-muted">
                                                         <i class="bi bi-image display-4"></i>
-                                                        <p class="mt-2">No image selected</p>
+                                                        <p>No image selected</p>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <!-- Gallery -->
                                         <div class="card mb-3">
                                             <div class="card-body">
                                                 <label class="form-label">Gallery Images</label>
-                                                <input type="file" name="images[]" multiple class="form-control mb-3" accept="image/*">
+                                                <input type="file" name="images[]" id="gallery_input" multiple class="form-control mb-3" accept="image/*">
                                                 <div id="imageGallery" class="row g-2"></div>
                                             </div>
                                         </div>
 
-                                        <!-- Brand & Category -->
                                         <div class="card mb-3">
                                             <div class="card-body">
                                                 <div class="mb-3">
@@ -402,11 +402,10 @@
                                             </div>
                                         </div>
 
-                                        <!-- Featured -->
                                         <div class="card">
                                             <div class="card-body">
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured" value="1">
+                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured">
                                                     <label class="form-check-label" for="is_featured">Featured Product</label>
                                                 </div>
                                             </div>
@@ -414,7 +413,9 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="modal-footer">
+
+                            <!-- Fixed footer - always visible -->
+                            <div class="modal-footer border-top pt-3">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="resetForm()">Cancel</button>
                                 <button type="submit" class="btn btn-primary" id="submitBtn">
                                     <span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span>
@@ -429,18 +430,7 @@
     </div>
 </div>
 
-<style>
-    .gallery-image { position: relative; margin-bottom: 10px; }
-    .gallery-image img { border-radius: 6px; object-fit: cover; }
-    .gallery-image .delete-btn {
-        position: absolute; top: 5px; right: 5px; width: 24px; height: 24px;
-        border-radius: 50%; background: rgba(255,255,255,0.9); border: 1px solid #dee2e6;
-        display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px;
-    }
-    .gallery-image .delete-btn:hover { background: #fff; border-color: #dc3545; color: #dc3545; }
-</style>
-
-<!-- ALL YOUR ORIGINAL SCRIPTS + NEW VARIABLE LOGIC -->
+<!-- ALL SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
@@ -450,14 +440,13 @@ document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-    // YOUR ORIGINAL LIST.JS
+    // YOUR ORIGINAL LIST.JS + BULK ACTIONS
     const list = new List('productList', {
         valueNames: ['title', 'category', 'stock', 'price', 'sold', 'created_at', 'featured'],
         page: 12,
         pagination: true
     });
 
-    // YOUR ORIGINAL BULK ACTIONS
     document.getElementById('checkAll')?.addEventListener('change', function () {
         document.querySelectorAll('input[name="chk_child"]').forEach(cb => cb.checked = this.checked);
         toggleBulkActions();
@@ -467,6 +456,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const checked = document.querySelectorAll('input[name="chk_child"]:checked').length;
         document.getElementById('remove-actions').classList.toggle('d-none', checked === 0);
     }
+
     window.deleteMultiple = function () {
         const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked')).map(cb => cb.value);
         if (!ids.length) return;
@@ -486,32 +476,29 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     };
+
     document.querySelectorAll('input[name="chk_child"]').forEach(cb => cb.addEventListener('change', toggleBulkActions));
 
-    // LIVE SEARCH DEBOUNCE
     let searchTimeout;
     document.querySelector('.search')?.addEventListener('input', function(e) {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => document.getElementById('filterForm').submit(), 500);
     });
 
-    // CHOICES.JS INITIALIZATION
     if (typeof Choices !== 'undefined') {
         new Choices('#brandFilter', { removeItemButton: true, searchEnabled: true, shouldSort: false });
         new Choices('#categoryFilter', { searchEnabled: true, shouldSort: false });
     }
 });
 
-// === VARIABLE PRODUCT LOGIC (ADDED CLEANLY) ===
+// VARIABLE PRODUCT + IMAGE PREVIEW + WORKING REMOVE
 let attrIndex = 1;
 let productData = null;
 
-// Toggle variations
 document.getElementById('product_type').addEventListener('change', function() {
     document.getElementById('variationsSection').style.display = this.value === 'variable' ? 'block' : 'none';
 });
 
-// Add attribute
 document.getElementById('addAttribute')?.addEventListener('click', () => {
     const html = `<div class="row g-3 align-items-end attribute-row mt-3">
         <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
@@ -522,6 +509,38 @@ document.getElementById('addAttribute')?.addEventListener('click', () => {
     attrIndex++;
 });
 
+// Image preview for thumbnail
+document.getElementById('thumbnail_input')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('thumbnail_preview').src = e.target.result;
+            document.getElementById('thumbnail_preview').style.display = 'block';
+            document.getElementById('thumbnail_placeholder').style.display = 'none';
+        }
+        reader.readAsDataURL(file);
+    }
+});
+
+// Gallery preview
+document.getElementById('gallery_input')?.addEventListener('change', function(e) {
+    const gallery = document.getElementById('imageGallery');
+    gallery.innerHTML = '';
+    Array.from(e.target.files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const col = document.createElement('div');
+            col.className = 'col-6 col-md-4';
+            col.innerHTML = `<div class="gallery-image">
+                <img src="${e.target.result}" class="img-fluid rounded" style="height:100px; object-fit:cover;">
+            </div>`;
+            gallery.appendChild(col);
+        }
+        reader.readAsDataURL(file);
+    });
+});
+
 // Generate variations
 document.getElementById('generateVariations')?.addEventListener('click', () => {
     const attributes = [];
@@ -530,35 +549,62 @@ document.getElementById('generateVariations')?.addEventListener('click', () => {
         const values = row.querySelector('input[name$="[values]"]').value.split(',').map(v => v.trim()).filter(v => v);
         if (name && values.length) attributes.push({ name, values });
     });
+
     if (!attributes.length) return Swal.fire('Error', 'Add at least one attribute', 'error');
 
     const combinations = attributes.reduce((a, b) => 
         a.flatMap(x => b.values.map(y => ({ ...x, [b.name]: y }))), [{}]
     );
-    renderVariations(combinations);
-});
 
-function renderVariations(combs) {
     let html = `<table class="table table-bordered"><thead><tr>
         <th>Variant</th><th>Price</th><th>Sale Price</th><th>Stock</th><th>Image</th><th></th>
     </tr></thead><tbody>`;
-    combs.forEach((c, i) => {
+    combinations.forEach((c, i) => {
         const name = Object.entries(c).map(([k,v]) => `${k}: ${v}`).join(' | ');
-        html += `<tr>
-            <td><small>${name}</small>${Object.entries(c).map(([k,v]) => 
-                `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('')}</td>
+        html += `<tr data-index="${i}">
+            <td><small>${name}</small>
+                ${Object.entries(c).map(([k,v]) => 
+                    `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('')}
+            </td>
             <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm" required></td>
             <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm"></td>
             <td><input type="number" name="variations[${i}][stock]" class="form-control form-control-sm" required></td>
-            <td><input type="file" name="variations[${i}][image]" class="form-control form-control-sm" accept="image/*"></td>
+            <td>
+                <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
+                <img class="variation-preview mt-2 img-fluid rounded" style="max-height:80px; display:none;">
+            </td>
             <td><button type="button" class="btn btn-danger btn-sm remove-variation">Remove</button></td>
         </tr>`;
     });
     html += `</tbody></table>`;
     document.getElementById('variationsTable').innerHTML = html;
-}
+});
 
-// Form submit + edit + delete (your original + variations)
+// Variation image preview + working remove
+document.getElementById('variationsTable').addEventListener('change', function(e) {
+    if (e.target.classList.contains('variation-image')) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                e.target.closest('td').querySelector('.variation-preview').src = ev.target.result;
+                e.target.closest('td').querySelector('.variation-preview').style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+    }
+});
+
+document.getElementById('variationsTable').addEventListener('click', function(e) {
+    if (e.target.classList.contains('remove-variation')) {
+        e.target.closest('tr').remove();
+    }
+    if (e.target.classList.contains('remove-attribute')) {
+        e.target.closest('.attribute-row').remove();
+    }
+});
+
+// Form submit + edit + delete
 document.getElementById('productForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const id = document.getElementById('product_id').value;
@@ -571,7 +617,7 @@ document.getElementById('productForm').addEventListener('submit', function(e) {
     btn.disabled = true; spinner.classList.remove('d-none');
 
     axios.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-        .then(r => { if (r.data.success) { Swal.fire('Success!', r.data.message, 'success').then(() => location.reload()); } })
+        .then(r => { if (r.data.success) Swal.fire('Success!', r.data.message, 'success').then(() => location.reload()); })
         .catch(e => {
             const msg = e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join('<br>') : e.response?.data?.message || 'Error';
             Swal.fire('Error!', msg, 'error');
@@ -579,11 +625,10 @@ document.getElementById('productForm').addEventListener('submit', function(e) {
         .finally(() => { btn.disabled = false; spinner.classList.add('d-none'); });
 });
 
-// Edit + Delete (your original logic preserved)
+// Edit product
 document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('click', function() {
     axios.get(`/products/${this.dataset.id}/edit`).then(r => {
         productData = r.data;
-        // populate all fields (your original logic + variations)
         document.getElementById('product_id').value = productData.id;
         document.getElementById('title').value = productData.title;
         document.getElementById('sku').value = productData.sku;
@@ -617,10 +662,11 @@ document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('cli
         }
 
         document.getElementById('modalTitle').textContent = 'Edit Product';
-        document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Update Product';
+        document.getElementById('submitBtn').innerHTML = 'Update Product';
     });
 }));
 
+// Delete single
 document.querySelectorAll('.remove-item-btn').forEach(b => b.addEventListener('click', function() {
     Swal.fire({
         title: 'Delete product?', text: "This cannot be undone!", icon: 'warning',
@@ -639,7 +685,7 @@ function resetForm() {
     document.getElementById('productForm').reset();
     document.getElementById('product_id').value = '';
     document.getElementById('modalTitle').textContent = 'Add Product';
-    document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Save Product';
+    document.getElementById('submitBtn').innerHTML = 'Save Product';
     document.getElementById('variationsSection').style.display = 'none';
     document.getElementById('attributesContainer').innerHTML = `<div class="row g-3 align-items-end attribute-row">
         <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
@@ -647,6 +693,7 @@ function resetForm() {
         <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
     </div>`;
     document.getElementById('variationsTable').innerHTML = '';
+    document.getElementById('imageGallery').innerHTML = '';
     document.getElementById('thumbnail_preview').style.display = 'none';
     document.getElementById('thumbnail_placeholder').style.display = 'block';
     attrIndex = 1;
