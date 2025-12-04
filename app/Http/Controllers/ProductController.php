@@ -118,6 +118,9 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
+        // ADD THIS LINE
+        $request->merge(['is_featured' => $request->has('is_featured')]);
+        
         $rules = [
             'title'        => 'required|string|max:255',
             'sku'          => 'required|string|unique:products,sku',
@@ -185,6 +188,9 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
+
+        // ADD THIS LINE
+       $request->merge(['is_featured' => $request->has('is_featured')]);
 
         $rules = [
             'title'        => 'required|string|max:255',
