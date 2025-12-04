@@ -84,6 +84,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/', [ProductReviewController::class, 'store'])->name('products.reviews.store');
     });
     Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
+
+
+    Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
+    Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
+    Route::post('/products/bulk-update', [ProductController::class, 'bulkUpdate'])->name('products.bulkUpdate');
+
+    
     // Admin Reviews Routes
     Route::resource('reviews', ProductReviewController::class)->except(['show']);
     Route::get('/reviews/{id}/edit', [ProductReviewController::class, 'edit'])->name('reviews.edit');

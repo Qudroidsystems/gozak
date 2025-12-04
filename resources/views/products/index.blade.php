@@ -503,6 +503,46 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
+
+// IMPORT CSV
+document.getElementById('importForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const progress = document.getElementById('importProgress');
+    const status = document.getElementById('importStatus');
+    const bar = progress.querySelector('.progress-bar');
+
+    progress.style.display = 'block';
+    status.innerHTML = 'Importing...';
+
+    axios.post('{{ route('products.import') }}', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: e => {
+            const percent = Math.round((e.loaded * 100) / e.total);
+            bar.style.width = percent + '%';
+            bar.textContent = percent + '%';
+        }
+    })
+    .then(r => {
+        Swal.fire('Success!', 'Products imported successfully', 'success').then(() => location.reload());
+    })
+    .catch(err => {
+        status.innerHTML = '<div class="alert alert-danger">' + (err.response?.data?.message || 'Import failed') + '</div>';
+    });
+});
+
+// BULK EDIT
+document.getElementById('bulkEditForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    axios.post('{{ route('products.bulkUpdate') }}', formData)
+        .then(r => {
+            Swal.fire('Success!', 'Products updated', 'success').then(() => location.reload());
+        })
+        .catch(err => {
+            Swal.fire('Error!', err.response?.data?.message || 'Update failed', 'error');
+        });
+});
 // GLOBAL
 let attrIndex = 1;
 let productData = null;

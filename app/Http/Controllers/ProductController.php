@@ -7,6 +7,10 @@ use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use App\Models\ProductReview;
+use App\Exports\ProductsExport;
+use App\Imports\ProductsImport;
+use App\Http\Controllers\Controller;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
@@ -432,5 +436,30 @@ class ProductController extends Controller
             ->get(['id', 'title', 'sku', 'price', 'thumbnail']);
 
         return response()->json($products);
+    }
+
+
+
+    public function import(Request $request)
+    {
+        $request->validate(['file' => 'required|mimes:csv,txt']);
+        Excel::import(new ProductsImport, $request->file('file'));
+        return response()->json(['message' => 'Import completed']);
+    }
+
+    public function export()
+    {
+        return Excel::download(new ProductsExport, 'products_' . now()->format('Y-m-d_His') . '.csv');
+    }
+
+    public function bulkUpdate(Request $request)
+    {
+        $ids = explode(',', $request->product_ids);
+        $data = $request->only(['price', 'sale_price', 'stock', 'is_featured', 'category_id']);
+        $data = array_filter($data);
+
+        Product::whereIn('id', $ids)->update($data);
+
+        return response()->json(['message' => 'Bulk update completed']);
     }
 }
