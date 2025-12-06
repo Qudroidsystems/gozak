@@ -15,8 +15,8 @@ use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\ProductReviewController;           // <-- ADD THIS
-use App\Http\Controllers\StockLocationController;       // <-- ADD THIS
+use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\StockLocationController;
 
 // Public Routes
 Route::get('/', function () {
@@ -106,7 +106,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('stock-locations', StockLocationController::class)->except(['show']);
     Route::get('stock-locations/{stock_location}/edit', [StockLocationController::class, 'edit'])->name('stock-locations.edit');
     
-    // Inventory Management
+    // Inventory Management Routes
     Route::prefix('inventory')->group(function () {
         // Main inventory routes
         Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
@@ -114,7 +114,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/stock-levels', [InventoryController::class, 'stockLevels'])->name('inventory.stock-levels');
         Route::get('/history/{id}', [InventoryController::class, 'stockHistory'])->name('inventory.history');
         
-        // Stock operations
+        // Report pages
+        Route::get('/low-stock-alerts', [InventoryController::class, 'lowStockAlerts'])->name('inventory.low-stock-alerts');
+        Route::get('/stock-value-report', [InventoryController::class, 'stockValueReport'])->name('inventory.stock-value-report');
+        
+        // Stock operations (AJAX)
         Route::post('/adjust', [InventoryController::class, 'adjustStock'])->name('inventory.adjust');
         Route::post('/transfer', [InventoryController::class, 'transferStock'])->name('inventory.transfer');
         Route::post('/bulk-adjust', [InventoryController::class, 'bulkAdjust'])->name('inventory.bulk-adjust');
@@ -128,8 +132,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{id}', [InventoryController::class, 'show'])->name('inventory.show');
         Route::delete('/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
         Route::get('/stock-level/{productId}/{locationId}', [InventoryController::class, 'getProductStock'])->name('inventory.get-product-stock');
-        Route::get('/low-stock-alerts', [InventoryController::class, 'getLowStockAlerts'])->name('inventory.low-stock-alerts');
-        Route::get('/stock-value-report', [InventoryController::class, 'getStockValueReport'])->name('inventory.stock-value-report');
+        
+        // API endpoints for data
+        Route::get('/api/low-stock-alerts', [InventoryController::class, 'getLowStockAlerts'])->name('inventory.api.low-stock-alerts');
+        Route::get('/api/stock-value-report', [InventoryController::class, 'getStockValueReport'])->name('inventory.api.stock-value-report');
     });
     
 });

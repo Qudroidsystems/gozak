@@ -15,7 +15,7 @@
 
 
 <!-- User list init js (load after list.js and dependencies) -->
-<script src="{{ asset('theme/layouts/assets/js/pages/product-list.init.js') }}"></script>
+<script src="{{ asset('theme/layouts/assets/js/pages/inventory-list.init.js') }}"></script>
 <!-- App js -->
 <script src="{{ asset('theme/layouts/assets/js/app.js') }}"></script>
 

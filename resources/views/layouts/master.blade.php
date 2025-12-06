@@ -62,7 +62,7 @@
     <!-- Add CSS includes for inventory routes -->
     @if (Route::is('inventory.*') || Route::is('stock-locations.*'))
          @include('layouts.pages-assets.css.users-list-css')
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+        {{-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"> --}}
     @endif
     
 </head>
@@ -1299,10 +1299,11 @@
 
        <!-- Add JavaScript includes for inventory routes -->
         @if (Route::is('inventory.*') || Route::is('stock-locations.*'))
-            <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+                @include('layouts.pages-assets.js.inventory-list-js')
+            {{-- <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
             <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
             <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-            <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script> --}}
         @endif
       </body>
       

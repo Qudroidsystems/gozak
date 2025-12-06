@@ -479,9 +479,10 @@
 @section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<!-- Add this script section after your existing script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
+    axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
     
     // Check current stock when product/location changes in adjust modal
@@ -507,19 +508,19 @@ document.addEventListener('DOMContentLoaded', function() {
         const locationId = document.getElementById('adjust_location_id')?.value;
         
         if (productId && locationId) {
-            axios.get(`/api/inventory/stock-level/${productId}/${locationId}`)
+            axios.get(`/inventory/stock-level/${productId}/${locationId}`)
                 .then(response => {
                     if (response.data.success) {
-                        document.getElementById('currentStockDisplay').textContent = 
-                            `Current stock: ${response.data.stock}`;
+                        document.getElementById('currentStockDisplay').innerHTML = 
+                            `<span class="text-info">Current stock: ${response.data.stock}</span>`;
                     }
                 })
                 .catch(() => {
-                    document.getElementById('currentStockDisplay').textContent = 
-                        'Current stock: 0';
+                    document.getElementById('currentStockDisplay').innerHTML = 
+                        '<span class="text-muted">Current stock: 0</span>';
                 });
         } else {
-            document.getElementById('currentStockDisplay').textContent = '';
+            document.getElementById('currentStockDisplay').innerHTML = '';
         }
     }
     
@@ -529,39 +530,57 @@ document.addEventListener('DOMContentLoaded', function() {
         const toLocationId = document.getElementById('to_location_id')?.value;
         
         if (productId && fromLocationId) {
-            axios.get(`/api/inventory/stock-level/${productId}/${fromLocationId}`)
+            axios.get(`/inventory/stock-level/${productId}/${fromLocationId}`)
                 .then(response => {
                     if (response.data.success) {
-                        document.getElementById('fromStockDisplay').textContent = 
-                            `Available: ${response.data.stock}`;
+                        const availableStock = response.data.stock;
+                        document.getElementById('fromStockDisplay').innerHTML = 
+                            `<span class="text-info">Available: ${availableStock}</span>`;
                         
                         // Update max quantity
                         const quantityInput = document.getElementById('transfer_quantity');
                         if (quantityInput) {
-                            quantityInput.max = response.data.stock;
+                            quantityInput.max = availableStock;
+                            quantityInput.setAttribute('data-max', availableStock);
+                            
+                            // Show warning if quantity exceeds available
+                            quantityInput.addEventListener('input', function() {
+                                const requested = parseInt(this.value) || 0;
+                                if (requested > availableStock) {
+                                    this.classList.add('is-invalid');
+                                    document.getElementById('fromStockDisplay').innerHTML = 
+                                        `<span class="text-danger">Available: ${availableStock} (Insufficient)</span>`;
+                                } else {
+                                    this.classList.remove('is-invalid');
+                                    document.getElementById('fromStockDisplay').innerHTML = 
+                                        `<span class="text-info">Available: ${availableStock}</span>`;
+                                }
+                            });
                         }
                     }
                 })
                 .catch(() => {
-                    document.getElementById('fromStockDisplay').textContent = 'Available: 0';
+                    document.getElementById('fromStockDisplay').innerHTML = 
+                        '<span class="text-danger">Available: 0</span>';
                 });
         } else {
-            document.getElementById('fromStockDisplay').textContent = '';
+            document.getElementById('fromStockDisplay').innerHTML = '';
         }
         
         if (productId && toLocationId) {
-            axios.get(`/api/inventory/stock-level/${productId}/${toLocationId}`)
+            axios.get(`/inventory/stock-level/${productId}/${toLocationId}`)
                 .then(response => {
                     if (response.data.success) {
-                        document.getElementById('toStockDisplay').textContent = 
-                            `Current: ${response.data.stock}`;
+                        document.getElementById('toStockDisplay').innerHTML = 
+                            `<span class="text-info">Current: ${response.data.stock}</span>`;
                     }
                 })
                 .catch(() => {
-                    document.getElementById('toStockDisplay').textContent = 'Current: 0';
+                    document.getElementById('toStockDisplay').innerHTML = 
+                        '<span class="text-muted">Current: 0</span>';
                 });
         } else {
-            document.getElementById('toStockDisplay').textContent = '';
+            document.getElementById('toStockDisplay').innerHTML = '';
         }
     }
     
@@ -574,8 +593,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btn) btn.disabled = true;
         if (spinner) spinner.classList.remove('d-none');
         
-        axios.post('{{ route("inventory.adjust") }}', new FormData(this))
+        const formData = new FormData(this);
+        
+        // Log form data for debugging
+        console.log('Adjust Form Data:', Object.fromEntries(formData));
+        
+        axios.post('{{ route("inventory.adjust") }}', formData)
             .then(response => {
+                console.log('Adjust Response:', response.data);
                 if (response.data.success) {
                     Swal.fire({
                         icon: 'success',
@@ -583,6 +608,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         text: response.data.message,
                         confirmButtonText: 'OK'
                     }).then(() => {
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('adjustStockModal'));
+                        if (modal) modal.hide();
+                        // Reload page to show updated data
                         location.reload();
                     });
                 } else {
@@ -594,6 +623,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
+                console.error('Adjust Error:', error);
+                console.error('Error Response:', error.response);
+                
                 let errorMessage = 'Failed to adjust stock';
                 if (error.response?.data?.errors) {
                     errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
@@ -622,8 +654,29 @@ document.addEventListener('DOMContentLoaded', function() {
         if (btn) btn.disabled = true;
         if (spinner) spinner.classList.remove('d-none');
         
-        axios.post('{{ route("inventory.transfer") }}', new FormData(this))
+        const formData = new FormData(this);
+        
+        // Validate from and to locations are different
+        const fromLocation = document.getElementById('from_location_id').value;
+        const toLocation = document.getElementById('to_location_id').value;
+        
+        if (fromLocation === toLocation) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: 'Source and destination locations cannot be the same'
+            });
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+            return;
+        }
+        
+        // Log form data for debugging
+        console.log('Transfer Form Data:', Object.fromEntries(formData));
+        
+        axios.post('{{ route("inventory.transfer") }}', formData)
             .then(response => {
+                console.log('Transfer Response:', response.data);
                 if (response.data.success) {
                     Swal.fire({
                         icon: 'success',
@@ -631,6 +684,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         text: response.data.message,
                         confirmButtonText: 'OK'
                     }).then(() => {
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('transferStockModal'));
+                        if (modal) modal.hide();
+                        // Reload page to show updated data
                         location.reload();
                     });
                 } else {
@@ -642,6 +699,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
+                console.error('Transfer Error:', error);
+                console.error('Error Response:', error.response);
+                
                 let errorMessage = 'Failed to transfer stock';
                 if (error.response?.data?.errors) {
                     errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
@@ -679,8 +739,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label fw-semibold">Type:</label>
-                                    <p><span class="badge bg-${transaction.type === 'in' ? 'success' : transaction.type === 'out' ? 'danger' : transaction.type === 'adjustment' ? 'warning' : 'info'}">
-                                        ${transaction.type_label || transaction.type}
+                                    <p><span class="badge bg-${transaction.type === 'in' ? 'success' : transaction.type === 'out' ? 'danger' : transaction.type === 'adjustment' ? 'warning' : transaction.type === 'transfer' ? 'info' : transaction.type === 'transfer_in' ? 'info' : 'secondary'}">
+                                        ${transaction.type === 'in' ? 'Stock In' : transaction.type === 'out' ? 'Stock Out' : transaction.type === 'adjustment' ? 'Adjustment' : transaction.type === 'transfer' || transaction.type === 'transfer_in' ? 'Transfer' : ucfirst(transaction.type)}
                                     </span></p>
                                 </div>
                             </div>
@@ -697,8 +757,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label fw-semibold">Quantity:</label>
-                                    <p class="fw-bold ${transaction.type === 'in' || transaction.type === 'adjustment' ? 'text-success' : 'text-danger'}">
-                                        ${transaction.type === 'in' || transaction.type === 'adjustment' ? '+' : '-'}${transaction.quantity}
+                                    <p class="fw-bold ${transaction.type === 'in' || transaction.type === 'adjustment' || transaction.type === 'transfer_in' ? 'text-success' : 'text-danger'}">
+                                        ${transaction.type === 'in' || transaction.type === 'adjustment' || transaction.type === 'transfer_in' ? '+' : '-'}${transaction.quantity}
                                     </p>
                                 </div>
                                 <div class="col-md-6 mb-3">
@@ -770,6 +830,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 })
                 .catch(error => {
+                    console.error('View Error:', error);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
@@ -813,6 +874,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         })
                         .catch(error => {
+                            console.error('Delete Error:', error);
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error',
@@ -823,6 +885,23 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+    
+    // Reset forms when modals are closed
+    document.getElementById('adjustStockModal')?.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('adjustStockForm')?.reset();
+        document.getElementById('currentStockDisplay').innerHTML = '';
+    });
+    
+    document.getElementById('transferStockModal')?.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('transferStockForm')?.reset();
+        document.getElementById('fromStockDisplay').innerHTML = '';
+        document.getElementById('toStockDisplay').innerHTML = '';
+    });
+    
+    // Helper function
+    function ucfirst(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
 });
 </script>
 @endsection
