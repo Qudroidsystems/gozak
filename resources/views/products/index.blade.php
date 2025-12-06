@@ -158,7 +158,8 @@
                                                 <th>Action</th>
                                             </tr>
                                         </thead>
-                                       <tbody class="list form-check-all">
+    
+                                        <tbody class="list form-check-all">
     @forelse($products as $product)
         <tr data-product-id="{{ $product->id }}">
             <td>
@@ -193,7 +194,7 @@
             <!-- Category -->
             <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
 
-            <!-- Stock - Original Sharp Style + Icons -->
+            <!-- Stock -->
             <td class="stock">
                 @if($product->stock > 10)
                     <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
@@ -210,14 +211,14 @@
                 @endif
             </td>
 
-            <!-- Price + Sale % Badge (Sharp Corner) -->
+            <!-- Price + Sale Badge -->
             <td class="price">
                 @if($product->sale_price && $product->sale_price < $product->price)
                     @php $discount = round((($product->price - $product->sale_price) / $product->price) * 100); @endphp
                     <div class="position-relative d-inline-block">
                         <del class="text-muted small">${{ number_format($product->price, 2) }}</del><br>
                         <span class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</span>
-                        <span class="badge bg-danger position-absolute" style="top: -8px; right: -30px; font-size: 0.65rem;">
+                        <span class="badge bg-danger position-absolute" style="top: -8px; right: -32px; font-size: 0.65rem;">
                             -{{ $discount }}%
                         </span>
                     </div>
@@ -231,11 +232,11 @@
                 <span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span>
             </td>
 
-            <!-- Featured - Gold Star + Sharp Badge -->
+            <!-- Featured — Gold Star Icon + Sharp Corner Badge -->
             <td class="featured">
                 @if($product->is_featured)
                     <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
-                        Featured
+                        <i class="bi bi-star-fill me-1"></i> Featured
                     </span>
                 @else
                     <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
@@ -249,7 +250,7 @@
                 <small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small>
             </td>
 
-            <!-- Inventory Button - Clean & Minimal -->
+            <!-- Inventory Log Button -->
             <td>
                 <button type="button" class="btn btn-sm btn-outline-info inventory-btn" data-id="{{ $product->id }}" data-title="{{ $product->title }}">
                     View Log
@@ -266,7 +267,6 @@
                         <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
                         @can('Update product')
                             <li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Edit</a></li>
-                        @endcan
                         @can('Delete product')
                             <li><a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
                         @endcan
