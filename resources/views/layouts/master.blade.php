@@ -24,39 +24,45 @@
         .pagination-wrap .active .page-link { background-color: #007bff; color: white; }
         .pagination-wrap .disabled .page-link { pointer-events: none; opacity: 0.5; }
     </style>
- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    
+    <!-- CSS includes for different routes -->
     @if (Route::is('dashboard'))
-          @include('layouts.pages-assets.css.users-list-css')
+        @include('layouts.pages-assets.css.users-list-css')
     @endif
 
     @if (Route::is('users.*'))
-          @include('layouts.pages-assets.css.users-list-css')
+        @include('layouts.pages-assets.css.users-list-css')
     @endif
 
     @if (Route::is('roles.*'))
-         @include('layouts.pages-assets.css.roles-list-css')
+        @include('layouts.pages-assets.css.roles-list-css')
     @endif
 
     @if (Route::is('permissions.*'))
-          @include('layouts.pages-assets.css.permission-list-css')
+        @include('layouts.pages-assets.css.permission-list-css')
     @endif
 
     @if (Route::is('brands.*'))
-          @include('layouts.pages-assets.css.users-list-css')
+        @include('layouts.pages-assets.css.users-list-css')
     @endif
 
     @if (Route::is('categories.*'))
-            @include('layouts.pages-assets.css.users-list-css')
+        @include('layouts.pages-assets.css.users-list-css')
     @endif
 
     @if (Route::is('banners.*'))
-            @include('layouts.pages-assets.css.users-list-css')
+        @include('layouts.pages-assets.css.users-list-css')
     @endif
 
     @if (Route::is('products.*'))
-            @include('layouts.pages-assets.css.users-list-css')
+        @include('layouts.pages-assets.css.users-list-css')
     @endif
-     
+    
+    <!-- Add CSS includes for inventory routes -->
+    @if (Route::is('inventory.*') || Route::is('stock-locations.*'))
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
+    @endif
     
 </head>
 
@@ -110,60 +116,65 @@
                                         </li> 
                                     @endcan
                                     @can('finance dashboard')
-                                    <li class="nav-item">
-                                        <a href="dashboard-crm.html" class="nav-link" data-key="t-crm"> Finance Analytics</a>
-                                    </li>
+                                        <li class="nav-item">
+                                            <a href="dashboard-crm.html" class="nav-link" data-key="t-crm"> Finance Analytics</a>
+                                        </li>
                                     @endcan
                                     @can('academics dashboard')
-                                    <li class="nav-item">
-                                        <a href="index.html" class="nav-link" data-key="t-ecommerce"> Academics Analytics </a>
-                                    </li>
+                                        <li class="nav-item">
+                                            <a href="index.html" class="nav-link" data-key="t-ecommerce"> Academics Analytics </a>
+                                        </li>
                                     @endcan
                                     
+                                    <!-- Inventory Dashboard -->
+                                    @can('View inventory dashboard|View inventory')
+                                        <li class="nav-item">
+                                            <a href="{{ route('inventory.dashboard') }}" class="nav-link" data-key="t-inventory"> Inventory Dashboard </a>
+                                        </li>
+                                    @endcan
                                 </ul>
                             </div>
                         </li>
 
 
                         <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">USERS & PRIVILEDGES</span></li>
-                        {{-- @can('View user') --}}
+                        
+                        @can('View user')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarusers" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarAuth">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">User Managements</span>
                                 </a>
                                 <div class="collapse menu-dropdown" id="sidebarusers">
                                     <ul class="nav nav-sm flex-column">
-                                    
-                                            <li class="nav-item">
+                                        <li class="nav-item">
                                             <a href="{{ route('users.index') }}" class="nav-link" role="button" data-key="t-signin"> Users </a>
                                         </li>
-                                    
                                     </ul>
                                 </div>
                             </li>
-                        {{-- @endcan --}}
-                        {{-- @can('View role') --}}
-                              <li class="nav-item">
-                            <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
-                                <i class="ph-address-book"></i> <span data-key="t-pages">Roles And Permissions</span>
-                            </a>
-                            <div class="collapse menu-dropdown" id="sidebarroles">
-                                <ul class="nav nav-sm flex-column">
-                                    {{-- @can('View role') --}}
-                                         <li class="nav-item">
-                                        <a href="{{ route('roles.index') }}" class="nav-link" data-key="t-starter"> Roles </a>
-                                    </li>
-                                    {{-- @endcan --}}
-                                   {{-- @can('View permission') --}}
-                                        <li class="nav-item">
-                                        <a href="{{ route('permissions.index') }}" class="nav-link" data-key="t-profile"> Permissions </a>
-                                    </li>
-                                   {{-- @endcan --}}
-                                   
-                                </ul>
-                            </div>
-                        </li>
-                        {{-- @endcan --}}
+                        @endcan
+                        
+                        @can('View role|View permission')
+                            <li class="nav-item">
+                                <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
+                                    <i class="ph-address-book"></i> <span data-key="t-pages">Roles And Permissions</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="sidebarroles">
+                                    <ul class="nav nav-sm flex-column">
+                                        @can('View role')
+                                            <li class="nav-item">
+                                                <a href="{{ route('roles.index') }}" class="nav-link" data-key="t-starter"> Roles </a>
+                                            </li>
+                                        @endcan
+                                        @can('View permission')
+                                            <li class="nav-item">
+                                                <a href="{{ route('permissions.index') }}" class="nav-link" data-key="t-profile"> Permissions </a>
+                                            </li>
+                                        @endcan
+                                    </ul>
+                                </div>
+                            </li>
+                        @endcan
                       
 
                         <li class="nav-item">
@@ -173,13 +184,14 @@
                             <div class="collapse menu-dropdown" id="sidebaraccount">
                                 <ul class="nav nav-sm flex-column">
                                     <li class="nav-item">
-                                        <a href="pages-starter.html" class="nav-link" data-key="t-starter"> My Account </a>
+                                        <a href="{{ auth()->user() ? route('user.overview', auth()->id()) : '#' }}" class="nav-link" data-key="t-starter"> My Account </a>
                                     </li>
                                 </ul>
                             </div>
                         </li>
 
                         <li class="menu-title"><i class="ri-more-fill"></i> <span data-key="t-pages">INVENTORY MANAGEMENT</span></li>
+                        
                         @can('View banner')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarbanner" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarbanner">
@@ -187,31 +199,29 @@
                                 </a>
                                 <div class="collapse menu-dropdown" id="sidebarbanner">
                                     <ul class="nav nav-sm flex-column">
-                                    
-                                            <li class="nav-item">
+                                        <li class="nav-item">
                                             <a href="{{ route('banners.index') }}" class="nav-link" role="button" data-key="t-signin"> Banner </a>
                                         </li>
-                                    
                                     </ul>
                                 </div>
                             </li>
                         @endcan
-                         @can('View category')
+                        
+                        @can('View category')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarcategories" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarcategories">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">Category Managements</span>
                                 </a>
                                 <div class="collapse menu-dropdown" id="sidebarcategories">
                                     <ul class="nav nav-sm flex-column">
-                                    
-                                            <li class="nav-item">
+                                        <li class="nav-item">
                                             <a href="{{ route('categories.index') }}" class="nav-link" role="button" data-key="t-signin"> Category </a>
                                         </li>
-                                    
                                     </ul>
                                 </div>
                             </li>
                         @endcan
+                        
                         @can('View brand')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarbrand" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarbrand">
@@ -219,56 +229,92 @@
                                 </a>
                                 <div class="collapse menu-dropdown" id="sidebarbrand">
                                     <ul class="nav nav-sm flex-column">
-                                    
-                                            <li class="nav-item">
+                                        <li class="nav-item">
                                             <a href="{{ route('brands.index') }}" class="nav-link" role="button" data-key="t-signin"> Brand </a>
                                         </li>
-                                    
                                     </ul>
                                 </div>
                             </li>
                         @endcan
+                        
                         @can('View product')
-                              <li class="nav-item">
+                            <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarproduct" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarproduct">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">Product Managements</span>
                                 </a>
                                 <div class="collapse menu-dropdown" id="sidebarproduct">
                                     <ul class="nav nav-sm flex-column">
-                                    
-                                            <li class="nav-item">
+                                        <li class="nav-item">
                                             <a href="{{ route('products.index') }}" class="nav-link" role="button" data-key="t-signin"> Product </a>
                                         </li>
-                                    
                                     </ul>
                                 </div>
                             </li>
                         @endcan
 
-                       
-                       
-                        {{-- @can('View flock')
-                              <li class="nav-item">
-                            <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
-                                <i class="ph-address-book"></i> <span data-key="t-pages">Roles And Permissions</span>
-                            </a>
-                            <div class="collapse menu-dropdown" id="sidebarroles">
-                                <ul class="nav nav-sm flex-column">
-                                    @can('View role')
-                                         <li class="nav-item">
-                                        <a href="{{ route('roles.index') }}" class="nav-link" data-key="t-starter"> Roles </a>
-                                    </li>
-                                    @endcan
-                                   @can('View permission')
+                        <!-- =========================================== -->
+                        <!-- INVENTORY MANAGEMENT MENU -->
+                        <!-- =========================================== -->
+                        
+                        @can('View inventory|Manage inventory')
+                            <li class="nav-item">
+                                <a class="nav-link menu-link collapsed" href="#sidebarmanageinventory" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarmanageinventory">
+                                    <i class="ph-warehouse"></i> <span data-key="t-authentication">Inventory Management</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="sidebarmanageinventory">
+                                    <ul class="nav nav-sm flex-column">
+                                        @can('View inventory')
+                                            <li class="nav-item">
+                                                <a href="{{ route('inventory.index') }}" class="nav-link" role="button" data-key="t-signin"> Transactions </a>
+                                            </li>
+                                        @endcan
+                                        
+                                        @can('View stock levels')
+                                            <li class="nav-item">
+                                                <a href="{{ route('inventory.stock-levels') }}" class="nav-link" role="button" data-key="t-signin"> Stock Levels </a>
+                                            </li>
+                                        @endcan
+                                        
+                                        @can('Manage stock locations')
+                                            <li class="nav-item">
+                                                <a href="{{ route('stock-locations.index') }}" class="nav-link" role="button" data-key="t-signin"> Stock Locations </a>
+                                            </li>
+                                        @endcan
+                                        
+                                        @can('View inventory reports')
+                                            <li class="nav-item">
+                                                <a href="{{ route('inventory.stock-value-report') }}" class="nav-link" role="button" data-key="t-signin"> Stock Value Report </a>
+                                            </li>
+                                        @endcan
+                                        
+                                        @can('View low stock alerts')
+                                            <li class="nav-item">
+                                                <a href="{{ route('inventory.low-stock-alerts') }}" class="nav-link" role="button" data-key="t-signin"> Low Stock Alerts </a>
+                                            </li>
+                                        @endcan
+                                    </ul>
+                                </div>
+                            </li>
+                        @endcan
+                        
+                        <!-- =========================================== -->
+                        <!-- PRODUCT REVIEWS MENU -->
+                        <!-- =========================================== -->
+                        
+                        @can('View product reviews')
+                            <li class="nav-item">
+                                <a class="nav-link menu-link collapsed" href="#sidebarreviews" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarreviews">
+                                    <i class="ph-star"></i> <span data-key="t-authentication">Reviews Management</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="sidebarreviews">
+                                    <ul class="nav nav-sm flex-column">
                                         <li class="nav-item">
-                                        <a href="{{ route('permissions.index') }}" class="nav-link" data-key="t-profile"> Permissions </a>
-                                    </li>
-                                   @endcan
-                                   
-                                </ul>
-                            </div>
-                        </li>
-                        @endcan --}}
+                                            <a href="{{ route('reviews.index') }}" class="nav-link" role="button" data-key="t-signin"> Product Reviews </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        @endcan
 
                     </ul>
                 </div>
@@ -402,79 +448,6 @@
 
                     <div class="d-flex align-items-center">
 
-                        {{-- <div class="dropdown topbar-head-dropdown ms-1 header-item">
-                            <button type="button" class="btn btn-icon btn-topbar btn-ghost-dark rounded-circle" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <i class='bi bi-grid fs-2xl'></i>
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-lg p-0 dropdown-menu-end">
-                                <div class="p-3 border-top-0 border-start-0 border-end-0 border-dashed border">
-                                    <div class="row align-items-center">
-                                        <div class="col">
-                                            <h6 class="m-0 fw-semibold fs-base"> Browse by Apps </h6>
-                                        </div>
-                                        <div class="col-auto">
-                                            <a href="#!" class="btn btn-sm btn-subtle-info"> View All Apps
-                                                <i class="ri-arrow-right-s-line align-middle"></i></a>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="p-2">
-                                    <div class="row g-0">
-                                        <div class="col">
-                                            <a class="dropdown-icon-item" href="#!">
-                                                <img src="assets/images/brands/github.png')}}" alt="Github">
-                                                <span>GitHub</span>
-                                            </a>
-                                        </div>
-                                        <div class="col">
-                                            <a class="dropdown-icon-item" href="#!">
-                                                <img src="assets/images/brands/bitbucket.png')}}" alt="bitbucket">
-                                                <span>Bitbucket</span>
-                                            </a>
-                                        </div>
-                                        <div class="col">
-                                            <a class="dropdown-icon-item" href="#!">
-                                                <img src="assets/images/brands/dribbble.png')}}" alt="dribbble">
-                                                <span>Dribbble</span>
-                                            </a>
-                                        </div>
-                                    </div>
-
-                                    <div class="row g-0">
-                                        <div class="col">
-                                            <a class="dropdown-icon-item" href="#!">
-                                                <img src="assets/images/brands/dropbox.png')}}" alt="dropbox">
-                                                <span>Dropbox</span>
-                                            </a>
-                                        </div>
-                                        <div class="col">
-                                            <a class="dropdown-icon-item" href="#!">
-                                                <img src="assets/images/brands/mail_chimp.png')}}" alt="mail_chimp">
-                                                <span>Mail Chimp</span>
-                                            </a>
-                                        </div>
-                                        <div class="col">
-                                            <a class="dropdown-icon-item" href="#!">
-                                                <img src="assets/images/brands/slack.png')}}" alt="slack">
-                                                <span>Slack</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div> --}}
-
-
-
-                       
-
-                        {{-- <div class="ms-1 header-item d-none d-sm-flex">
-                            <button type="button" class="btn btn-icon btn-topbar btn-ghost-dark rounded-circle" data-toggle="fullscreen">
-                                <i class='bi bi-arrows-fullscreen fs-lg'></i>
-                            </button>
-                        </div> --}}
-
                         <div class="dropdown topbar-head-dropdown ms-1 header-item">
                             <button type="button" class="btn btn-icon btn-topbar btn-ghost-dark rounded-circle mode-layout" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <i class="bi bi-sun align-middle fs-3xl"></i>
@@ -486,193 +459,48 @@
                             </div>
                         </div>
 
-                        {{-- <div class="dropdown topbar-head-dropdown ms-1 header-item" id="notificationDropdown">
-                            <button type="button" class="btn btn-icon btn-topbar btn-ghost-dark rounded-circle" id="page-header-notifications-dropdown" data-bs-toggle="dropdown"  data-bs-auto-close="outside" aria-haspopup="true" aria-expanded="false">
-                                <i class='bi bi-bell fs-2xl'></i>
-                                <span class="position-absolute topbar-badge fs-3xs translate-middle badge rounded-pill bg-danger"><span class="notification-badge">4</span><span class="visually-hidden">unread messages</span></span>
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end p-0" aria-labelledby="page-header-notifications-dropdown">
-
-                                <div class="dropdown-head rounded-top">
-                                    <div class="p-3 border-bottom border-bottom-dashed">
-                                        <div class="row align-items-center">
-                                            <div class="col">
-                                                <h6 class="mb-0 fs-lg fw-semibold"> Notifications <span class="badge bg-danger-subtle text-danger fs-sm notification-badge"> 4</span></h6>
-                                                <p class="fs-md text-muted mt-1 mb-0">You have <span class="fw-semibold notification-unread">3</span> unread messages</p>
-                                            </div>
-                                            <div class="col-auto dropdown">
-                                                <a href="javascript:void(0);" data-bs-toggle="dropdown" class="link-secondary fs-md"><i class="bi bi-three-dots-vertical"></i></a>
-                                                <ul class="dropdown-menu">
-                                                    <li><a class="dropdown-item" href="#">All Clear</a></li>
-                                                    <li><a class="dropdown-item" href="#">Mark all as read</a></li>
-                                                    <li><a class="dropdown-item" href="#">Archive All</a></li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                </div>
-
-                                <div class="py-2 ps-2" id="notificationItemsTabContent">
-                                    <div data-simplebar style="max-height: 300px;" class="pe-2">
-                                        <h6 class="text-overflow text-muted fs-sm my-2 text-uppercase notification-title">New</h6>
-                                        <div class="text-reset notification-item d-block dropdown-item position-relative unread-message">
-                                            <div class="d-flex">
-                                                <div class="avatar-xs me-3 flex-shrink-0">
-                                                    <span class="avatar-title bg-info-subtle text-info rounded-circle fs-lg">
-                                                        <i class="bx bx-badge-check"></i>
-                                                    </span>
-                                                </div>
-                                                <div class="flex-grow-1">
-                                                    <a href="#!" class="stretched-link">
-                                                        <h6 class="mt-0 fs-md mb-2 lh-base">Your <b>Elite</b> author Graphic
-                                                            Optimization <span class="text-secondary">reward</span> is ready!
-                                                        </h6>
-                                                    </a>
-                                                    <p class="mb-0 fs-11 fw-medium text-uppercase text-muted">
-                                                        <span><i class="mdi mdi-clock-outline"></i> Just 30 sec ago</span>
-                                                    </p>
-                                                </div>
-                                                <div class="px-2 fs-base">
-                                                    <div class="form-check notification-check">
-                                                        <input class="form-check-input" type="checkbox" value="" id="all-notification-check01">
-                                                        <label class="form-check-label" for="all-notification-check01"></label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="text-reset notification-item d-block dropdown-item position-relative unread-message">
-                                            <div class="d-flex">
-                                                <div class="position-relative me-3 flex-shrink-0">
-                                                    <img src="assets/images/users/32/avatar-2.jpg" class="rounded-circle avatar-xs" alt="user-pic">
-                                                    <span class="active-badge position-absolute start-100 translate-middle p-1 bg-success rounded-circle">
-                                                        <span class="visually-hidden">New alerts</span>
-                                                    </span>
-                                                </div>
-                                                <div class="flex-grow-1">
-                                                    <a href="#!" class="stretched-link">
-                                                        <h6 class="mt-0 mb-1 fs-md fw-semibold">Angela Bernier</h6>
-                                                    </a>
-                                                    <div class="fs-sm text-muted">
-                                                        <p class="mb-1">Answered to your comment on the cash flow forecast's graph 🔔.</p>
-                                                    </div>
-                                                    <p class="mb-0 fs-11 fw-medium text-uppercase text-muted">
-                                                        <span><i class="mdi mdi-clock-outline"></i> 48 min ago</span>
-                                                    </p>
-                                                </div>
-                                                <div class="px-2 fs-base">
-                                                    <div class="form-check notification-check">
-                                                        <input class="form-check-input" type="checkbox" value="" id="all-notification-check02">
-                                                        <label class="form-check-label" for="all-notification-check02"></label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="text-reset notification-item d-block dropdown-item position-relative unread-message">
-                                            <div class="d-flex">
-                                                <div class="avatar-xs me-3 flex-shrink-0">
-                                                    <span class="avatar-title bg-danger-subtle text-danger rounded-circle fs-lg">
-                                                        <i class='bx bx-message-square-dots'></i>
-                                                    </span>
-                                                </div>
-                                                <div class="flex-grow-1">
-                                                    <a href="#!" class="stretched-link">
-                                                        <h6 class="mt-0 mb-2 fs-md lh-base">You have received <b class="text-success">20</b> new messages in the conversation
-                                                        </h6>
-                                                    </a>
-                                                    <p class="mb-0 fs-11 fw-medium text-uppercase text-muted">
-                                                        <span><i class="mdi mdi-clock-outline"></i> 2 hrs ago</span>
-                                                    </p>
-                                                </div>
-                                                <div class="px-2 fs-base">
-                                                    <div class="form-check notification-check">
-                                                        <input class="form-check-input" type="checkbox" value="" id="all-notification-check03">
-                                                        <label class="form-check-label" for="all-notification-check03"></label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <h6 class="text-overflow text-muted fs-sm my-2 text-uppercase notification-title">Read Before</h6>
-
-                                        <div class="text-reset notification-item d-block dropdown-item position-relative">
-                                            <div class="d-flex">
-
-                                                <div class="position-relative me-3 flex-shrink-0">
-                                                    <img src="assets/images/users/32/avatar-8.jpg" class="rounded-circle avatar-xs" alt="user-pic">
-                                                    <span class="active-badge position-absolute start-100 translate-middle p-1 bg-warning rounded-circle">
-                                                        <span class="visually-hidden">New alerts</span>
-                                                    </span>
-                                                </div>
-
-                                                <div class="flex-grow-1">
-                                                    <a href="#!" class="stretched-link">
-                                                        <h6 class="mt-0 mb-1 fs-md fw-semibold">Maureen Gibson</h6>
-                                                    </a>
-                                                    <div class="fs-sm text-muted">
-                                                        <p class="mb-1">We talked about a project on linkedin.</p>
-                                                    </div>
-                                                    <p class="mb-0 fs-11 fw-medium text-uppercase text-muted">
-                                                        <span><i class="mdi mdi-clock-outline"></i> 4 hrs ago</span>
-                                                    </p>
-                                                </div>
-                                                <div class="px-2 fs-base">
-                                                    <div class="form-check notification-check">
-                                                        <input class="form-check-input" type="checkbox" value="" id="all-notification-check04">
-                                                        <label class="form-check-label" for="all-notification-check04"></label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="notification-actions" id="notification-actions">
-                                        <div class="d-flex text-muted justify-content-center align-items-center">
-                                            Select <div id="select-content" class="text-body fw-semibold px-1">0</div> Result <button type="button" class="btn btn-link link-danger p-0 ms-2" data-bs-toggle="modal" data-bs-target="#removeNotificationModal">Remove</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div> --}}
-
                         <div class="dropdown ms-sm-3 header-item topbar-user">
                             <button type="button" class="btn shadow-none" id="page-header-user-dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <span class="d-flex align-items-center">
-                                      @php
-                                      use App\Models\User;
-                                        $userdata = User::find(Auth::id())
-                                        
-                                      @endphp
-                                       <?php $image = "";?>
-                                       <?php
-                                          if ($userdata->avatar == NULL || $userdata->avatar =="" || !isset($userdata->avatar) ){
-                                                  $image =  'unnamed.png';
-                                          }else {
-                                              $image =  $userdata->avatar;
-                                          }
-                                       ?>
-                                   
-                                    <img class="rounded-circle header-profile-user" src="{{ Storage::url('images/staffavatar/'.$image)}}" alt="{{ $userdata->name }}">
-                                    {{-- <img src="{{ $student->picture ? asset('storage/' . $student->picture) : asset('theme/layouts/assets/media/avatars/blank.png') }}" alt=""  class="avatar-xs"/> --}}
                                     @php
-                                    $userdata = Auth::user();
-                                @endphp
-                                
-                                @if ($userdata)
-                                    <span class="text-start ms-xl-2">
-                                        <span class="d-none d-xl-inline-block ms-1 fw-medium user-name-text">{{ $userdata->name }}</span>
-                                        <span class="d-none d-xl-block ms-1 fs-sm user-name-sub-text">Founder</span>
-                                    </span>
+                                        use App\Models\User;
+                                        $userdata = User::find(Auth::id());
+                                    @endphp
+                                    
+                                    <?php 
+                                        $image = "unnamed.png";
+                                        if ($userdata && $userdata->avatar) {
+                                            $image = $userdata->avatar;
+                                        }
+                                    ?>
+                                   
+                                    @if($userdata)
+                                        <img class="rounded-circle header-profile-user" src="{{ Storage::url('images/staffavatar/'.$image)}}" alt="{{ $userdata->name }}">
+                                        <span class="text-start ms-xl-2">
+                                            <span class="d-none d-xl-inline-block ms-1 fw-medium user-name-text">{{ $userdata->name }}</span>
+                                            <span class="d-none d-xl-block ms-1 fs-sm user-name-sub-text">{{ $userdata->roles->first()->name ?? 'User' }}</span>
+                                        </span>
+                                    @else
+                                        <img class="rounded-circle header-profile-user" src="{{ asset('theme/layouts/assets/images/users/user-dummy-img.jpg') }}" alt="User">
+                                        <span class="text-start ms-xl-2">
+                                            <span class="d-none d-xl-inline-block ms-1 fw-medium user-name-text">Guest</span>
+                                            <span class="d-none d-xl-block ms-1 fs-sm user-name-sub-text">Not logged in</span>
+                                        </span>
+                                    @endif
                                 </span>
-                                </button>
-                                <div class="dropdown-menu dropdown-menu-end">
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                @if($userdata)
                                     <h6 class="dropdown-header">Welcome {{ $userdata->name }}!</h6>
                                     <a class="dropdown-item" href="{{ route('user.overview', $userdata->id) }}">
                                         <i class="mdi mdi-account-circle text-muted fs-lg align-middle me-1"></i> 
                                         <span class="align-middle">Profile</span>
                                     </a>
                                     <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item" href="{{ route('user.settings', $userdata->id) }}">
+                                        <i class="mdi mdi-cog text-muted fs-lg align-middle me-1"></i> 
+                                        <span class="align-middle">Settings</span>
+                                    </a>
                                     <a class="dropdown-item" href="auth-lockscreen.html">
                                         <i class="mdi mdi-lock text-muted fs-lg align-middle me-1"></i> 
                                         <span class="align-middle">Lock screen</span>
@@ -685,110 +513,74 @@
                                             <span class="align-middle" data-key="t-logout">Logout</span>
                                         </a>
                                     </form>
-                                </div>
+                                @else
+                                    <a class="dropdown-item" href="{{ route('login') }}">
+                                        <i class="mdi mdi-login text-muted fs-lg align-middle me-1"></i> 
+                                        <span class="align-middle">Login</span>
+                                    </a>
                                 @endif
-                                
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </header>
 
-        <!-- removeNotificationModal -->
-        {{-- <div id="removeNotificationModal" class="modal fade zoomIn" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="NotificationModalbtn-close"></button>
-                    </div>
-                    <div class="modal-body p-md-5">
-                        <div class="text-center">
-                            <div class="text-danger">
-                                <i class="bi bi-trash display-4"></i>
-                            </div>
-                            <div class="mt-4 fs-base">
-                                <h4 class="mb-1">Are you sure ?</h4>
-                                <p class="text-muted mx-4 mb-0">Are you sure you want to remove this Notification ?</p>
-                            </div>
-                        </div>
-                        <div class="d-flex gap-2 justify-content-center mt-4 mb-2">
-                            <button type="button" class="btn w-sm btn-light" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn w-sm btn-danger" id="delete-notification">Yes, Delete It!</button>
-                        </div>
-                    </div>
-
-                </div><!-- /.modal-content -->
-            </div><!-- /.modal-dialog -->
-        </div> --}}
-        <!-- /.modal -->
-
-
-
           @yield('content')
 
-
-
         <footer class="footer">
-          <div class="container-fluid">
-              <div class="row">
-                  <div class="col-sm-6">
-                      <script>document.write(new Date().getFullYear())</script> © primefarm.ng
-                  </div>
-                  <div class="col-sm-6">
-                      <div class="text-sm-end d-none d-sm-block">
-                          Powered by Qudroid Systems
-                      </div>
-                  </div>
-              </div>
-          </div>
-      </footer>
-      </div>
-      <!-- end main content-->
-      
-      </div>
-      <!-- END layout-wrapper -->
-      
-      
+            <div class="container-fluid">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <script>document.write(new Date().getFullYear())</script> © primefarm.ng
+                    </div>
+                    <div class="col-sm-6">
+                        <div class="text-sm-end d-none d-sm-block">
+                            Powered by Qudroid Systems
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+    <!-- end main content-->
+    
+    </div>
+    <!-- END layout-wrapper -->
+    
+    
+    <!--start back-to-top-->
+    <button class="btn btn-dark btn-icon" id="back-to-top">
+        <i class="bi bi-caret-up fs-3xl"></i>
+    </button>
+    <!--end back-to-top-->
+    
+    <!--preloader-->
+    <div id="preloader">
+        <div id="status">
+            <div class="spinner-border text-primary avatar-sm" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </div>
 
-
-      
-      <!--start back-to-top-->
-      <button class="btn btn-dark btn-icon" id="back-to-top">
-      <i class="bi bi-caret-up fs-3xl"></i>
-      </button>
-      <!--end back-to-top-->
-      
-      <!--preloader-->
-      <div id="preloader">
-      <div id="status">
-      <div class="spinner-border text-primary avatar-sm" role="status">
-          <span class="visually-hidden">Loading...</span>
-      </div>
-      </div>
-      </div>
-
-      
-
-
-
-
-      <div class="customizer-setting d-none d-md-block">
-      <div class="btn btn-info p-2 text-uppercase rounded-end-0 shadow-lg" data-bs-toggle="offcanvas" data-bs-target="#theme-settings-offcanvas" aria-controls="theme-settings-offcanvas">
-      <i class="bi bi-gear mb-1"></i> Customizer
-      </div>
-      </div>
-      
-      <!-- Theme Settings -->
-      <div class="offcanvas offcanvas-end border-0" tabindex="-1" id="theme-settings-offcanvas">
-            <div class="d-flex align-items-center bg-primary bg-gradient p-3 offcanvas-header">
+    <div class="customizer-setting d-none d-md-block">
+        <div class="btn btn-info p-2 text-uppercase rounded-end-0 shadow-lg" data-bs-toggle="offcanvas" data-bs-target="#theme-settings-offcanvas" aria-controls="theme-settings-offcanvas">
+            <i class="bi bi-gear mb-1"></i> Customizer
+        </div>
+    </div>
+    
+    <!-- Theme Settings -->
+    <div class="offcanvas offcanvas-end border-0" tabindex="-1" id="theme-settings-offcanvas">
+        <div class="d-flex align-items-center bg-primary bg-gradient p-3 offcanvas-header">
             <div class="me-2">
                 <h5 class="mb-1 text-white">Steex Builder</h5>
                 <p class="text-white text-opacity-75 mb-0">Choose your themes & layouts etc.</p>
             </div>
             
             <button type="button" class="btn-close btn-close-white ms-auto" id="customizerclose-btn" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-            </div>
-            <div class="offcanvas-body p-0">
+        </div>
+        <div class="offcanvas-body p-0">
             <div data-simplebar class="h-100">
                 <div class="p-4">
                     <h6 class="fs-md mb-1">Layout</h6>
@@ -956,8 +748,6 @@
                                 </div>
                                 <h5 class="fs-sm text-center fw-medium mt-2">Dark</h5>
                             </div>
-            
-                            
                         </div>
                     </div>
             
@@ -1463,16 +1253,15 @@
                 </div>
             </div>
             
-            </div>
-            <div class="offcanvas-footer border-top p-3 text-center">
+        </div>
+        <div class="offcanvas-footer border-top p-3 text-center">
             <div class="row">
                 <div class="col-6">
                     <button type="button" class="btn btn-light w-100" id="reset-layout">Reset</button>
                 </div>
-                
             </div>
-            </div>
-      </div>
+        </div>
+    </div>
       
 
       @if (Route::is('dashboard'))
@@ -1506,6 +1295,14 @@
       @if (Route::is('products.*'))
             @include('layouts.pages-assets.js.product-list-js')
       @endif
+
+       <!-- Add JavaScript includes for inventory routes -->
+        @if (Route::is('inventory.*') || Route::is('stock-locations.*'))
+            <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+            <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+            <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+        @endif
       </body>
       
       </html>

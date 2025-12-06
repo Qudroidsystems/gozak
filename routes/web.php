@@ -13,8 +13,10 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\ProductReviewController;        // <-- ADD THIS
+use App\Http\Controllers\ProductReviewController;           // <-- ADD THIS
+use App\Http\Controllers\StockLocationController;       // <-- ADD THIS
 
 // Public Routes
 Route::get('/', function () {
@@ -62,42 +64,72 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/users/{user}/overview', [OverviewController::class, 'show'])->name('user.overview');
     Route::get('/users/{user}/settings', [BiodataController::class, 'show'])->name('user.settings');
 
+    // Banner Management
     Route::resource('banners', BannerController::class)->except(['show']);
     Route::get('banners/{banner}/edit', [BannerController::class, 'edit'])->name('banners.edit');
 
-    
+    // Brand Management
     Route::resource('brands', BrandController::class)->except(['show']);
+    Route::get('brands/{brand}/edit', [BrandController::class, 'edit'])->name('brands.edit');
 
-    // Extra route needed for Edit modal (AJAX)
-    Route::get('brands/{brand}/edit', [BrandController::class, 'edit'])
-        ->name('brands.edit');
-
+    // Category Management
     Route::resource('categories', CategoryController::class)->except(['show']);
     Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
 
+    // Product Management
     Route::resource('products', ProductController::class);
     Route::delete('/products/{id}/images/{imageId}', [ProductController::class, 'deleteImage'])->name('products.images.destroy');
-
-    // ADD THESE MISSING ROUTES:
     Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
     Route::get('/products/{product}/inventory', [ProductController::class, 'inventoryLog'])->name('products.inventory');
     Route::get('/products/template', [ProductController::class, 'template'])->name('products.template');
     Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
     Route::get('/products/realtime-stock', [ProductController::class, 'realtimeStock'])->name('products.realtime-stock');
-
-    // Product Reviews Routes
-    Route::group(['prefix' => 'products/{product}/reviews'], function() {
-        Route::post('/', [ProductReviewController::class, 'store'])->name('products.reviews.store');
-    });
-    
     Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
     Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
     Route::post('/products/bulk-update', [ProductController::class, 'bulkUpdate'])->name('products.bulkUpdate');
 
+    // Product Reviews
+    Route::group(['prefix' => 'products/{product}/reviews'], function() {
+        Route::post('/', [ProductReviewController::class, 'store'])->name('products.reviews.store');
+    });
     
-    // Admin Reviews Routes
+    // Admin Reviews Management
     Route::resource('reviews', ProductReviewController::class)->except(['show']);
     Route::get('/reviews/{id}/edit', [ProductReviewController::class, 'edit'])->name('reviews.edit');
     Route::post('/reviews/{id}/company-comment', [ProductReviewController::class, 'addCompanyComment'])->name('reviews.company-comment');
+    
+    // ===================================================================
+    // INVENTORY MANAGEMENT ROUTES
+    // ===================================================================
+    
+    // Stock Locations Management
+    Route::resource('stock-locations', StockLocationController::class)->except(['show']);
+    Route::get('stock-locations/{stock_location}/edit', [StockLocationController::class, 'edit'])->name('stock-locations.edit');
+    
+    // Inventory Management
+    Route::prefix('inventory')->group(function () {
+        // Main inventory routes
+        Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
+        Route::get('/dashboard', [InventoryController::class, 'dashboard'])->name('inventory.dashboard');
+        Route::get('/stock-levels', [InventoryController::class, 'stockLevels'])->name('inventory.stock-levels');
+        Route::get('/history/{id}', [InventoryController::class, 'stockHistory'])->name('inventory.history');
         
+        // Stock operations
+        Route::post('/adjust', [InventoryController::class, 'adjustStock'])->name('inventory.adjust');
+        Route::post('/transfer', [InventoryController::class, 'transferStock'])->name('inventory.transfer');
+        Route::post('/bulk-adjust', [InventoryController::class, 'bulkAdjust'])->name('inventory.bulk-adjust');
+        Route::post('/import', [InventoryController::class, 'import'])->name('inventory.import');
+        
+        // Export routes
+        Route::get('/export/transactions', [InventoryController::class, 'exportTransactions'])->name('inventory.export.transactions');
+        Route::get('/export/stock-levels', [InventoryController::class, 'exportStockLevels'])->name('inventory.export.stock-levels');
+        
+        // API endpoints for AJAX requests
+        Route::get('/{id}', [InventoryController::class, 'show'])->name('inventory.show');
+        Route::delete('/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
+        Route::get('/stock-level/{productId}/{locationId}', [InventoryController::class, 'getProductStock'])->name('inventory.get-product-stock');
+        Route::get('/low-stock-alerts', [InventoryController::class, 'getLowStockAlerts'])->name('inventory.low-stock-alerts');
+        Route::get('/stock-value-report', [InventoryController::class, 'getStockValueReport'])->name('inventory.stock-value-report');
+    });
+    
 });
