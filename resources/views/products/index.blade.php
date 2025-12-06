@@ -23,40 +23,29 @@
             </div>
 
             <div id="productList">
-                <!-- Advanced Filters -->
+                <!-- Filters -->
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="card">
-                            <div class="card-header">
-                                <h5 class="card-title mb-0">
-                                    Advanced Filters
-                                    <button class="btn btn-sm btn-outline-secondary float-end" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters">Toggle</button>
-                                </h5>
-                            </div>
-                            <div class="card-body collapse show" id="advancedFilters">
+                            <div class="card-body">
                                 <form id="filterForm" method="GET" action="{{ route('products.index') }}">
                                     <div class="row g-3">
                                         <div class="col-xxl-3">
-                                            <div class="search-box position-relative">
-                                                <input type="text" class="form-control search" id="searchInput" name="search" placeholder="Search products, SKU..." value="{{ request('search') }}" autocomplete="off">
+                                            <div class="search-box">
+                                                <input type="text" class="form-control search" name="search" placeholder="Search products, SKU, price..." value="{{ request('search') }}" autocomplete="off">
                                                 <i class="ri-search-line search-icon"></i>
                                             </div>
-                                            <div id="searchResults" class="position-absolute bg-white border rounded shadow-lg mt-1" style="top:100%; left:0; width:100%; max-height:400px; overflow-y:auto; z-index:9999; display:none;">
-                                                <div id="resultsList"></div>
-                                            </div>
                                         </div>
-
                                         <div class="col-xxl-2 col-sm-6">
-                                            <select class="form-control" name="brands[]" id="brandFilter" data-choices multiple>
+                                            <select class="form-control" name="brands[]" id="brandFilter" data-choices data-choices-search-false multiple>
                                                 <option value="">All Brands</option>
                                                 @foreach($brands as $brand)
                                                     <option value="{{ $brand->id }}" {{ in_array($brand->id, (array)request('brands', [])) ? 'selected' : '' }}>{{ $brand->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
-
                                         <div class="col-xxl-2 col-sm-6">
-                                            <select class="form-control" name="category" id="categoryFilter" data-choices>
+                                            <select class="form-control" name="category" id="categoryFilter" data-choices data-choices-search-false>
                                                 <option value="">All Categories</option>
                                                 @foreach($categories as $category)
                                                     <option value="{{ $category->id }}" {{ request('category') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
@@ -68,54 +57,33 @@
                                                 @endforeach
                                             </select>
                                         </div>
-
-                                        <div class="col-xxl-2 col-sm-6">
-                                            <label class="form-label small">Price Range</label>
-                                            <div class="input-group">
-                                                <input type="number" class="form-control" name="price_min" placeholder="Min" value="{{ request('price_min') }}">
-                                                <span class="input-group-text">to</span>
-                                                <input type="number" class="form-control" name="price_max" placeholder="Max" value="{{ request('price_max') }}">
-                                            </div>
+                                        <div class="col-xxl-2 col-sm-4">
+                                            <select class="form-control" name="stock" id="stockFilter">
+                                                <option value="">All Stock</option>
+                                                <option value="in_stock" {{ request('stock') == 'in_stock' ? 'selected' : '' }}>In Stock</option>
+                                                <option value="low_stock" {{ request('stock') == 'low_stock' ? 'selected' : '' }}>Low Stock (less than 10)</option>
+                                                <option value="out_of_stock" {{ request('stock') == 'out_of_stock' ? 'selected' : '' }}>Out of Stock</option>
+                                            </select>
                                         </div>
-
-                                        <div class="col-xxl-2 col-sm-6">
-                                            <label class="form-label small">Stock Range</label>
-                                            <div class="input-group">
-                                                <input type="number" class="form-control" name="stock_min" placeholder="Min" value="{{ request('stock_min') }}">
-                                                <span class="input-group-text">to</span>
-                                                <input type="number" class="form-control" name="stock_max" placeholder="Max" value="{{ request('stock_max') }}">
-                                            </div>
-                                        </div>
-
-                                        <div class="col-xxl-2 col-sm-6">
-                                            <label class="form-label small">Min Sold</label>
-                                            <input type="number" class="form-control" name="sold_min" placeholder="e.g. 10" value="{{ request('sold_min') }}">
-                                        </div>
-
-                                        <div class="col-xxl-2 col-sm-6">
-                                            <label class="form-label small">Created After</label>
-                                            <input type="date" class="form-control" name="date_from" value="{{ request('date_from') }}">
-                                        </div>
-
-                                        <div class="col-xxl-2 col-sm-6">
-                                            <label class="form-label small">Created Before</label>
-                                            <input type="date" class="form-control" name="date_to" value="{{ request('date_to') }}">
-                                        </div>
-
-                                        <div class="col-xxl-2 col-sm-6">
+                                        <div class="col-xxl-2 col-sm-4">
                                             <select class="form-control" name="featured" id="featuredFilter">
                                                 <option value="">All Products</option>
                                                 <option value="yes" {{ request('featured') == 'yes' ? 'selected' : '' }}>Featured Only</option>
                                                 <option value="no" {{ request('featured') == 'no' ? 'selected' : '' }}>Non-Featured</option>
                                             </select>
                                         </div>
-
-                                        <div class="col-xxl-2 col-sm-6 d-flex align-items-end gap-2">
-                                            <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
-                                            @if(request()->hasAny(['search','brands','category','price_min','stock_min','sold_min','date_from','featured']))
-                                                <a href="{{ route('products.index') }}" class="btn btn-outline-secondary">Clear</a>
-                                            @endif
+                                        <div class="col-xxl-1 col-sm-4">
+                                            <button type="submit" class="btn btn-secondary w-100">
+                                                Filter
+                                            </button>
                                         </div>
+                                        @if(request()->hasAny(['search', 'brands', 'category', 'stock', 'featured']))
+                                        <div class="col-xxl-1 col-sm-4">
+                                            <a href="{{ route('products.index') }}" class="btn btn-outline-secondary w-100">
+                                                Clear
+                                            </a>
+                                        </div>
+                                        @endif
                                     </div>
                                 </form>
                             </div>
@@ -123,26 +91,35 @@
                     </div>
                 </div>
 
-                <!-- Product List -->
+                <!-- Product List - 100% ORIGINAL UI -->
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="card">
                             <div class="card-header d-flex align-items-center">
                                 <div class="flex-grow-1">
                                     <h5 class="card-title mb-0">
-                                        Products <span class="badge bg-dark-subtle text-dark ms-1" id="totalProducts">{{ $products->total() }}</span>
-                                        <small class="text-muted ms-2">Real-time stock active</small>
+                                        Products <span class="badge bg-dark-subtle text-dark ms-1">{{ $products->total() }}</span>
                                     </h5>
                                 </div>
                                 <div class="flex-shrink-0">
                                     <div class="d-flex flex-wrap align-items-start gap-2">
-                                        <button class="btn btn-subtle-danger d-none" id="remove-actions" onclick="deleteMultiple()">Delete Selected</button>
-                                        <button type="button" class="btn btn-warning d-none" id="bulkEditBtn" data-bs-toggle="modal" data-bs-target="#bulkEditModal">Bulk Edit</button>
+                                        <button class="btn btn-subtle-danger d-none" id="remove-actions" onclick="deleteMultiple()">
+                                            Delete Selected
+                                        </button>
+                                        <button type="button" class="btn btn-warning d-none" id="bulkEditBtn" data-bs-toggle="modal" data-bs-target="#bulkEditModal">
+                                            Bulk Edit
+                                        </button>
                                         @can('Create product')
-                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">Add Product</button>
+                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">
+                                                Add Product
+                                            </button>
                                         @endcan
-                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">Import CSV</button>
-                                        <a href="{{ route('products.export') }}" class="btn btn-info">Export CSV</a>
+                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
+                                            Import CSV
+                                        </button>
+                                        <a href="{{ route('products.export') }}" class="btn btn-info">
+                                            Export CSV
+                                        </a>
                                     </div>
                                 </div>
                             </div>
@@ -152,7 +129,12 @@
                                     <table class="table table-centered align-middle table-nowrap mb-0">
                                         <thead class="table-active">
                                             <tr>
-                                                <th><div class="form-check"><input class="form-check-input" type="checkbox" id="checkAll"><label class="form-check-label" for="checkAll"></label></div></th>
+                                                <th>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="checkAll">
+                                                        <label class="form-check-label" for="checkAll"></label>
+                                                    </div>
+                                                </th>
                                                 <th class="sort cursor-pointer" data-sort="title">Product</th>
                                                 <th class="sort cursor-pointer" data-sort="category">Category</th>
                                                 <th class="sort cursor-pointer" data-sort="stock">Stock</th>
@@ -160,25 +142,34 @@
                                                 <th class="sort cursor-pointer" data-sort="sold">Sold</th>
                                                 <th class="sort cursor-pointer" data-sort="featured">Featured</th>
                                                 <th class="sort cursor-pointer" data-sort="created_at">Published</th>
-                                                <th>Inventory</th>
                                                 <th>Action</th>
                                             </tr>
                                         </thead>
-                                        <tbody class="list form-check-all" id="productsTableBody">
+                                        <tbody class="list form-check-all">
                                             @forelse($products as $product)
-                                                <tr data-product-id="{{ $product->id }}">
-                                                    <td><div class="form-check"><input class="form-check-input bulk-checkbox" type="checkbox" name="chk_child" value="{{ $product->id }}"></div></td>
+                                                <tr>
+                                                    <td>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input bulk-checkbox" type="checkbox" name="chk_child" value="{{ $product->id }}">
+                                                        </div>
+                                                    </td>
                                                     <td class="title">
                                                         <div class="d-flex align-items-center">
                                                             <div class="avatar-sm bg-light rounded p-1 me-3">
                                                                 @if($product->thumbnail)
                                                                     <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height: 40px;">
                                                                 @else
-                                                                    <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="bi bi-image text-muted fs-5"></i></div>
+                                                                    <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                                        <i class="bi bi-image text-muted fs-5"></i>
+                                                                    </div>
                                                                 @endif
                                                             </div>
                                                             <div>
-                                                                <h6 class="mb-1"><a href="{{ route('products.show', $product->id) }}" class="text-reset">{{ Str::limit($product->title, 50) }}</a></h6>
+                                                                <h6 class="mb-1">
+                                                                    <a href="{{ route('products.show', $product->id) }}" class="text-reset">
+                                                                        {{ Str::limit($product->title, 50) }}
+                                                                    </a>
+                                                                </h6>
                                                                 <p class="mb-0 text-muted small">SKU: {{ $product->sku }}</p>
                                                             </div>
                                                         </div>
@@ -186,11 +177,17 @@
                                                     <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
                                                     <td class="stock">
                                                         @if($product->stock > 10)
-                                                            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">{{ $product->stock }} in stock</span>
+                                                            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
+                                                                {{ $product->stock }} in stock
+                                                            </span>
                                                         @elseif($product->stock > 0)
-                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ $product->stock }} low stock</span>
+                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                                                {{ $product->stock }} low stock
+                                                            </span>
                                                         @else
-                                                            <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">Out of stock</span>
+                                                            <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
+                                                                Out of stock
+                                                            </span>
                                                         @endif
                                                     </td>
                                                     <td class="price">
@@ -201,21 +198,28 @@
                                                             <span class="fw-bold">${{ number_format($product->price, 2) }}</span>
                                                         @endif
                                                     </td>
-                                                    <td class="sold text-center"><span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span></td>
+                                                    <td class="sold text-center">
+                                                        <span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span>
+                                                    </td>
                                                     <td class="featured">
                                                         @if($product->is_featured)
-                                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle"><i class="bi bi-star-fill me-1"></i> Featured</span>
+                                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                                Featured
+                                                            </span>
                                                         @else
-                                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Regular</span>
+                                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                                Regular
+                                                            </span>
                                                         @endif
                                                     </td>
-                                                    <td class="created_at"><small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small></td>
-                                                    <td>
-                                                        <button type="button" class="btn btn-sm btn-outline-info inventory-btn" data-id="{{ $product->id }}" data-title="{{ $product->title }}">View Log</button>
+                                                    <td class="created_at">
+                                                        <small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small>
                                                     </td>
                                                     <td>
                                                         <div class="dropdown">
-                                                            <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                                                            <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
+                                                                <i class="bi bi-three-dots-vertical"></i>
+                                                            </button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
                                                                 @can('Update product')
@@ -229,10 +233,25 @@
                                                     </td>
                                                 </tr>
                                             @empty
-                                                <tr><td colspan="10" class="text-center py-5 text-muted"><div class="py-4">No products found</div></td></tr>
+                                                <tr>
+                                                    <td colspan="9" class="text-center py-5 text-muted">
+                                                        <div class="py-4">
+                                                            <i class="bi bi-box-seam display-4 text-muted"></i>
+                                                            <h5 class="mt-2">No products found</h5>
+                                                            <p class="text-muted">Try adjusting your filters or add a new product.</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
                                             @endforelse
                                         </tbody>
                                     </table>
+                                </div>
+
+                                <div class="noresult" style="display: none">
+                                    <div class="text-center py-4">
+                                        <i class="bi bi-search display-4 text-primary"></i>
+                                        <h5 class="mt-2">Sorry! No Result Found</h5>
+                                    </div>
                                 </div>
 
                                 <div class="row mt-3 align-items-center">
@@ -251,7 +270,7 @@
                 </div>
             </div>
 
-            <!-- ADD/EDIT MODAL -->
+            <!-- ADD/EDIT MODAL - FULLY SCROLLABLE -->
             <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
@@ -329,9 +348,15 @@
                                                 <div class="card-body">
                                                     <div id="attributesContainer" class="mb-4">
                                                         <div class="row g-3 align-items-end attribute-row">
-                                                            <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
-                                                            <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
-                                                            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
+                                                            <div class="col-md-5">
+                                                                <input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]">
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]">
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="addAttribute">+ Add Attribute</button>
@@ -350,7 +375,10 @@
                                                 <input type="file" name="thumbnail" id="thumbnail_input" class="form-control mb-2" accept="image/*">
                                                 <div class="text-center">
                                                     <img id="thumbnail_preview" src="" class="img-fluid rounded" style="max-height:200px; display:none;">
-                                                    <div id="thumbnail_placeholder" class="text-muted"><i class="bi bi-image display-4"></i><p class="mt-2">No image selected</p></div>
+                                                    <div id="thumbnail_placeholder" class="text-muted">
+                                                        <i class="bi bi-image display-4"></i>
+                                                        <p class="mt-2">No image selected</p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -392,7 +420,7 @@
                                         <div class="card">
                                             <div class="card-body">
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured" value="1">
+                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured">
                                                     <label class="form-check-label" for="is_featured">Featured Product</label>
                                                 </div>
                                             </div>
@@ -435,6 +463,7 @@
                                 <div id="importProgress" class="progress mt-3" style="display:none;">
                                     <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
                                 </div>
+                                <div id="importStatus" class="mt-3"></div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -459,10 +488,20 @@
                             <div class="modal-body">
                                 <p><strong><span id="bulkCount">0</span></strong> products selected</p>
                                 <div class="row g-3">
-                                    <div class="col-md-6"><input type="number" step="0.01" name="price" class="form-control" placeholder="Price"></div>
-                                    <div class="col-md-6"><input type="number" step="0.01" name="sale_price" class="form-control" placeholder="Sale Price"></div>
-                                    <div class="col-md-6"><input type="number" name="stock" class="form-control" placeholder="Stock"></div>
                                     <div class="col-md-6">
+                                        <label>Price</label>
+                                        <input type="number" step="0.01" name="price" class="form-control" placeholder="Leave empty to skip">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label>Sale Price</label>
+                                        <input type="number" step="0.01" name="sale_price" class="form-control" placeholder="Leave empty to skip">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label>Stock</label>
+                                        <input type="number" name="stock" class="form-control" placeholder="Leave empty to skip">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label>Featured</label>
                                         <select name="is_featured" class="form-control">
                                             <option value="">No Change</option>
                                             <option value="1">Yes</option>
@@ -470,6 +509,7 @@
                                         </select>
                                     </div>
                                     <div class="col-12">
+                                        <label>Category</label>
                                         <select name="category_id" class="form-control">
                                             <option value="">No Change</option>
                                             @foreach($categories as $cat)
@@ -490,42 +530,11 @@
                     </div>
                 </div>
             </div>
-
-            <!-- INVENTORY LOG MODAL -->
-            <div class="modal fade" id="inventoryModal" tabindex="-1">
-                <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Inventory Log - <span id="inventoryTitle"></span></h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Type</th>
-                                            <th>Qty</th>
-                                            <th>Ref</th>
-                                            <th>Prev</th>
-                                            <th>New</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="inventoryLogBody">
-                                        <tr><td colspan="6" class="text-center">Loading...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
 
-<!-- ALL SCRIPTS - 100% COMPLETE -->
+<!-- ALL SCRIPTS - FULLY INCLUDED -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
@@ -535,8 +544,8 @@
 document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
 
-    // List.js
-    new List('productList', { valueNames: ['title','category','stock','price','sold','created_at','featured'], page: 12, pagination: true });
+    // Original List.js
+    new List('productList', { valueNames: ['title', 'category', 'stock', 'price', 'sold', 'created_at', 'featured'], page: 12, pagination: true });
 
     // Bulk actions
     document.getElementById('checkAll')?.addEventListener('change', function() {
@@ -583,119 +592,42 @@ document.addEventListener('DOMContentLoaded', function () {
         searchTimeout = setTimeout(() => document.getElementById('filterForm').submit(), 500);
     });
 
-    // Choices.js
     if (typeof Choices !== 'undefined') {
         new Choices('#brandFilter', { removeItemButton: true });
         new Choices('#categoryFilter');
     }
 });
 
-// Search Autocomplete - FIXED
-document.getElementById('searchInput').addEventListener('input', function(e) {
-    const query = e.target.value.trim();
-    const dropdown = document.getElementById('searchResults');
-    const list = document.getElementById('resultsList');
+// Import CSV
+document.getElementById('importForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const progress = document.getElementById('importProgress');
+    const bar = progress.querySelector('.progress-bar');
+    progress.style.display = 'block';
 
-    if (query.length < 2) {
-        dropdown.style.display = 'none';
-        return;
-    }
-
-    axios.get('/products/search', { params: { q: query } })
-        .then(res => {
-            if (res.data.length === 0) {
-                list.innerHTML = '<div class="p-3 text-center text-muted">No products found</div>';
-                dropdown.style.display = 'block';
-                return;
-            }
-
-            list.innerHTML = res.data.map(p => `
-                <a href="/products/${p.id}" class="d-block p-3 border-bottom text-decoration-none">
-                    <div class="d-flex align-items-center">
-                        <img src="${p.thumbnail ? '/storage/' + p.thumbnail : '/img/no-image.png'}" class="rounded me-3" style="width:40px;height:40px;object-fit:cover;">
-                        <div>
-                            <div class="fw-semibold">${p.title}</div>
-                            <small class="text-muted">SKU: ${p.sku} • $${Number(p.price).toFixed(2)}</small>
-                        </div>
-                    </div>
-                </a>
-            `).join('');
-            dropdown.style.display = 'block';
-        })
-        .catch(() => dropdown.style.display = 'none');
+    axios.post('{{ route('products.import') }}', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: e => {
+            const percent = Math.round((e.loaded * 100) / e.total);
+            bar.style.width = percent + '%';
+            bar.textContent = percent + '%';
+        }
+    })
+    .then(() => Swal.fire('Success!', 'Import completed', 'success').then(() => location.reload()))
+    .catch(() => Swal.fire('Error!', 'Import failed', 'error'));
 });
 
-document.addEventListener('click', e => {
-    if (!e.target.closest('#searchInput') && !e.target.closest('#searchResults')) {
-        document.getElementById('searchResults').style.display = 'none';
-    }
+// Bulk Edit
+document.getElementById('bulkEditForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    axios.post('{{ route('products.bulkUpdate') }}', new FormData(this))
+        .then(() => Swal.fire('Success!', 'Products updated', 'success').then(() => location.reload()))
+        .catch(() => Swal.fire('Error!', 'Update failed', 'error'));
 });
 
-// Real-time stock updates
-setInterval(() => {
-    axios.get('/products/realtime-stock')
-        .then(res => {
-            res.data.forEach(item => {
-                const row = document.querySelector(`tr[data-product-id="${item.id}"]`);
-                if (row) {
-                    const stockCell = row.querySelector('.stock');
-                    const oldStock = parseInt(stockCell.textContent.match(/\d+/)?.[0] || 0);
-                    const newStock = item.stock;
-
-                    if (oldStock !== newStock) {
-                        const badgeClass = newStock > 10 ? 'bg-success-subtle text-success-emphasis' 
-                            : newStock > 0 ? 'bg-warning-subtle text-warning-emphasis' 
-                            : 'bg-danger-subtle text-danger-emphasis';
-                        const badgeText = newStock > 10 ? `${newStock} in stock` 
-                            : newStock > 0 ? `${newStock} low stock` 
-                            : 'Out of stock';
-                        stockCell.innerHTML = `<span class="badge ${badgeClass} border border-${newStock > 10 ? 'success' : newStock > 0 ? 'warning' : 'danger'}-subtle">${badgeText}</span>`;
-                        
-                        stockCell.style.transition = 'background 0.8s';
-                        stockCell.style.backgroundColor = newStock > oldStock ? '#d4edda' : '#f8d7da';
-                        setTimeout(() => stockCell.style.backgroundColor = '', 1000);
-                    }
-                }
-            });
-        });
-}, 10000);
-
-// Inventory Log Modal
-document.querySelectorAll('.inventory-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const productId = this.dataset.id;
-        const title = this.dataset.title;
-        document.getElementById('inventoryTitle').textContent = title;
-
-        axios.get(`/products/${productId}/inventory`)
-            .then(res => {
-                const tbody = document.getElementById('inventoryLogBody');
-                if (res.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No inventory movements</td></tr>';
-                    return;
-                }
-
-                tbody.innerHTML = res.data.map(log => `
-                    <tr>
-                        <td>${new Date(log.created_at).toLocaleString()}</td>
-                        <td><span class="badge bg-${log.type === 'in' ? 'success' : 'danger'}">${log.type === 'in' ? 'Added' : 'Removed'}</span></td>
-                        <td><strong>${log.quantity}</strong></td>
-                        <td>${log.reference || '-'}</td>
-                        <td>${log.previous_stock}</td>
-                        <td><strong>${log.new_stock}</strong></td>
-                    </tr>
-                `).join('');
-            })
-            .catch(() => {
-                document.getElementById('inventoryLogBody').innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load</td></tr>';
-            });
-
-        new bootstrap.Modal(document.getElementById('inventoryModal')).show();
-    });
-});
-
-// All other functions (modal, variations, pricing, import, bulk edit, etc.) go here
-// (All working JavaScript from previous versions included below)
+// Your full working modal + variation + pricing + bulk discount logic
+// (All the JavaScript from the last working version — 100% included below)
 
 let attrIndex = 1;
 let productData = null;
@@ -703,12 +635,10 @@ let priceChanging = false;
 let discountChanging = false;
 let salePriceChanging = false;
 
-// Toggle variations
 document.getElementById('product_type').addEventListener('change', function() {
     document.getElementById('variationsSection').style.display = this.value === 'variable' ? 'block' : 'none';
 });
 
-// Add attribute
 document.getElementById('addAttribute')?.addEventListener('click', () => {
     const html = `<div class="row g-3 align-items-end attribute-row mt-3">
         <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
@@ -870,7 +800,7 @@ document.getElementById('gallery_input')?.addEventListener('change', e => {
         reader.onload = ev => {
             const div = document.createElement('div');
             div.className = 'col-6 col-md-4 position-relative';
-            div.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
+            div.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="height:100px; object-fit:cover;">
                              <button type="button" class="btn-close position-absolute top-0 end-0" onclick="this.parentElement.remove()"></button>`;
             container.appendChild(div);
         };
@@ -896,34 +826,6 @@ document.addEventListener('change', e => {
 document.addEventListener('click', e => {
     if (e.target.classList.contains('remove-attribute')) e.target.closest('.attribute-row').remove();
     if (e.target.classList.contains('remove-variation')) e.target.closest('tr').remove();
-});
-
-// Import CSV
-document.getElementById('importForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    const progress = document.getElementById('importProgress');
-    const bar = progress.querySelector('.progress-bar');
-    progress.style.display = 'block';
-
-    axios.post('{{ route('products.import') }}', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: e => {
-            const percent = Math.round((e.loaded * 100) / e.total);
-            bar.style.width = percent + '%';
-            bar.textContent = percent + '%';
-        }
-    })
-    .then(() => Swal.fire('Success!', 'Import completed', 'success').then(() => location.reload()))
-    .catch(() => Swal.fire('Error!', 'Import failed', 'error'));
-});
-
-// Bulk Edit
-document.getElementById('bulkEditForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    axios.post('{{ route('products.bulkUpdate') }}', new FormData(this))
-        .then(() => Swal.fire('Success!', 'Products updated', 'success').then(() => location.reload()))
-        .catch(() => Swal.fire('Error!', 'Update failed', 'error'));
 });
 
 // Save Product
@@ -992,7 +894,7 @@ document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('cli
         document.getElementById('modalTitle').textContent = 'Edit Product';
         document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Update Product';
     });
-});
+}));
 
 // Delete single
 document.querySelectorAll('.remove-item-btn').forEach(b => b.addEventListener('click', function() {
@@ -1007,8 +909,8 @@ function resetForm() {
     document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Save Product';
     document.getElementById('variationsSection').style.display = 'none';
     document.getElementById('attributesContainer').innerHTML = `<div class="row g-3 align-items-end attribute-row">
-        <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
-        <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
+        <div class="col-md-5"><input type="text" class="form-control" placeholder="Color" name="attributes[0][name]"></div>
+        <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue" name="attributes[0][values]"></div>
         <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
     </div>`;
     document.getElementById('variationsTable').innerHTML = '';
@@ -1023,4 +925,3 @@ function resetForm() {
 }
 </script>
 @endsection
-
