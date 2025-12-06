@@ -57,7 +57,7 @@
                                                     @endforeach
                                                 </select>
                                             </div>
-                                        div class="col-xxl-2 col-sm-6">
+                                            <div class="col-xxl-2 col-sm-6">
                                             <select class="form-control" name="category" id="categoryFilter" data-choices>
                                                 <option value="">All Categories</option>
                                                 @foreach($categories as $category)
