@@ -31,7 +31,7 @@
                                 <h5 class="card-title mb-0 d-flex justify-content-between align-items-center">
                                     Advanced Filters
                                     <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#advancedFilters">
-                                        <i class="bi bi-chevron-up"></i>
+                                        Collapse
                                     </button>
                                 </h5>
                             </div>
@@ -48,16 +48,16 @@
                                             </div>
                                         </div>
                                         <div class="col-xxl-2 col-sm-6">
-                                                <select class="form-control" name="brands[]" id="brandFilter" data-choices multiple>
-                                                    <option value="">All Brands</option>
-                                                    @foreach($brands as $brand)
-                                                        <option value="{{ $brand->id }}" {{ in_array($brand->id, (array)request('brands', [])) ? 'selected' : '' }}>
-                                                            {{ $brand->name }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                            <div class="col-xxl-2 col-sm-6">
+                                            <select class="form-control" name="brands[]" id="brandFilter" data-choices multiple>
+                                                <option value="">All Brands</option>
+                                                @foreach($brands as $brand)
+                                                    <option value="{{ $brand->id }}" {{ in_array($brand->id, (array)request('brands', [])) ? 'selected' : '' }}>
+                                                        {{ $brand->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                        <div class="col-xxl-2 col-sm-6">
                                             <select class="form-control" name="category" id="categoryFilter" data-choices>
                                                 <option value="">All Categories</option>
                                                 @foreach($categories as $category)
@@ -110,7 +110,7 @@
                     </div>
                 </div>
 
-                <!-- Product List Table -->
+                <!-- Product List -->
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="card">
@@ -118,7 +118,7 @@
                                 <div class="flex-grow-1">
                                     <h5 class="card-title mb-0">
                                         Products <span class="badge bg-dark-subtle text-dark ms-1" id="totalProducts">{{ $products->total() }}</span>
-                                        <small class="text-muted ms-2">Real-time stock active</small>
+                                        <small class="text-muted ms-2">Drag to reorder</small>
                                     </h5>
                                 </div>
                                 <div class="flex-shrink-0">
@@ -141,6 +141,7 @@
                                     <table class="table table-centered align-middle table-nowrap mb-0">
                                         <thead class="table-active">
                                             <tr>
+                                                <th></th>
                                                 <th>
                                                     <div class="form-check">
                                                         <input class="form-check-input" type="checkbox" id="checkAll">
@@ -158,136 +159,128 @@
                                                 <th>Action</th>
                                             </tr>
                                         </thead>
-    
-                                      <tbody class="list form-check-all">
-    @forelse($products as $product)
-        <tr data-product-id="{{ $product->id }}">
-            <td>
-                <div class="form-check">
-                    <input class="form-check-input bulk-checkbox" type="checkbox" value="{{ $product->id }}">
-                </div>
-            </td>
+                                        <tbody class="list form-check-all" id="sortableTableBody">
+                                            @forelse($products as $product)
+                                                <tr data-product-id="{{ $product->id }}" class="draggable-row">
+                                                    <td class="text-center cursor-move">
+                                                        <i class="bi bi-grip-vertical text-muted fs-4"></i>
+                                                    </td>
+                                                    <td>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input bulk-checkbox" type="checkbox" value="{{ $product->id }}">
+                                                        </div>
+                                                    </td>
 
-            <!-- Product -->
-            <td class="title">
-                <div class="d-flex align-items-center">
-                    <div class="avatar-sm bg-light rounded p-1 me-3">
-                        @if($product->thumbnail)
-                            <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height: 40px;">
-                        @else
-                            <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                <i class="bi bi-image text-muted fs-5"></i>
-                            </div>
-                        @endif
-                    </div>
-                    <div>
-                        <h6 class="mb-1">
-                            <a href="{{ route('products.show', $product->id) }}" class="text-reset">
-                                {{ Str::limit($product->title, 50) }}
-                            </a>
-                        </h6>
-                        <p class="mb-0 text-muted small">SKU: {{ $product->sku }}</p>
-                    </div>
-                </div>
-            </td>
+                                                    <td class="title">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="avatar-sm bg-light rounded p-1 me-3">
+                                                                @if($product->thumbnail)
+                                                                    <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height: 40px;">
+                                                                @else
+                                                                    <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                                        <i class="bi bi-image text-muted fs-5"></i>
+                                                                    </div>
+                                                                @endif
+                                                            </div>
+                                                            <div>
+                                                                <h6 class="mb-1">
+                                                                    <a href="{{ route('products.show', $product->id) }}" class="text-reset">
+                                                                        {{ Str::limit($product->title, 50) }}
+                                                                    </a>
+                                                                </h6>
+                                                                <p class="mb-0 text-muted small">SKU: {{ $product->sku }}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
 
-            <!-- Category -->
-            <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
+                                                    <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
 
-            <!-- Stock -->
-            <td class="stock">
-                @if($product->stock > 10)
-                    <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
-                        {{ $product->stock }} in stock
-                    </span>
-                @elseif($product->stock > 0)
-                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                        {{ $product->stock }} low stock
-                    </span>
-                @else
-                    <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
-                        Out of stock
-                    </span>
-                @endif
-            </td>
+                                                    <td class="stock">
+                                                        @if($product->stock > 10)
+                                                            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
+                                                                {{ $product->stock }} in stock
+                                                            </span>
+                                                        @elseif($product->stock > 0)
+                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                                                {{ $product->stock }} low stock
+                                                            </span>
+                                                        @else
+                                                            <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
+                                                                Out of stock
+                                                            </span>
+                                                        @endif
+                                                    </td>
 
-            <!-- Price + Sale Badge -->
-            <td class="price">
-                @if($product->sale_price && $product->sale_price < $product->price)
-                    @php $discount = round((($product->price - $product->sale_price) / $product->price) * 100); @endphp
-                    <div class="position-relative d-inline-block">
-                        <del class="text-muted small">${{ number_format($product->price, 2) }}</del><br>
-                        <span class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</span>
-                        <span class="badge bg-danger position-absolute" style="top: -8px; right: -32px; font-size: 0.65rem;">
-                            -{{ $discount }}%
-                        </span>
-                    </div>
-                @else
-                    <span class="fw-bold">${{ number_format($product->price, 2) }}</span>
-                @endif
-            </td>
+                                                    <td class="price">
+                                                        @if($product->sale_price && $product->sale_price < $product->price)
+                                                            @php $discount = round((($product->price - $product->sale_price) / $product->price) * 100); @endphp
+                                                            <div class="position-relative d-inline-block">
+                                                                <del class="text-muted small">${{ number_format($product->price, 2) }}</del><br>
+                                                                <span class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</span>
+                                                                <span class="badge bg-danger position-absolute" style="top: -8px; right: -32px; font-size: 0.65rem;">
+                                                                    -{{ $discount }}%
+                                                                </span>
+                                                            </div>
+                                                        @else
+                                                            <span class="fw-bold">${{ number_format($product->price, 2) }}</span>
+                                                        @endif
+                                                    </td>
 
-            <!-- Sold -->
-            <td class="sold text-center">
-                <span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span>
-            </td>
+                                                    <td class="sold text-center">
+                                                        <span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span>
+                                                    </td>
 
-            <!-- Featured — WITH GOLD STAR ICON -->
-            <td class="featured">
-                @if($product->is_featured)
-                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
-                        Featured
-                    </span>
-                @else
-                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                        Regular
-                    </span>
-                @endif
-            </td>
+                                                    <td class="featured">
+                                                        @if($product->is_featured)
+                                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                                Featured
+                                                            </span>
+                                                        @else
+                                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                                Regular
+                                                            </span>
+                                                        @endif
+                                                    </td>
 
-            <!-- Published -->
-            <td class="created_at">
-                <small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small>
-            </td>
+                                                    <td class="created_at">
+                                                        <small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small>
+                                                    </td>
 
-            <!-- Inventory Button -->
-            <td>
-                <button type="button" class="btn btn-sm btn-outline-info inventory-btn" data-id="{{ $product->id }}" data-title="{{ $product->title }}">
-                    View Log
-                </button>
-            </td>
+                                                    <td>
+                                                        <button type="button" class="btn btn-sm btn-outline-info inventory-btn" data-id="{{ $product->id }}" data-title="{{ $product->title }}">
+                                                            View Log
+                                                        </button>
+                                                    </td>
 
-            <!-- Action -->
-            <td>
-                <div class="dropdown">
-                    <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
-                        <i class="bi bi-three-dots-vertical"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
-                        @can('Update product')
-                            <li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Edit</a></li>
-                        @endcan
-                        @can('Delete product')
-                            <li><a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
-                        @endcan
-                    </ul>
-                </div>
-            </td>
-        </tr>
-    @empty
-        <tr>
-            <td colspan="10" class="text-center py-5 text-muted">
-                <div class="py-4">
-                    <i class="bi bi-box-seam display-4 text-muted"></i>
-                    <h5 class="mt-2">No products found</h5>
-                    <p class="text-muted">Try adjusting your filters or add a new product.</p>
-                </div>
-            </td>
-        </tr>
-    @endforelse
-</tbody>
-                                        
+                                                    <td>
+                                                        <div class="dropdown">
+                                                            <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
+                                                                <i class="bi bi-three-dots-vertical"></i>
+                                                            </button>
+                                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
+                                                                @can('Update product')
+                                                                    <li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Edit</a></li>
+                                                                @endcan
+                                                                @can('Delete product')
+                                                                    <li><a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
+                                                                @endcan
+                                                            </ul>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @empty
+                                                <tr>
+                                                    <td colspan="11" class="text-center py-5 text-muted">
+                                                        <div class="py-4">
+                                                            <i class="bi bi-box-seam display-4 text-muted"></i>
+                                                            <h5 class="mt-2">No products found</h5>
+                                                            <p class="text-muted">Try adjusting your filters or add a new product.</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
                                     </table>
                                 </div>
 
@@ -362,6 +355,7 @@
                                             </div>
                                         </div>
                                     </div>
+
                                     <div class="col-lg-4">
                                         <div class="card mb-3">
                                             <div class="card-body">
@@ -525,7 +519,7 @@
     </div>
 </div>
 
-<!-- FULLY WORKING JAVASCRIPT -->
+<!-- COMPLETE JAVASCRIPT WITH DRAG & DROP REORDERING -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
@@ -535,7 +529,32 @@
 document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
 
+    // List.js
     new List('productList', { valueNames: ['title','category','stock','price','sold','created_at','featured'], page: 15, pagination: true });
+
+    // DRAG & DROP REORDERING
+    const tbody = document.getElementById('sortableTableBody');
+    new Sortable(tbody, {
+        animation: 150,
+        ghostClass: 'bg-light',
+        handle: '.cursor-move',
+        onEnd: function (evt) {
+            const items = Array.from(tbody.querySelectorAll('.draggable-row'));
+            const newOrder = items.map((row, index) => ({
+                id: row.dataset.productId,
+                position: index + 1
+            }));
+
+            axios.post('/products/reorder', { order: newOrder })
+                .then(() => {
+                    Swal.fire({ icon: 'success', title: 'Saved!', text: 'Product order updated.', timer: 1500, showConfirmButton: false });
+                })
+                .catch(() => {
+                    Swal.fire('Error!', 'Failed to save order', 'error');
+                    location.reload();
+                });
+        }
+    });
 
     // Bulk Actions
     document.getElementById('checkAll')?.addEventListener('change', function() {
@@ -566,7 +585,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 
-    // Choices.js
     if (typeof Choices !== 'undefined') {
         new Choices('#brandFilter', { removeItemButton: true });
         new Choices('#categoryFilter');
@@ -648,16 +666,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Global Variables
+    // Product Form Variables
     let attrIndex = 1, productData = null;
     let priceChanging = false, discountChanging = false, salePriceChanging = false;
 
-    // Variations Toggle
     document.getElementById('product_type').addEventListener('change', function() {
         document.getElementById('variationsSection').style.display = this.value === 'variable' ? 'block' : 'none';
     });
 
-    // Add Attribute
     document.getElementById('addAttribute')?.addEventListener('click', () => {
         const html = `<div class="row g-3 align-items-end attribute-row mt-3">
             <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
@@ -668,7 +684,6 @@ document.addEventListener('DOMContentLoaded', function () {
         attrIndex++;
     });
 
-    // Pricing Logic
     document.getElementById('price')?.addEventListener('input', () => { if (!priceChanging) { priceChanging = true; calculateFromPrice(); priceChanging = false; } });
     document.getElementById('discount_percent')?.addEventListener('input', () => { if (!discountChanging) { discountChanging = true; calculateFromDiscount(); discountChanging = false; } });
     document.getElementById('sale_price')?.addEventListener('input', () => { if (!salePriceChanging) { salePriceChanging = true; calculateFromSalePrice(); salePriceChanging = false; } });
@@ -699,7 +714,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Bulk Discount
     document.getElementById('applyBulkDiscount')?.addEventListener('click', () => {
         const bulk = parseFloat(document.getElementById('bulk_discount').value) || 0;
         if (bulk < 0 || bulk > 100) return;
@@ -711,7 +725,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Generate Variations
     document.getElementById('generateVariations')?.addEventListener('click', () => {
         const attrs = [];
         document.querySelectorAll('.attribute-row').forEach(row => {
@@ -743,7 +756,6 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('variationsTable').innerHTML = html;
     });
 
-    // Image Previews
     document.getElementById('thumbnail_input')?.addEventListener('change', e => {
         if (e.target.files[0]) {
             const reader = new FileReader();
@@ -789,7 +801,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target.classList.contains('remove-variation')) e.target.closest('tr').remove();
     });
 
-    // Import
     document.getElementById('importForm')?.addEventListener('submit', function(e) {
         e.preventDefault();
         const formData = new FormData(this);
@@ -808,7 +819,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }).catch(() => Swal.fire('Error!', 'Import failed', 'error'));
     });
 
-    // Bulk Edit
     document.getElementById('bulkEditForm')?.addEventListener('submit', function(e) {
         e.preventDefault();
         axios.post('{{ route('products.bulkUpdate') }}', new FormData(this))
@@ -816,7 +826,6 @@ document.addEventListener('DOMContentLoaded', function () {
             .catch(() => Swal.fire('Error!', 'Update failed', 'error'));
     });
 
-    // Save Product
     document.getElementById('productForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const id = document.getElementById('product_id').value;
@@ -837,7 +846,6 @@ document.addEventListener('DOMContentLoaded', function () {
             .finally(() => { btn.disabled = false; spinner.classList.add('d-none'); });
     });
 
-    // Edit Product (delegated)
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('edit-item-btn') || (e.target.parentElement && e.target.parentElement.classList.contains('edit-item-btn'))) {
             const link = e.target.closest('.edit-item-btn');
@@ -857,14 +865,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('product_type').value = data.product_type || 'simple';
                 document.getElementById('is_featured').checked = !!data.is_featured;
 
-                // Thumbnail
                 if (data.thumbnail) {
                     document.getElementById('thumbnail_preview').src = data.thumbnail;
                     document.getElementById('thumbnail_preview').style.display = 'block';
                     document.getElementById('thumbnail_placeholder').style.display = 'none';
                 }
 
-                // Gallery
                 document.getElementById('imageGallery').innerHTML = '';
                 (data.gallery || []).forEach(img => {
                     const div = document.createElement('div');
