@@ -439,7 +439,6 @@ class ProductController extends Controller
     }
 
 
-
     public function import(Request $request)
     {
         $request->validate(['file' => 'required|mimes:csv,txt']);

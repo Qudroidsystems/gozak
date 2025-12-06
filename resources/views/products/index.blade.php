@@ -7,262 +7,209 @@
     <div class="page-content">
         <div class="container-fluid">
 
-            <!-- Page Title -->
+        <!-- Page Title -->
+        <div class="row">
+            <div class="col-12">
+                <div class="page-title-box d-sm-flex align-items-center justify-content-between">
+                    <h4 class="mb-sm-0">{{ $pagetitle ?? 'Product Management' }}</h4>
+                    <div class="page-title-right">
+                        <ol class="breadcrumb m-0">
+                            <li class="breadcrumb-item"><a href="javascript:void(0)">Ecommerce</a></li>
+                            <li class="breadcrumb-item active">Products</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="productList">
+            <!-- Filters -->
             <div class="row">
-                <div class="col-12">
-                    <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0">{{ $pagetitle ?? 'Product Management' }}</h4>
-                        <div class="page-title-right">
-                            <ol class="breadcrumb m-0">
-                                <li class="breadcrumb-item"><a href="javascript:void(0)">Ecommerce</a></li>
-                                <li class="breadcrumb-item active">Products</li>
-                            </ol>
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <form id="filterForm" method="GET" action="{{ route('products.index') }}">
+                                <div class="row g-3">
+                                    <div class="col-xxl-3">
+                                        <div class="search-box position-relative">
+                                            <input type="text" class="form-control search" id="searchInput" name="search" placeholder="Search products, SKU, price..." value="{{ request('search') }}" autocomplete="off">
+                                            <i class="ri-search-line search-icon"></i>
+                                        </div>
+                                        <!-- AUTOCOMPLETE DROPDOWN -->
+                                        <div id="searchResults" class="position-absolute bg-white border rounded shadow-lg mt-1" style="top:100%; left:0; width:100%; max-height:400px; overflow-y:auto; z-index:9999; display:none;">
+                                            <div id="resultsList"></div>
+                                        </div>
+                                    </div>
+                                    <div class="col-xxl-2 col-sm-6">
+                                        <select class="form-control" name="brands[]" id="brandFilter" data-choices data-choices-search-false multiple>
+                                            <option value="">All Brands</option>
+                                            @foreach($brands as $brand)
+                                                <option value="{{ $brand->id }}" {{ in_array($brand->id, (array)request('brands', [])) ? 'selected' : '' }}>{{ $brand->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-xxl-2 col-sm-6">
+                                        <select class="form-control" name="category" id="categoryFilter" data-choices data-choices-search-false>
+                                            <option value="">All Categories</option>
+                                            @foreach($categories as $category)
+                                                <option value="{{ $category->id }}" {{ request('category') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
+                                                @if($category->children->count())
+                                                    @foreach($category->children as $child)
+                                                        <option value="{{ $child->id }}" {{ request('category') == $child->id ? 'selected' : '' }}>— {{ $child->name }}</option>
+                                                    @endforeach
+                                                @endif
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-xxl-2 col-sm-4">
+                                        <select class="form-control" name="stock" id="stockFilter">
+                                            <option value="">All Stock</option>
+                                            <option value="in_stock" {{ request('stock') == 'in_stock' ? 'selected' : '' }}>In Stock</option>
+                                            <option value="low_stock" {{ request('stock') == 'low_stock' ? 'selected' : '' }}>Low Stock (less than 10)</option>
+                                            <option value="out_of_stock" {{ request('stock') == 'out_of_stock' ? 'selected' : '' }}>Out of Stock</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-xxl-2 col-sm-4">
+                                        <select class="form-control" name="featured" id="featuredFilter">
+                                            <option value="">All Products</option>
+                                            <option value="yes" {{ request('featured') == 'yes' ? 'selected' : '' }}>Featured Only</option>
+                                            <option value="no" {{ request('featured') == 'no' ? 'selected' : '' }}>Non-Featured</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-xxl-1 col-sm-4">
+                                        <button type="submit" class="btn btn-secondary w-100">Filter</button>
+                                    </div>
+                                    @if(request()->hasAny(['search','brands','category','stock','featured']))
+                                    <div class="col-xxl-1 col-sm-4">
+                                        <a href="{{ route('products.index') }}" class="btn btn-outline-secondary w-100">Clear</a>
+                                    </div>
+                                    @endif
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div id="productList">
-                <!-- Filters -->
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <form id="filterForm" method="GET" action="{{ route('products.index') }}">
-                                    <div class="row g-3">
-                                        <div class="col-xxl-3">
-                                            <div class="search-box">
-                                                <input type="text" class="form-control search" name="search" placeholder="Search products, SKU, price..." value="{{ request('search') }}" autocomplete="off">
-                                                <i class="ri-search-line search-icon"></i>
-                                            </div>
-                                        </div>
-                                        <div class="col-xxl-2 col-sm-6">
-                                            <select class="form-control" name="brands[]" id="brandFilter" data-choices data-choices-search-false multiple>
-                                                <option value="">All Brands</option>
-                                                @foreach($brands as $brand)
-                                                    <option value="{{ $brand->id }}" {{ in_array($brand->id, (array)request('brands', [])) ? 'selected' : '' }}>{{ $brand->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-xxl-2 col-sm-6">
-                                            <select class="form-control" name="category" id="categoryFilter" data-choices data-choices-search-false>
-                                                <option value="">All Categories</option>
-                                                @foreach($categories as $category)
-                                                    <option value="{{ $category->id }}" {{ request('category') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
-                                                    @if($category->children->count())
-                                                        @foreach($category->children as $child)
-                                                            <option value="{{ $child->id }}" {{ request('category') == $child->id ? 'selected' : '' }}>— {{ $child->name }}</option>
-                                                        @endforeach
-                                                    @endif
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-xxl-2 col-sm-4">
-                                            <select class="form-control" name="stock" id="stockFilter">
-                                                <option value="">All Stock</option>
-                                                <option value="in_stock" {{ request('stock') == 'in_stock' ? 'selected' : '' }}>In Stock</option>
-                                                <option value="low_stock" {{ request('stock') == 'low_stock' ? 'selected' : '' }}>Low Stock (less than 10)</option>
-                                                <option value="out_of_stock" {{ request('stock') == 'out_of_stock' ? 'selected' : '' }}>Out of Stock</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-xxl-2 col-sm-4">
-                                            <select class="form-control" name="featured" id="featuredFilter">
-                                                <option value="">All Products</option>
-                                                <option value="yes" {{ request('featured') == 'yes' ? 'selected' : '' }}>Featured Only</option>
-                                                <option value="no" {{ request('featured') == 'no' ? 'selected' : '' }}>Non-Featured</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-xxl-1 col-sm-4">
-                                            <button type="submit" class="btn btn-secondary w-100">
-                                                Filter
-                                            </button>
-                                        </div>
-                                        @if(request()->hasAny(['search', 'brands', 'category', 'stock', 'featured']))
-                                        <div class="col-xxl-1 col-sm-4">
-                                            <a href="{{ route('products.index') }}" class="btn btn-outline-secondary w-100">
-                                                Clear
-                                            </a>
-                                        </div>
-                                        @endif
-                                    </div>
-                                </form>
+            <!-- Product List -->
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-header d-flex align-items-center">
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-0">
+                                    Products <span class="badge bg-dark-subtle text-dark ms-1">{{ $products->total() }}</span>
+                                </h5>
+                            </div>
+                            <div class="flex-shrink-0">
+                                <div class="d-flex flex-wrap align-items-start gap-2">
+                                    <button class="btn btn-subtle-danger d-none" id="remove-actions" onclick="deleteMultiple()">Delete Selected</button>
+                                    <button type="button" class="btn btn-warning d-none" id="bulkEditBtn" data-bs-toggle="modal" data-bs-target="#bulkEditModal">Bulk Edit</button>
+                                    @can('Create product')
+                                        <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">Add Product</button>
+                                    @endcan
+                                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">Import CSV</button>
+                                    <a href="{{ route('products.export') }}" class="btn btn-info">Export CSV</a>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Product List - 100% ORIGINAL UI -->
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="card">
-                            <div class="card-header d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <h5 class="card-title mb-0">
-                                        Products <span class="badge bg-dark-subtle text-dark ms-1">{{ $products->total() }}</span>
-                                    </h5>
-                                </div>
-                                <div class="flex-shrink-0">
-                                    <div class="d-flex flex-wrap align-items-start gap-2">
-                                        <button class="btn btn-subtle-danger d-none" id="remove-actions" onclick="deleteMultiple()">
-                                            Delete Selected
-                                        </button>
-                                        <button type="button" class="btn btn-warning d-none" id="bulkEditBtn" data-bs-toggle="modal" data-bs-target="#bulkEditModal">
-                                            Bulk Edit
-                                        </button>
-                                        @can('Create product')
-                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">
-                                                Add Product
-                                            </button>
-                                        @endcan
-                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
-                                            Import CSV
-                                        </button>
-                                        <a href="{{ route('products.export') }}" class="btn btn-info">
-                                            Export CSV
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-centered align-middle table-nowrap mb-0">
-                                        <thead class="table-active">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-centered align-middle table-nowrap mb-0">
+                                    <thead class="table-active">
+                                        <tr>
+                                            <th><div class="form-check"><input class="form-check-input" type="checkbox" id="checkAll"><label class="form-check-label" for="checkAll"></label></div></th>
+                                            <th class="sort cursor-pointer" data-sort="title">Product</th>
+                                            <th class="sort cursor-pointer" data-sort="category">Category</th>
+                                            <th class="sort cursor-pointer" data-sort="stock">Stock</th>
+                                            <th class="sort cursor-pointer" data-sort="price">Price</th>
+                                            <th class="sort cursor-pointer" data-sort="sold">Sold</th>
+                                            <th class="sort cursor-pointer" data-sort="featured">Featured</th>
+                                            <th class="sort cursor-pointer" data-sort="created_at">Published</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="list form-check-all">
+                                        @forelse($products as $product)
                                             <tr>
-                                                <th>
-                                                    <div class="form-check">
-                                                        <input class="form-check-input" type="checkbox" id="checkAll">
-                                                        <label class="form-check-label" for="checkAll"></label>
+                                                <td><div class="form-check"><input class="form-check-input bulk-checkbox" type="checkbox" name="chk_child" value="{{ $product->id }}"></div></td>
+                                                <td class="title">
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="avatar-sm bg-light rounded p-1 me-3">
+                                                            @if($product->thumbnail)
+                                                                <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height: 40px;">
+                                                            @else
+                                                                <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;"><i class="bi bi-image text-muted fs-5"></i></div>
+                                                            @endif
+                                                        </div>
+                                                        <div>
+                                                            <h6 class="mb-1"><a href="{{ route('products.show', $product->id) }}" class="text-reset">{{ Str::limit($product->title, 50) }}</a></h6>
+                                                            <p class="mb-0 text-muted small">SKU: {{ $product->sku }}</p>
+                                                        </div>
                                                     </div>
-                                                </th>
-                                                <th class="sort cursor-pointer" data-sort="title">Product</th>
-                                                <th class="sort cursor-pointer" data-sort="category">Category</th>
-                                                <th class="sort cursor-pointer" data-sort="stock">Stock</th>
-                                                <th class="sort cursor-pointer" data-sort="price">Price</th>
-                                                <th class="sort cursor-pointer" data-sort="sold">Sold</th>
-                                                <th class="sort cursor-pointer" data-sort="featured">Featured</th>
-                                                <th class="sort cursor-pointer" data-sort="created_at">Published</th>
-                                                <th>Action</th>
+                                                </td>
+                                                <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
+                                                <td class="stock">
+                                                    @if($product->stock > 10)
+                                                        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">{{ $product->stock }} in stock</span>
+                                                    @elseif($product->stock > 0)
+                                                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ $product->stock }} low stock</span>
+                                                    @else
+                                                        <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">Out of stock</span>
+                                                    @endif
+                                                </td>
+                                                <td class="price">
+                                                    @if($product->sale_price)
+                                                        <del class="text-muted small">${{ number_format($product->price, 2) }}</del><br>
+                                                        <span class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</span>
+                                                    @else
+                                                        <span class="fw-bold">${{ number_format($product->price, 2) }}</span>
+                                                    @endif
+                                                </td>
+                                                <td class="sold text-center"><span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span></td>
+                                                <td class="featured">
+                                                    @if($product->is_featured)
+                                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                                            <i class="bi bi-star-fill me-1"></i> Featured
+                                                        </span>
+                                                    @else
+                                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+                                                            Regular
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td class="created_at"><small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small></td>
+                                                <td>
+                                                    <div class="dropdown">
+                                                        <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                                                        <ul class="dropdown-menu dropdown-menu-end">
+                                                            <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
+                                                            @can('Update product')
+                                                                <li><a class="dropdown-item edit-item-btn" href="#showModal" data-bs-toggle="modal" data-id="{{ $product->id }}">Edit</a></li>
+                                                            @endcan
+                                                            @can('Delete product')
+                                                                <li><a class="dropdown-item remove-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
+                                                            @endcan
+                                                        </ul>
+                                                    </div>
+                                                </td>
                                             </tr>
-                                        </thead>
-                                        <tbody class="list form-check-all">
-                                            @forelse($products as $product)
-                                                <tr>
-                                                    <td>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input bulk-checkbox" type="checkbox" name="chk_child" value="{{ $product->id }}">
-                                                        </div>
-                                                    </td>
-                                                    <td class="title">
-                                                        <div class="d-flex align-items-center">
-                                                            <div class="avatar-sm bg-light rounded p-1 me-3">
-                                                                @if($product->thumbnail)
-                                                                    <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height: 40px;">
-                                                                @else
-                                                                    <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                                                        <i class="bi bi-image text-muted fs-5"></i>
-                                                                    </div>
-                                                                @endif
-                                                            </div>
-                                                            <div>
-                                                                <h6 class="mb-1">
-                                                                    <a href="{{ route('products.show', $product->id) }}" class="text-reset">
-                                                                        {{ Str::limit($product->title, 50) }}
-                                                                    </a>
-                                                                </h6>
-                                                                <p class="mb-0 text-muted small">SKU: {{ $product->sku }}</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
-                                                    <td class="stock">
-                                                        @if($product->stock > 10)
-                                                            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
-                                                                {{ $product->stock }} in stock
-                                                            </span>
-                                                        @elseif($product->stock > 0)
-                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                                                                {{ $product->stock }} low stock
-                                                            </span>
-                                                        @else
-                                                            <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
-                                                                Out of stock
-                                                            </span>
-                                                        @endif
-                                                    </td>
-                                                    <td class="price">
-                                                        @if($product->sale_price)
-                                                            <del class="text-muted small">${{ number_format($product->price, 2) }}</del><br>
-                                                            <span class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</span>
-                                                        @else
-                                                            <span class="fw-bold">${{ number_format($product->price, 2) }}</span>
-                                                        @endif
-                                                    </td>
-                                                    <td class="sold text-center">
-                                                        <span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span>
-                                                    </td>
-                                                    <td class="featured">
-                                                        @if($product->is_featured)
-                                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
-                                                                Featured
-                                                            </span>
-                                                        @else
-                                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
-                                                                Regular
-                                                            </span>
-                                                        @endif
-                                                    </td>
-                                                    <td class="created_at">
-                                                        <small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small>
-                                                    </td>
-                                                    <td>
-                                                        <div class="dropdown">
-                                                            <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
-                                                                <i class="bi bi-three-dots-vertical"></i>
-                                                            </button>
-                                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                                <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
-                                                                @can('Update product')
-                                                                    <li><a class="dropdown-item edit-item-btn" href="#showModal" data-bs-toggle="modal" data-id="{{ $product->id }}">Edit</a></li>
-                                                                @endcan
-                                                                @can('Delete product')
-                                                                    <li><a class="dropdown-item remove-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
-                                                                @endcan
-                                                            </ul>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            @empty
-                                                <tr>
-                                                    <td colspan="9" class="text-center py-5 text-muted">
-                                                        <div class="py-4">
-                                                            <i class="bi bi-box-seam display-4 text-muted"></i>
-                                                            <h5 class="mt-2">No products found</h5>
-                                                            <p class="text-muted">Try adjusting your filters or add a new product.</p>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
+                                        @empty
+                                            <tr><td colspan="9" class="text-center py-5 text-muted"><div class="py-4">No products found</div></td></tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
 
-                                <div class="noresult" style="display: none">
-                                    <div class="text-center py-4">
-                                        <i class="bi bi-search display-4 text-primary"></i>
-                                        <h5 class="mt-2">Sorry! No Result Found</h5>
+                            <div class="row mt-3 align-items-center">
+                                <div class="col-sm">
+                                    <div class="text-muted text-center text-sm-start">
+                                        Showing {{ $products->firstItem() }} to {{ $products->lastItem() }} of {{ $products->total() }} Results
                                     </div>
                                 </div>
-
-                                <div class="row mt-3 align-items-center">
-                                    <div class="col-sm">
-                                        <div class="text-muted text-center text-sm-start">
-                                            Showing {{ $products->firstItem() }} to {{ $products->lastItem() }} of {{ $products->total() }} Results
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-auto mt-3 mt-sm-0">
-                                        {!! $products->appends(request()->query())->links('pagination::bootstrap-5') !!}
-                                    </div>
+                                <div class="col-sm-auto mt-3 mt-sm-0">
+                                    {!! $products->appends(request()->query())->links('pagination::bootstrap-5') !!}
                                 </div>
                             </div>
                         </div>
@@ -270,7 +217,7 @@
                 </div>
             </div>
 
-            <!-- ADD/EDIT MODAL - FULLY SCROLLABLE -->
+            <!-- ADD/EDIT MODAL -->
             <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
@@ -348,15 +295,9 @@
                                                 <div class="card-body">
                                                     <div id="attributesContainer" class="mb-4">
                                                         <div class="row g-3 align-items-end attribute-row">
-                                                            <div class="col-md-5">
-                                                                <input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]">
-                                                            </div>
-                                                            <div class="col-md-6">
-                                                                <input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]">
-                                                            </div>
-                                                            <div class="col-md-1">
-                                                                <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
-                                                            </div>
+                                                            <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
+                                                            <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
+                                                            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
                                                         </div>
                                                     </div>
                                                     <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="addAttribute">+ Add Attribute</button>
@@ -375,10 +316,7 @@
                                                 <input type="file" name="thumbnail" id="thumbnail_input" class="form-control mb-2" accept="image/*">
                                                 <div class="text-center">
                                                     <img id="thumbnail_preview" src="" class="img-fluid rounded" style="max-height:200px; display:none;">
-                                                    <div id="thumbnail_placeholder" class="text-muted">
-                                                        <i class="bi bi-image display-4"></i>
-                                                        <p class="mt-2">No image selected</p>
-                                                    </div>
+                                                    <div id="thumbnail_placeholder" class="text-muted"><i class="bi bi-image display-4"></i><p class="mt-2">No image selected</p></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -420,7 +358,7 @@
                                         <div class="card">
                                             <div class="card-body">
                                                 <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured">
+                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured" value="1">
                                                     <label class="form-check-label" for="is_featured">Featured Product</label>
                                                 </div>
                                             </div>
@@ -534,7 +472,7 @@
     </div>
 </div>
 
-<!-- ALL SCRIPTS - FULLY INCLUDED -->
+<!-- ALL SCRIPTS - 100% COMPLETE -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
@@ -543,9 +481,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
+    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-    // Original List.js
-    new List('productList', { valueNames: ['title', 'category', 'stock', 'price', 'sold', 'created_at', 'featured'], page: 12, pagination: true });
+    // List.js
+    new List('productList', { valueNames: ['title','category','stock','price','sold','created_at','featured'], page: 12, pagination: true });
 
     // Bulk actions
     document.getElementById('checkAll')?.addEventListener('change', function() {
@@ -598,47 +537,61 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// Import CSV
-document.getElementById('importForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    const progress = document.getElementById('importProgress');
-    const bar = progress.querySelector('.progress-bar');
-    progress.style.display = 'block';
+// PRODUCT SEARCH AUTOCOMPLETE
+document.getElementById('searchInput').addEventListener('input', function(e) {
+    const query = e.target.value.trim();
+    const dropdown = document.getElementById('searchResults');
+    const list = document.getElementById('resultsList');
 
-    axios.post('{{ route('products.import') }}', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: e => {
-            const percent = Math.round((e.loaded * 100) / e.total);
-            bar.style.width = percent + '%';
-            bar.textContent = percent + '%';
-        }
-    })
-    .then(() => Swal.fire('Success!', 'Import completed', 'success').then(() => location.reload()))
-    .catch(() => Swal.fire('Error!', 'Import failed', 'error'));
+    if (query.length < 2) {
+        dropdown.style.display = 'none';
+        return;
+    }
+
+    axios.get('/products/search', { params: { q: query } })
+        .then(res => {
+            if (res.data.length === 0) {
+                list.innerHTML = '<div class="p-3 text-center text-muted">No products found</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+
+            list.innerHTML = res.data.map(p => `
+                <a href="{{ route('products.show', '') }}${p.id}" class="d-block p-3 border-bottom text-decoration-none">
+                    <div class="d-flex align-items-center">
+                        <img src="${p.thumbnail ? asset('storage/' + p.thumbnail) : '/img/no-image.png'}" class="rounded me-3" style="width:40px;height:40px;object-fit:cover;">
+                        <div>
+                            <div class="fw-semibold">${p.title}</div>
+                            <small class="text-muted">SKU: ${p.sku} • $${p.price}</small>
+                        </div>
+                    </div>
+                </a>
+            `).join('');
+            dropdown.style.display = 'block';
+        })
+        .catch(() => dropdown.style.display = 'none');
 });
 
-// Bulk Edit
-document.getElementById('bulkEditForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    axios.post('{{ route('products.bulkUpdate') }}', new FormData(this))
-        .then(() => Swal.fire('Success!', 'Products updated', 'success').then(() => location.reload()))
-        .catch(() => Swal.fire('Error!', 'Update failed', 'error'));
+// Hide dropdown when clicking outside
+document.addEventListener('click', e => {
+    if (!e.target.closest('#searchInput') && !e.target.closest('#searchResults')) {
+        document.getElementById('searchResults').style.display = 'none';
+    }
 });
 
-// Your full working modal + variation + pricing + bulk discount logic
-// (All the JavaScript from the last working version — 100% included below)
-
+// GLOBAL VARIABLES
 let attrIndex = 1;
 let productData = null;
 let priceChanging = false;
 let discountChanging = false;
 let salePriceChanging = false;
 
+// Toggle variations
 document.getElementById('product_type').addEventListener('change', function() {
     document.getElementById('variationsSection').style.display = this.value === 'variable' ? 'block' : 'none';
 });
 
+// Add attribute
 document.getElementById('addAttribute')?.addEventListener('click', () => {
     const html = `<div class="row g-3 align-items-end attribute-row mt-3">
         <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
@@ -800,7 +753,7 @@ document.getElementById('gallery_input')?.addEventListener('change', e => {
         reader.onload = ev => {
             const div = document.createElement('div');
             div.className = 'col-6 col-md-4 position-relative';
-            div.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="height:100px; object-fit:cover;">
+            div.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
                              <button type="button" class="btn-close position-absolute top-0 end-0" onclick="this.parentElement.remove()"></button>`;
             container.appendChild(div);
         };
@@ -826,6 +779,34 @@ document.addEventListener('change', e => {
 document.addEventListener('click', e => {
     if (e.target.classList.contains('remove-attribute')) e.target.closest('.attribute-row').remove();
     if (e.target.classList.contains('remove-variation')) e.target.closest('tr').remove();
+});
+
+// Import CSV
+document.getElementById('importForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const progress = document.getElementById('importProgress');
+    const bar = progress.querySelector('.progress-bar');
+    progress.style.display = 'block';
+
+    axios.post('{{ route('products.import') }}', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: e => {
+            const percent = Math.round((e.loaded * 100) / e.total);
+            bar.style.width = percent + '%';
+            bar.textContent = percent + '%';
+        }
+    })
+    .then(() => Swal.fire('Success!', 'Import completed', 'success').then(() => location.reload()))
+    .catch(() => Swal.fire('Error!', 'Import failed', 'error'));
+});
+
+// Bulk Edit
+document.getElementById('bulkEditForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    axios.post('{{ route('products.bulkUpdate') }}', new FormData(this))
+        .then(() => Swal.fire('Success!', 'Products updated', 'success').then(() => location.reload()))
+        .catch(() => Swal.fire('Error!', 'Update failed', 'error'));
 });
 
 // Save Product
@@ -894,7 +875,7 @@ document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('cli
         document.getElementById('modalTitle').textContent = 'Edit Product';
         document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Update Product';
     });
-}));
+});
 
 // Delete single
 document.querySelectorAll('.remove-item-btn').forEach(b => b.addEventListener('click', function() {
@@ -909,8 +890,8 @@ function resetForm() {
     document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Save Product';
     document.getElementById('variationsSection').style.display = 'none';
     document.getElementById('attributesContainer').innerHTML = `<div class="row g-3 align-items-end attribute-row">
-        <div class="col-md-5"><input type="text" class="form-control" placeholder="Color" name="attributes[0][name]"></div>
-        <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue" name="attributes[0][values]"></div>
+        <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
+        <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
         <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
     </div>`;
     document.getElementById('variationsTable').innerHTML = '';
@@ -925,3 +906,4 @@ function resetForm() {
 }
 </script>
 @endsection
+
