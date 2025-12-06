@@ -154,7 +154,7 @@
                             </li>
                         @endcan
                         
-                        @can('View role|View permission')
+                        @can('View role')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarroles" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarPages">
                                     <i class="ph-address-book"></i> <span data-key="t-pages">Roles And Permissions</span>
