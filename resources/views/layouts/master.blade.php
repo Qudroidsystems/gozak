@@ -256,7 +256,7 @@
                         <!-- INVENTORY MANAGEMENT MENU -->
                         <!-- =========================================== -->
                         
-                        @can('View inventory|Manage inventory')
+                        @can('View inventory')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarmanageinventory" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarmanageinventory">
                                     <i class="ph-warehouse"></i> <span data-key="t-authentication">Inventory Management</span>
