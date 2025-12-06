@@ -143,6 +143,7 @@
                                         @endcan
                                         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">Import CSV</button>
                                         <a href="{{ route('products.export') }}" class="btn btn-info">Export CSV</a>
+                                        <a href="{{ route('products.template') }}" class="btn btn-outline-primary">Download Template</a>
                                     </div>
                                 </div>
                             </div>
@@ -164,7 +165,7 @@
                                                 <th>Action</th>
                                             </tr>
                                         </thead>
-                                        <tbody class="list form-check-all" id="productsTableBody">
+                                        <tbody class="list form-check-all">
                                             @forelse($products as $product)
                                                 <tr data-product-id="{{ $product->id }}">
                                                     <td><div class="form-check"><input class="form-check-input bulk-checkbox" type="checkbox" name="chk_child" value="{{ $product->id }}"></div></td>
@@ -211,7 +212,11 @@
                                                     </td>
                                                     <td class="created_at"><small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small></td>
                                                     <td>
-                                                        <button type="button" class="btn btn-sm btn-outline-info inventory-btn" data-id="{{ $product->id }}" data-title="{{ $product->title }}">View Log</button>
+                                                        <button type="button" class="btn btn-sm btn-outline-info inventory-btn" 
+                                                                data-id="{{ $product->id }}" 
+                                                                data-title="{{ $product->title }}">
+                                                            View Log
+                                                        </button>
                                                     </td>
                                                     <td>
                                                         <div class="dropdown">
@@ -590,7 +595,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 
-// Search Autocomplete - FIXED
+// Search Autocomplete
 document.getElementById('searchInput').addEventListener('input', function(e) {
     const query = e.target.value.trim();
     const dropdown = document.getElementById('searchResults');
@@ -663,22 +668,26 @@ setInterval(() => {
 // Inventory Log Modal
 document.querySelectorAll('.inventory-btn').forEach(btn => {
     btn.addEventListener('click', function() {
-        const productId = this.dataset.id;
-        const title = this.dataset.title;
+        const productId = this.getAttribute('data-id');
+        const title = this.getAttribute('data-title');
         document.getElementById('inventoryTitle').textContent = title;
 
         axios.get(`/products/${productId}/inventory`)
             .then(res => {
                 const tbody = document.getElementById('inventoryLogBody');
-                if (res.data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No inventory movements</td></tr>';
+                if (!res.data || res.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No inventory movements recorded</td></tr>';
                     return;
                 }
 
                 tbody.innerHTML = res.data.map(log => `
                     <tr>
                         <td>${new Date(log.created_at).toLocaleString()}</td>
-                        <td><span class="badge bg-${log.type === 'in' ? 'success' : 'danger'}">${log.type === 'in' ? 'Added' : 'Removed'}</span></td>
+                        <td>
+                            <span class="badge bg-${log.type === 'in' ? 'success' : 'danger'}">
+                                ${log.type === 'in' ? 'Added' : 'Removed'}
+                            </span>
+                        </td>
                         <td><strong>${log.quantity}</strong></td>
                         <td>${log.reference || '-'}</td>
                         <td>${log.previous_stock}</td>
@@ -687,215 +696,12 @@ document.querySelectorAll('.inventory-btn').forEach(btn => {
                 `).join('');
             })
             .catch(() => {
-                document.getElementById('inventoryLogBody').innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load</td></tr>';
+                document.getElementById('inventoryLogBody').innerHTML = '<tr><td colspan="6" class="text-center text-danger">Failed to load log</td></tr>';
             });
 
-        new bootstrap.Modal(document.getElementById('inventoryModal')).show();
+        const modal = new bootstrap.Modal(document.getElementById('inventoryModal'));
+        modal.show();
     });
-});
-
-// All other functions (modal, variations, pricing, import, bulk edit, etc.) go here
-// (All working JavaScript from previous versions included below)
-
-let attrIndex = 1;
-let productData = null;
-let priceChanging = false;
-let discountChanging = false;
-let salePriceChanging = false;
-
-// Toggle variations
-document.getElementById('product_type').addEventListener('change', function() {
-    document.getElementById('variationsSection').style.display = this.value === 'variable' ? 'block' : 'none';
-});
-
-// Add attribute
-document.getElementById('addAttribute')?.addEventListener('click', () => {
-    const html = `<div class="row g-3 align-items-end attribute-row mt-3">
-        <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
-        <div class="col-md-6"><input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]"></div>
-        <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
-    </div>`;
-    document.getElementById('attributesContainer').insertAdjacentHTML('beforeend', html);
-    attrIndex++;
-});
-
-// Bidirectional pricing
-document.getElementById('price')?.addEventListener('input', () => { if (!priceChanging) { priceChanging = true; calculateFromPrice(); priceChanging = false; } });
-document.getElementById('discount_percent')?.addEventListener('input', () => { if (!discountChanging) { discountChanging = true; calculateFromDiscount(); discountChanging = false; } });
-document.getElementById('sale_price')?.addEventListener('input', () => { if (!salePriceChanging) { salePriceChanging = true; calculateFromSalePrice(); salePriceChanging = false; } });
-
-function calculateFromPrice() {
-    const price = parseFloat(document.getElementById('price').value) || 0;
-    const discount = parseFloat(document.getElementById('discount_percent').value) || 0;
-    if (discount > 0 && discount <= 100) {
-        document.getElementById('sale_price').value = (price - (price * discount / 100)).toFixed(2);
-        document.getElementById('sale_price_note').style.display = 'block';
-    }
-}
-
-function calculateFromDiscount() {
-    const price = parseFloat(document.getElementById('price').value) || 0;
-    const discount = parseFloat(document.getElementById('discount_percent').value) || 0;
-    if (price > 0 && discount > 0 && discount <= 100) {
-        document.getElementById('sale_price').value = (price - (price * discount / 100)).toFixed(2);
-        document.getElementById('sale_price_note').style.display = 'block';
-    }
-}
-
-function calculateFromSalePrice() {
-    const price = parseFloat(document.getElementById('price').value) || 0;
-    const salePrice = parseFloat(document.getElementById('sale_price').value) || 0;
-    if (price > 0 && salePrice > 0 && salePrice < price) {
-        const discount = ((price - salePrice) / price) * 100;
-        document.getElementById('discount_percent').value = discount.toFixed(2);
-        document.getElementById('sale_price_note').style.display = 'block';
-        document.getElementById('sale_price_note').textContent = 'Auto-calculated from Sale Price';
-    }
-}
-
-// Bulk discount
-document.getElementById('applyBulkDiscount')?.addEventListener('click', () => {
-    const bulk = parseFloat(document.getElementById('bulk_discount').value) || 0;
-    if (bulk < 0 || bulk > 100) return Swal.fire('Error', '0-100%', 'error');
-    document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
-        const price = parseFloat(row.querySelector('input[name*="price"]').value) || 0;
-        if (price > 0) {
-            row.querySelector('input[name*="sale_price"]').value = (price - (price * bulk / 100)).toFixed(2);
-            let badge = row.querySelector('.discount-badge');
-            if (!badge) {
-                badge = document.createElement('span');
-                badge.className = 'badge bg-danger discount-badge position-absolute';
-                badge.style.top = '5px'; badge.style.right = '5px';
-                row.querySelector('td').style.position = 'relative';
-                row.querySelector('td').appendChild(badge);
-            }
-            badge.textContent = `-${bulk}%`;
-        }
-    });
-});
-
-// Generate variations
-document.getElementById('generateVariations')?.addEventListener('click', () => {
-    const attrs = [];
-    document.querySelectorAll('.attribute-row').forEach(row => {
-        const name = row.querySelector('input[name$="[name]"]').value.trim();
-        const values = row.querySelector('input[name$="[values]"]').value.split(',').map(v => v.trim()).filter(v => v);
-        if (name && values.length) attrs.push({ name, values });
-    });
-
-    if (attrs.length === 0 && productData?.variations?.length > 0) {
-        renderExistingVariations();
-        return;
-    }
-
-    if (attrs.length === 0) {
-        document.getElementById('variationsTable').innerHTML = '<p class="text-muted">Add attributes and click Generate</p>';
-        return;
-    }
-
-    const combos = attrs.reduce((a, b) => a.flatMap(x => b.values.map(y => ({...x, [b.name]: y}))), [{}]);
-    renderVariationsTable(combos);
-});
-
-function renderVariationsTable(combos) {
-    let html = `<table class="table table-bordered"><thead><tr>
-        <th>Variant</th><th>SKU</th><th>Price</th><th>Sale Price</th><th>Stock</th><th>Image</th><th></th>
-    </tr></thead><tbody>`;
-    combos.forEach((c, i) => {
-        const name = Object.entries(c).map(([k,v]) => `${k}: ${v}`).join(' | ');
-        html += `<tr>
-            <td style="position:relative"><small>${name}</small>
-                ${Object.entries(c).map(([k,v]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('')}
-            </td>
-            <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" required></td>
-            <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm variation-price" required></td>
-            <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm variation-sale"></td>
-            <td><input type="number" name="variations[${i}][stock]" class="form-control form-control-sm" required></td>
-            <td>
-                <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
-                <img class="variation-preview mt-2 img-fluid rounded" style="max-height:80px; display:none;">
-            </td>
-            <td><button type="button" class="btn btn-danger btn-sm remove-variation">Remove</button></td>
-        </tr>`;
-    });
-    html += `</tbody></table>`;
-    document.getElementById('variationsTable').innerHTML = html;
-}
-
-function renderExistingVariations() {
-    let html = `<table class="table table-bordered"><thead><tr><th>Variant</th><th>SKU</th><th>Price</th><th>Sale</th><th>Stock</th><th>Image</th><th></th></tr></thead><tbody>`;
-    productData.variations.forEach((v, i) => {
-        const attrs = v.attributes || {};
-        const name = Object.entries(attrs).map(([k,val]) => `${k}: ${val}`).join(' | ') || 'Default';
-        const discount = v.sale_price && v.price ? Math.round(((v.price - v.sale_price) / v.price) * 100) : 0;
-
-        html += `<tr>
-            <td style="position:relative"><small>${name}</small>
-                ${Object.entries(attrs).map(([k,val]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${val}">`).join('')}
-                ${discount > 0 ? `<span class="badge bg-danger position-absolute" style="top:5px;right:5px;">-${discount}%</span>` : ''}
-            </td>
-            <td><input type="text" name="variations[${i}][sku]" value="${v.sku || ''}" class="form-control form-control-sm" required></td>
-            <td><input type="number" step="0.01" name="variations[${i}][price]" value="${v.price}" class="form-control form-control-sm variation-price" required></td>
-            <td><input type="number" step="0.01" name="variations[${i}][sale_price]" value="${v.sale_price || ''}" class="form-control form-control-sm variation-sale"></td>
-            <td><input type="number" name="variations[${i}][stock]" value="${v.stock}" class="form-control form-control-sm" required></td>
-            <td>
-                <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
-                ${v.image ? `<img src="${v.image}" class="variation-preview mt-2 img-fluid rounded" style="max-height:80px;">` : ''}
-            </td>
-            <td><button type="button" class="btn btn-danger btn-sm remove-variation">Remove</button></td>
-        </tr>`;
-    });
-    html += `</tbody></table>`;
-    document.getElementById('variationsTable').innerHTML = html;
-}
-
-// Image previews
-document.getElementById('thumbnail_input')?.addEventListener('change', e => {
-    if (e.target.files[0]) {
-        const reader = new FileReader();
-        reader.onload = ev => {
-            document.getElementById('thumbnail_preview').src = ev.target.result;
-            document.getElementById('thumbnail_preview').style.display = 'block';
-            document.getElementById('thumbnail_placeholder').style.display = 'none';
-        };
-        reader.readAsDataURL(e.target.files[0]);
-    }
-});
-
-document.getElementById('gallery_input')?.addEventListener('change', e => {
-    const container = document.getElementById('imageGallery');
-    container.innerHTML = '';
-    Array.from(e.target.files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = ev => {
-            const div = document.createElement('div');
-            div.className = 'col-6 col-md-4 position-relative';
-            div.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
-                             <button type="button" class="btn-close position-absolute top-0 end-0" onclick="this.parentElement.remove()"></button>`;
-            container.appendChild(div);
-        };
-        reader.readAsDataURL(file);
-    });
-});
-
-new Sortable(document.getElementById('imageGallery'), { animation: 150 });
-
-// Variation image preview
-document.addEventListener('change', e => {
-    if (e.target.classList.contains('variation-image') && e.target.files[0]) {
-        const reader = new FileReader();
-        reader.onload = ev => {
-            e.target.closest('td').querySelector('.variation-preview').src = ev.target.result;
-            e.target.closest('td').querySelector('.variation-preview').style.display = 'block';
-        };
-        reader.readAsDataURL(e.target.files[0]);
-    }
-});
-
-// Remove buttons
-document.addEventListener('click', e => {
-    if (e.target.classList.contains('remove-attribute')) e.target.closest('.attribute-row').remove();
-    if (e.target.classList.contains('remove-variation')) e.target.closest('tr').remove();
 });
 
 // Import CSV

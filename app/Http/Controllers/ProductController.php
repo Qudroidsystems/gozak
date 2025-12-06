@@ -445,6 +445,24 @@ class ProductController extends Controller
         return response()->json($logs);
     }
 
+
+    public function template()
+    {
+        $headers = [
+            'title','sku','price','sale_price','stock','description','brand_id','category_id','is_featured'
+        ];
+        
+        $callback = function() use ($headers) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, $headers);
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="product_import_template.csv"',
+        ]);
+    }
     public function import(Request $request)
     {
         $request->validate(['file' => 'required|mimes:csv,txt']);
