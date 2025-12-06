@@ -275,8 +275,157 @@
                             </div>
 
                             <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
-                                <!-- Your full modal content (same as before) -->
-                                <!-- ... (with discount %, variations, etc.) ... -->
+                                  <div class="modal-body">
+                                <div class="row g-4">
+                                    <div class="col-lg-8">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title mb-3">Basic Information</h6>
+                                                <div class="row g-3">
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">Title <span class="text-danger">*</span></label>
+                                                        <input type="text" name="title" id="title" class="form-control" required>
+                                                        <div class="invalid-feedback">Please enter product title</div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">SKU <span class="text-danger">*</span></label>
+                                                        <input type="text" name="sku" id="sku" class="form-control" required>
+                                                        <div class="invalid-feedback">Please enter SKU</div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label">Price <span class="text-danger">*</span></label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text">$</span>
+                                                            <input type="number" step="0.01" name="price" id="price" class="form-control" required min="0">
+                                                        </div>
+                                                        <div class="invalid-feedback">Please enter valid price</div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label">Discount %</label>
+                                                        <input type="number" step="0.01" min="0" max="100" id="discount_percent" class="form-control" placeholder="e.g. 25">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label">Sale Price</label>
+                                                        <div class="input-group">
+                                                            <span class="input-group-text">$</span>
+                                                            <input type="number" step="0.01" name="sale_price" id="sale_price" class="form-control">
+                                                        </div>
+                                                        <small class="text-success" id="sale_price_note" style="display:none;">Auto-calculated</small>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label">Stock <span class="text-danger">*</span></label>
+                                                        <input type="number" name="stock" id="stock" class="form-control" required min="0">
+                                                        <div class="invalid-feedback">Please enter stock quantity</div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label">Product Type <span class="text-danger">*</span></label>
+                                                        <select name="product_type" id="product_type" class="form-control" required>
+                                                            <option value="simple">Simple Product</option>
+                                                            <option value="variable">Variable Product</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-12">
+                                                        <label class="form-label">Description</label>
+                                                        <textarea name="description" id="description" rows="4" class="form-control"></textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Variations - YOUR ORIGINAL STRUCTURE -->
+                                        <div id="variationsSection" style="display: none;">
+                                            <div class="card mt-4">
+                                                <div class="card-header d-flex justify-content-between align-items-center">
+                                                    <h6 class="mb-0">Product Variations</h6>
+                                                    <div>
+                                                        <input type="number" step="0.01" min="0" max="100" id="bulk_discount" class="form-control form-control-sm d-inline-block w-auto me-2" placeholder="Bulk %">
+                                                        <button type="button" class="btn btn-success btn-sm" id="applyBulkDiscount">Apply to All</button>
+                                                    </div>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div id="attributesContainer" class="mb-4">
+                                                        <div class="row g-3 align-items-end attribute-row">
+                                                            <div class="col-md-5">
+                                                                <input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]">
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]">
+                                                            </div>
+                                                            <div class="col-md-1">
+                                                                <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="addAttribute">+ Add Attribute</button>
+                                                    <button type="button" class="btn btn-primary btn-sm mb-3" id="generateVariations">Generate Variations</button>
+                                                    <hr>
+                                                    <div id="variationsTable"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- YOUR ORIGINAL RIGHT SIDEBAR - 100% UNCHANGED -->
+                                    <div class="col-lg-4">
+                                        <div class="card mb-3">
+                                            <div class="card-body">
+                                                <label class="form-label">Thumbnail Image</label>
+                                                <input type="file" name="thumbnail" id="thumbnail_input" class="form-control mb-2" accept="image/*">
+                                                <div class="text-center">
+                                                    <img id="thumbnail_preview" src="" class="img-fluid rounded" style="max-height:200px; display:none;">
+                                                    <div id="thumbnail_placeholder" class="text-muted">
+                                                        <i class="bi bi-image display-4"></i>
+                                                        <p class="mt-2">No image selected</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="card mb-3">
+                                            <div class="card-body">
+                                                <label class="form-label">Gallery Images</label>
+                                                <input type="file" name="images[]" id="gallery_input" multiple class="form-control mb-3" accept="image/*">
+                                                <div id="imageGallery" class="row g-2"></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="card mb-3">
+                                            <div class="card-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Brand</label>
+                                                    <select name="brand_id" id="brand_id" class="form-control">
+                                                        <option value="">No Brand</option>
+                                                        @foreach($brands as $brand)
+                                                            <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="mb-0">
+                                                    <label class="form-label">Category</label>
+                                                    <select name="category_id" id="category_id" class="form-control">
+                                                        <option value="">Select Category</option>
+                                                        @foreach($categories as $cat)
+                                                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                                                            @foreach($cat->children as $child)
+                                                                <option value="{{ $child->id }}">— {{ $child->name }}</option>
+                                                            @endforeach
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured" value="1">
+                                                    <label class="form-check-label" for="is_featured">Featured Product</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             </div>
 
                             <div class="modal-footer border-top pt-3 bg-light">
