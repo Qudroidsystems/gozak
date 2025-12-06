@@ -158,100 +158,140 @@
                                                 <th>Action</th>
                                             </tr>
                                         </thead>
-                                        <tbody class="list form-check-all">
-                                            @forelse($products as $product)
-                                                <tr data-product-id="{{ $product->id }}">
-                                                    <td>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input bulk-checkbox" type="checkbox" value="{{ $product->id }}">
-                                                        </div>
-                                                    </td>
-                                                    <td class="title">
-                                                        <div class="d-flex align-items-center">
-                                                            <div class="avatar-sm bg-light rounded p-1 me-3">
-                                                                @if($product->thumbnail)
-                                                                    <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height: 40px;">
-                                                                @else
-                                                                    <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                                                        <i class="bi bi-image text-muted fs-5"></i>
-                                                                    </div>
-                                                                @endif
-                                                            </div>
-                                                            <div>
-                                                                <h6 class="mb-1">
-                                                                    <a href="{{ route('products.show', $product->id) }}" class="text-reset">
-                                                                        {{ Str::limit($product->title, 50) }}
-                                                                    </a>
-                                                                </h6>
-                                                                <p class="mb-0 text-muted small">SKU: {{ $product->sku }}</p>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
-                                                    <td class="stock">
-                                                        @if($product->stock > 10)
-                                                            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">
-                                                                {{ $product->stock }} in stock
-                                                            </span>
-                                                        @elseif($product->stock > 0)
-                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
-                                                                {{ $product->stock }} low stock
-                                                            </span>
-                                                        @else
-                                                            <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">
-                                                                Out of stock
-                                                            </span>
-                                                        @endif
-                                                    </td>
-                                                    <td class="price">
-                                                        @if($product->sale_price)
-                                                            <del class="text-muted small">${{ number_format($product->price, 2) }}</del><br>
-                                                            <span class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</span>
-                                                        @else
-                                                            <span class="fw-bold">${{ number_format($product->price, 2) }}</span>
-                                                        @endif
-                                                    </td>
-                                                    <td class="sold text-center"><span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span></td>
-                                                    <td class="featured">
-                                                        @if($product->is_featured)
-                                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Featured</span>
-                                                        @else
-                                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">Regular</span>
-                                                        @endif
-                                                    </td>
-                                                    <td class="created_at"><small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small></td>
-                                                    <td>
-                                                        <button type="button" class="btn btn-sm btn-outline-info inventory-btn" data-id="{{ $product->id }}" data-title="{{ $product->title }}">View Log</button>
-                                                    </td>
-                                                    <td>
-                                                        <div class="dropdown">
-                                                            <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
-                                                                <i class="bi bi-three-dots-vertical"></i>
-                                                            </button>
-                                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                                <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
-                                                                @can('Update product')
-                                                                    <li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Edit</a></li>
-                                                                @endcan
-                                                                @can('Delete product')
-                                                                    <li><a class="dropdown-item remove-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
-                                                                @endcan
-                                                            </ul>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            @empty
-                                                <tr>
-                                                    <td colspan="10" class="text-center py-5 text-muted">
-                                                        <div class="py-4">
-                                                            <i class="bi bi-box-seam display-4 text-muted"></i>
-                                                            <h5 class="mt-2">No products found</h5>
-                                                            <p class="text-muted">Try adjusting your filters or add a new product.</p>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            @endforelse
-                                        </tbody>
+                                       <tbody class="list form-check-all">
+    @forelse($products as $product)
+        <tr data-product-id="{{ $product->id }}">
+            <td>
+                <div class="form-check">
+                    <input class="form-check-input bulk-checkbox" type="checkbox" value="{{ $product->id }}">
+                </div>
+            </td>
+
+            <!-- Product Thumbnail + Title -->
+            <td class="title">
+                <div class="d-flex align-items-center">
+                    <div class="avatar-sm bg-light rounded p-1 me-3">
+                        @if($product->thumbnail)
+                            <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height: 40px;">
+                        @else
+                            <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="bi bi-image text-muted fs-5"></i>
+                            </div>
+                        @endif
+                    </div>
+                    <div>
+                        <h6 class="mb-1">
+                            <a href="{{ route('products.show', $product->id) }}" class="text-reset text-decoration-none">
+                                {{ Str::limit($product->title, 50) }}
+                            </a>
+                        </h6>
+                        <p class="mb-0 text-muted small">SKU: {{ $product->sku }}</p>
+                    </div>
+                </div>
+            </td>
+
+            <!-- Category -->
+            <td class="category text-muted">
+                {{ $product->category?->name ?? 'Uncategorized' }}
+            </td>
+
+            <!-- Stock Status (Enhanced) -->
+            <td class="stock">
+                @if($product->stock > 10)
+                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-2">
+                        <i class="bi bi-check-circle-fill me-1"></i> {{ $product->stock }} in stock
+                    </span>
+                @elseif($product->stock > 0 && $product->stock <= 10)
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-2">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ $product->stock }} low stock
+                    </span>
+                @else
+                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-2">
+                        <i class="bi bi-x-circle-fill me-1"></i> Out of stock
+                    </span>
+                @endif
+            </td>
+
+            <!-- Price + Sale Badge -->
+            <td class="price">
+                @if($product->sale_price && $product->sale_price < $product->price)
+                    @php
+                        $discount = round((($product->price - $product->sale_price) / $product->price) * 100);
+                    @endphp
+                    <div class="position-relative d-inline-block">
+                        <del class="text-muted small">${{ number_format($product->price, 2) }}</del>
+                        <br>
+                        <span class="fw-bold text-danger fs-5">${{ number_format($product->sale_price, 2) }}</span>
+                        <span class="badge bg-danger position-absolute top-0 start-100 translate-middle px-2 py-1 rounded-pill" style="font-size: 0.65rem;">
+                            -{{ $discount }}%
+                        </span>
+                    </div>
+                @else
+                    <span class="fw-bold fs-5">${{ number_format($product->price, 2) }}</span>
+                @endif
+            </td>
+
+            <!-- Sold -->
+            <td class="sold text-center">
+                <span class="fw-semibold text-primary">{{ $product->sold_quantity ?? 0 }}</span>
+            </td>
+
+            <!-- Featured Badge (Gold Star) -->
+            <td class="featured">
+                @if($product->is_featured)
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-2">
+                        <i class="bi bi-star-fill text-warning me-1"></i> Featured
+                    </span>
+                @else
+                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">
+                        Regular
+                    </span>
+                @endif
+            </td>
+
+            <!-- Published Date -->
+            <td class="created_at">
+                <small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small>
+            </td>
+
+            <!-- Inventory Log Button (Clean & Modern) -->
+            <td>
+                <button type="button" class="btn btn-sm btn-outline-primary inventory-btn rounded-pill px-3" data-id="{{ $product->id }}" data-title="{{ $product->title }}">
+                    <i class="bi bi-journal-text me-1"></i> Log
+                </button>
+            </td>
+
+            <!-- Action Dropdown -->
+            <td>
+                <div class="dropdown">
+                    <button class="btn btn-subtle-secondary btn-sm btn-icon rounded-circle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                        <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}"><i class="bi bi-eye me-2"></i>View</a></li>
+                        @can('Update product')
+                            <li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}"><i class="bi bi-pencil-square me-2"></i>Edit</a></li>
+                        @endcan
+                        @can('Delete product')
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger remove-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}"><i class="bi bi-trash me-2"></i>Delete</a></li>
+                        @endcan
+                    </ul>
+                </div>
+            </td>
+        </tr>
+    @empty
+        <tr>
+            <td colspan="10" class="text-center py-5">
+                <div class="py-5">
+                    <i class="bi bi-inbox display-4 text-muted"></i>
+                    <h5 class="mt-3 text-muted">No products found</h5>
+                    <p class="text-muted">Try adjusting filters or add a new product.</p>
+                </div>
+            </td>
+        </tr>
+    @endforelse
+</tbody>
                                     </table>
                                 </div>
 
