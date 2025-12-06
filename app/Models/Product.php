@@ -152,4 +152,23 @@ class Product extends Model
         // Assuming you have an InventoryLog model
         return $this->hasMany(InventoryLog::class);
     }
+
+     /**
+     * Scope for active products.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active')
+                     ->orWhere('is_active', true);
+    }
+
+    /**
+     * Scope for inactive products.
+     */
+    public function scopeInactive($query)
+    {
+        return $query->where('status', 'inactive')
+                     ->orWhere('is_active', false);
+    }
+
 }
