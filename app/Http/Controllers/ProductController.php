@@ -464,10 +464,40 @@ class ProductController extends Controller
     }
 
 
-    public function inventoryLog(Product $product)
+  
+
+    public function inventoryLog($id)
     {
-        $logs = $product->inventoryLogs()->latest()->get();
-        return response()->json($logs);
+        try {
+            $product = Product::findOrFail($id);
+            $logs = $product->inventoryLogs()
+                ->with('user:id,name,email')
+                ->latest()
+                ->get()
+                ->map(function ($log) {
+                    return [
+                        'id' => $log->id,
+                        'type' => $log->type,
+                        'quantity' => $log->quantity,
+                        'previous_stock' => $log->previous_stock,
+                        'new_stock' => $log->new_stock,
+                        'reference' => $log->reference,
+                        'notes' => $log->notes,
+                        'user_name' => $log->user ? $log->user->name : 'System',
+                        'created_at' => $log->created_at->toDateTimeString(),
+                        'formatted_date' => $log->created_at->format('M d, Y h:i A'),
+                        'formatted_quantity' => $log->formatted_quantity,
+                        'type_name' => $log->type_name,
+                        'type_class' => $log->type_class
+                    ];
+                });
+            
+            return response()->json($logs);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Failed to load inventory data: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
 

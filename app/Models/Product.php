@@ -6,6 +6,7 @@ use App\Models\Category;
 use App\Models\OrderItem;
 use App\Models\ProductImage;
 use App\Models\ProductReview;
+use App\Traits\HasInventoryLog;
 use App\Models\ProductAttribute;
 use App\Models\ProductVariation;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +14,43 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
+
+    use HasInventoryLog;
+
+    /**
+     * Boot the model
+     */
+    protected static function boot()
+    {
+        parent::boot();
+        
+        // Automatically log initial stock when creating a product
+        static::created(function ($product) {
+            if ($product->stock > 0) {
+                $product->addStock($product->stock, 'Initial stock', 'Product created');
+            }
+        });
+        
+        // Log stock changes when updating
+        static::updating(function ($product) {
+            $originalStock = $product->getOriginal('stock');
+            $newStock = $product->stock;
+            
+            if ($originalStock !== $newStock) {
+                $difference = $newStock - $originalStock;
+                $type = $difference > 0 ? 'in' : 'out';
+                $quantity = abs($difference);
+                
+                $product->logInventoryChange(
+                    $type,
+                    $quantity,
+                    'Manual adjustment',
+                    'Stock updated from ' . $originalStock . ' to ' . $newStock
+                );
+            }
+        });
+    }
+    
     protected $fillable = [
         'title',
         'sku',
@@ -108,9 +146,10 @@ class Product extends Model
         return $totalSold * $price;
     }
 
-    // In app/Models/Product.php
+   // In your Product model (App\Models\Product.php)
     public function inventoryLogs()
     {
-        return $this->hasMany(InventoryLog::class)->orderByDesc('created_at');
+        // Assuming you have an InventoryLog model
+        return $this->hasMany(InventoryLog::class);
     }
 }
