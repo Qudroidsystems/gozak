@@ -439,6 +439,12 @@ class ProductController extends Controller
     }
 
 
+    public function inventoryLog(Product $product)
+    {
+        $logs = $product->inventoryLogs()->latest()->get();
+        return response()->json($logs);
+    }
+
     public function import(Request $request)
     {
         $request->validate(['file' => 'required|mimes:csv,txt']);

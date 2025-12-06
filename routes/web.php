@@ -83,7 +83,8 @@ Route::middleware(['auth'])->group(function () {
     Route::group(['prefix' => 'products/{product}/reviews'], function() {
         Route::post('/', [ProductReviewController::class, 'store'])->name('products.reviews.store');
     });
-    Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
+    Route::get('/products/{product}/inventory', [ProductController::class, 'inventoryLog'])->name('products.inventory');
+    Route::get('/products/search', [ProductController::class, 'search']);
 
 
     Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
