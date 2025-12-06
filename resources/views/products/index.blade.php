@@ -73,15 +73,11 @@
                                             </select>
                                         </div>
                                         <div class="col-xxl-1 col-sm-4">
-                                            <button type="submit" class="btn btn-secondary w-100">
-                                                Filter
-                                            </button>
+                                            <button type="submit" class="btn btn-secondary w-100">Filter</button>
                                         </div>
                                         @if(request()->hasAny(['search', 'brands', 'category', 'stock', 'featured']))
                                         <div class="col-xxl-1 col-sm-4">
-                                            <a href="{{ route('products.index') }}" class="btn btn-outline-secondary w-100">
-                                                Clear
-                                            </a>
+                                            <a href="{{ route('products.index') }}" class="btn btn-outline-secondary w-100">Clear</a>
                                         </div>
                                         @endif
                                     </div>
@@ -103,23 +99,13 @@
                                 </div>
                                 <div class="flex-shrink-0">
                                     <div class="d-flex flex-wrap align-items-start gap-2">
-                                        <button class="btn btn-subtle-danger d-none" id="remove-actions" onclick="deleteMultiple()">
-                                            Delete Selected
-                                        </button>
-                                        <button type="button" class="btn btn-warning" id="bulkEditBtn" style="display:none;" data-bs-toggle="modal" data-bs-target="#bulkEditModal">
-                                            Bulk Edit
-                                        </button>
+                                        <button class="btn btn-subtle-danger d-none" id="remove-actions" onclick="deleteMultiple()">Delete Selected</button>
+                                        <button type="button" class="btn btn-warning d-none" id="bulkEditBtn" data-bs-toggle="modal" data-bs-target="#bulkEditModal">Bulk Edit</button>
                                         @can('Create product')
-                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">
-                                                Add Product
-                                            </button>
+                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">Add Product</button>
                                         @endcan
-                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
-                                            Import CSV
-                                        </button>
-                                        <a href="{{ route('products.export') }}" class="btn btn-info">
-                                            Export CSV
-                                        </a>
+                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">Import CSV</button>
+                                        <a href="{{ route('products.export') }}" class="btn btn-info">Export CSV</a>
                                     </div>
                                 </div>
                             </div>
@@ -217,9 +203,7 @@
                                                     </td>
                                                     <td>
                                                         <div class="dropdown">
-                                                            <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
-                                                                More
-                                                            </button>
+                                                            <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">More</button>
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
                                                                 @can('Update product')
@@ -261,7 +245,7 @@
                 </div>
             </div>
 
-            <!-- ADD/EDIT MODAL - FULLY SCROLLABLE -->
+            <!-- ADD/EDIT MODAL -->
             <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
                 <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                     <div class="modal-content">
@@ -275,7 +259,6 @@
                             </div>
 
                             <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
-                                  <div class="modal-body">
                                 <div class="row g-4">
                                     <div class="col-lg-8">
                                         <div class="card">
@@ -285,12 +268,10 @@
                                                     <div class="col-md-6">
                                                         <label class="form-label">Title <span class="text-danger">*</span></label>
                                                         <input type="text" name="title" id="title" class="form-control" required>
-                                                        <div class="invalid-feedback">Please enter product title</div>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label">SKU <span class="text-danger">*</span></label>
                                                         <input type="text" name="sku" id="sku" class="form-control" required>
-                                                        <div class="invalid-feedback">Please enter SKU</div>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <label class="form-label">Price <span class="text-danger">*</span></label>
@@ -298,7 +279,6 @@
                                                             <span class="input-group-text">$</span>
                                                             <input type="number" step="0.01" name="price" id="price" class="form-control" required min="0">
                                                         </div>
-                                                        <div class="invalid-feedback">Please enter valid price</div>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <label class="form-label">Discount %</label>
@@ -315,7 +295,6 @@
                                                     <div class="col-md-4">
                                                         <label class="form-label">Stock <span class="text-danger">*</span></label>
                                                         <input type="number" name="stock" id="stock" class="form-control" required min="0">
-                                                        <div class="invalid-feedback">Please enter stock quantity</div>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label">Product Type <span class="text-danger">*</span></label>
@@ -332,8 +311,8 @@
                                             </div>
                                         </div>
 
-                                        <!-- Variations - YOUR ORIGINAL STRUCTURE -->
-                                        <div id="variationsSection" style="display: none;">
+                                        <!-- Variations -->
+                                        <div id="variationsSection" style="display:none;">
                                             <div class="card mt-4">
                                                 <div class="card-header d-flex justify-content-between align-items-center">
                                                     <h6 class="mb-0">Product Variations</h6>
@@ -365,7 +344,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- YOUR ORIGINAL RIGHT SIDEBAR - 100% UNCHANGED -->
                                     <div class="col-lg-4">
                                         <div class="card mb-3">
                                             <div class="card-body">
@@ -426,7 +404,6 @@
                                     </div>
                                 </div>
                             </div>
-                            </div>
 
                             <div class="modal-footer border-top pt-3 bg-light">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="resetForm()">Cancel</button>
@@ -456,17 +433,17 @@
                                     <input type="file" name="file" class="form-control" accept=".csv" required>
                                 </div>
                                 <div class="alert alert-info">
-                                    <strong>Required columns:</strong> title, sku, price, stock<br>
-                                    <strong>Optional:</strong> sale_price, description, brand_id, category_id, is_featured (1/0)
+                                    <strong>Required:</strong> title, sku, price, stock<br>
+                                    <strong>Optional:</strong> sale_price, description, brand_id, category_id, is_featured
                                 </div>
                                 <div id="importProgress" class="progress mt-3" style="display:none;">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%">0%</div>
                                 </div>
                                 <div id="importStatus" class="mt-3"></div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success">Start Import</button>
+                                <button type="submit" class="btn btn-success">Import</button>
                             </div>
                         </form>
                     </div>
@@ -533,7 +510,7 @@
     </div>
 </div>
 
-<!-- YOUR ORIGINAL SCRIPTS + ONLY FUNCTIONALITY FIXES -->
+<!-- ALL SCRIPTS — FULLY INCLUDED -->
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
@@ -544,25 +521,33 @@ document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-    // YOUR ORIGINAL LIST.JS + BULK + LIVE SEARCH + CHOICES
-    const list = new List('productList', {
+    // List.js
+    new List('productList', {
         valueNames: ['title', 'category', 'stock', 'price', 'sold', 'created_at', 'featured'],
         page: 12,
         pagination: true
     });
 
-    document.getElementById('checkAll')?.addEventListener('change', function () {
-        document.querySelectorAll('input[name="chk_child"]').forEach(cb => cb.checked = this.checked);
-        toggleBulkActions();
+    // Bulk actions
+    document.getElementById('checkAll')?.addEventListener('change', function() {
+        document.querySelectorAll('.bulk-checkbox').forEach(cb => cb.checked = this.checked);
+        updateBulkActions();
     });
 
-    function toggleBulkActions() {
-        const checked = document.querySelectorAll('input[name="chk_child"]:checked').length;
-        document.getElementById('remove-actions').classList.toggle('d-none', checked === 0);
+    function updateBulkActions() {
+        const count = document.querySelectorAll('.bulk-checkbox:checked').length;
+        document.getElementById('remove-actions').classList.toggle('d-none', count === 0);
+        document.getElementById('bulkEditBtn').style.display = count > 0 ? 'inline-block' : 'none';
+        document.getElementById('bulkCount').textContent = count;
+        document.getElementById('bulk_product_ids').value = Array.from(document.querySelectorAll('.bulk-checkbox:checked'))
+            .map(cb => cb.value).join(',');
     }
 
+    document.querySelectorAll('.bulk-checkbox').forEach(cb => cb.addEventListener('change', updateBulkActions));
+
+    // Delete multiple
     window.deleteMultiple = function () {
-        const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked')).map(cb => cb.value);
+        const ids = Array.from(document.querySelectorAll('.bulk-checkbox:checked')).map(cb => cb.value);
         if (!ids.length) return;
         Swal.fire({
             title: `Delete ${ids.length} product(s)?`,
@@ -581,70 +566,33 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     };
 
-    document.querySelectorAll('input[name="chk_child"]').forEach(cb => cb.addEventListener('change', toggleBulkActions));
-
+    // Live search
     let searchTimeout;
-    document.querySelector('.search')?.addEventListener('input', function(e) {
+    document.querySelector('.search')?.addEventListener('input', function() {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => document.getElementById('filterForm').submit(), 500);
     });
 
+    // Choices.js
     if (typeof Choices !== 'undefined') {
-        new Choices('#brandFilter', { removeItemButton: true, searchEnabled: true, shouldSort: false });
-        new Choices('#categoryFilter', { searchEnabled: true, shouldSort: false });
+        new Choices('#brandFilter', { removeItemButton: true });
+        new Choices('#categoryFilter');
     }
 });
 
-
-// IMPORT CSV
-document.getElementById('importForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    const progress = document.getElementById('importProgress');
-    const status = document.getElementById('importStatus');
-    const bar = progress.querySelector('.progress-bar');
-
-    progress.style.display = 'block';
-    status.innerHTML = 'Importing...';
-
-    axios.post('{{ route('products.import') }}', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: e => {
-            const percent = Math.round((e.loaded * 100) / e.total);
-            bar.style.width = percent + '%';
-            bar.textContent = percent + '%';
-        }
-    })
-    .then(r => {
-        Swal.fire('Success!', 'Products imported successfully', 'success').then(() => location.reload());
-    })
-    .catch(err => {
-        status.innerHTML = '<div class="alert alert-danger">' + (err.response?.data?.message || 'Import failed') + '</div>';
-    });
-});
-
-// BULK EDIT
-document.getElementById('bulkEditForm')?.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const formData = new FormData(this);
-    axios.post('{{ route('products.bulkUpdate') }}', formData)
-        .then(r => {
-            Swal.fire('Success!', 'Products updated', 'success').then(() => location.reload());
-        })
-        .catch(err => {
-            Swal.fire('Error!', err.response?.data?.message || 'Update failed', 'error');
-        });
-});
-// GLOBAL
+// GLOBAL VARIABLES
 let attrIndex = 1;
 let productData = null;
+let priceChanging = false;
+let discountChanging = false;
+let salePriceChanging = false;
 
-// TOGGLE VARIATIONS
+// Toggle variations
 document.getElementById('product_type').addEventListener('change', function() {
     document.getElementById('variationsSection').style.display = this.value === 'variable' ? 'block' : 'none';
 });
 
-// ADD ATTRIBUTE
+// Add attribute
 document.getElementById('addAttribute')?.addEventListener('click', () => {
     const html = `<div class="row g-3 align-items-end attribute-row mt-3">
         <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
@@ -655,10 +603,10 @@ document.getElementById('addAttribute')?.addEventListener('click', () => {
     attrIndex++;
 });
 
-// BIDIRECTIONAL PRICING + BULK + VISUAL BADGE
-document.getElementById('price')?.addEventListener('input', calculateFromPrice);
-document.getElementById('discount_percent')?.addEventListener('input', calculateFromDiscount);
-document.getElementById('sale_price')?.addEventListener('input', calculateFromSalePrice);
+// Bidirectional pricing
+document.getElementById('price')?.addEventListener('input', () => { if (!priceChanging) { priceChanging = true; calculateFromPrice(); priceChanging = false; } });
+document.getElementById('discount_percent')?.addEventListener('input', () => { if (!discountChanging) { discountChanging = true; calculateFromDiscount(); discountChanging = false; } });
+document.getElementById('sale_price')?.addEventListener('input', () => { if (!salePriceChanging) { salePriceChanging = true; calculateFromSalePrice(); salePriceChanging = false; } });
 
 function calculateFromPrice() {
     const price = parseFloat(document.getElementById('price').value) || 0;
@@ -689,28 +637,7 @@ function calculateFromSalePrice() {
     }
 }
 
-// BULK DISCOUNT
-document.getElementById('applyBulkDiscount')?.addEventListener('click', () => {
-    const bulk = parseFloat(document.getElementById('bulk_discount').value) || 0;
-    if (bulk < 0 || bulk > 100) return Swal.fire('Error', '0-100%', 'error');
-    document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
-        const price = parseFloat(row.querySelector('input[name*="price"]').value) || 0;
-        if (price > 0) {
-            row.querySelector('input[name*="sale_price"]').value = (price - (price * bulk / 100)).toFixed(2);
-            let badge = row.querySelector('.discount-badge');
-            if (!badge) {
-                badge = document.createElement('span');
-                badge.className = 'badge bg-danger discount-badge position-absolute';
-                badge.style.top = '5px'; badge.style.right = '5px';
-                row.querySelector('td').style.position = 'relative';
-                row.querySelector('td').appendChild(badge);
-            }
-            badge.textContent = `-${bulk}%`;
-        }
-    });
-});
-
-// GENERATE + EDIT FIX
+// Generate variations
 document.getElementById('generateVariations')?.addEventListener('click', () => {
     const attrs = [];
     document.querySelectorAll('.attribute-row').forEach(row => {
@@ -735,8 +662,7 @@ document.getElementById('generateVariations')?.addEventListener('click', () => {
 
 function renderVariationsTable(combos) {
     let html = `<table class="table table-bordered"><thead><tr>
-        <th>Variant</th><th>SKU</th><th>Price</th><th>Sale Price</th><th>Stock</th><th>Image</th><th></th>
-    </tr></thead><tbody>`;
+        <th>Variant</th><th>SKU</th><th>Price</th><th>Sale Price</th><th>Stock</th><th>Image</th><th></tr></thead><tbody>`;
     combos.forEach((c, i) => {
         const name = Object.entries(c).map(([k,v]) => `${k}: ${v}`).join(' | ');
         html += `<tr>
@@ -756,6 +682,34 @@ function renderVariationsTable(combos) {
     });
     html += `</tbody></table>`;
     document.getElementById('variationsTable').innerHTML = html;
+
+    // Add bidirectional pricing to variations
+    document.querySelectorAll('.variation-price').forEach(input => {
+        input.addEventListener('input', updateVariationDiscountBadge);
+    });
+    document.querySelectorAll('.variation-sale').forEach(input => {
+        input.addEventListener('input', updateVariationDiscountBadge);
+    });
+}
+
+function updateVariationDiscountBadge(e) {
+    const row = e.target.closest('tr');
+    const price = parseFloat(row.querySelector('.variation-price').value) || 0;
+    const sale = parseFloat(row.querySelector('.variation-sale').value) || 0;
+    let badge = row.querySelector('.discount-badge');
+    if (price > 0 && sale > 0 && sale < price) {
+        const discount = Math.round(((price - sale) / price) * 100);
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'badge bg-danger discount-badge position-absolute';
+            badge.style.top = '5px'; badge.style.right = '5px';
+            row.querySelector('td').style.position = 'relative';
+            row.querySelector('td').appendChild(badge);
+        }
+        badge.textContent = `-${discount}%`;
+    } else if (badge) {
+        badge.remove();
+    }
 }
 
 function renderExistingVariations() {
@@ -785,7 +739,28 @@ function renderExistingVariations() {
     document.getElementById('variationsTable').innerHTML = html;
 }
 
-// IMAGE PREVIEWS + DRAG & DROP
+// Bulk discount
+document.getElementById('applyBulkDiscount')?.addEventListener('click', () => {
+    const bulk = parseFloat(document.getElementById('bulk_discount').value) || 0;
+    if (bulk < 0 || bulk > 100) return Swal.fire('Error', '0-100%', 'error');
+    document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
+        const price = parseFloat(row.querySelector('.variation-price').value) || 0;
+        if (price > 0) {
+            row.querySelector('.variation-sale').value = (price - (price * bulk / 100)).toFixed(2);
+            let badge = row.querySelector('.discount-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'badge bg-danger discount-badge position-absolute';
+                badge.style.top = '5px'; badge.style.right = '5px';
+                row.querySelector('td').style.position = 'relative';
+                row.querySelector('td').appendChild(badge);
+            }
+            badge.textContent = `-${bulk}%`;
+        }
+    });
+});
+
+// Image previews
 document.getElementById('thumbnail_input')?.addEventListener('change', e => {
     if (e.target.files[0]) {
         const reader = new FileReader();
@@ -805,11 +780,9 @@ document.getElementById('gallery_input')?.addEventListener('change', e => {
         const reader = new FileReader();
         reader.onload = ev => {
             const div = document.createElement('div');
-            div.className = 'col-6 col-md-4';
-            div.innerHTML = `<div class="gallery-image">
-                <img src="${ev.target.result}" class="img-fluid rounded" alt="Gallery image">
-                <div class="delete-btn" onclick="this.parentElement.parentElement.remove()">X</div>
-            </div>`;
+            div.className = 'col-6 col-md-4 position-relative';
+            div.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="height:100px; object-fit:cover;">
+                             <button type="button" class="btn-close position-absolute top-0 end-0" onclick="this.parentElement.remove()"></button>`;
             container.appendChild(div);
         };
         reader.readAsDataURL(file);
@@ -830,13 +803,41 @@ document.addEventListener('change', e => {
     }
 });
 
-// REMOVE BUTTONS
+// Remove buttons
 document.addEventListener('click', e => {
     if (e.target.classList.contains('remove-attribute')) e.target.closest('.attribute-row').remove();
     if (e.target.classList.contains('remove-variation')) e.target.closest('tr').remove();
 });
 
-// SAVE BUTTON
+// Import CSV
+document.getElementById('importForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const progress = document.getElementById('importProgress');
+    const bar = progress.querySelector('.progress-bar');
+    progress.style.display = 'block';
+
+    axios.post('{{ route('products.import') }}', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: e => {
+            const percent = Math.round((e.loaded * 100) / e.total);
+            bar.style.width = percent + '%';
+            bar.textContent = percent + '%';
+        }
+    })
+    .then(() => Swal.fire('Success!', 'Import completed', 'success').then(() => location.reload()))
+    .catch(() => Swal.fire('Error!', 'Import failed', 'error'));
+});
+
+// Bulk Edit
+document.getElementById('bulkEditForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    axios.post('{{ route('products.bulkUpdate') }}', new FormData(this))
+        .then(() => Swal.fire('Success!', 'Products updated', 'success').then(() => location.reload()))
+        .catch(() => Swal.fire('Error!', 'Update failed', 'error'));
+});
+
+// Save Product
 document.getElementById('productForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const id = document.getElementById('product_id').value;
@@ -861,7 +862,7 @@ document.getElementById('productForm').addEventListener('submit', function(e) {
         });
 });
 
-// EDIT + DELETE + RESET
+// Edit Product
 document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('click', function() {
     axios.get(`/products/${this.dataset.id}/edit`).then(r => {
         productData = r.data;
@@ -892,7 +893,7 @@ document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('cli
             productData.attributes.forEach(a => {
                 if (attrIndex > 0) document.getElementById('addAttribute').click();
                 const row = document.querySelectorAll('.attribute-row')[attrIndex];
-                row.querySelector('input[name$="[name]"]').value = a.name;
+                row.querySelector('input[name$="[name]').value = a.name;
                 row.querySelector('input[name$="[values]"]').value = a.values.join(', ');
                 attrIndex++;
             });
@@ -904,8 +905,9 @@ document.querySelectorAll('.edit-item-btn').forEach(b => b.addEventListener('cli
     });
 }));
 
+// Delete single
 document.querySelectorAll('.remove-item-btn').forEach(b => b.addEventListener('click', function() {
-    Swal.fire({ title: 'Are you sure?', text: "You won't be able to revert this!", icon: 'warning', showCancelButton: true })
+    Swal.fire({ title: 'Delete?', icon: 'warning', showCancelButton: true })
         .then(res => { if (res.isConfirmed) axios.delete(`/products/${this.dataset.id}`).then(() => location.reload()); });
 }));
 
@@ -932,3 +934,4 @@ function resetForm() {
 }
 </script>
 @endsection
+
