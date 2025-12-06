@@ -107,4 +107,10 @@ class Product extends Model
         $price = $this->sale_price ?? $this->price;
         return $totalSold * $price;
     }
+
+    // In app/Models/Product.php
+    public function inventoryLogs()
+    {
+        return $this->hasMany(InventoryLog::class)->orderByDesc('created_at');
+    }
 }

@@ -84,7 +84,13 @@ class ProductController extends Controller
 
     public function edit($id)
     {
-        $product = Product::with(['brand', 'category', 'images', 'attributes', 'variations'])->findOrFail($id);
+        $product = Product::with([
+            'brand',
+            'category',
+            'images',
+            'attributes',
+            'variations'
+        ])->findOrFail($id);
 
         return response()->json([
             'id'           => $product->id,
@@ -93,30 +99,49 @@ class ProductController extends Controller
             'price'        => $product->price,
             'sale_price'   => $product->sale_price,
             'stock'        => $product->stock,
-            'description'  => $product->description,
+            'description'  => $product->description ?? '',
             'product_type' => $product->product_type ?? 'simple',
             'is_featured'  => (bool) $product->is_featured,
             'brand_id'     => $product->brand_id,
             'category_id'  => $product->category_id,
-            'thumbnail'    => $product->thumbnail ? asset('storage/' . $product->thumbnail) : null,
-            'images'       => $product->images->map(fn($img) => [
-                'id'   => $img->id,
-                'url'  => asset('storage/' . $img->image_path),
-                'path' => $img->image_path
-            ])->toArray(),
-            'attributes'   => $product->attributes->map(fn($attr) => [
-                'id'     => $attr->id,
-                'name'   => $attr->name,
-                'values' => $attr->values
-            ])->toArray(),
-            'variations'   => $product->variations->map(fn($var) => [
-                'id'         => $var->id,
-                'price'      => $var->price,
-                'sale_price' => $var->sale_price,
-                'stock'      => $var->stock,
-                'image'      => $var->image ? asset('storage/' . $var->image) : null,
-                'attributes' => $var->attributes
-            ])->toArray(),
+
+            // Thumbnail
+            'thumbnail' => $product->thumbnail 
+                ? asset('storage/' . $product->thumbnail) 
+                : null,
+
+            // Gallery Images
+            'gallery' => $product->images->map(function ($img) {
+                return [
+                    'id'  => $img->id,
+                    'url' => asset('storage/' . $img->image_path),
+                ];
+            })->toArray(),
+
+            // Attributes (for variable products)
+            'attributes' => $product->attributes->map(function ($attr) {
+                return [
+                    'name'   => $attr->name,
+                    'values' => is_array($attr->values) 
+                        ? implode(', ', $attr->values) 
+                        : $attr->values
+                ];
+            })->toArray(),
+
+            // Variations
+            'variations' => $product->variations->map(function ($var) {
+                return [
+                    'id'         => $var->id,
+                    'sku'        => $var->sku ?? '',
+                    'price'      => $var->price,
+                    'sale_price' => $var->sale_price,
+                    'stock'      => $var->stock,
+                    'image'      => $var->image 
+                        ? asset('storage/' . $var->image) 
+                        : null,
+                    'attributes' => is_array($var->attributes) ? $var->attributes : json_decode($var->attributes, true) ?? []
+                ];
+            })->toArray(),
         ]);
     }
 
@@ -463,6 +488,15 @@ class ProductController extends Controller
             'Content-Disposition' => 'attachment; filename="product_import_template.csv"',
         ]);
     }
+
+    // ADD THIS - for real-time stock
+    public function realtimeStock()
+    {
+        $products = Product::select('id', 'stock')->get();
+        return response()->json($products);
+    }
+
+    
     public function import(Request $request)
     {
         $request->validate(['file' => 'required|mimes:csv,txt']);

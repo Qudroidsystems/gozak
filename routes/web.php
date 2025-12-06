@@ -76,19 +76,20 @@ Route::middleware(['auth'])->group(function () {
     Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
 
     Route::resource('products', ProductController::class);
-    Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
     Route::delete('/products/{id}/images/{imageId}', [ProductController::class, 'deleteImage'])->name('products.images.destroy');
+
+    // ADD THESE MISSING ROUTES:
+    Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+    Route::get('/products/{product}/inventory', [ProductController::class, 'inventoryLog'])->name('products.inventory');
+    Route::get('/products/template', [ProductController::class, 'template'])->name('products.template');
+    Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
+    Route::get('/products/realtime-stock', [ProductController::class, 'realtimeStock'])->name('products.realtime-stock');
 
     // Product Reviews Routes
     Route::group(['prefix' => 'products/{product}/reviews'], function() {
         Route::post('/', [ProductReviewController::class, 'store'])->name('products.reviews.store');
     });
     
-    Route::get('/products/template', [ProductController::class, 'template'])->name('products.template');
-    Route::get('/products/{product}/inventory', [ProductController::class, 'inventoryLog'])->name('products.inventory');
-    Route::get('/products/search', [ProductController::class, 'search']);
-
-
     Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
     Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
     Route::post('/products/bulk-update', [ProductController::class, 'bulkUpdate'])->name('products.bulkUpdate');
