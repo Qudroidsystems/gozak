@@ -399,441 +399,1174 @@
                 </div>
             </div>
 
-            <!-- Import, Bulk Edit, Inventory Modals — fully included -->
-            <!-- (same as previous working version) -->
+            <!-- IMPORT MODAL -->
+            <div class="modal fade" id="importModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Import Products</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="importForm" enctype="multipart/form-data">
+                            @csrf
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Choose CSV File</label>
+                                    <input type="file" name="file" class="form-control" accept=".csv,.xlsx" required>
+                                    <small class="text-muted">Download <a href="{{ asset('samples/products_sample.csv') }}" class="text-primary">sample template</a></small>
+                                </div>
+                                <div class="progress mb-3" style="display:none;" id="importProgress">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%">0%</div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-success">Start Import</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BULK EDIT MODAL -->
+            <div class="modal fade" id="bulkEditModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Bulk Edit (<span id="bulkCount">0</span> Products)</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form id="bulkEditForm">
+                            @csrf
+                            <input type="hidden" name="ids" id="bulk_product_ids">
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label">Price Adjustment</label>
+                                    <div class="input-group">
+                                        <select name="price_action" class="form-control">
+                                            <option value="">No Change</option>
+                                            <option value="increase">Increase by</option>
+                                            <option value="decrease">Decrease by</option>
+                                            <option value="set">Set to</option>
+                                        </select>
+                                        <input type="number" step="0.01" name="price_value" class="form-control" placeholder="Value">
+                                        <span class="input-group-text">% / $</span>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Stock Adjustment</label>
+                                    <div class="input-group">
+                                        <select name="stock_action" class="form-control">
+                                            <option value="">No Change</option>
+                                            <option value="increase">Increase by</option>
+                                            <option value="decrease">Decrease by</option>
+                                            <option value="set">Set to</option>
+                                        </select>
+                                        <input type="number" name="stock_value" class="form-control" placeholder="Quantity">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Category</label>
+                                    <select name="category_id" class="form-control">
+                                        <option value="">No Change</option>
+                                        @foreach($categories as $cat)
+                                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                                            @foreach($cat->children as $child)
+                                                <option value="{{ $child->id }}">— {{ $child->name }}</option>
+                                            @endforeach
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-0">
+                                    <label class="form-label">Featured Status</label>
+                                    <select name="is_featured" class="form-control">
+                                        <option value="">No Change</option>
+                                        <option value="1">Mark as Featured</option>
+                                        <option value="0">Remove Featured</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-primary">Apply Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- INVENTORY LOG MODAL -->
+            <div class="modal fade" id="inventoryModal" tabindex="-1">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Inventory Log - <span id="inventoryTitle"></span></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="table-responsive">
+                                <table class="table table-bordered mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Date & Time</th>
+                                            <th>Type</th>
+                                            <th>Quantity</th>
+                                            <th>Reference</th>
+                                            <th>Previous Stock</th>
+                                            <th>New Stock</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="inventoryLogBody">
+                                        <!-- Dynamic content will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </div>
 </div>
 
-<!-- 100% COMPLETE JAVASCRIPT -->
+<!-- COMPLETE JAVASCRIPT -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Set CSRF token for all axios requests
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
+    axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-    new Chart(document.getElementById('salesChart'), {
-        type: 'line',
-        data: {
-            labels: @json($analytics['sales_chart']['labels'] ?? []),
-            datasets: [{
-                label: 'Daily Sales ($)',
-                data: @json($analytics['sales_chart']['data'] ?? []),
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13,110,253,0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { position: 'top' } },
-            scales: { y: { beginAtZero: true } }
-        }
-    });
-
-    new List('productList', { valueNames: ['title','category','stock','price','sold','created_at','featured'], page: 15, pagination: true });
-
-    const tbody = document.getElementById('sortableTableBody');
-    new Sortable(tbody, {
-        animation: 150,
-        ghostClass: 'bg-light',
-        handle: '.cursor-move',
-        onEnd: function () {
-            const items = Array.from(tbody.querySelectorAll('.draggable-row'));
-            const newOrder = items.map((row, i) => ({ id: row.dataset.productId, position: i + 1 }));
-            axios.post('/products/reorder', { order: newOrder })
-                .then(() => Swal.fire({icon:'success', title:'Saved!', timer:1500, showConfirmButton:false}))
-                .catch(() => location.reload());
-        }
-    });
-
-    document.getElementById('checkAll')?.addEventListener('change', function() {
-        document.querySelectorAll('.bulk-checkbox').forEach(cb => cb.checked = this.checked);
-        updateBulkActions();
-    });
-
-    function updateBulkActions() {
-        const count = document.querySelectorAll('.bulk-checkbox:checked').length;
-        document.getElementById('remove-actions').classList.toggle('d-none', count === 0);
-        document.getElementById('bulkEditBtn').classList.toggle('d-none', count === 0);
-        document.getElementById('bulkCount').textContent = count;
-        document.getElementById('bulk_product_ids').value = Array.from(document.querySelectorAll('.bulk-checkbox:checked')).map(cb => cb.value).join(',');
-    }
-    document.querySelectorAll('.bulk-checkbox').forEach(cb => cb.addEventListener('change', updateBulkActions));
-
-    window.deleteMultiple = function () {
-        const ids = Array.from(document.querySelectorAll('.bulk-checkbox:checked')).map(cb => cb.value);
-        if (!ids.length) return;
-        Swal.fire({ title: `Delete ${ids.length} product(s)?`, text: "This cannot be undone!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33' })
-            .then(r => { if (r.isConfirmed) { Swal.fire({title:'Deleting...', didOpen:()=>Swal.showLoading()}); Promise.all(ids.map(id => axios.delete(`/products/${id}`))).then(()=>location.reload()); } });
-    };
-
-    if (typeof Choices !== 'undefined') {
-        new Choices('#brandFilter', { removeItemButton: true });
-        new Choices('#categoryFilter');
-    }
-
-    let searchTimeout;
-    document.getElementById('searchInput').addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        const query = this.value.trim();
-        const dropdown = document.getElementById('searchResults');
-        if (query.length < 2) { dropdown.style.display = 'none'; return; }
-        searchTimeout = setTimeout(() => {
-            axios.get('/products/search', { params: { q: query } }).then(res => {
-                document.getElementById('resultsList').innerHTML = res.data.length ? res.data.map(p => `
-                    <a href="/products/${p.id}" class="d-block p-3 border-bottom text-decoration-none">
-                        <div class="d-flex align-items-center">
-                            <img src="${p.thumbnail ? '/storage/'+p.thumbnail : '/img/no-image.png'}" class="rounded me-3" style="width:40px;height:40px;object-fit:cover;">
-                            <div><div class="fw-semibold">${p.title}</div><small class="text-muted">SKU: ${p.sku} • $${Number(p.price).toFixed(2)}</small></div>
-                        </div>
-                    </a>`).join('') : '<div class="p-3 text-center text-muted">No results</div>';
-                dropdown.style.display = 'block';
-            });
-        }, 300);
-    });
-    document.addEventListener('click', e => {
-        if (!e.target.closest('#searchInput') && !e.target.closest('#searchResults')) document.getElementById('searchResults').style.display = 'none';
-    });
-
-    setInterval(() => {
-        axios.get('/products/realtime-stock').then(res => {
-            res.data.forEach(item => {
-                const row = document.querySelector(`tr[data-product-id="${item.id}"]`);
-                if (row) {
-                    const cell = row.querySelector('.stock');
-                    const old = parseInt(cell.textContent.match(/\d+/)?.[0] || 0);
-                    if (old !== item.stock) {
-                        const badge = item.stock > 10 ? 'bg-success-subtle text-success-emphasis border border-success-subtle' :
-                                    item.stock > 0 ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle' :
-                                    'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
-                        const text = item.stock > 10 ? `${item.stock} in stock` : item.stock > 0 ? `${item.stock} low stock` : 'Out of stock';
-                        cell.innerHTML = `<span class="badge ${badge}">${text}</span>`;
-                        cell.style.backgroundColor = item.stock > old ? '#d4edda' : '#f8d7da';
-                        setTimeout(() => cell.style.backgroundColor = '', 1000);
+    // Initialize Sales Chart
+    const salesChartCtx = document.getElementById('salesChart');
+    if (salesChartCtx) {
+        new Chart(salesChartCtx, {
+            type: 'line',
+            data: {
+                labels: @json($analytics['sales_chart']['labels'] ?? []),
+                datasets: [{
+                    label: 'Daily Sales ($)',
+                    data: @json($analytics['sales_chart']['data'] ?? []),
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13,110,253,0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: '#495057' }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#6c757d' }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.05)' },
+                        ticks: {
+                            color: '#6c757d',
+                            callback: function(value) {
+                                return '$' + value;
+                            }
+                        }
                     }
                 }
-            });
+            }
         });
-    }, 10000);
+    }
 
+    // Initialize List.js for product filtering
+    const productListOptions = {
+        valueNames: ['title', 'category', 'stock', 'price', 'sold', 'created_at', 'featured'],
+        page: 15,
+        pagination: true
+    };
+    
+    if (document.getElementById('productList')) {
+        new List('productList', productListOptions);
+    }
+
+    // Initialize drag and drop for product reordering
+    const tbody = document.getElementById('sortableTableBody');
+    if (tbody) {
+        new Sortable(tbody, {
+            animation: 150,
+            ghostClass: 'bg-light',
+            handle: '.cursor-move',
+            filter: '.ignore-drag',
+            preventOnFilter: false,
+            onEnd: function () {
+                const items = Array.from(tbody.querySelectorAll('.draggable-row'));
+                const newOrder = items.map((row, i) => ({
+                    id: row.dataset.productId,
+                    position: i + 1
+                }));
+                
+                axios.post('/products/reorder', { order: newOrder })
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Order Saved!',
+                            text: 'Product order has been updated successfully.',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('Reorder error:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to save product order. Please try again.',
+                            timer: 2000
+                        });
+                        location.reload();
+                    });
+            }
+        });
+    }
+
+    // Bulk selection functionality
+    const checkAll = document.getElementById('checkAll');
+    if (checkAll) {
+        checkAll.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.bulk-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateBulkActions();
+        });
+    }
+
+    function updateBulkActions() {
+        const checkedBoxes = document.querySelectorAll('.bulk-checkbox:checked');
+        const count = checkedBoxes.length;
+        
+        const removeActionsBtn = document.getElementById('remove-actions');
+        const bulkEditBtn = document.getElementById('bulkEditBtn');
+        const bulkCountSpan = document.getElementById('bulkCount');
+        const bulkProductIdsInput = document.getElementById('bulk_product_ids');
+        
+        if (removeActionsBtn) removeActionsBtn.classList.toggle('d-none', count === 0);
+        if (bulkEditBtn) bulkEditBtn.classList.toggle('d-none', count === 0);
+        if (bulkCountSpan) bulkCountSpan.textContent = count;
+        if (bulkProductIdsInput) {
+            bulkProductIdsInput.value = Array.from(checkedBoxes).map(cb => cb.value).join(',');
+        }
+    }
+
+    // Attach change event to all bulk checkboxes
+    document.querySelectorAll('.bulk-checkbox').forEach(cb => {
+        cb.addEventListener('change', updateBulkActions);
+    });
+
+    // Delete multiple products
+    window.deleteMultiple = function () {
+        const ids = Array.from(document.querySelectorAll('.bulk-checkbox:checked')).map(cb => cb.value);
+        if (!ids.length) {
+            Swal.fire('Info', 'Please select products to delete.', 'info');
+            return;
+        }
+        
+        Swal.fire({
+            title: `Delete ${ids.length} product(s)?`,
+            text: "This action cannot be undone!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, delete them!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Deleting...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Delete products one by one
+                const deletePromises = ids.map(id => axios.delete(`/products/${id}`));
+                Promise.all(deletePromises)
+                    .then(() => {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Deleted!',
+                            text: `${ids.length} product(s) have been deleted.`,
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            location.reload();
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Delete error:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to delete some products. Please try again.'
+                        });
+                    });
+            }
+        });
+    };
+
+    // Initialize Choices.js for select elements
+    if (typeof Choices !== 'undefined') {
+        const brandSelect = document.getElementById('brand_id');
+        if (brandSelect) {
+            new Choices(brandSelect, {
+                removeItemButton: true,
+                searchEnabled: true,
+                placeholderValue: 'Select a brand',
+                searchPlaceholderValue: 'Search brands...'
+            });
+        }
+        
+        const categorySelect = document.getElementById('category_id');
+        if (categorySelect) {
+            new Choices(categorySelect, {
+                removeItemButton: true,
+                searchEnabled: true,
+                placeholderValue: 'Select a category',
+                searchPlaceholderValue: 'Search categories...'
+            });
+        }
+    }
+
+    // Real-time stock updates
+    setInterval(() => {
+        axios.get('/products/realtime-stock')
+            .then(response => {
+                if (response.data && Array.isArray(response.data)) {
+                    response.data.forEach(item => {
+                        const row = document.querySelector(`tr[data-product-id="${item.id}"]`);
+                        if (row) {
+                            const cell = row.querySelector('.stock');
+                            if (cell) {
+                                const oldStock = parseInt(cell.textContent.match(/\d+/)?.[0] || 0);
+                                if (oldStock !== item.stock) {
+                                    let badgeClass, text;
+                                    if (item.stock > 10) {
+                                        badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
+                                        text = `${item.stock} in stock`;
+                                    } else if (item.stock > 0) {
+                                        badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                                        text = `${item.stock} low stock`;
+                                    } else {
+                                        badgeClass = 'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
+                                        text = 'Out of stock';
+                                    }
+                                    
+                                    cell.innerHTML = `<span class="badge ${badgeClass}">${text}</span>`;
+                                    
+                                    // Highlight change
+                                    cell.style.transition = 'background-color 0.3s';
+                                    cell.style.backgroundColor = item.stock > oldStock ? '#d4edda' : '#f8d7da';
+                                    setTimeout(() => {
+                                        cell.style.backgroundColor = '';
+                                    }, 1000);
+                                }
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Real-time stock update error:', error);
+            });
+    }, 10000); // Update every 10 seconds
+
+    // Event delegation for dynamic elements
     document.addEventListener('click', function(e) {
+        // Inventory button click
         if (e.target.classList.contains('inventory-btn')) {
             const id = e.target.dataset.id;
             const title = e.target.dataset.title;
             document.getElementById('inventoryTitle').textContent = title;
-            axios.get(`/products/${id}/inventory`).then(res => {
-                const tbody = document.getElementById('inventoryLogBody');
-                tbody.innerHTML = res.data.length ? res.data.map(log => `
-                    <tr>
-                        <td>${new Date(log.created_at).toLocaleString()}</td>
-                        <td><span class="badge bg-${log.type==='in'?'success':'danger'}">${log.type==='in'?'Added':'Removed'}</span></td>
-                        <td><strong>${log.quantity}</strong></td>
-                        <td>${log.reference||'-'}</td>
-                        <td>${log.previous_stock}</td>
-                        <td><strong>${log.new_stock}</strong></td>
-                    </tr>
-                `).join('') : '<tr><td colspan="6" class="text-center text-muted py-4">No records</td></tr>';
-            });
-            new bootstrap.Modal(document.getElementById('inventoryModal')).show();
+            
+            axios.get(`/products/${id}/inventory`)
+                .then(response => {
+                    const tbody = document.getElementById('inventoryLogBody');
+                    if (response.data && response.data.length > 0) {
+                        tbody.innerHTML = response.data.map(log => `
+                            <tr>
+                                <td>${new Date(log.created_at).toLocaleString()}</td>
+                                <td>
+                                    <span class="badge bg-${log.type === 'in' ? 'success' : 'danger'}">
+                                        ${log.type === 'in' ? 'Added' : 'Removed'}
+                                    </span>
+                                </td>
+                                <td><strong>${log.quantity}</strong></td>
+                                <td>${log.reference || '-'}</td>
+                                <td>${log.previous_stock}</td>
+                                <td><strong>${log.new_stock}</strong></td>
+                            </tr>
+                        `).join('');
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No inventory records found</td></tr>';
+                    }
+                    
+                    // Show the inventory modal
+                    const inventoryModal = new bootstrap.Modal(document.getElementById('inventoryModal'));
+                    inventoryModal.show();
+                })
+                .catch(error => {
+                    console.error('Inventory load error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to load inventory data. Please try again.'
+                    });
+                });
         }
 
+        // Edit button click - FIXED VERSION
         if (e.target.closest('.edit-item-btn')) {
             const btn = e.target.closest('.edit-item-btn');
             const id = btn.dataset.id;
-            axios.get(`/products/${id}/edit`).then(r => {
-                const p = r.data;
-
-                document.getElementById('product_id').value = p.id;
-                document.getElementById('title').value = p.title || '';
-                document.getElementById('sku').value = p.sku || '';
-                document.getElementById('price').value = p.price || '';
-                document.getElementById('sale_price').value = p.sale_price || '';
-                document.getElementById('stock').value = p.stock || '';
-                document.getElementById('description').value = p.description || '';
-                document.getElementById('brand_id').value = p.brand_id || '';
-                document.getElementById('category_id').value = p.category_id || '';
-                document.getElementById('product_type').value = p.product_type || 'simple';
-                document.getElementById('is_featured').checked = !!p.is_featured;
-
-                const thumbPreview = document.getElementById('thumbnail_preview');
-                const thumbPlaceholder = document.getElementById('thumbnail_placeholder');
-                if (p.thumbnail) {
-                    thumbPreview.src = p.thumbnail.includes('http') ? p.thumbnail : `/storage/${p.thumbnail}`;
-                    thumbPreview.style.display = 'block';
-                    thumbPlaceholder.style.display = 'none';
-                } else {
-                    thumbPreview.style.display = 'none';
-                    thumbPlaceholder.style.display = 'block';
+            
+            // Show loading state
+            Swal.fire({
+                title: 'Loading product data...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
                 }
-
-                const gallery = document.getElementById('imageGallery');
-                gallery.innerHTML = '';
-                (p.gallery || []).forEach(img => {
-                    const div = document.createElement('div');
-                    div.className = 'col-6 col-md-4 position-relative';
-                    div.innerHTML = `<img src="${img.url}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
-                                     <button type="button" class="btn-close position-absolute top-0 end-0" onclick="this.parentElement.remove()"></button>`;
-                    gallery.appendChild(div);
-                });
-
-                calculateFromSalePrice();
-
-                const variationsSection = document.getElementById('variationsSection');
-                if (p.product_type === 'variable' && p.variations?.length > 0) {
-                    variationsSection.style.display = 'block';
-                    const container = document.getElementById('attributesContainer');
-                    container.innerHTML = '<div class="row g-3 align-items-end attribute-row"><div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div><div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue" name="attributes[0][values]"></div><div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div></div>';
-                    let attrIdx = 1;
-                    (p.attributes || []).forEach(attr => {
-                        document.getElementById('addAttribute').click();
-                        const row = container.querySelectorAll('.attribute-row')[attrIdx];
-                        row.querySelector('input[name$="[name]"]').value = attr.name;
-                        row.querySelector('input[name$="[values]"]').value = attr.values.join(', ');
-                        attrIdx++;
-                    });
-
-                    setTimeout(() => {
-                        let html = `<table class="table table-bordered"><thead><tr><th>Variant</th><th>SKU</th><th>Price</th><th>Sale</th><th>Stock</th><th>Image</th><th></th></tr></thead><tbody>`;
-                        p.variations.forEach((v, i) => {
-                            const name = Object.entries(v.attributes || {}).map(([k,val]) => `${k}: ${val}`).join(' | ') || 'Default';
-                            html += `<tr>
-                                <td><small>${name}</small>${Object.entries(v.attributes || {}).map(([k,val]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${val}">`).join('')}</td>
-                                <td><input type="text" name="variations[${i}][sku]" value="${v.sku || ''}" class="form-control form-control-sm" required></td>
-                                <td><input type="number" step="0.01" name="variations[${i}][price]" value="${v.price}" class="form-control form-control-sm" required></td>
-                                <td><input type="number" step="0.01" name="variations[${i}][sale_price]" value="${v.sale_price || ''}" class="form-control form-control-sm"></td>
-                                <td><input type="number" name="variations[${i}][stock]" value="${v.stock}" class="form-control form-control-sm" required></td>
-                                <td>
-                                    <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
-                                    ${v.image ? `<img src="${v.image}" class="variation-preview mt-2 img-fluid rounded" style="max-height:80px;">` : ''}
-                                </td>
-                                <td><button type="button" class="btn btn-danger btn-sm remove-variation">Remove</button></td>
-                            </tr>`;
-                        });
-                        html += `</tbody></table>`;
-                        document.getElementById('variationsTable').innerHTML = html;
-                    }, 100);
-                } else {
-                    variationsSection.style.display = 'none';
-                }
-
-                document.getElementById('modalTitle').textContent = 'Edit Product';
-                document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Update Product';
-                new bootstrap.Modal(document.getElementById('showModal')).show();
             });
+            
+            axios.get(`/products/${id}/edit`)
+                .then(response => {
+                    Swal.close();
+                    const product = response.data;
+
+                    // Reset form first
+                    resetForm();
+                    
+                    // Fill form with product data
+                    document.getElementById('product_id').value = product.id;
+                    document.getElementById('title').value = product.title || '';
+                    document.getElementById('sku').value = product.sku || '';
+                    document.getElementById('price').value = product.price || '';
+                    document.getElementById('sale_price').value = product.sale_price || '';
+                    document.getElementById('stock').value = product.stock || '';
+                    document.getElementById('description').value = product.description || '';
+                    document.getElementById('brand_id').value = product.brand_id || '';
+                    document.getElementById('category_id').value = product.category_id || '';
+                    document.getElementById('product_type').value = product.product_type || 'simple';
+                    document.getElementById('is_featured').checked = !!product.is_featured;
+
+                    // Handle thumbnail image
+                    const thumbPreview = document.getElementById('thumbnail_preview');
+                    const thumbPlaceholder = document.getElementById('thumbnail_placeholder');
+                    if (product.thumbnail) {
+                        const thumbnailUrl = product.thumbnail.includes('http') ? product.thumbnail : `/storage/${product.thumbnail}`;
+                        thumbPreview.src = thumbnailUrl;
+                        thumbPreview.style.display = 'block';
+                        thumbPlaceholder.style.display = 'none';
+                    } else {
+                        thumbPreview.style.display = 'none';
+                        thumbPlaceholder.style.display = 'block';
+                    }
+
+                    // Handle gallery images
+                    const gallery = document.getElementById('imageGallery');
+                    gallery.innerHTML = '';
+                    if (product.gallery && product.gallery.length > 0) {
+                        product.gallery.forEach((img, index) => {
+                            const div = document.createElement('div');
+                            div.className = 'col-6 col-md-4 position-relative';
+                            const imgUrl = img.url || img;
+                            div.innerHTML = `
+                                <img src="${imgUrl}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
+                                <input type="hidden" name="existing_images[]" value="${imgUrl}">
+                                <button type="button" class="btn-close position-absolute top-0 end-0 bg-white" onclick="this.parentElement.remove()"></button>
+                            `;
+                            gallery.appendChild(div);
+                        });
+                    }
+
+                    // Handle sale price calculation
+                    calculateFromSalePrice();
+
+                    // Handle variations for variable products
+                    const variationsSection = document.getElementById('variationsSection');
+                    if (product.product_type === 'variable' && product.variations && product.variations.length > 0) {
+                        variationsSection.style.display = 'block';
+                        
+                        // Clear existing attributes
+                        const container = document.getElementById('attributesContainer');
+                        container.innerHTML = '';
+                        
+                        // Add attributes if they exist
+                        if (product.attributes && product.attributes.length > 0) {
+                            product.attributes.forEach((attr, index) => {
+                                const attrHtml = `
+                                    <div class="row g-3 align-items-end attribute-row ${index > 0 ? 'mt-3' : ''}">
+                                        <div class="col-md-5">
+                                            <input type="text" class="form-control" placeholder="e.g. Color" 
+                                                   name="attributes[${index}][name]" value="${attr.name}">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <input type="text" class="form-control" placeholder="Red, Blue, Green" 
+                                                   name="attributes[${index}][values]" value="${attr.values ? attr.values.join(', ') : ''}">
+                                        </div>
+                                        <div class="col-md-1">
+                                            <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
+                                        </div>
+                                    </div>
+                                `;
+                                container.insertAdjacentHTML('beforeend', attrHtml);
+                            });
+                            attrIndex = product.attributes.length;
+                        } else {
+                            // Add default attribute row
+                            const defaultRow = `
+                                <div class="row g-3 align-items-end attribute-row">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
+                                    </div>
+                                </div>
+                            `;
+                            container.innerHTML = defaultRow;
+                            attrIndex = 1;
+                        }
+
+                        // Generate variations table
+                        let variationsHtml = `
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Variant</th>
+                                        <th>SKU</th>
+                                        <th>Price</th>
+                                        <th>Sale Price</th>
+                                        <th>Stock</th>
+                                        <th>Image</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                        
+                        product.variations.forEach((variation, index) => {
+                            const name = Object.entries(variation.attributes || {}).map(([key, value]) => `${key}: ${value}`).join(' | ') || 'Default';
+                            const hiddenInputs = Object.entries(variation.attributes || {}).map(([key, value]) => 
+                                `<input type="hidden" name="variations[${index}][attributes][${key}]" value="${value}">`
+                            ).join('');
+                            
+                            variationsHtml += `
+                                <tr>
+                                    <td>
+                                        <small>${name}</small>
+                                        ${hiddenInputs}
+                                        <input type="hidden" name="variations[${index}][id]" value="${variation.id || ''}">
+                                    </td>
+                                    <td>
+                                        <input type="text" name="variations[${index}][sku]" value="${variation.sku || ''}" 
+                                               class="form-control form-control-sm" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" name="variations[${index}][price]" value="${variation.price}" 
+                                               class="form-control form-control-sm" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" step="0.01" name="variations[${index}][sale_price]" value="${variation.sale_price || ''}" 
+                                               class="form-control form-control-sm">
+                                    </td>
+                                    <td>
+                                        <input type="number" name="variations[${index}][stock]" value="${variation.stock}" 
+                                               class="form-control form-control-sm" required>
+                                    </td>
+                                    <td>
+                                        <input type="file" name="variations[${index}][image]" class="form-control form-control-sm variation-image" accept="image/*">
+                                        ${variation.image ? `<img src="${variation.image}" class="variation-preview mt-2 img-fluid rounded" style="max-height:80px;">` : ''}
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm remove-variation">Remove</button>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        
+                        variationsHtml += `</tbody></table>`;
+                        document.getElementById('variationsTable').innerHTML = variationsHtml;
+                    } else {
+                        variationsSection.style.display = 'none';
+                    }
+
+                    // Update modal title and button
+                    document.getElementById('modalTitle').textContent = 'Edit Product';
+                    document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Update Product';
+                    
+                    // Show the modal
+                    const modalElement = document.getElementById('showModal');
+                    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+                    modal.show();
+                    
+                })
+                .catch(error => {
+                    Swal.close();
+                    console.error('Error loading product:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to load product data. Please try again.'
+                    });
+                });
         }
 
+        // Delete button click
         if (e.target.closest('.remove-item-btn')) {
             const id = e.target.closest('.remove-item-btn').dataset.id;
-            Swal.fire({title:'Delete?', icon:'warning', showCancelButton:true}).then(r => {
-                if (r.isConfirmed) axios.delete(`/products/${id}`).then(() => location.reload());
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "This product will be permanently deleted!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, delete it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    axios.delete(`/products/${id}`)
+                        .then(() => {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Deleted!',
+                                text: 'Product has been deleted successfully.',
+                                timer: 1500,
+                                showConfirmButton: false
+                            }).then(() => {
+                                location.reload();
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Delete error:', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Failed to delete product. Please try again.'
+                            });
+                        });
+                }
             });
         }
     });
 
+    // Variables for product form
     let attrIndex = 1;
-    let priceChanging = false, discountChanging = false, salePriceChanging = false;
+    let priceChanging = false;
+    let discountChanging = false;
+    let salePriceChanging = false;
 
-    document.getElementById('product_type').addEventListener('change', function() {
-        document.getElementById('variationsSection').style.display = this.value === 'variable' ? 'block' : 'none';
-    });
+    // Product type change handler
+    const productTypeSelect = document.getElementById('product_type');
+    if (productTypeSelect) {
+        productTypeSelect.addEventListener('change', function() {
+            const variationsSection = document.getElementById('variationsSection');
+            variationsSection.style.display = this.value === 'variable' ? 'block' : 'none';
+        });
+    }
 
-    document.getElementById('addAttribute')?.addEventListener('click', () => {
-        const html = `<div class="row g-3 align-items-end attribute-row mt-3">
-            <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
-            <div class="col-md-6"><input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]"></div>
-            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
-        </div>`;
-        document.getElementById('attributesContainer').insertAdjacentHTML('beforeend', html);
-        attrIndex++;
-    });
+    // Add attribute button
+    const addAttributeBtn = document.getElementById('addAttribute');
+    if (addAttributeBtn) {
+        addAttributeBtn.addEventListener('click', () => {
+            const html = `
+                <div class="row g-3 align-items-end attribute-row mt-3">
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]">
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('attributesContainer').insertAdjacentHTML('beforeend', html);
+            attrIndex++;
+        });
+    }
 
-    document.getElementById('price')?.addEventListener('input', () => { if (!priceChanging) { priceChanging = true; calculateFromPrice(); priceChanging = false; } });
-    document.getElementById('discount_percent')?.addEventListener('input', () => { if (!discountChanging) { discountChanging = true; calculateFromDiscount(); discountChanging = false; } });
-    document.getElementById('sale_price')?.addEventListener('input', () => { if (!salePriceChanging) { salePriceChanging = true; calculateFromSalePrice(); salePriceChanging = false; } });
+    // Price calculation handlers
+    const priceInput = document.getElementById('price');
+    const discountInput = document.getElementById('discount_percent');
+    const salePriceInput = document.getElementById('sale_price');
+
+    if (priceInput) {
+        priceInput.addEventListener('input', () => {
+            if (!priceChanging) {
+                priceChanging = true;
+                calculateFromPrice();
+                priceChanging = false;
+            }
+        });
+    }
+
+    if (discountInput) {
+        discountInput.addEventListener('input', () => {
+            if (!discountChanging) {
+                discountChanging = true;
+                calculateFromDiscount();
+                discountChanging = false;
+            }
+        });
+    }
+
+    if (salePriceInput) {
+        salePriceInput.addEventListener('input', () => {
+            if (!salePriceChanging) {
+                salePriceChanging = true;
+                calculateFromSalePrice();
+                salePriceChanging = false;
+            }
+        });
+    }
 
     function calculateFromPrice() {
-        const price = parseFloat(document.getElementById('price').value) || 0;
-        const discount = parseFloat(document.getElementById('discount_percent').value) || 0;
+        const price = parseFloat(priceInput.value) || 0;
+        const discount = parseFloat(discountInput.value) || 0;
         if (discount > 0 && discount <= 100) {
-            document.getElementById('sale_price').value = (price * (1 - discount/100)).toFixed(2);
+            salePriceInput.value = (price * (1 - discount / 100)).toFixed(2);
             document.getElementById('sale_price_note').style.display = 'block';
         }
     }
+
     function calculateFromDiscount() {
-        const price = parseFloat(document.getElementById('price').value) || 0;
-        const discount = parseFloat(document.getElementById('discount_percent').value) || 0;
+        const price = parseFloat(priceInput.value) || 0;
+        const discount = parseFloat(discountInput.value) || 0;
         if (price && discount) {
-            document.getElementById('sale_price').value = (price * (1 - discount/100)).toFixed(2);
+            salePriceInput.value = (price * (1 - discount / 100)).toFixed(2);
             document.getElementById('sale_price_note').style.display = 'block';
         }
     }
+
     function calculateFromSalePrice() {
-        const price = parseFloat(document.getElementById('price').value) || 0;
-        const sale = parseFloat(document.getElementById('sale_price').value) || 0;
+        const price = parseFloat(priceInput.value) || 0;
+        const sale = parseFloat(salePriceInput.value) || 0;
         if (price && sale && sale < price) {
             const discount = ((price - sale) / price) * 100;
-            document.getElementById('discount_percent').value = discount.toFixed(2);
+            discountInput.value = discount.toFixed(2);
             document.getElementById('sale_price_note').style.display = 'block';
         }
     }
 
-    document.getElementById('applyBulkDiscount')?.addEventListener('click', () => {
-        const bulk = parseFloat(document.getElementById('bulk_discount').value) || 0;
-        if (bulk < 0 || bulk > 100) return;
-        document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
-            const priceInput = row.querySelector('input[name*="price"]');
-            const saleInput = row.querySelector('input[name*="sale_price"]');
-            const price = parseFloat(priceInput.value) || 0;
-            if (price > 0) saleInput.value = (price * (1 - bulk/100)).toFixed(2);
-        });
-    });
-
-    document.getElementById('generateVariations')?.addEventListener('click', () => {
-        const attrs = [];
-        document.querySelectorAll('.attribute-row').forEach(row => {
-            const name = row.querySelector('input[name$="[name]"]').value.trim();
-            const values = row.querySelector('input[name$="[values]"]').value.split(',').map(v => v.trim()).filter(v => v);
-            if (name && values.length) attrs.push({name, values});
-        });
-        if (!attrs.length) {
-            document.getElementById('variationsTable').innerHTML = '<p class="text-muted">Add attributes first</p>';
-            return;
-        }
-        const combos = attrs.reduce((a,b) => a.flatMap(x => b.values.map(y => ({...x, [b.name]: y}))), [{}]);
-        let html = `<table class="table table-bordered"><thead><tr><th>Variant</th><th>SKU</th><th>Price</th><th>Sale Price</th><th>Stock</th><th>Image</th><th></th></tr></thead><tbody>`;
-        combos.forEach((c,i) => {
-            const name = Object.entries(c).map(([k,v]) => `${k}: ${v}`).join(' | ');
-            html += `<tr>
-                <td><small>${name}</small>${Object.entries(c).map(([k,v]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('')}</td>
-                <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" required></td>
-                <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm" required></td>
-                <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm"></td>
-                <td><input type="number" name="variations[${i}][stock]" class="form-control form-control-sm" required></td>
-                <td><input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
-                    <img class="variation-preview mt-2 img-fluid rounded" style="max-height:80px;display:none;">
-                </td>
-                <td><button type="button" class="btn btn-danger btn-sm remove-variation">Remove</button></td>
-            </tr>`;
-        });
-        html += `</tbody></table>`;
-        document.getElementById('variationsTable').innerHTML = html;
-    });
-
-    document.getElementById('thumbnail_input')?.addEventListener('change', e => {
-        if (e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = ev => {
-                document.getElementById('thumbnail_preview').src = ev.target.result;
-                document.getElementById('thumbnail_preview').style.display = 'block';
-                document.getElementById('thumbnail_placeholder').style.display = 'none';
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-    });
-
-    document.getElementById('gallery_input')?.addEventListener('change', e => {
-        const container = document.getElementById('imageGallery');
-        container.innerHTML = '';
-        Array.from(e.target.files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = ev => {
-                const div = document.createElement('div');
-                div.className = 'col-6 col-md-4 position-relative';
-                div.innerHTML = `<img src="${ev.target.result}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
-                                 <button type="button" class="btn-close position-absolute top-0 end-0" onclick="this.parentElement.remove()"></button>`;
-                container.appendChild(div);
-            };
-            reader.readAsDataURL(file);
-        });
-    });
-    new Sortable(document.getElementById('imageGallery'), { animation: 150 });
-
-    document.addEventListener('change', e => {
-        if (e.target.classList.contains('variation-image') && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = ev => {
-                e.target.closest('td').querySelector('.variation-preview').src = ev.target.result;
-                e.target.closest('td').querySelector('.variation-preview').style.display = 'block';
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-    });
-
-    document.addEventListener('click', e => {
-        if (e.target.classList.contains('remove-attribute')) e.target.closest('.attribute-row').remove();
-        if (e.target.classList.contains('remove-variation')) e.target.closest('tr').remove();
-    });
-
-    document.getElementById('importForm')?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
-        const progress = document.getElementById('importProgress');
-        const bar = progress.querySelector('.progress-bar');
-        progress.style.display = 'block';
-        axios.post('{{ route('products.import') }}', formData, {
-            headers: {'Content-Type': 'multipart/form-data'},
-            onUploadProgress: e => {
-                const percent = Math.round((e.loaded * 100) / e.total);
-                bar.style.width = percent + '%';
-                bar.textContent = percent + '%';
+    // Apply bulk discount to variations
+    const applyBulkDiscountBtn = document.getElementById('applyBulkDiscount');
+    if (applyBulkDiscountBtn) {
+        applyBulkDiscountBtn.addEventListener('click', () => {
+            const bulkDiscount = parseFloat(document.getElementById('bulk_discount').value) || 0;
+            if (bulkDiscount < 0 || bulkDiscount > 100) {
+                Swal.fire('Warning', 'Please enter a valid discount percentage (0-100).', 'warning');
+                return;
             }
-        }).then(() => {
-            Swal.fire('Success!', 'Import completed', 'success').then(() => location.reload());
-        }).catch(() => Swal.fire('Error!', 'Import failed', 'error'));
+            
+            document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
+                const priceInput = row.querySelector('input[name*="price"]');
+                const saleInput = row.querySelector('input[name*="sale_price"]');
+                const price = parseFloat(priceInput.value) || 0;
+                if (price > 0) {
+                    saleInput.value = (price * (1 - bulkDiscount / 100)).toFixed(2);
+                }
+            });
+            
+            Swal.fire('Success', `Applied ${bulkDiscount}% discount to all variations.`, 'success');
+        });
+    }
+
+    // Generate variations button
+    const generateVariationsBtn = document.getElementById('generateVariations');
+    if (generateVariationsBtn) {
+        generateVariationsBtn.addEventListener('click', () => {
+            const attrs = [];
+            document.querySelectorAll('.attribute-row').forEach(row => {
+                const name = row.querySelector('input[name$="[name]"]').value.trim();
+                const values = row.querySelector('input[name$="[values]"]').value.split(',').map(v => v.trim()).filter(v => v);
+                if (name && values.length) attrs.push({name, values});
+            });
+            
+            if (!attrs.length) {
+                document.getElementById('variationsTable').innerHTML = '<p class="text-muted">Please add attributes first</p>';
+                return;
+            }
+            
+            // Generate all combinations
+            const combos = attrs.reduce((accumulator, currentAttr) => 
+                accumulator.flatMap(combo => 
+                    currentAttr.values.map(value => ({...combo, [currentAttr.name]: value}))
+                ), 
+                [{}]
+            ).filter(combo => Object.keys(combo).length > 0);
+            
+            let html = `
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Variant</th>
+                            <th>SKU</th>
+                            <th>Price</th>
+                            <th>Sale Price</th>
+                            <th>Stock</th>
+                            <th>Image</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            combos.forEach((combo, i) => {
+                const name = Object.entries(combo).map(([key, value]) => `${key}: ${value}`).join(' | ');
+                html += `
+                    <tr>
+                        <td>
+                            <small>${name}</small>
+                            ${Object.entries(combo).map(([key, value]) => 
+                                `<input type="hidden" name="variations[${i}][attributes][${key}]" value="${value}">`
+                            ).join('')}
+                        </td>
+                        <td>
+                            <input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" required>
+                        </td>
+                        <td>
+                            <input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm" required>
+                        </td>
+                        <td>
+                            <input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm">
+                        </td>
+                        <td>
+                            <input type="number" name="variations[${i}][stock]" class="form-control form-control-sm" required>
+                        </td>
+                        <td>
+                            <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
+                            <img class="variation-preview mt-2 img-fluid rounded" style="max-height:80px;display:none;">
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-danger btn-sm remove-variation">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table>`;
+            document.getElementById('variationsTable').innerHTML = html;
+        });
+    }
+
+    // Thumbnail image preview
+    const thumbnailInput = document.getElementById('thumbnail_input');
+    if (thumbnailInput) {
+        thumbnailInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('thumbnail_preview').src = event.target.result;
+                    document.getElementById('thumbnail_preview').style.display = 'block';
+                    document.getElementById('thumbnail_placeholder').style.display = 'none';
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+    }
+
+    // Gallery images preview
+    const galleryInput = document.getElementById('gallery_input');
+    if (galleryInput) {
+        galleryInput.addEventListener('change', function(e) {
+            const container = document.getElementById('imageGallery');
+            container.innerHTML = '';
+            
+            Array.from(e.target.files).forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const div = document.createElement('div');
+                    div.className = 'col-6 col-md-4 position-relative';
+                    div.innerHTML = `
+                        <img src="${event.target.result}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
+                        <button type="button" class="btn-close position-absolute top-0 end-0 bg-white" onclick="this.parentElement.remove()"></button>
+                    `;
+                    container.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+    }
+
+    // Make gallery sortable
+    const imageGallery = document.getElementById('imageGallery');
+    if (imageGallery) {
+        new Sortable(imageGallery, {
+            animation: 150,
+            ghostClass: 'bg-light'
+        });
+    }
+
+    // Variation image preview
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('variation-image') && e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const previewImg = e.target.closest('td').querySelector('.variation-preview');
+                if (previewImg) {
+                    previewImg.src = event.target.result;
+                    previewImg.style.display = 'block';
+                }
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
     });
 
-    document.getElementById('bulkEditForm')?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        axios.post('{{ route('products.bulkUpdate') }}', new FormData(this))
-            .then(() => Swal.fire('Success!', 'Updated', 'success').then(() => location.reload()))
-            .catch(() => Swal.fire('Error!', 'Update failed', 'error'));
+    // Remove attribute and variation buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-attribute')) {
+            e.target.closest('.attribute-row').remove();
+        }
+        
+        if (e.target.classList.contains('remove-variation')) {
+            e.target.closest('tr').remove();
+        }
     });
 
-    document.getElementById('productForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const id = document.getElementById('product_id').value;
-        const url = id ? `/products/${id}` : '/products';
-        const formData = new FormData(this);
-        if (id) formData.append('_method', 'PUT');
-
-        const btn = document.getElementById('submitBtn');
-        const spinner = document.getElementById('submitSpinner');
-        btn.disabled = true; spinner.classList.remove('d-none');
-
-        axios.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-            .then(r => { Swal.fire('Success!', r.data.message || 'Saved', 'success').then(() => location.reload()); })
-            .catch(err => {
-                const msg = err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join('<br>') : 'Error';
-                Swal.fire('Error!', msg, 'error');
+    // Import form submission
+    const importForm = document.getElementById('importForm');
+    if (importForm) {
+        importForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const progress = document.getElementById('importProgress');
+            const bar = progress.querySelector('.progress-bar');
+            
+            progress.style.display = 'block';
+            bar.style.width = '0%';
+            bar.textContent = '0%';
+            
+            axios.post('{{ route("products.import") }}', formData, {
+                headers: {'Content-Type': 'multipart/form-data'},
+                onUploadProgress: function(progressEvent) {
+                    const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    bar.style.width = percent + '%';
+                    bar.textContent = percent + '%';
+                }
             })
-            .finally(() => { btn.disabled = false; spinner.classList.add('d-none'); });
-    });
+            .then(() => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Import completed successfully.',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    location.reload();
+                });
+            })
+            .catch(error => {
+                console.error('Import error:', error);
+                let errorMessage = 'Import failed. Please try again.';
+                if (error.response && error.response.data && error.response.data.message) {
+                    errorMessage = error.response.data.message;
+                }
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: errorMessage
+                });
+                progress.style.display = 'none';
+            });
+        });
+    }
 
+    // Bulk edit form submission
+    const bulkEditForm = document.getElementById('bulkEditForm');
+    if (bulkEditForm) {
+        bulkEditForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            Swal.fire({
+                title: 'Applying changes...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            axios.post('{{ route("products.bulkUpdate") }}', new FormData(this))
+                .then(() => {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: 'Bulk update completed successfully.',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        location.reload();
+                    });
+                })
+                .catch(error => {
+                    console.error('Bulk update error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: 'Bulk update failed. Please try again.'
+                    });
+                });
+        });
+    }
+
+    // Product form submission
+    const productForm = document.getElementById('productForm');
+    if (productForm) {
+        productForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const productId = document.getElementById('product_id').value;
+            const url = productId ? `/products/${productId}` : '/products';
+            const formData = new FormData(this);
+            
+            if (productId) {
+                formData.append('_method', 'PUT');
+            }
+            
+            const btn = document.getElementById('submitBtn');
+            const spinner = document.getElementById('submitSpinner');
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            axios.post(url, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
+            .then(response => {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: response.data.message || 'Product saved successfully.',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    location.reload();
+                });
+            })
+            .catch(error => {
+                console.error('Save error:', error);
+                let errorMessage = 'Error saving product. Please try again.';
+                
+                if (error.response && error.response.data) {
+                    if (error.response.data.message) {
+                        errorMessage = error.response.data.message;
+                    } else if (error.response.data.errors) {
+                        const errors = Object.values(error.response.data.errors).flat();
+                        errorMessage = errors.join('<br>');
+                    }
+                }
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    html: errorMessage
+                });
+            })
+            .finally(() => {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            });
+        });
+    }
+
+    // Reset form function
     window.resetForm = function() {
-        document.getElementById('productForm').reset();
+        // Reset form inputs
+        const productForm = document.getElementById('productForm');
+        if (productForm) {
+            productForm.reset();
+        }
+        
+        // Clear hidden fields
         document.getElementById('product_id').value = '';
+        
+        // Reset modal title and button
         document.getElementById('modalTitle').textContent = 'Add Product';
         document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Save Product';
+        
+        // Hide variations section
         document.getElementById('variationsSection').style.display = 'none';
-        document.getElementById('attributesContainer').innerHTML = `<div class="row g-3 align-items-end attribute-row">
-            <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
-            <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
-, <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
-        </div>`;
+        
+        // Reset attributes container
+        const container = document.getElementById('attributesContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="row g-3 align-items-end attribute-row">
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]">
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
+                    </div>
+                </div>`;
+        }
+        
+        // Clear variations table
         document.getElementById('variationsTable').innerHTML = '';
+        
+        // Clear image gallery
         document.getElementById('imageGallery').innerHTML = '';
-        document.getElementById('thumbnail_preview').style.display = 'none';
-        document.getElementById('thumbnail_placeholder').style.display = 'block';
-        document.getElementById('sale_price_note').style.display = 'none';
+        
+        // Reset thumbnail preview
+        const thumbPreview = document.getElementById('thumbnail_preview');
+        const thumbPlaceholder = document.getElementById('thumbnail_placeholder');
+        if (thumbPreview && thumbPlaceholder) {
+            thumbPreview.style.display = 'none';
+            thumbPreview.src = '';
+            thumbPlaceholder.style.display = 'block';
+        }
+        
+        // Reset sale price note
+        const salePriceNote = document.getElementById('sale_price_note');
+        if (salePriceNote) {
+            salePriceNote.style.display = 'none';
+        }
+        
+        // Reset attribute index
         attrIndex = 1;
+        
+        // Close modal if open
+        const modalElement = document.getElementById('showModal');
+        if (modalElement) {
+            const modal = bootstrap.Modal.getInstance(modalElement);
+            if (modal) {
+                modal.hide();
+            }
+        }
     };
+
 });
 </script>
 @endsection
