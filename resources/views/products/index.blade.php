@@ -232,7 +232,7 @@
                 <span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span>
             </td>
 
-            <!-- Featured — Gold Star Icon -->
+            <!-- Featured — WITH GOLD STAR ICON -->
             <td class="featured">
                 @if($product->is_featured)
                     <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
@@ -250,14 +250,14 @@
                 <small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small>
             </td>
 
-            <!-- Inventory Log Button -->
+            <!-- Inventory Button -->
             <td>
                 <button type="button" class="btn btn-sm btn-outline-info inventory-btn" data-id="{{ $product->id }}" data-title="{{ $product->title }}">
                     View Log
                 </button>
             </td>
 
-            <!-- Action Dropdown -->
+            <!-- Action -->
             <td>
                 <div class="dropdown">
                     <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
