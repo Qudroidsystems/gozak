@@ -253,4 +253,12 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $this->notify(new VerifyEmail);
     }
+
+     /**
+     * Get the stocks created by this user.
+     */
+    public function stocks()
+    {
+        return $this->hasMany(Stock::class);
+    }
 }
