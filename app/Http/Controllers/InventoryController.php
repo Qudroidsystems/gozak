@@ -19,19 +19,19 @@ class InventoryController extends Controller
     public function __construct()
     {
         // View permissions
-        $this->middleware('permission:View inventory', ['only' => ['index', 'show']]);
-        $this->middleware('permission:View inventory dashboard', ['only' => ['dashboard']]);
-        $this->middleware('permission:View stock levels', ['only' => ['stockLevels']]);
-        $this->middleware('permission:View stock history', ['only' => ['stockHistory']]);
-        $this->middleware('permission:View low stock alerts', ['only' => ['lowStockAlerts']]);
-        $this->middleware('permission:View stock value report', ['only' => ['stockValueReport']]);
+        // $this->middleware('permission:View inventory', ['only' => ['index', 'show']]);
+        // $this->middleware('permission:View inventory dashboard', ['only' => ['dashboard']]);
+        // $this->middleware('permission:View stock levels', ['only' => ['stockLevels']]);
+        // $this->middleware('permission:View stock history', ['only' => ['stockHistory']]);
+        // $this->middleware('permission:View low stock alerts', ['only' => ['lowStockAlerts']]);
+        // $this->middleware('permission:View stock value report', ['only' => ['stockValueReport']]);
         
-        // Management permissions
-        $this->middleware('permission:Manage inventory', ['only' => ['store', 'update', 'destroy']]);
-        $this->middleware('permission:Adjust stock', ['only' => ['adjustStock', 'bulkAdjust']]);
-        $this->middleware('permission:Transfer stock', ['only' => ['transferStock']]);
-        $this->middleware('permission:Import inventory', ['only' => ['import']]);
-        $this->middleware('permission:Export inventory', ['only' => ['exportTransactions', 'exportStockLevels']]);
+        // // Management permissions
+        // $this->middleware('permission:Manage inventory', ['only' => ['store', 'update', 'destroy']]);
+        // $this->middleware('permission:Adjust stock', ['only' => ['adjustStock', 'bulkAdjust']]);
+        // $this->middleware('permission:Transfer stock', ['only' => ['transferStock']]);
+        // $this->middleware('permission:Import inventory', ['only' => ['import']]);
+        // $this->middleware('permission:Export inventory', ['only' => ['exportTransactions', 'exportStockLevels']]);
     }
 
     public function index(Request $request)
