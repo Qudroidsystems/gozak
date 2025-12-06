@@ -61,6 +61,7 @@
     
     <!-- Add CSS includes for inventory routes -->
     @if (Route::is('inventory.*') || Route::is('stock-locations.*'))
+         @include('layouts.pages-assets.css.users-list-css')
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css">
     @endif
     
