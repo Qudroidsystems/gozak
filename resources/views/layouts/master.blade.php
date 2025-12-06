@@ -259,7 +259,7 @@
                         @can('View inventory')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarmanageinventory" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarmanageinventory">
-                                    <i class="ph-warehouse"></i> <span data-key="t-authentication">Inventory Management</span>
+                                    <i class="ph-user-circle"></i> <span data-key="t-authentication">Inventory Management</span>
                                 </a>
                                 <div class="collapse menu-dropdown" id="sidebarmanageinventory">
                                     <ul class="nav nav-sm flex-column">
@@ -301,7 +301,7 @@
                         <!-- PRODUCT REVIEWS MENU -->
                         <!-- =========================================== -->
                         
-                        @can('View product reviews')
+                        @can('View review')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarreviews" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarreviews">
                                     <i class="ph-star"></i> <span data-key="t-authentication">Reviews Management</span>
