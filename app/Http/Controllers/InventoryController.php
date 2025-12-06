@@ -30,14 +30,13 @@ class InventoryController extends Controller
         $this->middleware('permission:Transfer stock', ['only' => ['transferStock']]);
         $this->middleware('permission:Import inventory', ['only' => ['import']]);
         $this->middleware('permission:Export inventory', ['only' => ['export']]);
-    
     }
 
     public function index(Request $request)
     {
         $pagetitle = "Inventory Management";
         
-        $query = Stock::with(['product', 'user', 'stockLocation', 'destinationLocation', 'variant'])
+        $query = Stock::with(['product', 'user', 'stockLocation', 'destinationLocation'])
             ->latest('transaction_date');
         
         // Apply filters
@@ -75,19 +74,28 @@ class InventoryController extends Controller
         
         $transactions = $query->paginate(25)->withQueryString();
         
-        $products = Product::active()->orderBy('title')->get(['id', 'title', 'sku']);
-        $locations = StockLocation::active()->orderBy('name')->get();
-        $users = \App\Models\User::whereHas('stocks')->orderBy('name')->get(['id', 'name', 'email']);
+        // Get products (remove active() scope for now)
+        $products = Product::orderBy('title')->get(['id', 'title', 'sku']);
+        
+        // Get locations (remove active() scope for now)
+        $locations = StockLocation::orderBy('name')->get();
+        
+        // Get users who have stock transactions
+        $users = \App\Models\User::whereHas('stocks')
+            ->select('id', 'first_name', 'last_name', 'email')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
         
         // Summary statistics
         $summary = [
-            'total_in' => Stock::incoming()->sum('quantity'),
-            'total_out' => Stock::outgoing()->sum('quantity'),
-            'total_adjustments' => Stock::adjustments()->count(),
-            'total_transfers' => Stock::transfers()->count(),
-            'total_returns' => Stock::returns()->count(),
-            'total_damages' => Stock::damages()->count(),
-            'total_value' => Stock::incoming()->sum(DB::raw('quantity * unit_cost')),
+            'total_in' => Stock::where('type', 'in')->sum('quantity'),
+            'total_out' => Stock::where('type', 'out')->sum('quantity'),
+            'total_adjustments' => Stock::where('type', 'adjustment')->count(),
+            'total_transfers' => Stock::where('type', 'transfer')->count(),
+            'total_returns' => Stock::where('type', 'return')->count(),
+            'total_damages' => Stock::where('type', 'damage')->count(),
+            'total_value' => Stock::where('type', 'in')->sum(DB::raw('COALESCE(quantity * unit_cost, 0)')),
         ];
         
         // Recent activity
@@ -112,10 +120,10 @@ class InventoryController extends Controller
         $pagetitle = "Inventory Dashboard";
         
         $totalProducts = Product::count();
-        $totalLocations = StockLocation::active()->count();
+        $totalLocations = StockLocation::count();
         
         // Stock summary by location
-        $locations = StockLocation::active()->withCount(['stocks as total_items' => function($query) {
+        $locations = StockLocation::withCount(['stocks as total_items' => function($query) {
             $query->select(DB::raw('SUM(CASE WHEN type IN ("in", "adjustment", "transfer") THEN quantity ELSE -quantity END)'));
         }])->get();
         
@@ -150,8 +158,7 @@ class InventoryController extends Controller
             ->get();
         
         // Stock value by location
-        $stockValueByLocation = StockLocation::active()
-            ->select('stock_locations.*')
+        $stockValueByLocation = StockLocation::select('stock_locations.*')
             ->selectSub(function($query) {
                 $query->selectRaw('SUM(
                     CASE 
@@ -243,7 +250,7 @@ class InventoryController extends Controller
         
         $products = $query->paginate(25)->withQueryString();
         
-        $locations = StockLocation::active()->get();
+        $locations = StockLocation::get();
         
         // Get stock by location for each product
         foreach ($products as $product) {
@@ -275,7 +282,7 @@ class InventoryController extends Controller
             ->latest('transaction_date')
             ->paginate(20);
             
-        $locations = StockLocation::active()->get();
+        $locations = StockLocation::get();
         $locationStock = [];
         
         foreach ($locations as $location) {
@@ -339,12 +346,12 @@ class InventoryController extends Controller
             
             if ($request->adjustment_type === 'set') {
                 $adjustment = $request->quantity - $currentStock;
-                $type = $adjustment >= 0 ? Stock::TYPE_ADJUSTMENT : Stock::TYPE_ADJUSTMENT;
                 $quantity = abs($adjustment);
                 $previousQuantity = $currentStock;
                 $newQuantity = $request->quantity;
+                $type = $adjustment >= 0 ? 'in' : 'out';
             } else {
-                $type = $request->adjustment_type === 'add' ? Stock::TYPE_IN : Stock::TYPE_OUT;
+                $type = $request->adjustment_type === 'add' ? 'in' : 'out';
                 $quantity = $request->quantity;
                 $previousQuantity = $currentStock;
                 $newQuantity = $request->adjustment_type === 'add' 
@@ -366,7 +373,7 @@ class InventoryController extends Controller
                 'unit_cost' => $unitCost,
                 'total_cost' => $totalCost,
                 'reference_number' => 'ADJ-' . date('YmdHis') . rand(100, 999),
-                'reference_type' => Stock::REFERENCE_ADJUSTMENT,
+                'reference_type' => 'adjustment',
                 'adjustment_reason' => $request->reason,
                 'notes' => $request->notes,
                 'expiry_date' => $request->expiry_date,
@@ -376,13 +383,15 @@ class InventoryController extends Controller
             ]);
             
             // Create stock movement
-            $stock->createMovement();
+            if (method_exists($stock, 'createMovement')) {
+                $stock->createMovement();
+            }
             
             // Update product's main stock if this is the default location
             if ($location->is_default) {
-                if ($type === Stock::TYPE_IN) {
+                if ($type === 'in') {
                     $product->increment('stock', $quantity);
-                } elseif ($type === Stock::TYPE_OUT) {
+                } elseif ($type === 'out') {
                     $product->decrement('stock', $quantity);
                 }
             }
@@ -452,20 +461,22 @@ class InventoryController extends Controller
                 'stock_location_id' => $fromLocation->id,
                 'destination_location_id' => $toLocation->id,
                 'user_id' => auth()->id(),
-                'type' => Stock::TYPE_TRANSFER,
+                'type' => 'transfer',
                 'quantity' => $request->quantity,
                 'previous_quantity' => $fromCurrentStock,
                 'new_quantity' => $fromCurrentStock - $request->quantity,
                 'unit_cost' => $unitCost,
                 'total_cost' => $totalCost,
                 'reference_number' => $referenceNumber,
-                'reference_type' => Stock::REFERENCE_TRANSFER,
+                'reference_type' => 'transfer',
                 'notes' => $request->notes,
                 'transaction_date' => now(),
             ]);
             
             // Create stock movement
-            $stock->createMovement();
+            if (method_exists($stock, 'createMovement')) {
+                $stock->createMovement();
+            }
             
             DB::commit();
             
@@ -517,12 +528,12 @@ class InventoryController extends Controller
                 
                 if ($request->adjustment_type === 'set') {
                     $adjustment = $item['quantity'] - $currentStock;
-                    $type = $adjustment >= 0 ? Stock::TYPE_ADJUSTMENT : Stock::TYPE_ADJUSTMENT;
                     $quantity = abs($adjustment);
                     $previousQuantity = $currentStock;
                     $newQuantity = $item['quantity'];
+                    $type = $adjustment >= 0 ? 'in' : 'out';
                 } else {
-                    $type = Stock::TYPE_IN;
+                    $type = 'in';
                     $quantity = $item['quantity'];
                     $previousQuantity = $currentStock;
                     $newQuantity = $currentStock + $quantity;
@@ -541,13 +552,16 @@ class InventoryController extends Controller
                     'unit_cost' => $product->price,
                     'total_cost' => $product->price * $quantity,
                     'reference_number' => 'BULK-' . date('YmdHis') . rand(100, 999),
-                    'reference_type' => Stock::REFERENCE_ADJUSTMENT,
+                    'reference_type' => 'adjustment',
                     'adjustment_reason' => $request->reason,
                     'notes' => $request->notes,
                     'transaction_date' => now(),
                 ]);
                 
-                $stock->createMovement();
+                // Create stock movement
+                if (method_exists($stock, 'createMovement')) {
+                    $stock->createMovement();
+                }
                 
                 // Update product's main stock if this is the default location
                 if ($location->is_default) {
@@ -577,7 +591,7 @@ class InventoryController extends Controller
 
     public function show($id)
     {
-        $stock = Stock::with(['product', 'user', 'stockLocation', 'destinationLocation', 'variant'])
+        $stock = Stock::with(['product', 'user', 'stockLocation', 'destinationLocation'])
             ->findOrFail($id);
             
         return response()->json([
@@ -600,8 +614,10 @@ class InventoryController extends Controller
                 ], 400);
             }
             
-            // Delete associated movement
-            $stock->movement()->delete();
+            // Delete associated movement if exists
+            if (method_exists($stock, 'movement')) {
+                $stock->movement()->delete();
+            }
             
             $stock->delete();
             
@@ -656,8 +672,6 @@ class InventoryController extends Controller
 
     public function exportTransactions(Request $request)
     {
-        // Implementation for exporting transactions
-        // You can use Laravel Excel package here
         $query = Stock::with(['product', 'stockLocation', 'user'])
             ->latest('transaction_date');
         
@@ -689,18 +703,22 @@ class InventoryController extends Controller
             
             // Add data rows
             foreach ($transactions as $transaction) {
+                $userName = $transaction->user ? 
+                    $transaction->user->first_name . ' ' . $transaction->user->last_name : 
+                    'System';
+                
                 fputcsv($file, [
                     $transaction->transaction_date->format('Y-m-d H:i:s'),
-                    $transaction->type_label,
+                    ucfirst($transaction->type),
                     $transaction->product->title,
                     $transaction->product->sku,
                     $transaction->stockLocation->name,
-                    $transaction->formatted_quantity,
+                    $transaction->quantity,
                     $transaction->unit_cost ? '$' . number_format($transaction->unit_cost, 2) : '',
                     $transaction->total_cost ? '$' . number_format($transaction->total_cost, 2) : '',
                     $transaction->reference_number,
                     $transaction->adjustment_reason ?? '',
-                    $transaction->user->name ?? 'System',
+                    $userName,
                     $transaction->notes ?? ''
                 ]);
             }
@@ -723,7 +741,7 @@ class InventoryController extends Controller
             ->orderBy('total_stock')
             ->get();
         
-        $locations = StockLocation::active()->get();
+        $locations = StockLocation::get();
         
         $filename = 'stock-levels-' . date('Y-m-d-His') . '.csv';
         $headers = [
@@ -793,9 +811,6 @@ class InventoryController extends Controller
             ], 422);
         }
 
-        // Implementation for importing stock data
-        // You can use Laravel Excel package here
-        
         return response()->json([
             'success' => true,
             'message' => 'Import functionality to be implemented'
@@ -824,17 +839,17 @@ class InventoryController extends Controller
 
     public function getStockValueReport()
     {
-        $locations = StockLocation::active()->get();
+        $locations = StockLocation::get();
         $report = [];
         
         foreach ($locations as $location) {
-            $value = $location->total_value;
+            $value = $location->total_value ?? 0;
             if ($value > 0) {
                 $report[] = [
                     'location' => $location->name,
                     'value' => $value,
                     'formatted_value' => '$' . number_format($value, 2),
-                    'product_count' => $location->total_products
+                    'product_count' => $location->total_products ?? 0
                 ];
             }
         }
