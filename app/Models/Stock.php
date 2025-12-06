@@ -1,843 +1,336 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Models;
 
-use Carbon\Carbon;
-use App\Models\Brand;
-use App\Models\Stock;
+use App\Models\User;
 use App\Models\Product;
-use App\Models\Category;
-use Illuminate\Http\Request;
 use App\Models\StockLocation;
 use App\Models\StockMovement;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
+use App\Models\ProductVariation;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class InventoryController extends Controller
+class Stock extends Model
 {
-    public function __construct()
+    use HasFactory;
+
+    const TYPE_IN = 'in';
+    const TYPE_OUT = 'out';
+    const TYPE_ADJUSTMENT = 'adjustment';
+    const TYPE_TRANSFER = 'transfer';
+    const TYPE_RETURN = 'return';
+    const TYPE_DAMAGE = 'damage';
+
+    const REFERENCE_PURCHASE = 'purchase';
+    const REFERENCE_SALE = 'sale';
+    const REFERENCE_RETURN = 'return';
+    const REFERENCE_ADJUSTMENT = 'adjustment';
+    const REFERENCE_TRANSFER = 'transfer';
+    const REFERENCE_DAMAGE = 'damage';
+    const REFERENCE_OTHER = 'other';
+
+    protected $fillable = [
+        'product_id',
+        'product_variant_id',
+        'stock_location_id',
+        'destination_location_id',
+        'user_id',
+        'type',
+        'quantity',
+        'previous_quantity',
+        'new_quantity',
+        'unit_cost',
+        'total_cost',
+        'reference_number',
+        'reference_type',
+        'adjustment_reason',
+        'notes',
+        'expiry_date',
+        'batch_number',
+        'serial_number',
+        'metadata',
+        'transaction_date'
+    ];
+
+    protected $casts = [
+        'quantity' => 'integer',
+        'previous_quantity' => 'integer',
+        'new_quantity' => 'integer',
+        'unit_cost' => 'decimal:4',
+        'total_cost' => 'decimal:4',
+        'expiry_date' => 'date',
+        'metadata' => 'array',
+        'transaction_date' => 'datetime'
+    ];
+
+    protected $appends = [
+        'type_label',
+        'type_color',
+        'formatted_quantity',
+        'formatted_cost'
+    ];
+
+    /**
+     * Get the product that owns the stock transaction.
+     */
+    public function product(): BelongsTo
     {
-        $this->middleware('permission:View inventory|Manage inventory', ['only' => ['index', 'show', 'stockLevels', 'stockHistory', 'dashboard']]);
-        $this->middleware('permission:Manage inventory', ['only' => ['store', 'update', 'destroy', 'adjustStock', 'transferStock', 'bulkAdjust', 'import', 'export']]);
+        return $this->belongsTo(Product::class);
     }
 
-    public function index(Request $request)
+    /**
+     * Get the product variant.
+     */
+    public function variant(): BelongsTo
     {
-        $pagetitle = "Inventory Management";
-        
-        $query = Stock::with(['product', 'user', 'stockLocation', 'destinationLocation', 'variant'])
-            ->latest('transaction_date');
-        
-        // Apply filters
-        if ($request->filled('type')) {
-            $query->where('type', $request->type);
+        return $this->belongsTo(ProductVariation::class, 'product_variant_id');
+    }
+
+    /**
+     * Get the user who made the stock transaction.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the stock location.
+     */
+    public function stockLocation(): BelongsTo
+    {
+        return $this->belongsTo(StockLocation::class, 'stock_location_id');
+    }
+
+    /**
+     * Get the destination location for transfers.
+     */
+    public function destinationLocation(): BelongsTo
+    {
+        return $this->belongsTo(StockLocation::class, 'destination_location_id');
+    }
+
+    /**
+     * Get the stock movement record.
+     */
+    public function movement(): HasOne
+    {
+        return $this->hasOne(StockMovement::class);
+    }
+
+    /**
+     * Scope for incoming stock.
+     */
+    public function scopeIncoming($query)
+    {
+        return $query->whereIn('type', [self::TYPE_IN, self::TYPE_TRANSFER, self::TYPE_RETURN]);
+    }
+
+    /**
+     * Scope for outgoing stock.
+     */
+    public function scopeOutgoing($query)
+    {
+        return $query->whereIn('type', [self::TYPE_OUT, self::TYPE_DAMAGE]);
+    }
+
+    /**
+     * Scope for adjustments.
+     */
+    public function scopeAdjustments($query)
+    {
+        return $query->where('type', self::TYPE_ADJUSTMENT);
+    }
+
+    /**
+     * Scope for transfers.
+     */
+    public function scopeTransfers($query)
+    {
+        return $query->where('type', self::TYPE_TRANSFER);
+    }
+
+    /**
+     * Scope for returns.
+     */
+    public function scopeReturns($query)
+    {
+        return $query->where('type', self::TYPE_RETURN);
+    }
+
+    /**
+     * Scope for damages.
+     */
+    public function scopeDamages($query)
+    {
+        return $query->where('type', self::TYPE_DAMAGE);
+    }
+
+    /**
+     * Scope for a specific product.
+     */
+    public function scopeForProduct($query, $productId)
+    {
+        return $query->where('product_id', $productId);
+    }
+
+    /**
+     * Scope for a specific location.
+     */
+    public function scopeForLocation($query, $locationId)
+    {
+        return $query->where('stock_location_id', $locationId);
+    }
+
+    /**
+     * Scope for a specific reference type.
+     */
+    public function scopeForReference($query, $referenceType, $referenceNumber = null)
+    {
+        $query = $query->where('reference_type', $referenceType);
+        if ($referenceNumber) {
+            $query->where('reference_number', $referenceNumber);
         }
-        
-        if ($request->filled('product_id')) {
-            $query->where('product_id', $request->product_id);
-        }
-        
-        if ($request->filled('location_id')) {
-            $query->where('stock_location_id', $request->location_id);
-        }
-        
-        if ($request->filled('date_from')) {
-            $query->whereDate('transaction_date', '>=', $request->date_from);
-        }
-        
-        if ($request->filled('date_to')) {
-            $query->whereDate('transaction_date', '<=', $request->date_to);
-        }
-        
-        if ($request->filled('reference_type')) {
-            $query->where('reference_type', $request->reference_type);
-        }
-        
-        if ($request->filled('reference_number')) {
-            $query->where('reference_number', 'like', "%{$request->reference_number}%");
-        }
-        
-        if ($request->filled('user_id')) {
-            $query->where('user_id', $request->user_id);
-        }
-        
-        $transactions = $query->paginate(25)->withQueryString();
-        
-        $products = Product::active()->orderBy('title')->get(['id', 'title', 'sku']);
-        $locations = StockLocation::active()->orderBy('name')->get();
-        $users = \App\Models\User::whereHas('stocks')->orderBy('name')->get(['id', 'name', 'email']);
-        
-        // Summary statistics
-        $summary = [
-            'total_in' => Stock::incoming()->sum('quantity'),
-            'total_out' => Stock::outgoing()->sum('quantity'),
-            'total_adjustments' => Stock::adjustments()->count(),
-            'total_transfers' => Stock::transfers()->count(),
-            'total_returns' => Stock::returns()->count(),
-            'total_damages' => Stock::damages()->count(),
-            'total_value' => Stock::incoming()->sum(DB::raw('quantity * unit_cost')),
+        return $query;
+    }
+
+    /**
+     * Scope for date range.
+     */
+    public function scopeBetweenDates($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('transaction_date', [$startDate, $endDate]);
+    }
+
+    /**
+     * Get the type label.
+     */
+    public function getTypeLabelAttribute()
+    {
+        $labels = [
+            self::TYPE_IN => 'Stock In',
+            self::TYPE_OUT => 'Stock Out',
+            self::TYPE_ADJUSTMENT => 'Adjustment',
+            self::TYPE_TRANSFER => 'Transfer',
+            self::TYPE_RETURN => 'Return',
+            self::TYPE_DAMAGE => 'Damage/Loss',
         ];
         
-        // Recent activity
-        $recentActivity = Stock::with(['product', 'user'])
-            ->latest()
-            ->limit(10)
-            ->get();
-        
-        return view('inventory.index', compact(
-            'pagetitle',
-            'transactions',
-            'products',
-            'locations',
-            'users',
-            'summary',
-            'recentActivity'
-        ));
+        return $labels[$this->type] ?? ucfirst($this->type);
     }
 
-    public function dashboard()
+    /**
+     * Get the type color for badges.
+     */
+    public function getTypeColorAttribute()
     {
-        $pagetitle = "Inventory Dashboard";
-        
-        $totalProducts = Product::count();
-        $totalLocations = StockLocation::active()->count();
-        
-        // Stock summary by location
-        $locations = StockLocation::active()->withCount(['stocks as total_items' => function($query) {
-            $query->select(DB::raw('SUM(CASE WHEN type IN ("in", "adjustment", "transfer") THEN quantity ELSE -quantity END)'));
-        }])->get();
-        
-        // Low stock products
-        $lowStockProducts = Product::select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'current_stock')
-            ->having('current_stock', '>', 0)
-            ->having('current_stock', '<=', 10)
-            ->orderBy('current_stock')
-            ->limit(10)
-            ->get();
-        
-        // Recent transactions
-        $recentTransactions = Stock::with(['product', 'stockLocation'])
-            ->latest()
-            ->limit(10)
-            ->get();
-        
-        // Monthly stock movements
-        $monthlyMovements = Stock::select(
-                DB::raw('DATE_FORMAT(transaction_date, "%Y-%m") as month'),
-                DB::raw('SUM(CASE WHEN type IN ("in", "adjustment", "transfer") THEN quantity ELSE 0 END) as stock_in'),
-                DB::raw('SUM(CASE WHEN type IN ("out", "damage") THEN quantity ELSE 0 END) as stock_out')
-            )
-            ->where('transaction_date', '>=', now()->subMonths(6))
-            ->groupBy('month')
-            ->orderBy('month')
-            ->get();
-        
-        // Stock value by location
-        $stockValueByLocation = StockLocation::active()
-            ->select('stock_locations.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(
-                    CASE 
-                        WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity * COALESCE(stocks.unit_cost, products.price)
-                        WHEN stocks.type IN ("out", "damage") THEN -stocks.quantity * COALESCE(stocks.unit_cost, products.price)
-                        ELSE 0
-                    END
-                )')
-                ->from('stocks')
-                ->join('products', 'stocks.product_id', '=', 'products.id')
-                ->whereColumn('stocks.stock_location_id', 'stock_locations.id');
-            }, 'total_value')
-            ->orderBy('total_value', 'desc')
-            ->get();
-        
-        return view('inventory.dashboard', compact(
-            'pagetitle',
-            'totalProducts',
-            'totalLocations',
-            'locations',
-            'lowStockProducts',
-            'recentTransactions',
-            'monthlyMovements',
-            'stockValueByLocation'
-        ));
-    }
-
-    public function stockLevels(Request $request)
-    {
-        $pagetitle = "Stock Levels Report";
-        
-        $query = Product::with(['category', 'brand'])
-            ->select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'total_stock');
-        
-        // Apply filters
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-        
-        if ($request->filled('brand_id')) {
-            $query->where('brand_id', $request->brand_id);
-        }
-        
-        if ($request->filled('stock_status')) {
-            switch ($request->stock_status) {
-                case 'in_stock':
-                    $query->having('total_stock', '>', 10);
-                    break;
-                case 'low_stock':
-                    $query->having('total_stock', '>', 0)
-                          ->having('total_stock', '<=', 10);
-                    break;
-                case 'out_of_stock':
-                    $query->having('total_stock', '<=', 0);
-                    break;
-                case 'negative_stock':
-                    $query->having('total_stock', '<', 0);
-                    break;
-            }
-        }
-        
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhereHas('category', function($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('brand', function($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
-                  });
-            });
-        }
-        
-        $sortBy = $request->get('sort_by', 'total_stock');
-        $sortOrder = $request->get('sort_order', 'asc');
-        
-        if ($sortBy === 'stock') {
-            $query->orderBy('total_stock', $sortOrder);
-        } else {
-            $query->orderBy($sortBy, $sortOrder);
-        }
-        
-        $products = $query->paginate(25)->withQueryString();
-        
-        $locations = StockLocation::active()->get();
-        
-        // Get stock by location for each product
-        foreach ($products as $product) {
-            $product->location_stock = [];
-            foreach ($locations as $location) {
-                $product->location_stock[$location->id] = $location->getProductStock($product->id);
-            }
-        }
-        
-        $categories = Category::orderBy('name')->get();
-        $brands = Brand::orderBy('name')->get();
-        
-        return view('inventory.stock-levels', compact(
-            'pagetitle',
-            'products',
-            'locations',
-            'categories',
-            'brands'
-        ));
-    }
-
-    public function stockHistory($id)
-    {
-        $product = Product::with(['category', 'brand'])->findOrFail($id);
-        $pagetitle = "Stock History - {$product->title}";
-        
-        $history = Stock::with(['user', 'stockLocation', 'destinationLocation'])
-            ->where('product_id', $id)
-            ->latest('transaction_date')
-            ->paginate(20);
-            
-        $locations = StockLocation::active()->get();
-        $locationStock = [];
-        
-        foreach ($locations as $location) {
-            $locationStock[$location->id] = [
-                'name' => $location->name,
-                'stock' => $location->getProductStock($id)
-            ];
-        }
-        
-        // Stock movement chart data
-        $movementData = StockMovement::where('product_id', $id)
-            ->select(
-                DB::raw('DATE(created_at) as date'),
-                DB::raw('SUM(CASE WHEN movement_type IN ("in", "transfer_in") THEN quantity ELSE -quantity END) as daily_change'),
-                DB::raw('MAX(balance) as closing_balance')
-            )
-            ->where('created_at', '>=', now()->subDays(30))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-        
-        return view('inventory.stock-history', compact(
-            'pagetitle',
-            'product',
-            'history',
-            'locations',
-            'locationStock',
-            'movementData'
-        ));
-    }
-
-    public function adjustStock(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'product_id' => 'required|exists:products,id',
-            'location_id' => 'required|exists:stock_locations,id',
-            'adjustment_type' => 'required|in:add,remove,set',
-            'quantity' => 'required|integer|min:1',
-            'unit_cost' => 'nullable|numeric|min:0',
-            'reason' => 'required|string|max:255',
-            'notes' => 'nullable|string|max:1000',
-            'expiry_date' => 'nullable|date|after_or_equal:today',
-            'batch_number' => 'nullable|string|max:100',
-            'serial_number' => 'nullable|string|max:100',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        DB::beginTransaction();
-        try {
-            $product = Product::findOrFail($request->product_id);
-            $location = StockLocation::findOrFail($request->location_id);
-            
-            $currentStock = $location->getProductStock($product->id);
-            
-            if ($request->adjustment_type === 'set') {
-                $adjustment = $request->quantity - $currentStock;
-                $type = $adjustment >= 0 ? Stock::TYPE_ADJUSTMENT : Stock::TYPE_ADJUSTMENT;
-                $quantity = abs($adjustment);
-                $previousQuantity = $currentStock;
-                $newQuantity = $request->quantity;
-            } else {
-                $type = $request->adjustment_type === 'add' ? Stock::TYPE_IN : Stock::TYPE_OUT;
-                $quantity = $request->quantity;
-                $previousQuantity = $currentStock;
-                $newQuantity = $request->adjustment_type === 'add' 
-                    ? $currentStock + $quantity 
-                    : $currentStock - $quantity;
-            }
-            
-            $unitCost = $request->unit_cost ?? $product->price;
-            $totalCost = $unitCost * $quantity;
-            
-            $stock = Stock::create([
-                'product_id' => $product->id,
-                'stock_location_id' => $location->id,
-                'user_id' => auth()->id(),
-                'type' => $type,
-                'quantity' => $quantity,
-                'previous_quantity' => $previousQuantity,
-                'new_quantity' => $newQuantity,
-                'unit_cost' => $unitCost,
-                'total_cost' => $totalCost,
-                'reference_number' => 'ADJ-' . date('YmdHis') . rand(100, 999),
-                'reference_type' => Stock::REFERENCE_ADJUSTMENT,
-                'adjustment_reason' => $request->reason,
-                'notes' => $request->notes,
-                'expiry_date' => $request->expiry_date,
-                'batch_number' => $request->batch_number,
-                'serial_number' => $request->serial_number,
-                'transaction_date' => now(),
-            ]);
-            
-            // Create stock movement
-            $stock->createMovement();
-            
-            // Update product's main stock if this is the default location
-            if ($location->is_default) {
-                if ($type === Stock::TYPE_IN) {
-                    $product->increment('stock', $quantity);
-                } elseif ($type === Stock::TYPE_OUT) {
-                    $product->decrement('stock', $quantity);
-                }
-            }
-            
-            DB::commit();
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Stock adjusted successfully',
-                'stock' => $stock->load(['product', 'user', 'stockLocation'])
-            ]);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to adjust stock: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function transferStock(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'product_id' => 'required|exists:products,id',
-            'from_location_id' => 'required|exists:stock_locations,id',
-            'to_location_id' => 'required|exists:stock_locations,id|different:from_location_id',
-            'quantity' => 'required|integer|min:1',
-            'reference_number' => 'nullable|string|max:100',
-            'notes' => 'nullable|string|max:1000',
-            'unit_cost' => 'nullable|numeric|min:0',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        DB::beginTransaction();
-        try {
-            $product = Product::findOrFail($request->product_id);
-            $fromLocation = StockLocation::findOrFail($request->from_location_id);
-            $toLocation = StockLocation::findOrFail($request->to_location_id);
-            
-            // Check if source location has enough stock
-            $availableStock = $fromLocation->getProductStock($product->id);
-            if ($availableStock < $request->quantity) {
-                return response()->json([
-                    'success' => false,
-                    'message' => "Insufficient stock. Available: {$availableStock}, Requested: {$request->quantity}"
-                ], 400);
-            }
-            
-            $unitCost = $request->unit_cost ?? $product->price;
-            $totalCost = $unitCost * $request->quantity;
-            $referenceNumber = $request->reference_number ?? 'TRF-' . date('YmdHis') . rand(100, 999);
-            
-            // Get current stock at source location
-            $fromCurrentStock = $fromLocation->getProductStock($product->id);
-            
-            // Create transfer record (outgoing from source)
-            $stock = Stock::create([
-                'product_id' => $product->id,
-                'stock_location_id' => $fromLocation->id,
-                'destination_location_id' => $toLocation->id,
-                'user_id' => auth()->id(),
-                'type' => Stock::TYPE_TRANSFER,
-                'quantity' => $request->quantity,
-                'previous_quantity' => $fromCurrentStock,
-                'new_quantity' => $fromCurrentStock - $request->quantity,
-                'unit_cost' => $unitCost,
-                'total_cost' => $totalCost,
-                'reference_number' => $referenceNumber,
-                'reference_type' => Stock::REFERENCE_TRANSFER,
-                'notes' => $request->notes,
-                'transaction_date' => now(),
-            ]);
-            
-            // Create stock movement
-            $stock->createMovement();
-            
-            DB::commit();
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Stock transferred successfully',
-                'stock' => $stock->load(['product', 'user', 'stockLocation', 'destinationLocation'])
-            ]);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to transfer stock: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function bulkAdjust(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'products' => 'required|array|min:1',
-            'products.*.id' => 'required|exists:products,id',
-            'products.*.quantity' => 'required|integer|min:0',
-            'location_id' => 'required|exists:stock_locations,id',
-            'adjustment_type' => 'required|in:add,set',
-            'reason' => 'required|string|max:255',
-            'notes' => 'nullable|string|max:1000',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        DB::beginTransaction();
-        try {
-            $location = StockLocation::findOrFail($request->location_id);
-            $createdStocks = [];
-            
-            foreach ($request->products as $item) {
-                $product = Product::find($item['id']);
-                if (!$product) continue;
-                
-                $currentStock = $location->getProductStock($product->id);
-                
-                if ($request->adjustment_type === 'set') {
-                    $adjustment = $item['quantity'] - $currentStock;
-                    $type = $adjustment >= 0 ? Stock::TYPE_ADJUSTMENT : Stock::TYPE_ADJUSTMENT;
-                    $quantity = abs($adjustment);
-                    $previousQuantity = $currentStock;
-                    $newQuantity = $item['quantity'];
-                } else {
-                    $type = Stock::TYPE_IN;
-                    $quantity = $item['quantity'];
-                    $previousQuantity = $currentStock;
-                    $newQuantity = $currentStock + $quantity;
-                }
-                
-                if ($quantity <= 0) continue;
-                
-                $stock = Stock::create([
-                    'product_id' => $product->id,
-                    'stock_location_id' => $location->id,
-                    'user_id' => auth()->id(),
-                    'type' => $type,
-                    'quantity' => $quantity,
-                    'previous_quantity' => $previousQuantity,
-                    'new_quantity' => $newQuantity,
-                    'unit_cost' => $product->price,
-                    'total_cost' => $product->price * $quantity,
-                    'reference_number' => 'BULK-' . date('YmdHis') . rand(100, 999),
-                    'reference_type' => Stock::REFERENCE_ADJUSTMENT,
-                    'adjustment_reason' => $request->reason,
-                    'notes' => $request->notes,
-                    'transaction_date' => now(),
-                ]);
-                
-                $stock->createMovement();
-                
-                // Update product's main stock if this is the default location
-                if ($location->is_default) {
-                    $product->increment('stock', $quantity);
-                }
-                
-                $createdStocks[] = $stock;
-            }
-            
-            DB::commit();
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Bulk adjustment completed successfully',
-                'count' => count($createdStocks),
-                'stocks' => $createdStocks
-            ]);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to perform bulk adjustment: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function show($id)
-    {
-        $stock = Stock::with(['product', 'user', 'stockLocation', 'destinationLocation', 'variant'])
-            ->findOrFail($id);
-            
-        return response()->json([
-            'success' => true,
-            'stock' => $stock
-        ]);
-    }
-
-    public function destroy($id)
-    {
-        try {
-            $stock = Stock::findOrFail($id);
-            
-            // Check if this is a recent transaction that can be deleted
-            $hoursOld = now()->diffInHours($stock->created_at);
-            if ($hoursOld > 24 && !auth()->user()->hasRole('Admin')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Cannot delete transactions older than 24 hours'
-                ], 400);
-            }
-            
-            // Delete associated movement
-            $stock->movement()->delete();
-            
-            $stock->delete();
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Transaction deleted successfully'
-            ]);
-            
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete transaction: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function getProductStock($productId, $locationId)
-    {
-        try {
-            $product = Product::findOrFail($productId);
-            $location = StockLocation::findOrFail($locationId);
-            
-            $stock = $location->getProductStock($productId);
-            $recentTransactions = Stock::where('product_id', $productId)
-                ->where('stock_location_id', $locationId)
-                ->latest()
-                ->limit(10)
-                ->get();
-            
-            return response()->json([
-                'success' => true,
-                'stock' => $stock,
-                'product' => [
-                    'id' => $product->id,
-                    'title' => $product->title,
-                    'sku' => $product->sku,
-                    'price' => $product->price
-                ],
-                'location' => [
-                    'id' => $location->id,
-                    'name' => $location->name
-                ],
-                'recent_transactions' => $recentTransactions
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to get stock level: ' . $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function exportTransactions(Request $request)
-    {
-        // Implementation for exporting transactions
-        // You can use Laravel Excel package here
-        $query = Stock::with(['product', 'stockLocation', 'user'])
-            ->latest('transaction_date');
-        
-        if ($request->filled('start_date')) {
-            $query->whereDate('transaction_date', '>=', $request->start_date);
-        }
-        
-        if ($request->filled('end_date')) {
-            $query->whereDate('transaction_date', '<=', $request->end_date);
-        }
-        
-        $transactions = $query->get();
-        
-        $filename = 'inventory-transactions-' . date('Y-m-d-His') . '.csv';
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        $colors = [
+            self::TYPE_IN => 'success',
+            self::TYPE_OUT => 'danger',
+            self::TYPE_ADJUSTMENT => 'warning',
+            self::TYPE_TRANSFER => 'info',
+            self::TYPE_RETURN => 'primary',
+            self::TYPE_DAMAGE => 'dark',
         ];
         
-        $callback = function() use ($transactions) {
-            $file = fopen('php://output', 'w');
-            
-            // Add CSV headers
-            fputcsv($file, [
-                'Date', 'Type', 'Product', 'SKU', 'Location', 
-                'Quantity', 'Unit Cost', 'Total Cost', 'Reference',
-                'Reason', 'User', 'Notes'
-            ]);
-            
-            // Add data rows
-            foreach ($transactions as $transaction) {
-                fputcsv($file, [
-                    $transaction->transaction_date->format('Y-m-d H:i:s'),
-                    $transaction->type_label,
-                    $transaction->product->title,
-                    $transaction->product->sku,
-                    $transaction->stockLocation->name,
-                    $transaction->formatted_quantity,
-                    $transaction->unit_cost ? '$' . number_format($transaction->unit_cost, 2) : '',
-                    $transaction->total_cost ? '$' . number_format($transaction->total_cost, 2) : '',
-                    $transaction->reference_number,
-                    $transaction->adjustment_reason ?? '',
-                    $transaction->user->name ?? 'System',
-                    $transaction->notes ?? ''
-                ]);
-            }
-            
-            fclose($file);
-        };
-        
-        return response()->stream($callback, 200, $headers);
+        return $colors[$this->type] ?? 'secondary';
     }
 
-    public function exportStockLevels(Request $request)
+    /**
+     * Get the formatted quantity with sign.
+     */
+    public function getFormattedQuantityAttribute()
     {
-        $products = Product::with(['category', 'brand'])
-            ->select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'total_stock')
-            ->orderBy('total_stock')
-            ->get();
-        
-        $locations = StockLocation::active()->get();
-        
-        $filename = 'stock-levels-' . date('Y-m-d-His') . '.csv';
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        $sign = in_array($this->type, [self::TYPE_IN, self::TYPE_ADJUSTMENT, self::TYPE_TRANSFER, self::TYPE_RETURN]) ? '+' : '-';
+        return $sign . abs($this->quantity);
+    }
+
+    /**
+     * Get the formatted cost.
+     */
+    public function getFormattedCostAttribute()
+    {
+        if ($this->total_cost) {
+            return '$' . number_format($this->total_cost, 2);
+        }
+        return null;
+    }
+
+    /**
+     * Get the reference label.
+     */
+    public function getReferenceLabelAttribute()
+    {
+        $labels = [
+            self::REFERENCE_PURCHASE => 'Purchase',
+            self::REFERENCE_SALE => 'Sale',
+            self::REFERENCE_RETURN => 'Return',
+            self::REFERENCE_ADJUSTMENT => 'Adjustment',
+            self::REFERENCE_TRANSFER => 'Transfer',
+            self::REFERENCE_DAMAGE => 'Damage',
+            self::REFERENCE_OTHER => 'Other',
         ];
         
-        $callback = function() use ($products, $locations) {
-            $file = fopen('php://output', 'w');
-            
-            // Add CSV headers
-            $headerRow = ['Product', 'SKU', 'Category', 'Brand', 'Price', 'Total Stock'];
-            foreach ($locations as $location) {
-                $headerRow[] = $location->name;
-            }
-            $headerRow[] = 'Status';
-            
-            fputcsv($file, $headerRow);
-            
-            // Add data rows
-            foreach ($products as $product) {
-                $row = [
-                    $product->title,
-                    $product->sku,
-                    $product->category->name ?? '',
-                    $product->brand->name ?? '',
-                    '$' . number_format($product->price, 2),
-                    $product->total_stock ?? 0
-                ];
-                
-                foreach ($locations as $location) {
-                    $row[] = $location->getProductStock($product->id);
-                }
-                
-                // Status
-                $stock = $product->total_stock ?? 0;
-                if ($stock > 10) {
-                    $status = 'In Stock';
-                } elseif ($stock > 0) {
-                    $status = 'Low Stock';
-                } else {
-                    $status = 'Out of Stock';
-                }
-                $row[] = $status;
-                
-                fputcsv($file, $row);
-            }
-            
-            fclose($file);
-        };
-        
-        return response()->stream($callback, 200, $headers);
+        return $labels[$this->reference_type] ?? ucfirst($this->reference_type);
     }
 
-    public function import(Request $request)
+    /**
+     * Check if this is an incoming transaction.
+     */
+    public function isIncoming()
     {
-        $validator = Validator::make($request->all(), [
-            'file' => 'required|mimes:csv,txt,xlsx,xls',
-            'location_id' => 'required|exists:stock_locations,id'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        // Implementation for importing stock data
-        // You can use Laravel Excel package here
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Import functionality to be implemented'
-        ]);
+        return in_array($this->type, [self::TYPE_IN, self::TYPE_TRANSFER, self::TYPE_RETURN]);
     }
 
-    public function getLowStockAlerts()
+    /**
+     * Check if this is an outgoing transaction.
+     */
+    public function isOutgoing()
     {
-        $lowStockProducts = Product::select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'current_stock')
-            ->having('current_stock', '>', 0)
-            ->having('current_stock', '<=', 10)
-            ->orderBy('current_stock')
-            ->get();
-        
-        return response()->json([
-            'success' => true,
-            'count' => $lowStockProducts->count(),
-            'products' => $lowStockProducts
-        ]);
+        return in_array($this->type, [self::TYPE_OUT, self::TYPE_DAMAGE]);
     }
 
-    public function getStockValueReport()
+    /**
+     * Get the total quantity change.
+     */
+    public function getQuantityChange()
     {
-        $locations = StockLocation::active()->get();
-        $report = [];
-        
-        foreach ($locations as $location) {
-            $value = $location->total_value;
-            if ($value > 0) {
-                $report[] = [
-                    'location' => $location->name,
-                    'value' => $value,
-                    'formatted_value' => '$' . number_format($value, 2),
-                    'product_count' => $location->total_products
-                ];
-            }
+        return $this->isIncoming() ? $this->quantity : -$this->quantity;
+    }
+
+    /**
+     * Create a stock movement record.
+     */
+    public function createMovement()
+    {
+        $movementType = $this->type === self::TYPE_TRANSFER ? 'transfer_out' : $this->type;
+        if ($this->type === self::TYPE_TRANSFER && $this->destination_location_id) {
+            // Create movement for destination location
+            StockMovement::create([
+                'stock_id' => $this->id,
+                'product_id' => $this->product_id,
+                'stock_location_id' => $this->destination_location_id,
+                'movement_type' => 'transfer_in',
+                'quantity' => $this->quantity,
+                'balance' => $this->destinationLocation->getProductStock($this->product_id, $this->product_variant_id),
+                'reference' => $this->reference_number,
+                'description' => "Transfer from {$this->stockLocation->name}",
+                'user_id' => $this->user_id,
+            ]);
         }
         
-        usort($report, function($a, $b) {
-            return $b['value'] <=> $a['value'];
-        });
-        
-        $totalValue = array_sum(array_column($report, 'value'));
-        
-        return response()->json([
-            'success' => true,
-            'total_value' => $totalValue,
-            'formatted_total' => '$' . number_format($totalValue, 2),
-            'locations' => $report
+        return StockMovement::create([
+            'stock_id' => $this->id,
+            'product_id' => $this->product_id,
+            'stock_location_id' => $this->stock_location_id,
+            'movement_type' => $movementType,
+            'quantity' => $this->quantity,
+            'balance' => $this->new_quantity,
+            'reference' => $this->reference_number,
+            'description' => $this->notes ?? $this->adjustment_reason ?? $this->type_label,
+            'user_id' => $this->user_id,
         ]);
     }
 }
