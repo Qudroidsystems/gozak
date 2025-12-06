@@ -48,14 +48,16 @@
                                             </div>
                                         </div>
                                         <div class="col-xxl-2 col-sm-6">
-                                            <select class="form-control" name="brands[]" id="brandFilter" data-choices multiple>
-                                                <option value="">All Brands</option>
-                                                @foreach($brands as $brand)
-                                                    <option value="{{ $brand->id }}" {{ in_array($brand->id, ( ulcers)request('brands', [])) ? 'selected' : '' }}>{{ $brand->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                        <div class="col-xxl-2 col-sm-6">
+                                                <select class="form-control" name="brands[]" id="brandFilter" data-choices multiple>
+                                                    <option value="">All Brands</option>
+                                                    @foreach($brands as $brand)
+                                                        <option value="{{ $brand->id }}" {{ in_array($brand->id, (array)request('brands', [])) ? 'selected' : '' }}>
+                                                            {{ $brand->name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        div class="col-xxl-2 col-sm-6">
                                             <select class="form-control" name="category" id="categoryFilter" data-choices>
                                                 <option value="">All Categories</option>
                                                 @foreach($categories as $category)
