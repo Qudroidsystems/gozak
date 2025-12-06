@@ -159,7 +159,7 @@
                                             </tr>
                                         </thead>
     
-                                        <tbody class="list form-check-all">
+                                      <tbody class="list form-check-all">
     @forelse($products as $product)
         <tr data-product-id="{{ $product->id }}">
             <td>
@@ -232,11 +232,11 @@
                 <span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span>
             </td>
 
-            <!-- Featured — Gold Star Icon + Sharp Corner Badge -->
+            <!-- Featured — Gold Star Icon -->
             <td class="featured">
                 @if($product->is_featured)
                     <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
-                        <i class="bi bi-star-fill me-1"></i> Featured
+                        Featured
                     </span>
                 @else
                     <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
@@ -257,7 +257,7 @@
                 </button>
             </td>
 
-            <!-- Action -->
+            <!-- Action Dropdown -->
             <td>
                 <div class="dropdown">
                     <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
@@ -267,6 +267,7 @@
                         <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
                         @can('Update product')
                             <li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Edit</a></li>
+                        @endcan
                         @can('Delete product')
                             <li><a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
                         @endcan
@@ -286,6 +287,7 @@
         </tr>
     @endforelse
 </tbody>
+                                        
                                     </table>
                                 </div>
 
