@@ -153,13 +153,34 @@ class Product extends Model
         return $this->hasMany(InventoryLog::class);
     }
 
-     /**
-     * Scope for active products.
-     */
+    // In app/Models/Product.php
     public function scopeActive($query)
     {
-        return $query->where('status', 'active')
-                     ->orWhere('is_active', true);
+        // Check if the table has is_active column
+        $connection = config('database.default');
+        $database = config("database.connections.{$connection}.database");
+        $table = $this->getTable();
+        
+        // Try to use is_active if it exists
+        try {
+            // This is a safer way to check
+            $columns = \DB::select(\DB::raw("SHOW COLUMNS FROM {$database}.{$table}"));
+            $columnNames = array_column($columns, 'Field');
+            
+            if (in_array('is_active', $columnNames)) {
+                return $query->where('is_active', true);
+            } elseif (in_array('status', $columnNames)) {
+                return $query->where('status', 'active');
+            } elseif (in_array('is_published', $columnNames)) {
+                return $query->where('is_published', true);
+            } else {
+                // No status column, return all
+                return $query;
+            }
+        } catch (\Exception $e) {
+            // If there's an error, just return the query
+            return $query;
+        }
     }
 
     /**

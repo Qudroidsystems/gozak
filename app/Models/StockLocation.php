@@ -205,4 +205,6 @@ class StockLocation extends Model
             'out_of_stock_count' => $this->outOfStockProducts()->count(),
         ];
     }
+
+    
 }
