@@ -1,6 +1,6 @@
 @extends('layouts.master')
 
-@section('title', 'Inventory Management')
+@section('title', 'Stock Locations')
 
 @section('content')
 <div class="main-content">
@@ -11,300 +11,121 @@
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0">{{ $pagetitle ?? 'Inventory Management' }}</h4>
+                        <h4 class="mb-sm-0">{{ $pagetitle ?? 'Stock Locations' }}</h4>
                         <div class="page-title-right">
                             <ol class="breadcrumb m-0">
-                                <li class="breadcrumb-item"><a href="javascript:void(0)">Inventory</a></li>
-                                <li class="breadcrumb-item active">Transactions</li>
+                                <li class="breadcrumb-item"><a href="{{ route('inventory.index') }}">Inventory</a></li>
+                                <li class="breadcrumb-item active">Locations</li>
                             </ol>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- SUMMARY CARDS -->
+            <!-- LOCATIONS MANAGEMENT -->
             <div class="row">
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-success-subtle border-0">
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Stock Locations ({{ $locations->count() }})</h5>
+                            @can('Manage stock locations')
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addLocationModal">
+                                <i class="bi bi-plus-circle me-1"></i> Add Location
+                            </button>
+                            @endcan
+                        </div>
                         <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <p class="text-uppercase fw-medium text-success mb-0">Stock In</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">{{ number_format($summary['total_in'] ?? 0) }}</h4>
-                                </div>
-                                <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title bg-success rounded-circle fs-3">
-                                        <i class="bi bi-box-arrow-in-down"></i>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-danger-subtle border-0">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <p class="text-uppercase fw-medium text-danger mb-0">Stock Out</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">{{ number_format($summary['total_out'] ?? 0) }}</h4>
-                                </div>
-                                <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title bg-danger rounded-circle fs-3">
-                                        <i class="bi bi-box-arrow-up"></i>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-warning-subtle border-0">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <p class="text-uppercase fw-medium text-warning mb-0">Adjustments</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">{{ number_format($summary['total_adjustments'] ?? 0) }}</h4>
-                                </div>
-                                <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title bg-warning rounded-circle fs-3">
-                                        <i class="bi bi-arrow-left-right"></i>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-info-subtle border-0">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <p class="text-uppercase fw-medium text-info mb-0">Transfers</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">{{ number_format($summary['total_transfers'] ?? 0) }}</h4>
-                                </div>
-                                <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title bg-info rounded-circle fs-3">
-                                        <i class="bi bi-truck"></i>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- FILTERS AND ACTIONS -->
-            <div class="card mt-4">
-                <div class="card-body">
-                    <form method="GET" id="filterForm">
-                        <div class="row g-3 align-items-center">
-                            <div class="col-md-3">
-                                <label class="form-label">Transaction Type</label>
-                                <select class="form-control" name="type">
-                                    <option value="">All Types</option>
-                                    <option value="in" {{ request('type') == 'in' ? 'selected' : '' }}>Stock In</option>
-                                    <option value="out" {{ request('type') == 'out' ? 'selected' : '' }}>Stock Out</option>
-                                    <option value="adjustment" {{ request('type') == 'adjustment' ? 'selected' : '' }}>Adjustment</option>
-                                    <option value="transfer" {{ request('type') == 'transfer' ? 'selected' : '' }}>Transfer</option>
-                                    <option value="return" {{ request('type') == 'return' ? 'selected' : '' }}>Return</option>
-                                    <option value="damage" {{ request('type') == 'damage' ? 'selected' : '' }}>Damage</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Product</label>
-                                <select class="form-control" name="product_id">
-                                    <option value="">All Products</option>
-                                    @foreach($products as $product)
-                                        <option value="{{ $product->id }}" {{ request('product_id') == $product->id ? 'selected' : '' }}>
-                                            {{ $product->title }} ({{ $product->sku }})
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Location</label>
-                                <select class="form-control" name="location_id">
-                                    <option value="">All Locations</option>
-                                    @foreach($locations as $location)
-                                        <option value="{{ $location->id }}" {{ request('location_id') == $location->id ? 'selected' : '' }}>
-                                            {{ $location->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Date Range</label>
-                                <div class="input-group">
-                                    <input type="date" class="form-control" name="date_from" value="{{ request('date_from') }}">
-                                    <span class="input-group-text">to</span>
-                                    <input type="date" class="form-control" name="date_to" value="{{ request('date_to') }}">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-12 d-flex justify-content-between">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-funnel me-1"></i> Apply Filters
-                                </button>
-                                <div>
-                                    @can('Manage inventory')
-                                        <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#adjustStockModal">
-                                            <i class="bi bi-plus-circle me-1"></i> Adjust Stock
-                                        </button>
-                                        <button type="button" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#transferStockModal">
-                                            <i class="bi bi-arrow-left-right me-1"></i> Transfer Stock
-                                        </button>
-                                    @endcan
-                                    <a href="{{ route('inventory.stock-levels') }}" class="btn btn-warning">
-                                        <i class="bi bi-box-seam me-1"></i> View Stock Levels
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- TRANSACTIONS TABLE -->
-            <div class="card mt-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Inventory Transactions</h5>
-                    <div>
-                        @can('Export inventory')
-                            <a href="{{ route('inventory.export.transactions') }}?{{ http_build_query(request()->query()) }}" class="btn btn-outline-primary btn-sm me-2">
-                                <i class="bi bi-download me-1"></i> Export
-                            </a>
-                        @endcan
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-centered align-middle table-nowrap mb-0" id="transactionsTable">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Type</th>
-                                    <th>Product</th>
-                                    <th>Location</th>
-                                    <th>Quantity</th>
-                                    <th>Reference</th>
-                                    <th>User</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($transactions as $transaction)
-                                    <tr>
-                                        <td>{{ $transaction->transaction_date->format('M d, Y h:i A') }}</td>
-                                        <td>
-                                            @php
-                                                $typeColors = [
-                                                    'in' => 'success',
-                                                    'out' => 'danger',
-                                                    'adjustment' => 'warning',
-                                                    'transfer' => 'info',
-                                                    'return' => 'primary',
-                                                    'damage' => 'dark'
-                                                ];
-                                                $typeLabels = [
-                                                    'in' => 'Stock In',
-                                                    'out' => 'Stock Out',
-                                                    'adjustment' => 'Adjustment',
-                                                    'transfer' => 'Transfer',
-                                                    'return' => 'Return',
-                                                    'damage' => 'Damage'
-                                                ];
-                                            @endphp
-                                            <span class="badge bg-{{ $typeColors[$transaction->type] ?? 'secondary' }}-subtle text-{{ $typeColors[$transaction->type] ?? 'secondary' }} border border-{{ $typeColors[$transaction->type] ?? 'secondary' }}-subtle">
-                                                {{ $typeLabels[$transaction->type] ?? ucfirst($transaction->type) }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                @if($transaction->product->thumbnail)
-                                                    <img src="{{ asset('storage/' . $transaction->product->thumbnail) }}" class="rounded me-2" width="40" height="40" alt="{{ $transaction->product->title }}">
-                                                @endif
-                                                <div>
-                                                    <div class="fw-semibold">{{ $transaction->product->title }}</div>
-                                                    <small class="text-muted">{{ $transaction->product->sku }}</small>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div>
-                                                <div class="fw-semibold">{{ $transaction->stockLocation->name }}</div>
-                                                @if($transaction->type === 'transfer' && $transaction->destinationLocation)
-                                                    <small class="text-muted">→ {{ $transaction->destinationLocation->name }}</small>
-                                                @endif
-                                            </div>
-                                        </td>
-                                        <td>
-                                            @php
-                                                $quantityClass = in_array($transaction->type, ['in', 'adjustment', 'return']) ? 'text-success' : 'text-danger';
-                                                $sign = in_array($transaction->type, ['in', 'adjustment', 'return']) ? '+' : '-';
-                                            @endphp
-                                            <span class="fw-bold {{ $quantityClass }}">
-                                                {{ $sign }}{{ abs($transaction->quantity) }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div>{{ $transaction->reference_number }}</div>
-                                            @if($transaction->adjustment_reason)
-                                                <small class="text-muted">{{ $transaction->adjustment_reason }}</small>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($transaction->user)
-                                                {{ $transaction->user->first_name }} {{ $transaction->user->last_name }}
-                                            @else
-                                                System
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <div class="dropdown">
-                                                <button class="btn btn-subtle-secondary btn-sm btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <i class="bi bi-three-dots-vertical"></i>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    <li>
-                                                        <a class="dropdown-item view-transaction-btn" href="javascript:void(0);" data-id="{{ $transaction->id }}">
-                                                            <i class="bi bi-eye me-2"></i> View Details
-                                                        </a>
-                                                    </li>
-                                                    @can('Manage inventory')
-                                                        @if($transaction->created_at->diffInHours(now()) <= 24 || auth()->user()->hasRole('Admin'))
-                                                            <li>
-                                                                <a class="dropdown-item text-danger delete-transaction-btn" href="javascript:void(0);" data-id="{{ $transaction->id }}">
-                                                                    <i class="bi bi-trash me-2"></i> Delete
-                                                                </a>
-                                                            </li>
+                            @if($locations->count() > 0)
+                                <div class="table-responsive">
+                                    <table class="table table-centered align-middle table-nowrap mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="5%">#</th>
+                                                <th>Name</th>
+                                                <th>Code</th>
+                                                <th>Address</th>
+                                                <th>Contact</th>
+                                                <th>Status</th>
+                                                <th>Default</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach($locations as $location)
+                                                <tr>
+                                                    <td>{{ $loop->iteration }}</td>
+                                                    <td>
+                                                        <div class="fw-semibold">{{ $location->name }}</div>
+                                                        @if($location->notes)
+                                                            <small class="text-muted">{{ Str::limit($location->notes, 50) }}</small>
                                                         @endif
-                                                    @endcan
-                                                </ul>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="8" class="text-center py-5 text-muted">
-                                            <i class="bi bi-inbox fs-1"></i>
-                                            <p class="mt-2">No inventory transactions found</p>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    <div class="row mt-3 align-items-center">
-                        <div class="col-sm">
-                            <div class="text-muted text-center text-sm-start">
-                                Showing {{ $transactions->firstItem() }} to {{ $transactions->lastItem() }} of {{ $transactions->total() }} Transactions
-                            </div>
-                        </div>
-                        <div class="col-sm-auto mt-3 mt-sm-0">
-                            {!! $transactions->appends(request()->query())->links('pagination::bootstrap-5') !!}
+                                                    </td>
+                                                    <td>{{ $location->code ?? 'N/A' }}</td>
+                                                    <td>{{ Str::limit($location->address, 50) ?? 'N/A' }}</td>
+                                                    <td>
+                                                        @if($location->contact_person)
+                                                            <div>{{ $location->contact_person }}</div>
+                                                            <small class="text-muted">{{ $location->phone }}</small>
+                                                        @else
+                                                            N/A
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-{{ $location->is_active ? 'success' : 'danger' }}">
+                                                            {{ $location->is_active ? 'Active' : 'Inactive' }}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        @if($location->is_default)
+                                                            <span class="badge bg-primary">Default</span>
+                                                        @else
+                                                            <span class="text-muted">-</span>
+                                                        @endif
+                                                    </td>
+                                                    <td>
+                                                        <div class="dropdown">
+                                                            <button class="btn btn-subtle-secondary btn-sm btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                                <i class="bi bi-three-dots-vertical"></i>
+                                                            </button>
+                                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li>
+                                                                    <a class="dropdown-item view-location-btn" href="javascript:void(0);" data-id="{{ $location->id }}">
+                                                                        <i class="bi bi-eye me-2"></i> View Details
+                                                                    </a>
+                                                                </li>
+                                                                @can('Manage stock locations')
+                                                                <li>
+                                                                    <a class="dropdown-item edit-location-btn" href="javascript:void(0);" data-id="{{ $location->id }}">
+                                                                        <i class="bi bi-pencil me-2"></i> Edit
+                                                                    </a>
+                                                                </li>
+                                                                @if(!$location->is_default)
+                                                                <li>
+                                                                    <a class="dropdown-item text-danger delete-location-btn" href="javascript:void(0);" data-id="{{ $location->id }}">
+                                                                        <i class="bi bi-trash me-2"></i> Delete
+                                                                    </a>
+                                                                </li>
+                                                                @endif
+                                                                @endcan
+                                                            </ul>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox fs-1"></i>
+                                    <p class="mt-2">No stock locations found</p>
+                                    @can('Manage stock locations')
+                                    <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#addLocationModal">
+                                        <i class="bi bi-plus-circle me-1"></i> Add Your First Location
+                                    </button>
+                                    @endcan
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -314,65 +135,56 @@
     </div>
 </div>
 
-<!-- ADJUST STOCK MODAL -->
-<div class="modal fade" id="adjustStockModal" tabindex="-1" data-bs-backdrop="static">
+<!-- ADD LOCATION MODAL -->
+<div class="modal fade" id="addLocationModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form id="adjustStockForm">
+            <form id="addLocationForm">
                 @csrf
                 <div class="modal-header">
-                    <h5 class="modal-title">Adjust Stock</h5>
+                    <h5 class="modal-title">Add Stock Location</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Product <span class="text-danger">*</span></label>
-                        <select name="product_id" id="adjust_product_id" class="form-control" required>
-                            <option value="">Select Product</option>
-                            @foreach($products as $product)
-                                <option value="{{ $product->id }}" data-price="{{ $product->price }}">
-                                    {{ $product->title }} ({{ $product->sku }})
-                                </option>
-                            @endforeach
-                        </select>
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" required placeholder="e.g., Main Warehouse, Store Front">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Location <span class="text-danger">*</span></label>
-                        <select name="location_id" id="adjust_location_id" class="form-control" required>
-                            <option value="">Select Location</option>
-                            @foreach($locations as $location)
-                                <option value="{{ $location->id }}" {{ $location->is_default ? 'selected' : '' }}>
-                                    {{ $location->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <div class="mt-1">
-                            <small class="text-muted" id="currentStockDisplay"></small>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Code</label>
+                            <input type="text" name="code" class="form-control" placeholder="e.g., WH1, STORE1">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="text" name="phone" class="form-control" placeholder="e.g., (123) 456-7890">
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Adjustment Type <span class="text-danger">*</span></label>
-                        <select name="adjustment_type" id="adjustment_type" class="form-control" required>
-                            <option value="add">Add Stock</option>
-                            <option value="remove">Remove Stock</option>
-                            <option value="set">Set Stock to</option>
-                        </select>
+                        <label class="form-label">Address</label>
+                        <textarea name="address" class="form-control" rows="2" placeholder="Full address..."></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Quantity <span class="text-danger">*</span></label>
-                        <input type="number" name="quantity" id="adjust_quantity" class="form-control" required min="1">
+                        <label class="form-label">Contact Person</label>
+                        <input type="text" name="contact_person" class="form-control" placeholder="e.g., John Doe">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Unit Cost</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            <input type="number" step="0.01" name="unit_cost" id="unit_cost" class="form-control" min="0">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control" placeholder="e.g., contact@example.com">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="is_default" id="is_default">
+                                <label class="form-check-label" for="is_default">Set as Default Location</label>
+                            </div>
                         </div>
-                        <small class="text-muted">Leave blank to use product price</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Reason <span class="text-danger">*</span></label>
-                        <input type="text" name="reason" class="form-control" required placeholder="e.g., Restock, Damage, etc.">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="is_active" id="is_active" checked>
+                                <label class="form-check-label" for="is_active">Active</label>
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-0">
                         <label class="form-label">Notes</label>
@@ -381,9 +193,9 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="adjustStockBtn">
-                        <span class="spinner-border spinner-border-sm d-none me-1" id="adjustSpinner"></span>
-                        Apply Adjustment
+                    <button type="submit" class="btn btn-primary" id="addLocationBtn">
+                        <span class="spinner-border spinner-border-sm d-none me-1" id="addLocationSpinner"></span>
+                        Add Location
                     </button>
                 </div>
             </form>
@@ -391,72 +203,25 @@
     </div>
 </div>
 
-<!-- TRANSFER STOCK MODAL -->
-<div class="modal fade" id="transferStockModal" tabindex="-1" data-bs-backdrop="static">
+<!-- EDIT LOCATION MODAL -->
+<div class="modal fade" id="editLocationModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form id="transferStockForm">
+            <form id="editLocationForm">
                 @csrf
+                @method('PUT')
                 <div class="modal-header">
-                    <h5 class="modal-title">Transfer Stock</h5>
+                    <h5 class="modal-title">Edit Stock Location</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Product <span class="text-danger">*</span></label>
-                        <select name="product_id" id="transfer_product_id" class="form-control" required>
-                            <option value="">Select Product</option>
-                            @foreach($products as $product)
-                                <option value="{{ $product->id }}">
-                                    {{ $product->title }} ({{ $product->sku }})
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">From Location <span class="text-danger">*</span></label>
-                            <select name="from_location_id" id="from_location_id" class="form-control" required>
-                                <option value="">Select Location</option>
-                                @foreach($locations as $location)
-                                    <option value="{{ $location->id }}">
-                                        {{ $location->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <small class="text-muted" id="fromStockDisplay"></small>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">To Location <span class="text-danger">*</span></label>
-                            <select name="to_location_id" id="to_location_id" class="form-control" required>
-                                <option value="">Select Location</option>
-                                @foreach($locations as $location)
-                                    <option value="{{ $location->id }}">
-                                        {{ $location->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <small class="text-muted" id="toStockDisplay"></small>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Quantity <span class="text-danger">*</span></label>
-                        <input type="number" name="quantity" id="transfer_quantity" class="form-control" required min="1">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Reference Number</label>
-                        <input type="text" name="reference_number" class="form-control" placeholder="e.g., TRF-001">
-                    </div>
-                    <div class="mb-0">
-                        <label class="form-label">Notes</label>
-                        <textarea name="notes" class="form-control" rows="3" placeholder="Transfer details..."></textarea>
-                    </div>
+                <div class="modal-body" id="editLocationBody">
+                    <!-- Content will be loaded here -->
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary" id="transferStockBtn">
-                        <span class="spinner-border spinner-border-sm d-none me-1" id="transferSpinner"></span>
-                        Transfer Stock
+                    <button type="submit" class="btn btn-primary" id="editLocationBtn">
+                        <span class="spinner-border spinner-border-sm d-none me-1" id="editLocationSpinner"></span>
+                        Update Location
                     </button>
                 </div>
             </form>
@@ -464,16 +229,16 @@
     </div>
 </div>
 
-<!-- VIEW TRANSACTION MODAL -->
-<div class="modal fade" id="viewTransactionModal" tabindex="-1">
+<!-- VIEW LOCATION MODAL -->
+<div class="modal fade" id="viewLocationModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Transaction Details</h5>
+                <h5 class="modal-title">Location Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="transactionDetails">
-                <!-- Details will be loaded here -->
+            <div class="modal-body" id="viewLocationBody">
+                <!-- Content will be loaded here -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -489,100 +254,21 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
+    axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
     
-    // Check current stock when product/location changes in adjust modal
-    document.getElementById('adjust_product_id')?.addEventListener('change', checkCurrentStock);
-    document.getElementById('adjust_location_id')?.addEventListener('change', checkCurrentStock);
-    
-    // Check stock for transfer modal
-    document.getElementById('transfer_product_id')?.addEventListener('change', checkTransferStock);
-    document.getElementById('from_location_id')?.addEventListener('change', checkTransferStock);
-    document.getElementById('to_location_id')?.addEventListener('change', checkTransferStock);
-    
-    // Update unit cost when product changes
-    document.getElementById('adjust_product_id')?.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        const price = selectedOption.getAttribute('data-price');
-        if (price) {
-            document.getElementById('unit_cost').value = price;
-        }
-    });
-    
-    function checkCurrentStock() {
-        const productId = document.getElementById('adjust_product_id')?.value;
-        const locationId = document.getElementById('adjust_location_id')?.value;
-        
-        if (productId && locationId) {
-            axios.get(`/api/inventory/stock-level/${productId}/${locationId}`)
-                .then(response => {
-                    if (response.data.success) {
-                        document.getElementById('currentStockDisplay').textContent = 
-                            `Current stock: ${response.data.stock}`;
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('currentStockDisplay').textContent = 
-                        'Current stock: 0';
-                });
-        } else {
-            document.getElementById('currentStockDisplay').textContent = '';
-        }
-    }
-    
-    function checkTransferStock() {
-        const productId = document.getElementById('transfer_product_id')?.value;
-        const fromLocationId = document.getElementById('from_location_id')?.value;
-        const toLocationId = document.getElementById('to_location_id')?.value;
-        
-        if (productId && fromLocationId) {
-            axios.get(`/api/inventory/stock-level/${productId}/${fromLocationId}`)
-                .then(response => {
-                    if (response.data.success) {
-                        document.getElementById('fromStockDisplay').textContent = 
-                            `Available: ${response.data.stock}`;
-                        
-                        // Update max quantity
-                        const quantityInput = document.getElementById('transfer_quantity');
-                        if (quantityInput) {
-                            quantityInput.max = response.data.stock;
-                        }
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('fromStockDisplay').textContent = 'Available: 0';
-                });
-        } else {
-            document.getElementById('fromStockDisplay').textContent = '';
-        }
-        
-        if (productId && toLocationId) {
-            axios.get(`/api/inventory/stock-level/${productId}/${toLocationId}`)
-                .then(response => {
-                    if (response.data.success) {
-                        document.getElementById('toStockDisplay').textContent = 
-                            `Current: ${response.data.stock}`;
-                    }
-                })
-                .catch(() => {
-                    document.getElementById('toStockDisplay').textContent = 'Current: 0';
-                });
-        } else {
-            document.getElementById('toStockDisplay').textContent = '';
-        }
-    }
-    
-    // Adjust stock form submission
-    document.getElementById('adjustStockForm')?.addEventListener('submit', function(e) {
+    // Add location form
+    document.getElementById('addLocationForm')?.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        const btn = document.getElementById('adjustStockBtn');
-        const spinner = document.getElementById('adjustSpinner');
+        const btn = document.getElementById('addLocationBtn');
+        const spinner = document.getElementById('addLocationSpinner');
         if (btn) btn.disabled = true;
         if (spinner) spinner.classList.remove('d-none');
         
-        axios.post('{{ route("inventory.adjust") }}', new FormData(this))
+        const formData = new FormData(this);
+        
+        axios.post('{{ route("stock-locations.store") }}', formData)
             .then(response => {
                 if (response.data.success) {
                     Swal.fire({
@@ -591,18 +277,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         text: response.data.message,
                         confirmButtonText: 'OK'
                     }).then(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('addLocationModal'));
+                        if (modal) modal.hide();
                         location.reload();
                     });
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error!',
-                        text: response.data.message || 'Failed to adjust stock'
+                        text: response.data.message
                     });
                 }
             })
             .catch(error => {
-                let errorMessage = 'Failed to adjust stock';
+                let errorMessage = 'Failed to add location';
                 if (error.response?.data?.errors) {
                     errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
                 } else if (error.response?.data?.message) {
@@ -621,180 +309,211 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     });
     
-    // Transfer stock form submission
-    document.getElementById('transferStockForm')?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const btn = document.getElementById('transferStockBtn');
-        const spinner = document.getElementById('transferSpinner');
-        if (btn) btn.disabled = true;
-        if (spinner) spinner.classList.remove('d-none');
-        
-        axios.post('{{ route("inventory.transfer") }}', new FormData(this))
-            .then(response => {
-                if (response.data.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: response.data.message,
-                        confirmButtonText: 'OK'
-                    }).then(() => {
-                        location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error!',
-                        text: response.data.message || 'Failed to transfer stock'
-                    });
-                }
-            })
-            .catch(error => {
-                let errorMessage = 'Failed to transfer stock';
-                if (error.response?.data?.errors) {
-                    errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
-                } else if (error.response?.data?.message) {
-                    errorMessage = error.response.data.message;
-                }
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error!',
-                    html: errorMessage
-                });
-            })
-            .finally(() => {
-                if (btn) btn.disabled = false;
-                if (spinner) spinner.classList.add('d-none');
-            });
-    });
-    
-    // View transaction details
+    // Edit location
     document.addEventListener('click', function(e) {
-        if (e.target.closest('.view-transaction-btn')) {
-            const transactionId = e.target.closest('.view-transaction-btn').dataset.id;
+        if (e.target.closest('.edit-location-btn')) {
+            const locationId = e.target.closest('.edit-location-btn').dataset.id;
             
-            axios.get(`/inventory/${transactionId}`)
+            axios.get(`/stock-locations/${locationId}/edit`)
                 .then(response => {
                     if (response.data.success) {
-                        const transaction = response.data.stock;
-                        const userFullName = transaction.user ? 
-                            transaction.user.first_name + ' ' + transaction.user.last_name : 
-                            'System';
+                        const location = response.data.location;
                         
                         let html = `
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-semibold">Date:</label>
-                                    <p>${new Date(transaction.created_at).toLocaleString()}</p>
+                            <div class="mb-3">
+                                <label class="form-label">Name <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" value="${location.name}" required>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Code</label>
+                                    <input type="text" name="code" class="form-control" value="${location.code || ''}">
                                 </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-semibold">Type:</label>
-                                    <p><span class="badge bg-${transaction.type === 'in' ? 'success' : transaction.type === 'out' ? 'danger' : transaction.type === 'adjustment' ? 'warning' : 'info'}">
-                                        ${transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1)}
-                                    </span></p>
+                                <div class="col-md-6">
+                                    <label class="form-label">Phone</label>
+                                    <input type="text" name="phone" class="form-control" value="${location.phone || ''}">
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-semibold">Product:</label>
-                                    <p>${transaction.product.title} (${transaction.product.sku})</p>
+                            <div class="mb-3">
+                                <label class="form-label">Address</label>
+                                <textarea name="address" class="form-control" rows="2">${location.address || ''}</textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Contact Person</label>
+                                <input type="text" name="contact_person" class="form-control" value="${location.contact_person || ''}">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" name="email" class="form-control" value="${location.email || ''}">
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="is_default" id="edit_is_default" ${location.is_default ? 'checked' : ''}>
+                                        <label class="form-check-label" for="edit_is_default">Set as Default Location</label>
+                                    </div>
                                 </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-semibold">Location:</label>
-                                    <p>${transaction.stock_location.name}</p>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="is_active" id="edit_is_active" ${location.is_active ? 'checked' : ''}>
+                                        <label class="form-check-label" for="edit_is_active">Active</label>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-semibold">Quantity:</label>
-                                    <p class="fw-bold ${transaction.type === 'in' || transaction.type === 'adjustment' ? 'text-success' : 'text-danger'}">
-                                        ${transaction.type === 'in' || transaction.type === 'adjustment' ? '+' : '-'}${transaction.quantity}
-                                    </p>
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label class="form-label fw-semibold">Reference:</label>
-                                    <p>${transaction.reference_number}</p>
-                                </div>
-                            </div>
-                        `;
-                        
-                        if (transaction.type === 'transfer' && transaction.destination_location) {
-                            html += `
-                                <div class="row">
-                                    <div class="col-md-12 mb-3">
-                                        <label class="form-label fw-semibold">Transfer To:</label>
-                                        <p>${transaction.destination_location.name}</p>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                        
-                        if (transaction.adjustment_reason) {
-                            html += `
-                                <div class="row">
-                                    <div class="col-md-12 mb-3">
-                                        <label class="form-label fw-semibold">Reason:</label>
-                                        <p>${transaction.adjustment_reason}</p>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                        
-                        if (transaction.notes) {
-                            html += `
-                                <div class="row">
-                                    <div class="col-md-12 mb-3">
-                                        <label class="form-label fw-semibold">Notes:</label>
-                                        <p>${transaction.notes}</p>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                        
-                        if (transaction.unit_cost) {
-                            html += `
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label fw-semibold">Unit Cost:</label>
-                                        <p>$${parseFloat(transaction.unit_cost).toFixed(2)}</p>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label fw-semibold">Total Cost:</label>
-                                        <p>$${parseFloat(transaction.total_cost || 0).toFixed(2)}</p>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                        
-                        html += `
-                            <div class="row">
-                                <div class="col-md-12 mb-3">
-                                    <label class="form-label fw-semibold">Performed By:</label>
-                                    <p>${userFullName}</p>
-                                </div>
+                            <div class="mb-0">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="3">${location.notes || ''}</textarea>
                             </div>
                         `;
                         
-                        document.getElementById('transactionDetails').innerHTML = html;
-                        new bootstrap.Modal(document.getElementById('viewTransactionModal')).show();
+                        document.getElementById('editLocationBody').innerHTML = html;
+                        
+                        // Set form action
+                        document.getElementById('editLocationForm').action = `/stock-locations/${locationId}`;
+                        
+                        new bootstrap.Modal(document.getElementById('editLocationModal')).show();
                     }
                 })
                 .catch(error => {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Failed to load transaction details'
+                        text: 'Failed to load location details'
                     });
                 });
         }
         
-        // Delete transaction
-        if (e.target.closest('.delete-transaction-btn')) {
-            const transactionId = e.target.closest('.delete-transaction-btn').dataset.id;
+        // View location
+        if (e.target.closest('.view-location-btn')) {
+            const locationId = e.target.closest('.view-location-btn').dataset.id;
+            
+            axios.get(`/stock-locations/${locationId}`)
+                .then(response => {
+                    if (response.data.success) {
+                        const location = response.data.location;
+                        const summary = response.data.stock_summary;
+                        
+                        let html = `
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">Name:</label>
+                                    <p>${location.name}</p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">Status:</label>
+                                    <p><span class="badge bg-${location.is_active ? 'success' : 'danger'}">
+                                        ${location.is_active ? 'Active' : 'Inactive'}
+                                    </span></p>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">Code:</label>
+                                    <p>${location.code || 'N/A'}</p>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-semibold">Default:</label>
+                                    <p>${location.is_default ? '<span class="badge bg-primary">Yes</span>' : 'No'}</p>
+                                </div>
+                            </div>
+                        `;
+                        
+                        if (location.address) {
+                            html += `
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label fw-semibold">Address:</label>
+                                        <p>${location.address}</p>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        if (location.contact_person) {
+                            html += `
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-semibold">Contact Person:</label>
+                                        <p>${location.contact_person}</p>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-semibold">Phone:</label>
+                                        <p>${location.phone || 'N/A'}</p>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        if (location.email) {
+                            html += `
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label fw-semibold">Email:</label>
+                                        <p>${location.email}</p>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        if (location.notes) {
+                            html += `
+                                <div class="row">
+                                    <div class="col-md-12 mb-3">
+                                        <label class="form-label fw-semibold">Notes:</label>
+                                        <p>${location.notes}</p>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        if (summary) {
+                            html += `
+                                <hr>
+                                <h6 class="mb-3">Stock Summary</h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <small class="text-muted">Total Stock In:</small>
+                                        <p class="fw-semibold">${summary.total_in || 0}</p>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <small class="text-muted">Total Stock Out:</small>
+                                        <p class="fw-semibold">${summary.total_out || 0}</p>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <small class="text-muted">Adjustments:</small>
+                                        <p class="fw-semibold">${summary.total_adjustments || 0}</p>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <small class="text-muted">Transfers:</small>
+                                        <p class="fw-semibold">${summary.total_transfers || 0}</p>
+                                    </div>
+                                    <div class="col-md-12 mb-2">
+                                        <small class="text-muted">Total Value:</small>
+                                        <p class="fw-semibold">$${(summary.total_value || 0).toFixed(2)}</p>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        document.getElementById('viewLocationBody').innerHTML = html;
+                        new bootstrap.Modal(document.getElementById('viewLocationModal')).show();
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to load location details'
+                    });
+                });
+        }
+        
+        // Delete location
+        if (e.target.closest('.delete-location-btn')) {
+            const locationId = e.target.closest('.delete-location-btn').dataset.id;
             
             Swal.fire({
-                title: 'Delete Transaction?',
+                title: 'Delete Location?',
                 text: "This action cannot be undone!",
                 icon: 'warning',
                 showCancelButton: true,
@@ -803,7 +522,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmButtonText: 'Yes, delete it!'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    axios.delete(`/inventory/${transactionId}`)
+                    axios.delete(`/stock-locations/${locationId}`)
                         .then(response => {
                             if (response.data.success) {
                                 Swal.fire({
@@ -827,12 +546,65 @@ document.addEventListener('DOMContentLoaded', function() {
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error',
-                                text: error.response?.data?.message || 'Failed to delete transaction'
+                                text: error.response?.data?.message || 'Failed to delete location'
                             });
                         });
                 }
             });
         }
+    });
+    
+    // Edit location form submission
+    document.getElementById('editLocationForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const btn = document.getElementById('editLocationBtn');
+        const spinner = document.getElementById('editLocationSpinner');
+        if (btn) btn.disabled = true;
+        if (spinner) spinner.classList.remove('d-none');
+        
+        const formData = new FormData(this);
+        const url = this.action;
+        
+        axios.post(url, formData)
+            .then(response => {
+                if (response.data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: response.data.message,
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('editLocationModal'));
+                        if (modal) modal.hide();
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: response.data.message
+                    });
+                }
+            })
+            .catch(error => {
+                let errorMessage = 'Failed to update location';
+                if (error.response?.data?.errors) {
+                    errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
+                } else if (error.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                }
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    html: errorMessage
+                });
+            })
+            .finally(() => {
+                if (btn) btn.disabled = false;
+                if (spinner) spinner.classList.add('d-none');
+            });
     });
 });
 </script>

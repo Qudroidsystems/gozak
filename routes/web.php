@@ -105,6 +105,17 @@ Route::middleware(['auth'])->group(function () {
     // Stock Locations Management
     Route::resource('stock-locations', StockLocationController::class)->except(['show']);
     Route::get('stock-locations/{stock_location}/edit', [StockLocationController::class, 'edit'])->name('stock-locations.edit');
+          // Add these inside the inventory prefix group or create a separate group for locations
+
+        // Add these new routes
+        Route::post('stock-locations/update-sort', [StockLocationController::class, 'updateSortOrder'])->name('stock-locations.update-sort');
+        Route::get('stock-locations/{id}/stock', [StockLocationController::class, 'getLocationStock'])->name('stock-locations.stock');
+        Route::post('stock-locations/{id}/set-default', [StockLocationController::class, 'setAsDefault'])->name('stock-locations.set-default');
+        Route::post('stock-locations/{id}/toggle-status', [StockLocationController::class, 'toggleStatus'])->name('stock-locations.toggle-status');
+        Route::get('stock-locations/export', [StockLocationController::class, 'exportLocations'])->name('stock-locations.export');
+   
+       
+
     
     // Inventory Management Routes
     Route::prefix('inventory')->group(function () {
@@ -117,7 +128,8 @@ Route::middleware(['auth'])->group(function () {
         // Report pages
         Route::get('/low-stock-alerts', [InventoryController::class, 'lowStockAlerts'])->name('inventory.low-stock-alerts');
         Route::get('/stock-value-report', [InventoryController::class, 'stockValueReport'])->name('inventory.stock-value-report');
-        
+
+     
         // Stock operations (AJAX)
         Route::post('/adjust', [InventoryController::class, 'adjustStock'])->name('inventory.adjust');
         Route::post('/transfer', [InventoryController::class, 'transferStock'])->name('inventory.transfer');
