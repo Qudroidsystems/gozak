@@ -188,91 +188,94 @@ class InventoryController extends Controller
         ));
     }
 
-    public function stockLevels(Request $request)
-    {
-        $pagetitle = "Stock Levels Report";
-        
-        $query = Product::with(['category', 'brand'])
-            ->select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'total_stock');
-        
-        // Apply filters
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-        
-        if ($request->filled('brand_id')) {
-            $query->where('brand_id', $request->brand_id);
-        }
-        
-        if ($request->filled('stock_status')) {
-            switch ($request->stock_status) {
-                case 'in_stock':
-                    $query->having('total_stock', '>', 10);
-                    break;
-                case 'low_stock':
-                    $query->having('total_stock', '>', 0)
-                          ->having('total_stock', '<=', 10);
-                    break;
-                case 'out_of_stock':
-                    $query->having('total_stock', '<=', 0);
-                    break;
-                case 'negative_stock':
-                    $query->having('total_stock', '<', 0);
-                    break;
-            }
-        }
-        
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhereHas('category', function($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('brand', function($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
-                  });
-            });
-        }
-        
-        $sortBy = $request->get('sort_by', 'total_stock');
-        $sortOrder = $request->get('sort_order', 'asc');
-        
-        if ($sortBy === 'stock') {
-            $query->orderBy('total_stock', $sortOrder);
-        } else {
-            $query->orderBy($sortBy, $sortOrder);
-        }
-        
-        $products = $query->paginate(25)->withQueryString();
-        
-        $locations = StockLocation::get();
-        
-        // Get stock by location for each product
-        foreach ($products as $product) {
-            $product->location_stock = [];
-            foreach ($locations as $location) {
-                $product->location_stock[$location->id] = $location->getProductStock($product->id);
-            }
-        }
-        
-        $categories = Category::orderBy('name')->get();
-        $brands = Brand::orderBy('name')->get();
-        
-        return view('inventory.stock-levels', compact(
-            'pagetitle',
-            'products',
-            'locations',
-            'categories',
-            'brands'
-        ));
+   public function stockLevels(Request $request)
+{
+    $pagetitle = "Stock Levels Report";
+    
+    $query = Product::with(['category', 'brand'])
+        ->select('products.*')
+        ->selectSub(function($query) {
+            $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
+                ->from('stocks')
+                ->whereColumn('stocks.product_id', 'products.id');
+        }, 'total_stock');
+    
+    // Apply filters
+    if ($request->filled('category_id')) {
+        $query->where('category_id', $request->category_id);
     }
+    
+    if ($request->filled('brand_id')) {
+        $query->where('brand_id', $request->brand_id);
+    }
+    
+    if ($request->filled('stock_status')) {
+        switch ($request->stock_status) {
+            case 'in_stock':
+                $query->having('total_stock', '>', 10);
+                break;
+            case 'low_stock':
+                $query->having('total_stock', '>', 0)
+                      ->having('total_stock', '<=', 10);
+                break;
+            case 'out_of_stock':
+                $query->having('total_stock', '<=', 0);
+                break;
+            case 'negative_stock':
+                $query->having('total_stock', '<', 0);
+                break;
+        }
+    }
+    
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function($q) use ($search) {
+            $q->where('title', 'like', "%{$search}%")
+              ->orWhere('sku', 'like', "%{$search}%")
+              ->orWhereHas('category', function($q) use ($search) {
+                  $q->where('name', 'like', "%{$search}%");
+              })
+              ->orWhereHas('brand', function($q) use ($search) {
+                  $q->where('name', 'like', "%{$search}%");
+              });
+        });
+    }
+    
+    $sortBy = $request->get('sort_by', 'total_stock');
+    $sortOrder = $request->get('sort_order', 'asc');
+    
+    if ($sortBy === 'stock') {
+        $query->orderBy('total_stock', $sortOrder);
+    } else {
+        $query->orderBy($sortBy, $sortOrder);
+    }
+    
+    $products = $query->paginate(25)->withQueryString();
+    
+    $locations = StockLocation::get();
+    
+    // FIXED: Create a separate array for location stock instead of modifying the Product model
+    $locationStockData = [];
+    
+    foreach ($products as $product) {
+        $locationStockData[$product->id] = [];
+        foreach ($locations as $location) {
+            $locationStockData[$product->id][$location->id] = $location->getProductStock($product->id);
+        }
+    }
+    
+    $categories = Category::orderBy('name')->get();
+    $brands = Brand::orderBy('name')->get();
+    
+    return view('inventory.stock-levels', compact(
+        'pagetitle',
+        'products',
+        'locations',
+        'locationStockData', // Pass the separate array to the view
+        'categories',
+        'brands'
+    ));
+}
 
     public function stockHistory($id)
     {
