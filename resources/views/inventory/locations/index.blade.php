@@ -250,6 +250,7 @@
 @endsection
 
 @section('scripts')
+@section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
@@ -268,8 +269,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const formData = new FormData(this);
         
+        console.log('Submitting form data:', Object.fromEntries(formData));
+        
         axios.post('{{ route("stock-locations.store") }}', formData)
             .then(response => {
+                console.log('Response:', response.data);
                 if (response.data.success) {
                     Swal.fire({
                         icon: 'success',
@@ -277,19 +281,24 @@ document.addEventListener('DOMContentLoaded', function() {
                         text: response.data.message,
                         confirmButtonText: 'OK'
                     }).then(() => {
+                        // Close modal
                         const modal = bootstrap.Modal.getInstance(document.getElementById('addLocationModal'));
                         if (modal) modal.hide();
+                        // Reload page to show updated table
                         location.reload();
                     });
                 } else {
                     Swal.fire({
                         icon: 'error',
                         title: 'Error!',
-                        text: response.data.message
+                        text: response.data.message || 'Unknown error occurred'
                     });
                 }
             })
             .catch(error => {
+                console.error('Error:', error);
+                console.error('Error response:', error.response);
+                
                 let errorMessage = 'Failed to add location';
                 if (error.response?.data?.errors) {
                     errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
@@ -320,6 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         const location = response.data.location;
                         
                         let html = `
+                            <input type="hidden" name="id" value="${location.id}">
                             <div class="mb-3">
                                 <label class="form-label">Name <span class="text-danger">*</span></label>
                                 <input type="text" name="name" class="form-control" value="${location.name}" required>
@@ -368,13 +378,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         document.getElementById('editLocationBody').innerHTML = html;
                         
-                        // Set form action
-                        document.getElementById('editLocationForm').action = `/stock-locations/${locationId}`;
-                        
                         new bootstrap.Modal(document.getElementById('editLocationModal')).show();
                     }
                 })
                 .catch(error => {
+                    console.error('Edit error:', error);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
@@ -391,7 +399,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => {
                     if (response.data.success) {
                         const location = response.data.location;
-                        const summary = response.data.stock_summary;
+                        const summary = response.data.stock_summary || {};
                         
                         let html = `
                             <div class="row">
@@ -466,7 +474,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             `;
                         }
                         
-                        if (summary) {
+                        // Show stock summary if available
+                        if (Object.keys(summary).length > 0) {
                             html += `
                                 <hr>
                                 <h6 class="mb-3">Stock Summary</h6>
@@ -500,6 +509,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 })
                 .catch(error => {
+                    console.error('View error:', error);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
@@ -543,6 +553,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         })
                         .catch(error => {
+                            console.error('Delete error:', error);
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error',
@@ -564,9 +575,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (spinner) spinner.classList.remove('d-none');
         
         const formData = new FormData(this);
-        const url = this.action;
+        const locationId = formData.get('id');
         
-        axios.post(url, formData)
+        if (!locationId) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: 'Location ID is missing'
+            });
+            return;
+        }
+        
+        // Use PUT method for update
+        formData.append('_method', 'PUT');
+        
+        axios.post(`/stock-locations/${locationId}`, formData)
             .then(response => {
                 if (response.data.success) {
                     Swal.fire({
@@ -588,6 +611,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => {
+                console.error('Update error:', error);
                 let errorMessage = 'Failed to update location';
                 if (error.response?.data?.errors) {
                     errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
@@ -606,6 +630,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (spinner) spinner.classList.add('d-none');
             });
     });
+    
+    // Reset forms when modals are closed
+    document.getElementById('addLocationModal')?.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('addLocationForm')?.reset();
+    });
+    
+    document.getElementById('editLocationModal')?.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('editLocationForm')?.reset();
+        document.getElementById('editLocationBody').innerHTML = '';
+    });
+    
+    document.getElementById('viewLocationModal')?.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('viewLocationBody').innerHTML = '';
+    });
 });
 </script>
+@endsection
 @endsection
