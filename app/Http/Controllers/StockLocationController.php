@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use App\Models\StockLocation;
+use Illuminate\Support\Facades\DB; // ADD THIS IMPORT
 use Illuminate\Support\Facades\Validator;
 
 class StockLocationController extends Controller
