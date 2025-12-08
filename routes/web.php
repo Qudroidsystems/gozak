@@ -103,21 +103,19 @@ Route::middleware(['auth'])->group(function () {
     // ===================================================================
     
     // Stock Locations Management
-    Route::resource('stock-locations', StockLocationController::class);
-    Route::get('stock-locations/{stock_location}/edit', [StockLocationController::class, 'edit'])->name('stock-locations.edit');
-          // Add these inside the inventory prefix group or create a separate group for locations
-    // Add this route - it should work with your existing controller show() method
-    Route::get('stock-locations/{stock_location}', [StockLocationController::class, 'show'])->name('stock-locations.show');
-    // Add these new routes
-    Route::post('stock-locations/update-sort', [StockLocationController::class, 'updateSortOrder'])->name('stock-locations.update-sort');
+    // Stock Locations Management
+    // Put specific parameterized routes BEFORE resource
     Route::get('stock-locations/{id}/stock', [StockLocationController::class, 'getLocationStock'])->name('stock-locations.stock');
     Route::post('stock-locations/{id}/set-default', [StockLocationController::class, 'setAsDefault'])->name('stock-locations.set-default');
     Route::post('stock-locations/{id}/toggle-status', [StockLocationController::class, 'toggleStatus'])->name('stock-locations.toggle-status');
+
+    // Main resource route (includes: index, create, store, show, edit, update, destroy)
+    Route::resource('stock-locations', StockLocationController::class);
+
+    // Other routes
+    Route::post('stock-locations/update-sort', [StockLocationController::class, 'updateSortOrder'])->name('stock-locations.update-sort');
     Route::get('stock-locations/export', [StockLocationController::class, 'exportLocations'])->name('stock-locations.export');
-
-    
-
-    
+        
     // Inventory Management Routes
     Route::prefix('inventory')->group(function () {
         // Main inventory routes
