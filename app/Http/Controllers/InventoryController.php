@@ -189,93 +189,93 @@ class InventoryController extends Controller
     }
 
    public function stockLevels(Request $request)
-{
-    $pagetitle = "Stock Levels Report";
-    
-    $query = Product::with(['category', 'brand'])
-        ->select('products.*')
-        ->selectSub(function($query) {
-            $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                ->from('stocks')
-                ->whereColumn('stocks.product_id', 'products.id');
-        }, 'total_stock');
-    
-    // Apply filters
-    if ($request->filled('category_id')) {
-        $query->where('category_id', $request->category_id);
-    }
-    
-    if ($request->filled('brand_id')) {
-        $query->where('brand_id', $request->brand_id);
-    }
-    
-    if ($request->filled('stock_status')) {
-        switch ($request->stock_status) {
-            case 'in_stock':
-                $query->having('total_stock', '>', 10);
-                break;
-            case 'low_stock':
-                $query->having('total_stock', '>', 0)
-                      ->having('total_stock', '<=', 10);
-                break;
-            case 'out_of_stock':
-                $query->having('total_stock', '<=', 0);
-                break;
-            case 'negative_stock':
-                $query->having('total_stock', '<', 0);
-                break;
+    {
+        $pagetitle = "Stock Levels Report";
+        
+        $query = Product::with(['category', 'brand'])
+            ->select('products.*')
+            ->selectSub(function($query) {
+                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
+                    ->from('stocks')
+                    ->whereColumn('stocks.product_id', 'products.id');
+            }, 'total_stock');
+        
+        // Apply filters
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
         }
-    }
-    
-    if ($request->filled('search')) {
-        $search = $request->search;
-        $query->where(function($q) use ($search) {
-            $q->where('title', 'like', "%{$search}%")
-              ->orWhere('sku', 'like', "%{$search}%")
-              ->orWhereHas('category', function($q) use ($search) {
-                  $q->where('name', 'like', "%{$search}%");
-              })
-              ->orWhereHas('brand', function($q) use ($search) {
-                  $q->where('name', 'like', "%{$search}%");
-              });
-        });
-    }
-    
-    $sortBy = $request->get('sort_by', 'total_stock');
-    $sortOrder = $request->get('sort_order', 'asc');
-    
-    if ($sortBy === 'stock') {
-        $query->orderBy('total_stock', $sortOrder);
-    } else {
-        $query->orderBy($sortBy, $sortOrder);
-    }
-    
-    $products = $query->paginate(25)->withQueryString();
-    
-    $locations = StockLocation::get();
-    
-    // FIXED: Create a separate array for location stock instead of modifying the Product model
-    $locationStockData = [];
-    
-    foreach ($products as $product) {
-        $locationStockData[$product->id] = [];
-        foreach ($locations as $location) {
-            $locationStockData[$product->id][$location->id] = $location->getProductStock($product->id);
+        
+        if ($request->filled('brand_id')) {
+            $query->where('brand_id', $request->brand_id);
         }
+        
+        if ($request->filled('stock_status')) {
+            switch ($request->stock_status) {
+                case 'in_stock':
+                    $query->having('total_stock', '>', 10);
+                    break;
+                case 'low_stock':
+                    $query->having('total_stock', '>', 0)
+                        ->having('total_stock', '<=', 10);
+                    break;
+                case 'out_of_stock':
+                    $query->having('total_stock', '<=', 0);
+                    break;
+                case 'negative_stock':
+                    $query->having('total_stock', '<', 0);
+                    break;
+            }
+        }
+        
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                ->orWhere('sku', 'like', "%{$search}%")
+                ->orWhereHas('category', function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })
+                ->orWhereHas('brand', function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
+            });
+        }
+        
+        $sortBy = $request->get('sort_by', 'total_stock');
+        $sortOrder = $request->get('sort_order', 'asc');
+        
+        if ($sortBy === 'stock') {
+            $query->orderBy('total_stock', $sortOrder);
+        } else {
+            $query->orderBy($sortBy, $sortOrder);
+        }
+        
+        $products = $query->paginate(25)->withQueryString();
+        
+        $locations = StockLocation::get();
+        
+        // FIXED: Create a separate array for location stock instead of modifying the Product model
+        $locationStockData = [];
+        
+        foreach ($products as $product) {
+            $locationStockData[$product->id] = [];
+            foreach ($locations as $location) {
+                $locationStockData[$product->id][$location->id] = $location->getProductStock($product->id);
+            }
+        }
+        
+        $categories = Category::orderBy('name')->get();
+        $brands = Brand::orderBy('name')->get();
+        
+        return view('inventory.stock-levels', compact(
+            'pagetitle',
+            'products',
+            'locations',
+            'locationStockData', // Pass the separate array to the view
+            'categories',
+            'brands'
+        ));
     }
-    
-    $categories = Category::orderBy('name')->get();
-    $brands = Brand::orderBy('name')->get();
-    
-    return view('inventory.stock-levels', compact(
-        'pagetitle',
-        'products',
-        'locations',
-        'locationStockData', // Pass the separate array to the view
-        'categories',
-        'brands'
-    ));
-}
 
     public function stockHistory($id)
     {
@@ -959,13 +959,13 @@ class InventoryController extends Controller
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhereHas('category', function($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('brand', function($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
-                  });
+                ->orWhere('sku', 'like', "%{$search}%")
+                ->orWhereHas('category', function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                })
+                ->orWhereHas('brand', function($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%");
+                });
             });
         }
         
@@ -974,11 +974,25 @@ class InventoryController extends Controller
         $categories = Category::orderBy('name')->get();
         $brands = Brand::orderBy('name')->get();
         
+        // ADD THIS LINE: Get locations for the table header
+        $locations = StockLocation::orderBy('name')->get();
+        
+        // ADD: Create location stock data array
+        $locationStockData = [];
+        foreach ($products as $product) {
+            $locationStockData[$product->id] = [];
+            foreach ($locations as $location) {
+                $locationStockData[$product->id][$location->id] = $location->getProductStock($product->id);
+            }
+        }
+        
         return view('inventory.low-stock-alerts', compact(
             'pagetitle',
             'products',
             'categories',
-            'brands'
+            'brands',
+            'locations', // ADD THIS
+            'locationStockData' // ADD THIS
         ));
     }
 
