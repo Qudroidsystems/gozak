@@ -189,7 +189,7 @@ class InventoryController extends Controller
         ));
     }
 
-   public function stockLevels(Request $request)
+    public function stockLevels(Request $request)
     {
         $pagetitle = "Stock Levels Report";
         

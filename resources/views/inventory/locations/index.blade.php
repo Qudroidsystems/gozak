@@ -247,6 +247,9 @@
     </div>
 </div>
 
+@endsection
+
+@section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
@@ -390,7 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Add location form not found!');
     }
     
-    // Edit location button click
+    // Edit location button click - FIXED ROUTES
     document.addEventListener('click', function(e) {
         const editBtn = e.target.closest('.edit-location-btn');
         if (editBtn) {
@@ -398,36 +401,178 @@ document.addEventListener('DOMContentLoaded', function() {
             const locationId = editBtn.dataset.id;
             console.log('Edit clicked for location ID:', locationId);
             
-            axios.get(`/stock-locations/${locationId}/edit`)
+            // Use the correct route with inventory prefix
+            const editUrl = `/inventory/stock-locations/${locationId}/edit`;
+            console.log('Fetching from:', editUrl);
+            
+            axios.get(editUrl)
                 .then(response => {
                     console.log('Edit response:', response.data);
-                    // ... rest of edit code ...
+                    if (response.data.success) {
+                        const location = response.data.location;
+                        
+                        let html = `
+                            <div class="mb-3">
+                                <label class="form-label">Name <span class="text-danger">*</span></label>
+                                <input type="text" name="name" class="form-control" required value="${location.name}">
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Code</label>
+                                    <input type="text" name="code" class="form-control" value="${location.code || ''}" placeholder="e.g., WH1, STORE1">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Phone</label>
+                                    <input type="text" name="phone" class="form-control" value="${location.phone || ''}" placeholder="e.g., (123) 456-7890">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Address</label>
+                                <textarea name="address" class="form-control" rows="2" placeholder="Full address...">${location.address || ''}</textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Contact Person</label>
+                                <input type="text" name="contact_person" class="form-control" value="${location.contact_person || ''}" placeholder="e.g., John Doe">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" name="email" class="form-control" value="${location.email || ''}" placeholder="e.g., contact@example.com">
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="is_default" id="edit_is_default" ${location.is_default ? 'checked' : ''} ${location.is_default ? 'disabled' : ''}>
+                                        <label class="form-check-label" for="edit_is_default">Set as Default Location</label>
+                                        ${location.is_default ? '<small class="text-muted d-block">This is the current default location</small>' : ''}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" name="is_active" id="edit_is_active" ${location.is_active ? 'checked' : ''}>
+                                        <label class="form-check-label" for="edit_is_active">Active</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label">Notes</label>
+                                <textarea name="notes" class="form-control" rows="3" placeholder="Additional information...">${location.notes || ''}</textarea>
+                            </div>
+                            <input type="hidden" name="id" value="${location.id}">
+                        `;
+                        
+                        document.getElementById('editLocationBody').innerHTML = html;
+                        
+                        // Show the modal
+                        const editModal = new bootstrap.Modal(document.getElementById('editLocationModal'));
+                        editModal.show();
+                    }
                 })
                 .catch(error => {
                     console.error('Edit error:', error);
-                    // ... error handling ...
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to load location data for editing'
+                    });
                 });
         }
         
-        // View location button click
+        // View location button click - FIXED ROUTES
         const viewBtn = e.target.closest('.view-location-btn');
         if (viewBtn) {
             e.preventDefault();
             const locationId = viewBtn.dataset.id;
             console.log('View clicked for location ID:', locationId);
             
-            axios.get(`/stock-locations/${locationId}`)
+            // Use the correct route with inventory prefix
+            const viewUrl = `/inventory/stock-locations/${locationId}`;
+            console.log('Fetching from:', viewUrl);
+            
+            axios.get(viewUrl)
                 .then(response => {
                     console.log('View response:', response.data);
-                    // ... rest of view code ...
+                    if (response.data.success) {
+                        const location = response.data.location;
+                        
+                        let html = `
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Name:</label>
+                                    <p>${location.name}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Code:</label>
+                                    <p>${location.code || 'N/A'}</p>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Status:</label>
+                                    <p><span class="badge bg-${location.is_active ? 'success' : 'danger'}">${location.is_active ? 'Active' : 'Inactive'}</span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Default:</label>
+                                    <p>${location.is_default ? '<span class="badge bg-primary">Default Location</span>' : 'No'}</p>
+                                </div>
+                            </div>
+                            ${location.address ? `
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Address:</label>
+                                    <p>${location.address.replace(/\n/g, '<br>')}</p>
+                                </div>
+                            </div>
+                            ` : ''}
+                            ${location.contact_person || location.phone || location.email ? `
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Contact Information:</label>
+                                    <p>
+                                        ${location.contact_person ? `<strong>${location.contact_person}</strong><br>` : ''}
+                                        ${location.phone ? `<i class="bi bi-telephone me-1"></i> ${location.phone}<br>` : ''}
+                                        ${location.email ? `<i class="bi bi-envelope me-1"></i> ${location.email}` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                            ` : ''}
+                            ${location.notes ? `
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Notes:</label>
+                                    <p>${location.notes.replace(/\n/g, '<br>')}</p>
+                                </div>
+                            </div>
+                            ` : ''}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Created:</label>
+                                    <p>${new Date(location.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold">Last Updated:</label>
+                                    <p>${new Date(location.updated_at).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                        `;
+                        
+                        document.getElementById('viewLocationBody').innerHTML = html;
+                        
+                        // Show the modal
+                        const viewModal = new bootstrap.Modal(document.getElementById('viewLocationModal'));
+                        viewModal.show();
+                    }
                 })
                 .catch(error => {
                     console.error('View error:', error);
-                    // ... error handling ...
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to load location details'
+                    });
                 });
         }
         
-        // Delete location button click
+        // Delete location button click - FIXED ROUTES
         const deleteBtn = e.target.closest('.delete-location-btn');
         if (deleteBtn) {
             e.preventDefault();
@@ -445,7 +590,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    axios.delete(`/stock-locations/${locationId}`)
+                    // Use the correct route with inventory prefix
+                    const deleteUrl = `/inventory/stock-locations/${locationId}`;
+                    console.log('Deleting from:', deleteUrl);
+                    
+                    axios.delete(deleteUrl)
                         .then(response => {
                             console.log('Delete response:', response.data);
                             if (response.data.success) {
@@ -480,13 +629,92 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Edit location form submission
+    // Edit location form submission - FIXED ROUTES
     const editLocationForm = document.getElementById('editLocationForm');
     if (editLocationForm) {
         editLocationForm.addEventListener('submit', function(e) {
             e.preventDefault();
             console.log('Edit location form submitted');
-            // ... rest of edit form code ...
+            
+            const btn = document.getElementById('editLocationBtn');
+            const spinner = document.getElementById('editLocationSpinner');
+            
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('d-none');
+            
+            // Collect form data
+            const formData = new FormData(this);
+            const data = {};
+            
+            for (let [key, value] of formData.entries()) {
+                data[key] = value;
+            }
+            
+            // Convert checkboxes to boolean
+            const isDefaultCheckbox = this.querySelector('[name="is_default"]');
+            const isActiveCheckbox = this.querySelector('[name="is_active"]');
+            data.is_default = isDefaultCheckbox && !isDefaultCheckbox.disabled && isDefaultCheckbox.checked ? 1 : 0;
+            data.is_active = isActiveCheckbox && isActiveCheckbox.checked ? 1 : 0;
+            
+            const locationId = data.id;
+            console.log('Updating location ID:', locationId);
+            console.log('Form data:', data);
+            
+            // Use the correct route with inventory prefix
+            const updateUrl = `/inventory/stock-locations/${locationId}`;
+            console.log('Updating via:', updateUrl);
+            
+            axios.post(updateUrl, data)
+                .then(response => {
+                    console.log('Update response:', response.data);
+                    if (response.data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: response.data.message,
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            // Close modal
+                            const modalElement = document.getElementById('editLocationModal');
+                            if (modalElement) {
+                                const modal = bootstrap.Modal.getInstance(modalElement);
+                                if (modal) modal.hide();
+                            }
+                            
+                            // Reload page to show updated data
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: response.data.message || 'Failed to update location'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Update error:', error);
+                    console.error('Error response:', error.response);
+                    
+                    let errorMessage = 'Failed to update location. Please try again.';
+                    
+                    if (error.response?.status === 422 && error.response.data.errors) {
+                        // Validation errors
+                        errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
+                    } else if (error.response?.data?.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        html: errorMessage
+                    });
+                })
+                .finally(() => {
+                    if (btn) btn.disabled = false;
+                    if (spinner) spinner.classList.add('d-none');
+                });
         });
     }
     
