@@ -102,20 +102,24 @@ Route::middleware(['auth'])->group(function () {
     // INVENTORY MANAGEMENT ROUTES
     // ===================================================================
     
-    // Stock Locations Management
-    // Stock Locations Management
-    // Put specific parameterized routes BEFORE resource
+
+    // Stock Locations Management - SIMPLIFIED VERSION
+    // Remove ALL duplicate routes and use this clean version:
+
+    // Custom routes that need to come BEFORE resource
     Route::get('stock-locations/{id}/stock', [StockLocationController::class, 'getLocationStock'])->name('stock-locations.stock');
+    Route::get('stock-locations/{id}/view', [StockLocationController::class, 'show'])->name('stock-locations.view'); // Alternative show route
     Route::post('stock-locations/{id}/set-default', [StockLocationController::class, 'setAsDefault'])->name('stock-locations.set-default');
     Route::post('stock-locations/{id}/toggle-status', [StockLocationController::class, 'toggleStatus'])->name('stock-locations.toggle-status');
 
-    // Main resource route (includes: index, create, store, show, edit, update, destroy)
+    // Main resource route - this creates ALL standard routes (index, create, store, show, edit, update, destroy)
     Route::resource('stock-locations', StockLocationController::class);
 
-    // Other routes
+    // Other non-conflicting routes
     Route::post('stock-locations/update-sort', [StockLocationController::class, 'updateSortOrder'])->name('stock-locations.update-sort');
     Route::get('stock-locations/export', [StockLocationController::class, 'exportLocations'])->name('stock-locations.export');
-        
+
+    
     // Inventory Management Routes
     Route::prefix('inventory')->group(function () {
         // Main inventory routes

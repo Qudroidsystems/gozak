@@ -267,6 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to escape HTML to prevent XSS
     function escapeHtml(text) {
+        if (text === null || text === undefined) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -274,8 +275,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to format date
     function formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        if (!dateString) return 'N/A';
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        } catch (e) {
+            return 'Invalid date';
+        }
+    }
+    
+    // Function to format currency
+    function formatCurrency(amount) {
+        if (amount === null || amount === undefined) return '$0.00';
+        return '$' + parseFloat(amount).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
     }
     
     // Add location form
@@ -412,11 +424,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const locationId = editBtn.dataset.id;
             console.log('Edit clicked for location ID:', locationId);
             
-            // Use the correct route - either direct URL or route helper
-            // Option 1: Direct URL (if routes are outside inventory prefix)
-            // const editUrl = `/stock-locations/${locationId}/edit`;
-            
-            // Option 2: Route helper (recommended)
+            // Use the route helper for edit
             const editUrl = `{{ route('stock-locations.edit', ':id') }}`.replace(':id', locationId);
             console.log('Fetching edit data from:', editUrl);
             
@@ -516,15 +524,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const locationId = viewBtn.dataset.id;
             console.log('View clicked for location ID:', locationId);
             
-            // Use the correct route - either direct URL or route helper
-            // Option 1: Direct URL (if routes are outside inventory prefix)
-            // const viewUrl = `/stock-locations/${locationId}`;
-            
-            // Option 2: Create a custom route for viewing (recommended)
-            // Since you excluded 'show' from the resource, we need to check your routes
-            
-            // Try both patterns:
-            let viewUrl = `{{ url('/stock-locations') }}/${locationId}`;
+            // Use the route helper for show - make sure the route exists
+            const viewUrl = `{{ route('stock-locations.show', ':id') }}`.replace(':id', locationId);
             console.log('Fetching view data from:', viewUrl);
             
             axios.get(viewUrl)
@@ -610,6 +611,80 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         `;
                         
+                        // Add stock summary if available
+                        if (response.data.stock_summary) {
+                            const summary = response.data.stock_summary;
+                            html += `
+                                <hr>
+                                <h6 class="mb-3">Stock Summary</h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <small class="text-muted">Total Stock In:</small>
+                                        <div class="fw-semibold">${summary.total_in || 0}</div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <small class="text-muted">Total Stock Out:</small>
+                                        <div class="fw-semibold">${summary.total_out || 0}</div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <small class="text-muted">Adjustments:</small>
+                                        <div class="fw-semibold">${summary.total_adjustments || 0}</div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <small class="text-muted">Transfers:</small>
+                                        <div class="fw-semibold">${summary.total_transfers || 0}</div>
+                                    </div>
+                                    <div class="col-12 mb-2">
+                                        <small class="text-muted">Total Stock Value:</small>
+                                        <div class="fw-semibold">${formatCurrency(summary.total_value || 0)}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        // Add recent transactions if available
+                        if (response.data.location && response.data.location.stocks && response.data.location.stocks.length > 0) {
+                            html += `
+                                <hr>
+                                <h6 class="mb-3">Recent Transactions</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-borderless">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Product</th>
+                                                <th>Type</th>
+                                                <th>Qty</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                            `;
+                            
+                            response.data.location.stocks.forEach(transaction => {
+                                const typeColors = {
+                                    'in': 'success',
+                                    'out': 'danger',
+                                    'adjustment': 'warning',
+                                    'transfer': 'info'
+                                };
+                                
+                                html += `
+                                    <tr>
+                                        <td><small>${formatDate(transaction.created_at)}</small></td>
+                                        <td><small>${escapeHtml(transaction.product?.title || 'N/A')}</small></td>
+                                        <td><span class="badge bg-${typeColors[transaction.type] || 'secondary'}">${transaction.type}</span></td>
+                                        <td><small>${transaction.quantity}</small></td>
+                                    </tr>
+                                `;
+                            });
+                            
+                            html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                        }
+                        
                         document.getElementById('viewLocationBody').innerHTML = html;
                         
                         // Show the modal
@@ -631,6 +706,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     if (error.response?.status === 404) {
                         errorMessage = 'Location not found';
+                    } else if (error.response?.status === 405) {
+                        errorMessage = 'GET method not allowed for this route. Please check your routes configuration.';
                     } else if (error.response?.data?.message) {
                         errorMessage = error.response.data.message;
                     }
@@ -661,7 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Use the correct route
+                    // Use the route helper for destroy
                     const deleteUrl = `{{ route('stock-locations.destroy', ':id') }}`.replace(':id', locationId);
                     console.log('Deleting from:', deleteUrl);
                     
@@ -737,7 +814,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Updating location ID:', locationId);
             console.log('Form data:', data);
             
-            // Use the correct route
+            // Use the route helper for update
             const updateUrl = `{{ route('stock-locations.update', ':id') }}`.replace(':id', locationId);
             console.log('Updating via:', updateUrl);
             
