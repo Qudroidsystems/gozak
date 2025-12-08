@@ -103,10 +103,11 @@ Route::middleware(['auth'])->group(function () {
     // ===================================================================
     
     // Stock Locations Management
-    Route::resource('stock-locations', StockLocationController::class)->except(['show']);
+    Route::resource('stock-locations', StockLocationController::class);
     Route::get('stock-locations/{stock_location}/edit', [StockLocationController::class, 'edit'])->name('stock-locations.edit');
           // Add these inside the inventory prefix group or create a separate group for locations
-
+    // Add this route - it should work with your existing controller show() method
+    Route::get('stock-locations/{stock_location}', [StockLocationController::class, 'show'])->name('stock-locations.show');
     // Add these new routes
     Route::post('stock-locations/update-sort', [StockLocationController::class, 'updateSortOrder'])->name('stock-locations.update-sort');
     Route::get('stock-locations/{id}/stock', [StockLocationController::class, 'getLocationStock'])->name('stock-locations.stock');
