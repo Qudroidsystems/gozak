@@ -430,15 +430,15 @@ class InventoryController extends Controller
             
             Log::info("Stock movement created with ID: {$stockMovement->id}");
             
-            // Update product's main stock if this is the default location
-            if ($location->is_default) {
-                if ($type === 'in') {
-                    $product->increment('stock', $quantity);
-                    Log::info("Incremented product stock by {$quantity}. New stock: {$product->stock}");
-                } elseif ($type === 'out') {
-                    $product->decrement('stock', $quantity);
-                    Log::info("Decremented product stock by {$quantity}. New stock: {$product->stock}");
-                }
+            // CORRECTED: Update product's main stock for all adjustments
+            if ($type === 'in') {
+                $product->increment('stock', $quantity);
+                Log::info("Incremented product stock by {$quantity}. New stock: {$product->stock}");
+            } elseif ($type === 'out') {
+                // Ensure we don't go below 0
+                $newProductStock = max(0, $product->stock - $quantity);
+                $product->update(['stock' => $newProductStock]);
+                Log::info("Decremented product stock by {$quantity}. New stock: {$product->stock}");
             }
             
             DB::commit();
@@ -447,7 +447,8 @@ class InventoryController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Stock adjusted successfully',
-                'stock' => $stock->load(['product', 'user', 'stockLocation'])
+                'stock' => $stock->load(['product', 'user', 'stockLocation']),
+                'product_stock' => $product->stock // Return updated product stock
             ]);
             
         } catch (\Exception $e) {
@@ -578,13 +579,25 @@ class InventoryController extends Controller
                 'created_at' => now(),
             ]);
             
+            // CORRECTED: Update product stock only if it affects the main product stock
+            // For transfers, total stock remains the same, but we need to check if default location is involved
+            if ($fromLocation->is_default) {
+                $product->decrement('stock', $request->quantity);
+                Log::info("Decremented product stock from default location by {$request->quantity}. New stock: {$product->stock}");
+            }
+            if ($toLocation->is_default) {
+                $product->increment('stock', $request->quantity);
+                Log::info("Incremented product stock to default location by {$request->quantity}. New stock: {$product->stock}");
+            }
+            
             DB::commit();
             Log::info('Stock transfer completed successfully');
             
             return response()->json([
                 'success' => true,
                 'message' => 'Stock transferred successfully',
-                'stock' => $stockOut->load(['product', 'user', 'stockLocation', 'destinationLocation'])
+                'stock' => $stockOut->load(['product', 'user', 'stockLocation', 'destinationLocation']),
+                'product_stock' => $product->stock // Return updated product stock
             ]);
             
         } catch (\Exception $e) {
@@ -626,6 +639,7 @@ class InventoryController extends Controller
         try {
             $location = StockLocation::findOrFail($request->location_id);
             $createdStocks = [];
+            $updatedProducts = [];
             
             foreach ($request->products as $item) {
                 $product = Product::find($item['id']);
@@ -684,12 +698,18 @@ class InventoryController extends Controller
                     'created_at' => now(),
                 ]);
                 
-                // Update product's main stock if this is the default location
-                if ($location->is_default) {
+                // CORRECTED: Update product's main stock for all adjustments
+                if ($type === 'in') {
                     $product->increment('stock', $quantity);
+                    Log::info("Bulk: Incremented product ID {$product->id} stock by {$quantity}. New stock: {$product->stock}");
                 }
                 
                 $createdStocks[] = $stock;
+                $updatedProducts[] = [
+                    'id' => $product->id,
+                    'title' => $product->title,
+                    'stock' => $product->stock
+                ];
             }
             
             DB::commit();
@@ -699,7 +719,8 @@ class InventoryController extends Controller
                 'success' => true,
                 'message' => 'Bulk adjustment completed successfully',
                 'count' => count($createdStocks),
-                'stocks' => $createdStocks
+                'stocks' => $createdStocks,
+                'products' => $updatedProducts // Return updated products with their stock
             ]);
             
         } catch (\Exception $e) {
@@ -748,6 +769,22 @@ class InventoryController extends Controller
                 ], 400);
             }
             
+            // Get product and location for stock reversal
+            $product = Product::find($stock->product_id);
+            $location = StockLocation::find($stock->stock_location_id);
+            
+            // Reverse the stock adjustment on product
+            if ($product && $location) {
+                if ($stock->type === 'in' || $stock->type === 'transfer_in') {
+                    $newStock = max(0, $product->stock - $stock->quantity);
+                    $product->update(['stock' => $newStock]);
+                    Log::info("Reversed IN transaction. Decremented product stock by {$stock->quantity}. New stock: {$product->stock}");
+                } elseif ($stock->type === 'out' || $stock->type === 'transfer') {
+                    $product->increment('stock', $stock->quantity);
+                    Log::info("Reversed OUT transaction. Incremented product stock by {$stock->quantity}. New stock: {$product->stock}");
+                }
+            }
+            
             // Delete associated movements
             StockMovement::where('stock_id', $id)->delete();
             
@@ -758,7 +795,8 @@ class InventoryController extends Controller
             
             return response()->json([
                 'success' => true,
-                'message' => 'Transaction deleted successfully'
+                'message' => 'Transaction deleted successfully',
+                'product_stock' => $product ? $product->stock : null
             ]);
             
         } catch (\Exception $e) {
@@ -782,6 +820,7 @@ class InventoryController extends Controller
             return response()->json([
                 'success' => true,
                 'stock' => $stock,
+                'product_total_stock' => $product->stock, // Return total product stock
                 'product' => [
                     'id' => $product->id,
                     'title' => $product->title,
@@ -1114,5 +1153,14 @@ class InventoryController extends Controller
             ->sum('quantity');
             
         return $stockIn - $stockOut;
+    }
+
+    /**
+     * API endpoint to get real-time product stock for all products
+     */
+    public function realtimeProductStock()
+    {
+        $products = Product::select('id', 'title', 'sku', 'stock')->get();
+        return response()->json($products);
     }
 }
