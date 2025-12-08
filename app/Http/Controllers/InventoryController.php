@@ -302,7 +302,7 @@ class InventoryController extends Controller
         $movementData = StockMovement::where('product_id', $id)
             ->select(
                 DB::raw('DATE(created_at) as date'),
-                DB::raw('SUM(CASE WHEN movement_type IN ("in", "transfer_in") THEN quantity ELSE -quantity END) as daily_change'),
+                DB::raw('SUM(CASE WHEN movement_type IN ("in", "adjustment", "transfer_in") THEN quantity ELSE -quantity END) as daily_change'),
                 DB::raw('MAX(balance) as closing_balance')
             )
             ->where('created_at', '>=', now()->subDays(30))
@@ -332,9 +332,6 @@ class InventoryController extends Controller
             'unit_cost' => 'nullable|numeric|min:0',
             'reason' => 'required|string|max:255',
             'notes' => 'nullable|string|max:1000',
-            'expiry_date' => 'nullable|date|after_or_equal:today',
-            'batch_number' => 'nullable|string|max:100',
-            'serial_number' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -392,6 +389,7 @@ class InventoryController extends Controller
             
             Log::info("Creating stock transaction. Type: {$type}, Quantity: {$quantity}, Unit Cost: {$unitCost}");
             
+            // Create the stock transaction first
             $stock = Stock::create([
                 'product_id' => $product->id,
                 'stock_location_id' => $location->id,
@@ -406,24 +404,26 @@ class InventoryController extends Controller
                 'reference_type' => 'adjustment',
                 'adjustment_reason' => $request->reason,
                 'notes' => $request->notes,
-                'expiry_date' => $request->expiry_date,
-                'batch_number' => $request->batch_number,
-                'serial_number' => $request->serial_number,
                 'transaction_date' => now(),
             ]);
             
             Log::info("Stock transaction created with ID: {$stock->id}");
             
-            // Create stock movement
+            // Now create the stock movement - MATCHING YOUR MIGRATION SCHEMA
+            $movementType = ($type === 'in') ? 'in' : 'out';
+            if ($type === 'in' || $type === 'out') {
+                $movementType = 'adjustment';
+            }
+            
             $stockMovement = StockMovement::create([
+                'stock_id' => $stock->id, // Required foreign key
                 'product_id' => $product->id,
                 'stock_location_id' => $location->id,
-                'quantity' => $type === 'in' ? $quantity : -$quantity,
-                'movement_type' => $type === 'in' ? 'adjustment_in' : 'adjustment_out',
+                'movement_type' => $movementType,
+                'quantity' => $quantity,
                 'balance' => $newQuantity,
-                'reference_type' => 'adjustment',
-                'reference_id' => $stock->id,
-                'notes' => $request->reason . ': ' . ($request->notes ?? ''),
+                'reference' => $referenceNumber,
+                'description' => $request->reason . ': ' . ($request->notes ?? ''),
                 'user_id' => auth()->id(),
                 'created_at' => now(),
             ]);
@@ -551,29 +551,29 @@ class InventoryController extends Controller
             
             Log::info("Transfer IN created with ID: {$stockIn->id}");
             
-            // Create stock movements
+            // Create stock movements - MATCHING YOUR MIGRATION SCHEMA
             StockMovement::create([
+                'stock_id' => $stockOut->id, // Required foreign key
                 'product_id' => $product->id,
                 'stock_location_id' => $fromLocation->id,
-                'quantity' => -$request->quantity,
                 'movement_type' => 'transfer_out',
+                'quantity' => $request->quantity,
                 'balance' => $fromCurrentStock - $request->quantity,
-                'reference_type' => 'transfer',
-                'reference_id' => $stockOut->id,
-                'notes' => 'Transfer to ' . $toLocation->name . ': ' . ($request->notes ?? ''),
+                'reference' => $referenceNumber,
+                'description' => 'Transfer to ' . $toLocation->name . ': ' . ($request->notes ?? ''),
                 'user_id' => auth()->id(),
                 'created_at' => now(),
             ]);
             
             StockMovement::create([
+                'stock_id' => $stockIn->id, // Required foreign key
                 'product_id' => $product->id,
                 'stock_location_id' => $toLocation->id,
-                'quantity' => $request->quantity,
                 'movement_type' => 'transfer_in',
+                'quantity' => $request->quantity,
                 'balance' => $toCurrentStock + $request->quantity,
-                'reference_type' => 'transfer',
-                'reference_id' => $stockIn->id,
-                'notes' => 'Transfer from ' . $fromLocation->name . ': ' . ($request->notes ?? ''),
+                'reference' => $referenceNumber,
+                'description' => 'Transfer from ' . $fromLocation->name . ': ' . ($request->notes ?? ''),
                 'user_id' => auth()->id(),
                 'created_at' => now(),
             ]);
@@ -665,16 +665,21 @@ class InventoryController extends Controller
                     'transaction_date' => now(),
                 ]);
                 
-                // Create stock movement
+                // Create stock movement - MATCHING YOUR MIGRATION SCHEMA
+                $movementType = ($type === 'in') ? 'in' : 'out';
+                if ($type === 'in' || $type === 'out') {
+                    $movementType = 'adjustment';
+                }
+                
                 StockMovement::create([
+                    'stock_id' => $stock->id, // Required foreign key
                     'product_id' => $product->id,
                     'stock_location_id' => $location->id,
-                    'quantity' => $type === 'in' ? $quantity : -$quantity,
-                    'movement_type' => $type === 'in' ? 'adjustment_in' : 'adjustment_out',
+                    'movement_type' => $movementType,
+                    'quantity' => $quantity,
                     'balance' => $newQuantity,
-                    'reference_type' => 'adjustment',
-                    'reference_id' => $stock->id,
-                    'notes' => $request->reason . ': ' . ($request->notes ?? ''),
+                    'reference' => 'BULK-' . date('YmdHis') . rand(100, 999),
+                    'description' => $request->reason . ': ' . ($request->notes ?? ''),
                     'user_id' => auth()->id(),
                     'created_at' => now(),
                 ]);
@@ -744,9 +749,7 @@ class InventoryController extends Controller
             }
             
             // Delete associated movements
-            StockMovement::where('reference_id', $id)
-                ->where('reference_type', 'stock')
-                ->delete();
+            StockMovement::where('stock_id', $id)->delete();
             
             $stock->delete();
             
@@ -1093,5 +1096,23 @@ class InventoryController extends Controller
             'report',
             'totalValue'
         ));
+    }
+    
+    /**
+     * Helper method to get stock at a specific location
+     */
+    private function getLocationStock($productId, $locationId)
+    {
+        $stockIn = Stock::where('product_id', $productId)
+            ->where('stock_location_id', $locationId)
+            ->whereIn('type', ['in', 'adjustment', 'transfer_in'])
+            ->sum('quantity');
+            
+        $stockOut = Stock::where('product_id', $productId)
+            ->where('stock_location_id', $locationId)
+            ->whereIn('type', ['out', 'damage', 'transfer'])
+            ->sum('quantity');
+            
+        return $stockIn - $stockOut;
     }
 }
