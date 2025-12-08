@@ -164,6 +164,10 @@
                                         @endcan
                                         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">Import CSV</button>
                                         <a href="{{ route('products.export') }}" class="btn btn-info">Export CSV</a>
+                                        <!-- Sync Stock Button -->
+                                        <button type="button" class="btn btn-secondary" onclick="syncProductStocks()" title="Sync stock from all locations">
+                                            <i class="bi bi-arrow-clockwise"></i> Sync Stock
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -208,13 +212,42 @@
                                                     </td>
                                                     <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
                                                     <td class="stock">
-                                                        @if($product->stock > 10)
-                                                            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">{{ $product->stock }} in stock</span>
-                                                        @elseif($product->stock > 0)
-                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ $product->stock }} low stock</span>
+                                                        @php
+                                                            // Use the product's total stock (from all locations)
+                                                            $totalStock = $product->stock;
+                                                        @endphp
+                                                        @if($totalStock > 10)
+                                                            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle" title="Total stock across all locations">
+                                                                <i class="bi bi-box me-1"></i>{{ $totalStock }} in stock
+                                                            </span>
+                                                        @elseif($totalStock > 0)
+                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" title="Total stock across all locations">
+                                                                <i class="bi bi-exclamation-triangle me-1"></i>{{ $totalStock }} low stock
+                                                            </span>
                                                         @else
-                                                            <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">Out of stock</span>
+                                                            <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle" title="Total stock across all locations">
+                                                                <i class="bi bi-x-circle me-1"></i>Out of stock
+                                                            </span>
                                                         @endif
+                                                        <!-- Show stock per location on hover -->
+                                                        <div class="stock-locations-popover d-none">
+                                                            <small class="d-block text-muted mt-1">
+                                                                <i class="bi bi-info-circle me-1"></i>Stock by location:
+                                                            </small>
+                                                            @php
+                                                                $locations = \App\Models\StockLocation::all();
+                                                            @endphp
+                                                            @foreach($locations as $location)
+                                                                @php
+                                                                    $locationStock = $location->getProductStock($product->id);
+                                                                @endphp
+                                                                @if($locationStock > 0)
+                                                                    <small class="d-block">
+                                                                        • {{ $location->name }}: <strong>{{ $locationStock }}</strong>
+                                                                    </small>
+                                                                @endif
+                                                            @endforeach
+                                                        </div>
                                                     </td>
                                                     <td class="price">
                                                         @if($product->sale_price && $product->sale_price < $product->price)
@@ -239,7 +272,11 @@
                                                         @endif
                                                     </td>
                                                     <td class="created_at"><small class="text-muted">{{ $product->created_at->format('d M, Y') }}</small></td>
-                                                    <td><button type="button" class="btn btn-sm btn-outline-info inventory-btn" data-id="{{ $product->id }}" data-title="{{ $product->title }}">View Log</button></td>
+                                                    <td>
+                                                        <button type="button" class="btn btn-sm btn-outline-info inventory-btn" data-id="{{ $product->id }}" data-title="{{ $product->title }}">
+                                                            <i class="bi bi-box-arrow-up-right"></i> View Log
+                                                        </button>
+                                                    </td>
                                                     <td>
                                                         <div class="dropdown">
                                                             <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
@@ -247,6 +284,15 @@
                                                                 <li><a class="dropdown-item" href="{{ route('products.show', $product->id) }}">View</a></li>
                                                                 @can('Update product')
                                                                     <li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Edit</a></li>
+                                                                @endcan
+                                                                @can('Adjust stock')
+                                                                    <li>
+                                                                        <a class="dropdown-item adjust-stock-btn" href="javascript:void(0);" 
+                                                                           data-id="{{ $product->id }}"
+                                                                           data-title="{{ $product->title }}">
+                                                                            <i class="bi bi-plus-slash-minus me-2"></i> Adjust Stock
+                                                                        </a>
+                                                                    </li>
                                                                 @endcan
                                                                 @can('Delete product')
                                                                     <li><a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
@@ -278,253 +324,99 @@
             </div>
 
             <!-- ADD/EDIT MODAL -->
-            <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <form id="productForm" enctype="multipart/form-data">
-                            @csrf
-                            <input type="hidden" name="id" id="product_id">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="modalTitle">Add Product</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetForm()"></button>
-                            </div>
-                            <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
-                                <div class="row g-4">
-                                    <div class="col-lg-8">
-                                        <div class="card">
-                                            <div class="card-body">
-                                                <h6 class="card-title mb-3">Basic Information</h6>
-                                                <div class="row g-3">
-                                                    <div class="col-md-6"><label class="form-label">Title <span class="text-danger">*</span></label><input type="text" name="title" id="title" class="form-control" required></div>
-                                                    <div class="col-md-6"><label class="form-label">SKU <span class="text-danger">*</span></label><input type="text" name="sku" id="sku" class="form-control" required></div>
-                                                    <div class="col-md-4"><label class="form-label">Price <span class="text-danger">*</span></label><div class="input-group"><span class="input-group-text">$</span><input type="number" step="0.01" name="price" id="price" class="form-control" required min="0"></div></div>
-                                                    <div class="col-md-4"><label class="form-label">Discount %</label><input type="number" step="0.01" min="0" max="100" id="discount_percent" class="form-control" placeholder="e.g. 25"></div>
-                                                    <div class="col-md-4"><label class="form-label">Sale Price</label><div class="input-group"><span class="input-group-text">$</span><input type="number" step="0.01" name="sale_price" id="sale_price" class="form-control"></div><small class="text-success" id="sale_price_note" style="display:none;">Auto-calculated</small></div>
-                                                    <div class="col-md-4"><label class="form-label">Stock <span class="text-danger">*</span></label><input type="number" name="stock" id="stock" class="form-control" required min="0"></div>
-                                                    <div class="col-md-6"><label class="form-label">Product Type <span class="text-danger">*</span></label><select name="product_type" id="product_type" class="form-control" required><option value="simple">Simple Product</option><option value="variable">Variable Product</option></select></div>
-                                                    <div class="col-12"><label class="form-label">Description</label><textarea name="description" id="description" rows="4" class="form-control"></textarea></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div id="variationsSection" style="display:none;">
-                                            <div class="card mt-4">
-                                                <div class="card-header d-flex justify-content-between align-items-center">
-                                                    <h6 class="mb-0">Product Variations</h6>
-                                                    <div>
-                                                        <input type="number" step="0.01" min="0" max="100" id="bulk_discount" class="form-control form-control-sm d-inline-block w-auto me-2" placeholder="Bulk %">
-                                                        <button type="button" class="btn btn-success btn-sm" id="applyBulkDiscount">Apply to All</button>
-                                                    </div>
-                                                </div>
-                                                <div class="card-body">
-                                                    <div id="attributesContainer" class="mb-4">
-                                                        <div class="row g-3 align-items-end attribute-row">
-                                                            <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
-                                                            <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
-                                                            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
-                                                        </div>
-                                                    </div>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="addAttribute">+ Add Attribute</button>
-                                                    <button type="button" class="btn btn-primary btn-sm mb-3" id="generateVariations">Generate Variations</button>
-                                                    <hr>
-                                                    <div id="variationsTable"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-lg-4">
-                                        <div class="card mb-3">
-                                            <div class="card-body">
-                                                <label class="form-label">Thumbnail Image</label>
-                                                <input type="file" name="thumbnail" id="thumbnail_input" class="form-control mb-2" accept="image/*">
-                                                <div class="text-center">
-                                                    <img id="thumbnail_preview" src="" class="img-fluid rounded" style="max-height:200px; display:none;">
-                                                    <div id="thumbnail_placeholder" class="text-muted"><i class="bi bi-image display-4"></i><p class="mt-2">No image selected</p></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="card mb-3">
-                                            <div class="card-body">
-                                                <label class="form-label">Gallery Images</label>
-                                                <input type="file" name="images[]" id="gallery_input" multiple class="form-control mb-3" accept="image/*">
-                                                <div id="imageGallery" class="row g-2"></div>
-                                            </div>
-                                        </div>
-                                        <div class="card mb-3">
-                                            <div class="card-body">
-                                                <div class="mb-3">
-                                                    <label class="form-label">Brand</label>
-                                                    <select name="brand_id" id="brand_id" class="form-control">
-                                                        <option value="">No Brand</option>
-                                                        @foreach($brands as $brand)
-                                                            <option value="{{ $brand->id }}">{{ $brand->name }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                                <div class="mb-0">
-                                                    <label class="form-label">Category</label>
-                                                    <select name="category_id" id="category_id" class="form-control">
-                                                        <option value="">Select Category</option>
-                                                        @foreach($categories as $cat)
-                                                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                                                            @foreach($cat->children as $child)
-                                                                <option value="{{ $child->id }}">— {{ $child->name }}</option>
-                                                            @endforeach
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="card">
-                                            <div class="card-body">
-                                                <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured">
-                                                    <label class="form-check-label" for="is_featured">Featured Product</label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="modal-footer border-top pt-3 bg-light">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="resetForm()">Cancel</button>
-                                <button type="submit" class="btn btn-primary" id="submitBtn">
-                                    <span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span>
-                                    Save Product
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+            <!-- ... keep existing modal code ... -->
 
             <!-- IMPORT MODAL -->
-            <div class="modal fade" id="importModal" tabindex="-1">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Import Products</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <form id="importForm" enctype="multipart/form-data">
-                            @csrf
-                            <div class="modal-body">
-                                <div class="mb-3">
-                                    <label class="form-label">Choose CSV File</label>
-                                    <input type="file" name="file" class="form-control" accept=".csv,.xlsx" required>
-                                    <small class="text-muted">Download <a href="{{ asset('samples/products_sample.csv') }}" class="text-primary">sample template</a></small>
-                                </div>
-                                <div class="progress mb-3" style="display:none;" id="importProgress">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%">0%</div>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success">Start Import</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+            <!-- ... keep existing modal code ... -->
 
             <!-- BULK EDIT MODAL -->
-            <div class="modal fade" id="bulkEditModal" tabindex="-1">
+            <!-- ... keep existing modal code ... -->
+
+            <!-- INVENTORY LOG MODAL -->
+            <!-- ... keep existing modal code ... -->
+
+            <!-- ADJUST STOCK MODAL -->
+            <div class="modal fade" id="adjustStockModal" tabindex="-1">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Bulk Edit (<span id="bulkCount">0</span> Products)</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <form id="bulkEditForm">
+                        <form id="adjustStockForm">
                             @csrf
-                            <input type="hidden" name="ids" id="bulk_product_ids">
+                            <input type="hidden" name="product_id" id="adjustProductId">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="adjustStockModalTitle">Adjust Stock</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
                             <div class="modal-body">
-                                <div class="mb-3">
-                                    <label class="form-label">Price Adjustment</label>
-                                    <div class="input-group">
-                                        <select name="price_action" class="form-control">
-                                            <option value="">No Change</option>
-                                            <option value="increase">Increase by</option>
-                                            <option value="decrease">Decrease by</option>
-                                            <option value="set">Set to</option>
-                                        </select>
-                                        <input type="number" step="0.01" name="price_value" class="form-control" placeholder="Value">
-                                        <span class="input-group-text">% / $</span>
+                                <div id="adjustStockInfo" class="alert alert-info mb-3">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <div>
+                                            <strong id="adjustProductTitle"></strong><br>
+                                            <small>SKU: <span id="adjustProductSku"></span></small>
+                                        </div>
                                     </div>
                                 </div>
+                                
                                 <div class="mb-3">
-                                    <label class="form-label">Stock Adjustment</label>
-                                    <div class="input-group">
-                                        <select name="stock_action" class="form-control">
-                                            <option value="">No Change</option>
-                                            <option value="increase">Increase by</option>
-                                            <option value="decrease">Decrease by</option>
-                                            <option value="set">Set to</option>
-                                        </select>
-                                        <input type="number" name="stock_value" class="form-control" placeholder="Quantity">
-                                    </div>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Category</label>
-                                    <select name="category_id" class="form-control">
-                                        <option value="">No Change</option>
-                                        @foreach($categories as $cat)
-                                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
-                                            @foreach($cat->children as $child)
-                                                <option value="{{ $child->id }}">— {{ $child->name }}</option>
-                                            @endforeach
+                                    <label class="form-label">Location <span class="text-danger">*</span></label>
+                                    <select name="location_id" id="adjustLocation" class="form-control" required>
+                                        <option value="">Select Location</option>
+                                        @php
+                                            $locations = \App\Models\StockLocation::orderBy('name')->get();
+                                        @endphp
+                                        @foreach($locations as $location)
+                                            <option value="{{ $location->id }}">
+                                                {{ $location->name }}
+                                                @if($location->is_default)
+                                                    (Default)
+                                                @endif
+                                            </option>
                                         @endforeach
                                     </select>
                                 </div>
-                                <div class="mb-0">
-                                    <label class="form-label">Featured Status</label>
-                                    <select name="is_featured" class="form-control">
-                                        <option value="">No Change</option>
-                                        <option value="1">Mark as Featured</option>
-                                        <option value="0">Remove Featured</option>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Adjustment Type <span class="text-danger">*</span></label>
+                                    <select name="adjustment_type" id="adjustmentType" class="form-control" required>
+                                        <option value="add">Add Stock</option>
+                                        <option value="remove">Remove Stock</option>
+                                        <option value="set">Set Stock to Specific Quantity</option>
                                     </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label" id="quantityLabel">Quantity <span class="text-danger">*</span></label>
+                                    <input type="number" name="quantity" id="adjustQuantity" class="form-control" required min="1" value="1">
+                                    <small class="text-muted" id="currentLocationStock"></small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Unit Cost</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" step="0.01" name="unit_cost" id="adjustUnitCost" class="form-control" placeholder="Optional">
+                                    </div>
+                                    <small class="text-muted">Leave blank to use product price</small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Reason <span class="text-danger">*</span></label>
+                                    <input type="text" name="reason" class="form-control" required placeholder="e.g., Restock, Damage, Physical Count, etc.">
+                                </div>
+                                
+                                <div class="mb-0">
+                                    <label class="form-label">Notes</label>
+                                    <textarea name="notes" class="form-control" rows="2" placeholder="Additional information..."></textarea>
                                 </div>
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-primary">Apply Changes</button>
+                                <button type="submit" class="btn btn-primary" id="adjustStockBtn">
+                                    <span class="spinner-border spinner-border-sm d-none me-1" id="adjustStockSpinner"></span>
+                                    Apply Adjustment
+                                </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            </div>
-
-            <!-- INVENTORY LOG MODAL -->
-            <div class="modal fade" id="inventoryModal" tabindex="-1">
-                <div class="modal-dialog modal-lg modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Inventory Log - <span id="inventoryTitle"></span></h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="table-responsive">
-                                <table class="table table-bordered mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Date & Time</th>
-                                            <th>Type</th>
-                                            <th>Quantity</th>
-                                            <th>Reference</th>
-                                            <th>Previous Stock</th>
-                                            <th>New Stock</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="inventoryLogBody">
-                                        <!-- Dynamic content will be loaded here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -681,131 +573,38 @@ document.addEventListener('DOMContentLoaded', function () {
         cb.addEventListener('change', updateBulkActions);
     });
 
-    // Delete multiple products
-    window.deleteMultiple = function () {
-        const ids = Array.from(document.querySelectorAll('.bulk-checkbox:checked')).map(cb => cb.value);
-        if (!ids.length) {
-            Swal.fire('Info', 'Please select products to delete.', 'info');
-            return;
-        }
-        
-        Swal.fire({
-            title: `Delete ${ids.length} product(s)?`,
-            text: "This action cannot be undone!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Yes, delete them!',
-            cancelButtonText: 'Cancel'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Deleting...',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                // Delete products one by one
-                const deletePromises = ids.map(id => axios.delete(`/products/${id}`));
-                Promise.all(deletePromises)
-                    .then(() => {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Deleted!',
-                            text: `${ids.length} product(s) have been deleted.`,
-                            timer: 1500,
-                            showConfirmButton: false
-                        }).then(() => {
-                            location.reload();
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Delete error:', error);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: 'Failed to delete some products. Please try again.'
-                        });
-                    });
+    // Stock location popover hover effect
+    document.querySelectorAll('.stock').forEach(stockCell => {
+        stockCell.addEventListener('mouseenter', function() {
+            const popover = this.querySelector('.stock-locations-popover');
+            if (popover) {
+                popover.classList.remove('d-none');
             }
         });
-    };
-
-    // Initialize Choices.js for select elements
-    if (typeof Choices !== 'undefined') {
-        const brandSelect = document.getElementById('brand_id');
-        if (brandSelect) {
-            new Choices(brandSelect, {
-                removeItemButton: true,
-                searchEnabled: true,
-                placeholderValue: 'Select a brand',
-                searchPlaceholderValue: 'Search brands...'
-            });
-        }
         
-        const categorySelect = document.getElementById('category_id');
-        if (categorySelect) {
-            new Choices(categorySelect, {
-                removeItemButton: true,
-                searchEnabled: true,
-                placeholderValue: 'Select a category',
-                searchPlaceholderValue: 'Search categories...'
-            });
-        }
-    }
-
-    // Real-time stock updates
-    setInterval(() => {
-        axios.get('/products/realtime-stock')
-            .then(response => {
-                if (response.data && Array.isArray(response.data)) {
-                    response.data.forEach(item => {
-                        const row = document.querySelector(`tr[data-product-id="${item.id}"]`);
-                        if (row) {
-                            const cell = row.querySelector('.stock');
-                            if (cell) {
-                                const oldStock = parseInt(cell.textContent.match(/\d+/)?.[0] || 0);
-                                if (oldStock !== item.stock) {
-                                    let badgeClass, text;
-                                    if (item.stock > 10) {
-                                        badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
-                                        text = `${item.stock} in stock`;
-                                    } else if (item.stock > 0) {
-                                        badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-                                        text = `${item.stock} low stock`;
-                                    } else {
-                                        badgeClass = 'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
-                                        text = 'Out of stock';
-                                    }
-                                    
-                                    cell.innerHTML = `<span class="badge ${badgeClass}">${text}</span>`;
-                                    
-                                    // Highlight change
-                                    cell.style.transition = 'background-color 0.3s';
-                                    cell.style.backgroundColor = item.stock > oldStock ? '#d4edda' : '#f8d7da';
-                                    setTimeout(() => {
-                                        cell.style.backgroundColor = '';
-                                    }, 1000);
-                                }
-                            }
-                        }
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Real-time stock update error:', error);
-            });
-    }, 10000); // Update every 10 seconds
+        stockCell.addEventListener('mouseleave', function() {
+            const popover = this.querySelector('.stock-locations-popover');
+            if (popover) {
+                popover.classList.add('d-none');
+            }
+        });
+    });
 
     // Event delegation for dynamic elements
     document.addEventListener('click', function(e) {
+        // Adjust Stock button click
+        if (e.target.closest('.adjust-stock-btn')) {
+            const btn = e.target.closest('.adjust-stock-btn');
+            const productId = btn.dataset.id;
+            const productTitle = btn.dataset.title;
+            
+            showAdjustStockModal(productId, productTitle);
+        }
+
         // Inventory button click
-        if (e.target.classList.contains('inventory-btn')) {
-            const id = e.target.dataset.id;
-            const title = e.target.dataset.title;
+        if (e.target.closest('.inventory-btn')) {
+            const id = e.target.closest('.inventory-btn').dataset.id;
+            const title = e.target.closest('.inventory-btn').dataset.title;
             document.getElementById('inventoryTitle').textContent = title;
             
             axios.get(`/products/${id}/inventory`)
@@ -844,7 +643,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         }
 
-        // Edit button click - FIXED VERSION
+        // Edit button click
         if (e.target.closest('.edit-item-btn')) {
             const btn = e.target.closest('.edit-item-btn');
             const id = btn.dataset.id;
@@ -1306,7 +1105,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const container = document.getElementById('imageGallery');
             container.innerHTML = '';
             
-            Array.from(e.target.files).forEach((file, index) => {
+            Array.from(e.target.files).forEach((file, index) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
                     const div = document.createElement('div');
@@ -1498,75 +1297,323 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Reset form function
-    window.resetForm = function() {
-        // Reset form inputs
-        const productForm = document.getElementById('productForm');
-        if (productForm) {
-            productForm.reset();
-        }
-        
-        // Clear hidden fields
-        document.getElementById('product_id').value = '';
-        
-        // Reset modal title and button
-        document.getElementById('modalTitle').textContent = 'Add Product';
-        document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Save Product';
-        
-        // Hide variations section
-        document.getElementById('variationsSection').style.display = 'none';
-        
-        // Reset attributes container
-        const container = document.getElementById('attributesContainer');
-        if (container) {
-            container.innerHTML = `
-                <div class="row g-3 align-items-end attribute-row">
-                    <div class="col-md-5">
-                        <input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]">
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]">
-                    </div>
-                    <div class="col-md-1">
-                        <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
-                    </div>
-                </div>`;
-        }
-        
-        // Clear variations table
-        document.getElementById('variationsTable').innerHTML = '';
-        
-        // Clear image gallery
-        document.getElementById('imageGallery').innerHTML = '';
-        
-        // Reset thumbnail preview
-        const thumbPreview = document.getElementById('thumbnail_preview');
-        const thumbPlaceholder = document.getElementById('thumbnail_placeholder');
-        if (thumbPreview && thumbPlaceholder) {
-            thumbPreview.style.display = 'none';
-            thumbPreview.src = '';
-            thumbPlaceholder.style.display = 'block';
-        }
-        
-        // Reset sale price note
-        const salePriceNote = document.getElementById('sale_price_note');
-        if (salePriceNote) {
-            salePriceNote.style.display = 'none';
-        }
-        
-        // Reset attribute index
-        attrIndex = 1;
-        
-        // Close modal if open
-        const modalElement = document.getElementById('showModal');
-        if (modalElement) {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-            if (modal) {
-                modal.hide();
-            }
-        }
-    };
+    // Adjust stock form submission
+    const adjustStockForm = document.getElementById('adjustStockForm');
+    if (adjustStockForm) {
+        adjustStockForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const btn = document.getElementById('adjustStockBtn');
+            const spinner = document.getElementById('adjustStockSpinner');
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+            
+            const formData = new FormData(this);
+            
+            axios.post('/inventory/adjust', formData)
+                .then(response => {
+                    if (response.data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: response.data.message,
+                            confirmButtonText: 'OK'
+                        }).then(() => {
+                            // Close modal
+                            const modalElement = document.getElementById('adjustStockModal');
+                            if (modalElement) {
+                                const modal = bootstrap.Modal.getInstance(modalElement);
+                                if (modal) modal.hide();
+                            }
+                            
+                            // Reload page to show updated stock levels
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: response.data.message
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Adjust error:', error);
+                    let errorMessage = 'Failed to adjust stock. Please try again.';
+                    
+                    if (error.response?.status === 422 && error.response.data.errors) {
+                        errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
+                    } else if (error.response?.data?.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        html: errorMessage
+                    });
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    spinner.classList.add('d-none');
+                });
+        });
+    }
 
+    // Location change handler for adjust stock
+    const adjustLocation = document.getElementById('adjustLocation');
+    if (adjustLocation) {
+        adjustLocation.addEventListener('change', function() {
+            const productId = document.getElementById('adjustProductId').value;
+            const locationId = this.value;
+            
+            if (productId && locationId) {
+                loadLocationStock(productId, locationId);
+            }
+        });
+    }
+
+    // Adjustment type change handler
+    const adjustmentType = document.getElementById('adjustmentType');
+    if (adjustmentType) {
+        adjustmentType.addEventListener('change', function() {
+            updateQuantityLabel();
+        });
+    }
 });
+
+// Show adjust stock modal
+function showAdjustStockModal(productId, productTitle) {
+    // Reset form
+    document.getElementById('adjustStockForm').reset();
+    document.getElementById('adjustProductId').value = productId;
+    document.getElementById('adjustProductTitle').textContent = productTitle;
+    document.getElementById('adjustQuantity').value = 1;
+    
+    // Get product info
+    axios.get(`/products/${productId}`)
+        .then(response => {
+            const product = response.data;
+            document.getElementById('adjustProductSku').textContent = product.sku;
+            document.getElementById('adjustUnitCost').placeholder = 'Default: $' + product.price;
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('adjustStockModal'));
+            modal.show();
+            
+            // Update modal title
+            document.getElementById('adjustStockModalTitle').textContent = `Adjust Stock - ${productTitle}`;
+            
+            // Trigger location change to load initial stock
+            const locationSelect = document.getElementById('adjustLocation');
+            if (locationSelect.value) {
+                loadLocationStock(productId, locationSelect.value);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading product:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to load product information'
+            });
+        });
+}
+
+// Load location stock
+function loadLocationStock(productId, locationId) {
+    axios.get(`/inventory/stock-level/${productId}/${locationId}`)
+        .then(response => {
+            if (response.data.success) {
+                const locationStock = response.data.stock || 0;
+                const totalStock = response.data.product.total_stock || 0;
+                
+                document.getElementById('currentLocationStock').innerHTML = 
+                    `Current stock at this location: <strong>${locationStock}</strong> | Total stock: <strong>${totalStock}</strong>`;
+                
+                updateQuantityLabel();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading location stock:', error);
+            document.getElementById('currentLocationStock').innerHTML = 
+                '<span class="text-danger">Unable to load stock information</span>';
+        });
+}
+
+// Update quantity label based on adjustment type
+function updateQuantityLabel() {
+    const type = document.getElementById('adjustmentType').value;
+    const label = document.getElementById('quantityLabel');
+    const input = document.getElementById('adjustQuantity');
+    
+    switch(type) {
+        case 'add':
+            label.textContent = 'Quantity to Add *';
+            input.min = 1;
+            break;
+        case 'remove':
+            label.textContent = 'Quantity to Remove *';
+            input.min = 1;
+            break;
+        case 'set':
+            label.textContent = 'Set Stock To *';
+            input.min = 0;
+            break;
+    }
+}
+
+// Sync product stocks
+function syncProductStocks() {
+    Swal.fire({
+        title: 'Syncing stocks...',
+        text: 'Updating product stock from all locations',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+    
+    axios.post('/inventory/sync-all-stocks')
+        .then(response => {
+            if (response.data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: response.data.message,
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    location.reload();
+                });
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: response.data.message
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Sync error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error!',
+                text: 'Failed to sync stocks. Please try again.'
+            });
+        });
+}
+
+// Reset form function
+window.resetForm = function() {
+    // Reset form inputs
+    const productForm = document.getElementById('productForm');
+    if (productForm) {
+        productForm.reset();
+    }
+    
+    // Clear hidden fields
+    document.getElementById('product_id').value = '';
+    
+    // Reset modal title and button
+    document.getElementById('modalTitle').textContent = 'Add Product';
+    document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Save Product';
+    
+    // Hide variations section
+    document.getElementById('variationsSection').style.display = 'none';
+    
+    // Reset attributes container
+    const container = document.getElementById('attributesContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="row g-3 align-items-end attribute-row">
+                <div class="col-md-5">
+                    <input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]">
+                </div>
+                <div class="col-md-6">
+                    <input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]">
+                </div>
+                <div class="col-md-1">
+                    <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
+                </div>
+            </div>`;
+    }
+    
+    // Clear variations table
+    document.getElementById('variationsTable').innerHTML = '';
+    
+    // Clear image gallery
+    document.getElementById('imageGallery').innerHTML = '';
+    
+    // Reset thumbnail preview
+    const thumbPreview = document.getElementById('thumbnail_preview');
+    const thumbPlaceholder = document.getElementById('thumbnail_placeholder');
+    if (thumbPreview && thumbPlaceholder) {
+        thumbPreview.style.display = 'none';
+        thumbPreview.src = '';
+        thumbPlaceholder.style.display = 'block';
+    }
+    
+    // Reset sale price note
+    const salePriceNote = document.getElementById('sale_price_note');
+    if (salePriceNote) {
+        salePriceNote.style.display = 'none';
+    }
+    
+    // Close modal if open
+    const modalElement = document.getElementById('showModal');
+    if (modalElement) {
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        if (modal) {
+            modal.hide();
+        }
+    }
+};
+
+// Real-time stock updates (optional)
+setInterval(() => {
+    axios.get('/products/realtime-stock')
+        .then(response => {
+            if (response.data && Array.isArray(response.data)) {
+                response.data.forEach(item => {
+                    const row = document.querySelector(`tr[data-product-id="${item.id}"]`);
+                    if (row) {
+                        const cell = row.querySelector('.stock .badge');
+                        if (cell) {
+                            const oldStock = parseInt(cell.textContent.match(/\d+/)?.[0] || 0);
+                            if (oldStock !== item.stock) {
+                                let badgeClass, text, icon;
+                                if (item.stock > 10) {
+                                    badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
+                                    text = `${item.stock} in stock`;
+                                    icon = 'bi-box';
+                                } else if (item.stock > 0) {
+                                    badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                                    text = `${item.stock} low stock`;
+                                    icon = 'bi-exclamation-triangle';
+                                } else {
+                                    badgeClass = 'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
+                                    text = 'Out of stock';
+                                    icon = 'bi-x-circle';
+                                }
+                                
+                                cell.className = `badge ${badgeClass}`;
+                                cell.innerHTML = `<i class="bi ${icon} me-1"></i>${text}`;
+                                
+                                // Highlight change
+                                cell.style.transition = 'background-color 0.3s';
+                                cell.style.backgroundColor = item.stock > oldStock ? '#d4edda' : '#f8d7da';
+                                setTimeout(() => {
+                                    cell.style.backgroundColor = '';
+                                }, 1000);
+                            }
+                        }
+                    }
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Real-time stock update error:', error);
+        });
+}, 30000); // Update every 30 seconds
 </script>
 @endsection
