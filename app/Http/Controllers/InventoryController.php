@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use App\Models\StockLocation;
 use App\Models\StockMovement;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
 
@@ -321,6 +322,8 @@ class InventoryController extends Controller
 
     public function adjustStock(Request $request)
     {
+        Log::info('Adjust stock request received:', $request->all());
+        
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
             'location_id' => 'required|exists:stock_locations,id',
@@ -335,6 +338,7 @@ class InventoryController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::error('Adjust stock validation failed:', $validator->errors()->toArray());
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -349,23 +353,44 @@ class InventoryController extends Controller
             
             $currentStock = $location->getProductStock($product->id);
             
+            Log::info("Current stock: {$currentStock}, Adjustment type: {$request->adjustment_type}, Quantity: {$request->quantity}");
+            
             if ($request->adjustment_type === 'set') {
+                // Set stock to specific quantity
                 $adjustment = $request->quantity - $currentStock;
                 $quantity = abs($adjustment);
                 $previousQuantity = $currentStock;
                 $newQuantity = $request->quantity;
                 $type = $adjustment >= 0 ? 'in' : 'out';
-            } else {
-                $type = $request->adjustment_type === 'add' ? 'in' : 'out';
+            } else if ($request->adjustment_type === 'add') {
+                // Add stock
+                $type = 'in';
                 $quantity = $request->quantity;
                 $previousQuantity = $currentStock;
-                $newQuantity = $request->adjustment_type === 'add' 
-                    ? $currentStock + $quantity 
-                    : $currentStock - $quantity;
+                $newQuantity = $currentStock + $quantity;
+            } else {
+                // Remove stock
+                $type = 'out';
+                $quantity = $request->quantity;
+                $previousQuantity = $currentStock;
+                $newQuantity = $currentStock - $quantity;
+                
+                // Check if we have enough stock to remove
+                if ($currentStock < $quantity) {
+                    Log::warning("Insufficient stock. Available: {$currentStock}, Requested: {$quantity}");
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Cannot remove stock. Available: {$currentStock}, Requested: {$quantity}"
+                    ], 400);
+                }
             }
             
-            $unitCost = $request->unit_cost ?? $product->price;
+            $unitCost = $request->filled('unit_cost') ? $request->unit_cost : $product->price;
             $totalCost = $unitCost * $quantity;
+            
+            $referenceNumber = 'ADJ-' . date('YmdHis') . rand(100, 999);
+            
+            Log::info("Creating stock transaction. Type: {$type}, Quantity: {$quantity}, Unit Cost: {$unitCost}");
             
             $stock = Stock::create([
                 'product_id' => $product->id,
@@ -377,7 +402,7 @@ class InventoryController extends Controller
                 'new_quantity' => $newQuantity,
                 'unit_cost' => $unitCost,
                 'total_cost' => $totalCost,
-                'reference_number' => 'ADJ-' . date('YmdHis') . rand(100, 999),
+                'reference_number' => $referenceNumber,
                 'reference_type' => 'adjustment',
                 'adjustment_reason' => $request->reason,
                 'notes' => $request->notes,
@@ -386,6 +411,8 @@ class InventoryController extends Controller
                 'serial_number' => $request->serial_number,
                 'transaction_date' => now(),
             ]);
+            
+            Log::info("Stock transaction created with ID: {$stock->id}");
             
             // Create stock movement
             $stockMovement = StockMovement::create([
@@ -401,16 +428,21 @@ class InventoryController extends Controller
                 'created_at' => now(),
             ]);
             
+            Log::info("Stock movement created with ID: {$stockMovement->id}");
+            
             // Update product's main stock if this is the default location
             if ($location->is_default) {
                 if ($type === 'in') {
                     $product->increment('stock', $quantity);
+                    Log::info("Incremented product stock by {$quantity}. New stock: {$product->stock}");
                 } elseif ($type === 'out') {
                     $product->decrement('stock', $quantity);
+                    Log::info("Decremented product stock by {$quantity}. New stock: {$product->stock}");
                 }
             }
             
             DB::commit();
+            Log::info('Stock adjustment completed successfully');
             
             return response()->json([
                 'success' => true,
@@ -420,6 +452,9 @@ class InventoryController extends Controller
             
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Failed to adjust stock: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to adjust stock: ' . $e->getMessage()
@@ -429,6 +464,8 @@ class InventoryController extends Controller
 
     public function transferStock(Request $request)
     {
+        Log::info('Transfer stock request received:', $request->all());
+        
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
             'from_location_id' => 'required|exists:stock_locations,id',
@@ -440,6 +477,7 @@ class InventoryController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::error('Transfer stock validation failed:', $validator->errors()->toArray());
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -456,19 +494,22 @@ class InventoryController extends Controller
             // Check if source location has enough stock
             $availableStock = $fromLocation->getProductStock($product->id);
             if ($availableStock < $request->quantity) {
+                Log::warning("Insufficient stock for transfer. Available: {$availableStock}, Requested: {$request->quantity}");
                 return response()->json([
                     'success' => false,
                     'message' => "Insufficient stock. Available: {$availableStock}, Requested: {$request->quantity}"
                 ], 400);
             }
             
-            $unitCost = $request->unit_cost ?? $product->price;
+            $unitCost = $request->filled('unit_cost') ? $request->unit_cost : $product->price;
             $totalCost = $unitCost * $request->quantity;
             $referenceNumber = $request->reference_number ?? 'TRF-' . date('YmdHis') . rand(100, 999);
             
             // Get current stock at both locations
             $fromCurrentStock = $fromLocation->getProductStock($product->id);
             $toCurrentStock = $toLocation->getProductStock($product->id);
+            
+            Log::info("Transfer: From stock: {$fromCurrentStock}, To stock: {$toCurrentStock}, Quantity: {$request->quantity}");
             
             // Create transfer OUT record (from source)
             $stockOut = Stock::create([
@@ -488,6 +529,8 @@ class InventoryController extends Controller
                 'transaction_date' => now(),
             ]);
             
+            Log::info("Transfer OUT created with ID: {$stockOut->id}");
+            
             // Create transfer IN record (to destination)
             $stockIn = Stock::create([
                 'product_id' => $product->id,
@@ -505,6 +548,8 @@ class InventoryController extends Controller
                 'notes' => $request->notes . ' (Transferred from ' . $fromLocation->name . ')',
                 'transaction_date' => now(),
             ]);
+            
+            Log::info("Transfer IN created with ID: {$stockIn->id}");
             
             // Create stock movements
             StockMovement::create([
@@ -534,6 +579,7 @@ class InventoryController extends Controller
             ]);
             
             DB::commit();
+            Log::info('Stock transfer completed successfully');
             
             return response()->json([
                 'success' => true,
@@ -543,6 +589,9 @@ class InventoryController extends Controller
             
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Failed to transfer stock: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to transfer stock: ' . $e->getMessage()
@@ -552,6 +601,8 @@ class InventoryController extends Controller
 
     public function bulkAdjust(Request $request)
     {
+        Log::info('Bulk adjust request received:', $request->all());
+        
         $validator = Validator::make($request->all(), [
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
@@ -563,6 +614,7 @@ class InventoryController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::error('Bulk adjust validation failed:', $validator->errors()->toArray());
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -636,6 +688,7 @@ class InventoryController extends Controller
             }
             
             DB::commit();
+            Log::info('Bulk adjustment completed successfully. Count: ' . count($createdStocks));
             
             return response()->json([
                 'success' => true,
@@ -646,6 +699,9 @@ class InventoryController extends Controller
             
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Failed to perform bulk adjustment: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to perform bulk adjustment: ' . $e->getMessage()
@@ -655,13 +711,21 @@ class InventoryController extends Controller
 
     public function show($id)
     {
-        $stock = Stock::with(['product', 'user', 'stockLocation', 'destinationLocation'])
-            ->findOrFail($id);
-            
-        return response()->json([
-            'success' => true,
-            'stock' => $stock
-        ]);
+        try {
+            $stock = Stock::with(['product', 'user', 'stockLocation', 'destinationLocation'])
+                ->findOrFail($id);
+                
+            return response()->json([
+                'success' => true,
+                'stock' => $stock
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch stock transaction: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch transaction'
+            ], 500);
+        }
     }
 
     public function destroy($id)
@@ -687,6 +751,7 @@ class InventoryController extends Controller
             $stock->delete();
             
             DB::commit();
+            Log::info("Stock transaction {$id} deleted successfully");
             
             return response()->json([
                 'success' => true,
@@ -695,6 +760,7 @@ class InventoryController extends Controller
             
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Failed to delete transaction: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete transaction: ' . $e->getMessage()
@@ -725,6 +791,7 @@ class InventoryController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
+            Log::error('Failed to get stock level: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get stock level: ' . $e->getMessage()
