@@ -126,7 +126,8 @@
                                     @php
                                         $totalStock = 0;
                                         foreach($locations as $location) {
-                                            $stock = $product->location_stock[$location->id] ?? 0;
+                                            // FIXED: Use the locationStockData array instead of trying to access a non-existent property
+                                            $stock = $locationStockData[$product->id][$location->id] ?? 0;
                                             $totalStock += $stock;
                                         }
                                         
@@ -162,7 +163,8 @@
                                         
                                         @foreach($locations as $location)
                                             @php
-                                                $stock = $product->location_stock[$location->id] ?? 0;
+                                                // FIXED: Use the locationStockData array
+                                                $stock = $locationStockData[$product->id][$location->id] ?? 0;
                                                 $stockClass = $stock > 10 ? 'success' : ($stock > 0 ? 'warning' : ($stock == 0 ? 'secondary' : 'danger'));
                                             @endphp
                                             <td class="text-center">
@@ -200,7 +202,7 @@
                                                     </li>
                                                     @can('Manage inventory')
                                                         <li>
-                                                            <a class="dropdown-item" href="#" onclick="quickAdjust({{ $product->id }})">
+                                                            <a class="dropdown-item" href="#" onclick="quickAdjust({{ $product->id }}, '{{ $product->title }}')">
                                                                 <i class="bi bi-plus-slash-minus me-2"></i> Adjust Stock
                                                             </a>
                                                         </li>
@@ -266,13 +268,16 @@
                 @csrf
                 <input type="hidden" name="product_id" id="quickAdjustProductId">
                 <div class="modal-header">
-                    <h5 class="modal-title">Quick Stock Adjustment</h5>
+                    <h5 class="modal-title" id="quickAdjustModalTitle">Quick Stock Adjustment</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="currentStockInfo" class="alert alert-info mb-3">
+                        <!-- Current stock info will be loaded here -->
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Location <span class="text-danger">*</span></label>
-                        <select name="location_id" class="form-control" required>
+                        <select name="location_id" id="quickAdjustLocation" class="form-control" required>
                             <option value="">Select Location</option>
                             @foreach($locations as $location)
                                 <option value="{{ $location->id }}" {{ $location->is_default ? 'selected' : '' }}>
@@ -283,33 +288,38 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Adjustment Type <span class="text-danger">*</span></label>
-                        <select name="adjustment_type" class="form-control" required>
+                        <select name="adjustment_type" id="adjustmentType" class="form-control" required>
                             <option value="add">Add Stock</option>
                             <option value="remove">Remove Stock</option>
                             <option value="set">Set Stock to</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Quantity <span class="text-danger">*</span></label>
-                        <input type="number" name="quantity" class="form-control" required min="1">
+                        <label class="form-label" id="quantityLabel">Quantity to Add <span class="text-danger">*</span></label>
+                        <input type="number" name="quantity" id="adjustmentQuantity" class="form-control" required min="1" value="1">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Reason <span class="text-danger">*</span></label>
                         <input type="text" name="reason" class="form-control" required placeholder="e.g., Restock, Damage, etc.">
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea name="notes" class="form-control" rows="2" placeholder="Additional information..."></textarea>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Apply</button>
+                    <button type="submit" class="btn btn-primary" id="quickAdjustBtn">
+                        <span class="spinner-border spinner-border-sm d-none me-1" id="quickAdjustSpinner"></span>
+                        Apply Adjustment
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-@endsection
 
-@section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
@@ -338,7 +348,7 @@ function showStockHistory(productId) {
                         <tbody>
             `;
             
-            if (history.data.length > 0) {
+            if (history.data && history.data.length > 0) {
                 history.data.forEach(transaction => {
                     const typeColors = {
                         'in': 'success',
@@ -388,6 +398,7 @@ function showStockHistory(productId) {
             new bootstrap.Modal(document.getElementById('stockHistoryModal')).show();
         })
         .catch(error => {
+            console.error('Error loading stock history:', error);
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
@@ -396,22 +407,105 @@ function showStockHistory(productId) {
         });
 }
 
-function quickAdjust(productId) {
+function quickAdjust(productId, productTitle = '') {
     document.getElementById('quickAdjustProductId').value = productId;
-    new bootstrap.Modal(document.getElementById('quickAdjustModal')).show();
+    document.getElementById('quickAdjustModalTitle').textContent = 'Quick Stock Adjustment - ' + productTitle;
+    
+    // Reset form
+    document.getElementById('quickAdjustForm').reset();
+    document.getElementById('adjustmentQuantity').value = 1;
+    document.getElementById('adjustmentType').value = 'add';
+    updateQuantityLabel();
+    
+    // Clear current stock info
+    document.getElementById('currentStockInfo').innerHTML = '<i class="bi bi-info-circle me-1"></i> Select a location to see current stock';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('quickAdjustModal'));
+    modal.show();
+    
+    // Add event listener for location change
+    const locationSelect = document.getElementById('quickAdjustLocation');
+    locationSelect.addEventListener('change', function() {
+        if (this.value) {
+            loadCurrentStock(productId, this.value);
+        } else {
+            document.getElementById('currentStockInfo').innerHTML = '<i class="bi bi-info-circle me-1"></i> Select a location to see current stock';
+        }
+    });
+    
+    // Add event listener for adjustment type change
+    const adjustmentTypeSelect = document.getElementById('adjustmentType');
+    adjustmentTypeSelect.addEventListener('change', updateQuantityLabel);
+    
+    // Trigger initial load if default location is selected
+    if (locationSelect.value) {
+        loadCurrentStock(productId, locationSelect.value);
+    }
+}
+
+function loadCurrentStock(productId, locationId) {
+    axios.get(`/inventory/stock-level/${productId}/${locationId}`)
+        .then(response => {
+            if (response.data.success) {
+                const stock = response.data.stock || 0;
+                document.getElementById('currentStockInfo').innerHTML = 
+                    `<i class="bi bi-info-circle me-1"></i> Current stock at this location: <strong>${stock}</strong>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading current stock:', error);
+            document.getElementById('currentStockInfo').innerHTML = 
+                '<i class="bi bi-exclamation-triangle me-1"></i> Unable to load current stock';
+        });
+}
+
+function updateQuantityLabel() {
+    const type = document.getElementById('adjustmentType').value;
+    const label = document.getElementById('quantityLabel');
+    
+    switch(type) {
+        case 'add':
+            label.textContent = 'Quantity to Add *';
+            break;
+        case 'remove':
+            label.textContent = 'Quantity to Remove *';
+            break;
+        case 'set':
+            label.textContent = 'Set Stock To *';
+            break;
+    }
 }
 
 document.getElementById('quickAdjustForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
     
-    axios.post('{{ route("inventory.adjust") }}', new FormData(this))
+    const btn = document.getElementById('quickAdjustBtn');
+    const spinner = document.getElementById('quickAdjustSpinner');
+    
+    if (btn) btn.disabled = true;
+    if (spinner) spinner.classList.remove('d-none');
+    
+    const formData = new FormData(this);
+    
+    axios.post('{{ route("inventory.adjust") }}', formData)
         .then(response => {
+            console.log('Adjust response:', response.data);
             if (response.data.success) {
                 Swal.fire({
                     icon: 'success',
                     title: 'Success!',
-                    text: response.data.message
+                    text: response.data.message,
+                    confirmButtonText: 'OK'
                 }).then(() => {
+                    // Close modal
+                    const modalElement = document.getElementById('quickAdjustModal');
+                    if (modalElement) {
+                        const modal = bootstrap.Modal.getInstance(modalElement);
+                        if (modal) modal.hide();
+                    }
+                    
+                    // Reload page to show updated stock levels
                     location.reload();
                 });
             } else {
@@ -423,8 +517,12 @@ document.getElementById('quickAdjustForm')?.addEventListener('submit', function(
             }
         })
         .catch(error => {
-            let errorMessage = 'Failed to adjust stock';
-            if (error.response?.data?.errors) {
+            console.error('Adjust error:', error);
+            console.error('Error response:', error.response);
+            
+            let errorMessage = 'Failed to adjust stock. Please try again.';
+            
+            if (error.response?.status === 422 && error.response.data.errors) {
                 errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
             } else if (error.response?.data?.message) {
                 errorMessage = error.response.data.message;
@@ -435,7 +533,18 @@ document.getElementById('quickAdjustForm')?.addEventListener('submit', function(
                 title: 'Error!',
                 html: errorMessage
             });
+        })
+        .finally(() => {
+            if (btn) btn.disabled = false;
+            if (spinner) spinner.classList.add('d-none');
         });
+});
+
+// Auto-submit form when filter select changes
+document.querySelectorAll('select[onchange="this.form.submit()"]').forEach(select => {
+    select.addEventListener('change', function() {
+        this.form.submit();
+    });
 });
 </script>
 @endsection
