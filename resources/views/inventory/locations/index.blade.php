@@ -265,6 +265,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
     
+    // Function to escape HTML to prevent XSS
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // Function to format date
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
+    
     // Add location form
     const addLocationForm = document.getElementById('addLocationForm');
     if (addLocationForm) {
@@ -353,11 +366,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             // Validation errors
                             errorMessage = Object.values(error.response.data.errors)
                                 .flat()
-                                .map(err => `<li>${err}</li>`)
+                                .map(err => `<li>${escapeHtml(err)}</li>`)
                                 .join('');
                             errorMessage = `<ul style="text-align: left; padding-left: 20px;">${errorMessage}</ul>`;
                         } else if (error.response.data.message) {
-                            errorMessage = error.response.data.message;
+                            errorMessage = escapeHtml(error.response.data.message);
                         } else if (error.response.status === 500) {
                             errorMessage = 'Server error. Please try again later.';
                         }
@@ -391,7 +404,7 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Add location form not found!');
     }
     
-    // Edit location button click - FIXED ROUTES
+    // Edit location button click
     document.addEventListener('click', function(e) {
         const editBtn = e.target.closest('.edit-location-btn');
         if (editBtn) {
@@ -399,9 +412,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const locationId = editBtn.dataset.id;
             console.log('Edit clicked for location ID:', locationId);
             
-            // Use the correct route with inventory prefix
-            const editUrl = `/inventory/stock-locations/${locationId}/edit`;
-            console.log('Fetching from:', editUrl);
+            // Use the correct route - either direct URL or route helper
+            // Option 1: Direct URL (if routes are outside inventory prefix)
+            // const editUrl = `/stock-locations/${locationId}/edit`;
+            
+            // Option 2: Route helper (recommended)
+            const editUrl = `{{ route('stock-locations.edit', ':id') }}`.replace(':id', locationId);
+            console.log('Fetching edit data from:', editUrl);
             
             axios.get(editUrl)
                 .then(response => {
@@ -409,32 +426,33 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (response.data.success) {
                         const location = response.data.location;
                         
+                        // Build the edit form HTML
                         let html = `
                             <div class="mb-3">
                                 <label class="form-label">Name <span class="text-danger">*</span></label>
-                                <input type="text" name="name" class="form-control" required value="${location.name}">
+                                <input type="text" name="name" class="form-control" required value="${escapeHtml(location.name)}">
                             </div>
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label">Code</label>
-                                    <input type="text" name="code" class="form-control" value="${location.code || ''}" placeholder="e.g., WH1, STORE1">
+                                    <input type="text" name="code" class="form-control" value="${escapeHtml(location.code || '')}" placeholder="e.g., WH1, STORE1">
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Phone</label>
-                                    <input type="text" name="phone" class="form-control" value="${location.phone || ''}" placeholder="e.g., (123) 456-7890">
+                                    <input type="text" name="phone" class="form-control" value="${escapeHtml(location.phone || '')}" placeholder="e.g., (123) 456-7890">
                                 </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Address</label>
-                                <textarea name="address" class="form-control" rows="2" placeholder="Full address...">${location.address || ''}</textarea>
+                                <textarea name="address" class="form-control" rows="2" placeholder="Full address...">${escapeHtml(location.address || '')}</textarea>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Contact Person</label>
-                                <input type="text" name="contact_person" class="form-control" value="${location.contact_person || ''}" placeholder="e.g., John Doe">
+                                <input type="text" name="contact_person" class="form-control" value="${escapeHtml(location.contact_person || '')}" placeholder="e.g., John Doe">
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Email</label>
-                                <input type="email" name="email" class="form-control" value="${location.email || ''}" placeholder="e.g., contact@example.com">
+                                <input type="email" name="email" class="form-control" value="${escapeHtml(location.email || '')}" placeholder="e.g., contact@example.com">
                             </div>
                             <div class="row mb-3">
                                 <div class="col-md-6">
@@ -453,7 +471,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             <div class="mb-0">
                                 <label class="form-label">Notes</label>
-                                <textarea name="notes" class="form-control" rows="3" placeholder="Additional information...">${location.notes || ''}</textarea>
+                                <textarea name="notes" class="form-control" rows="3" placeholder="Additional information...">${escapeHtml(location.notes || '')}</textarea>
                             </div>
                             <input type="hidden" name="id" value="${location.id}">
                         `;
@@ -463,28 +481,51 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Show the modal
                         const editModal = new bootstrap.Modal(document.getElementById('editLocationModal'));
                         editModal.show();
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.data.message || 'Failed to load location data'
+                        });
                     }
                 })
                 .catch(error => {
                     console.error('Edit error:', error);
+                    console.error('Error response:', error.response);
+                    
+                    let errorMessage = 'Failed to load location data for editing';
+                    
+                    if (error.response?.status === 404) {
+                        errorMessage = 'Location not found';
+                    } else if (error.response?.data?.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Failed to load location data for editing'
+                        text: errorMessage
                     });
                 });
         }
         
-        // View location button click - FIXED ROUTES
+        // View location button click
         const viewBtn = e.target.closest('.view-location-btn');
         if (viewBtn) {
             e.preventDefault();
             const locationId = viewBtn.dataset.id;
             console.log('View clicked for location ID:', locationId);
             
-            // Use the correct route with inventory prefix
-            const viewUrl = `/inventory/stock-locations/${locationId}`;
-            console.log('Fetching from:', viewUrl);
+            // Use the correct route - either direct URL or route helper
+            // Option 1: Direct URL (if routes are outside inventory prefix)
+            // const viewUrl = `/stock-locations/${locationId}`;
+            
+            // Option 2: Create a custom route for viewing (recommended)
+            // Since you excluded 'show' from the resource, we need to check your routes
+            
+            // Try both patterns:
+            let viewUrl = `{{ url('/stock-locations') }}/${locationId}`;
+            console.log('Fetching view data from:', viewUrl);
             
             axios.get(viewUrl)
                 .then(response => {
@@ -496,11 +537,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Name:</label>
-                                    <p>${location.name}</p>
+                                    <p>${escapeHtml(location.name)}</p>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Code:</label>
-                                    <p>${location.code || 'N/A'}</p>
+                                    <p>${escapeHtml(location.code || 'N/A')}</p>
                                 </div>
                             </div>
                             <div class="row mb-3">
@@ -513,42 +554,58 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <p>${location.is_default ? '<span class="badge bg-primary">Default Location</span>' : 'No'}</p>
                                 </div>
                             </div>
-                            ${location.address ? `
-                            <div class="row mb-3">
-                                <div class="col-12">
-                                    <label class="form-label fw-semibold">Address:</label>
-                                    <p>${location.address.replace(/\n/g, '<br>')}</p>
+                        `;
+                        
+                        // Add address if exists
+                        if (location.address) {
+                            html += `
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold">Address:</label>
+                                        <p>${escapeHtml(location.address).replace(/\n/g, '<br>')}</p>
+                                    </div>
                                 </div>
-                            </div>
-                            ` : ''}
-                            ${location.contact_person || location.phone || location.email ? `
-                            <div class="row mb-3">
-                                <div class="col-12">
-                                    <label class="form-label fw-semibold">Contact Information:</label>
-                                    <p>
-                                        ${location.contact_person ? `<strong>${location.contact_person}</strong><br>` : ''}
-                                        ${location.phone ? `<i class="bi bi-telephone me-1"></i> ${location.phone}<br>` : ''}
-                                        ${location.email ? `<i class="bi bi-envelope me-1"></i> ${location.email}` : ''}
-                                    </p>
+                            `;
+                        }
+                        
+                        // Add contact info if exists
+                        if (location.contact_person || location.phone || location.email) {
+                            html += `
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold">Contact Information:</label>
+                                        <p>
+                                            ${location.contact_person ? `<strong>${escapeHtml(location.contact_person)}</strong><br>` : ''}
+                                            ${location.phone ? `<i class="bi bi-telephone me-1"></i> ${escapeHtml(location.phone)}<br>` : ''}
+                                            ${location.email ? `<i class="bi bi-envelope me-1"></i> ${escapeHtml(location.email)}` : ''}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                            ` : ''}
-                            ${location.notes ? `
-                            <div class="row mb-3">
-                                <div class="col-12">
-                                    <label class="form-label fw-semibold">Notes:</label>
-                                    <p>${location.notes.replace(/\n/g, '<br>')}</p>
+                            `;
+                        }
+                        
+                        // Add notes if exists
+                        if (location.notes) {
+                            html += `
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold">Notes:</label>
+                                        <p>${escapeHtml(location.notes).replace(/\n/g, '<br>')}</p>
+                                    </div>
                                 </div>
-                            </div>
-                            ` : ''}
+                            `;
+                        }
+                        
+                        // Add timestamps
+                        html += `
                             <div class="row">
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Created:</label>
-                                    <p>${new Date(location.created_at).toLocaleDateString()}</p>
+                                    <p>${formatDate(location.created_at)}</p>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-semibold">Last Updated:</label>
-                                    <p>${new Date(location.updated_at).toLocaleDateString()}</p>
+                                    <p>${formatDate(location.updated_at)}</p>
                                 </div>
                             </div>
                         `;
@@ -558,19 +615,35 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Show the modal
                         const viewModal = new bootstrap.Modal(document.getElementById('viewLocationModal'));
                         viewModal.show();
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.data.message || 'Failed to load location details'
+                        });
                     }
                 })
                 .catch(error => {
                     console.error('View error:', error);
+                    console.error('Error response:', error.response);
+                    
+                    let errorMessage = 'Failed to load location details';
+                    
+                    if (error.response?.status === 404) {
+                        errorMessage = 'Location not found';
+                    } else if (error.response?.data?.message) {
+                        errorMessage = error.response.data.message;
+                    }
+                    
                     Swal.fire({
                         icon: 'error',
                         title: 'Error',
-                        text: 'Failed to load location details'
+                        text: errorMessage
                     });
                 });
         }
         
-        // Delete location button click - FIXED ROUTES
+        // Delete location button click
         const deleteBtn = e.target.closest('.delete-location-btn');
         if (deleteBtn) {
             e.preventDefault();
@@ -588,8 +661,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 cancelButtonText: 'Cancel'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Use the correct route with inventory prefix
-                    const deleteUrl = `/inventory/stock-locations/${locationId}`;
+                    // Use the correct route
+                    const deleteUrl = `{{ route('stock-locations.destroy', ':id') }}`.replace(':id', locationId);
                     console.log('Deleting from:', deleteUrl);
                     
                     axios.delete(deleteUrl)
@@ -616,10 +689,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         })
                         .catch(error => {
                             console.error('Delete error:', error);
+                            let errorMessage = 'Failed to delete location';
+                            
+                            if (error.response?.data?.message) {
+                                errorMessage = error.response.data.message;
+                            }
+                            
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error',
-                                text: error.response?.data?.message || 'Failed to delete location'
+                                text: errorMessage
                             });
                         });
                 }
@@ -627,7 +706,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Edit location form submission - FIXED ROUTES
+    // Edit location form submission
     const editLocationForm = document.getElementById('editLocationForm');
     if (editLocationForm) {
         editLocationForm.addEventListener('submit', function(e) {
@@ -658,9 +737,12 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Updating location ID:', locationId);
             console.log('Form data:', data);
             
-            // Use the correct route with inventory prefix
-            const updateUrl = `/inventory/stock-locations/${locationId}`;
+            // Use the correct route
+            const updateUrl = `{{ route('stock-locations.update', ':id') }}`.replace(':id', locationId);
             console.log('Updating via:', updateUrl);
+            
+            // Use POST with _method=PUT for Laravel
+            data._method = 'PUT';
             
             axios.post(updateUrl, data)
                 .then(response => {
@@ -698,7 +780,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     if (error.response?.status === 422 && error.response.data.errors) {
                         // Validation errors
-                        errorMessage = Object.values(error.response.data.errors).flat().join('<br>');
+                        errorMessage = Object.values(error.response.data.errors)
+                            .flat()
+                            .map(err => `<li>${escapeHtml(err)}</li>`)
+                            .join('');
+                        errorMessage = `<ul style="text-align: left; padding-left: 20px;">${errorMessage}</ul>`;
                     } else if (error.response?.data?.message) {
                         errorMessage = error.response.data.message;
                     }
@@ -725,6 +811,24 @@ document.addEventListener('DOMContentLoaded', function() {
             if (form) {
                 form.reset();
             }
+        });
+    }
+    
+    // Reset edit form when modal closes
+    const editModal = document.getElementById('editLocationModal');
+    if (editModal) {
+        editModal.addEventListener('hidden.bs.modal', function () {
+            console.log('Edit modal closed, clearing form');
+            document.getElementById('editLocationBody').innerHTML = '';
+        });
+    }
+    
+    // Reset view modal when it closes
+    const viewModal = document.getElementById('viewLocationModal');
+    if (viewModal) {
+        viewModal.addEventListener('hidden.bs.modal', function () {
+            console.log('View modal closed, clearing content');
+            document.getElementById('viewLocationBody').innerHTML = '';
         });
     }
     
