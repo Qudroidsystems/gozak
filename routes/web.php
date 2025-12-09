@@ -129,7 +129,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/stock-levels', [InventoryController::class, 'stockLevels'])->name('inventory.stock-levels');
         Route::get('/history/{id}', [InventoryController::class, 'stockHistory'])->name('inventory.history');
         // In your routes file (web.php)
-        Route::get('/inventory/history/{id}', [InventoryController::class, 'getStockHistory'])->name('inventory.history.get');
+        // ADD THIS LINE - API endpoint for stock history
+        Route::get('/history/{id}', [InventoryController::class, 'getStockHistory'])->name('inventory.history.api');
+      
         
         // Report pages
         Route::get('/low-stock-alerts', [InventoryController::class, 'lowStockAlerts'])->name('inventory.low-stock-alerts');
