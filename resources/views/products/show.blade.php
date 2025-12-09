@@ -449,6 +449,181 @@
                         </div>
                     </div>
 
+                    {{-- Add this section after the Product Details Table card (around line 442) --}}
+
+                    <!-- Product Variations Section -->
+                    @if($product->product_type === 'variable' && $product->variations->count() > 0)
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-grid-3x3-gap me-2"></i>Product Variations 
+                                <span class="badge bg-primary ms-2">{{ $product->variations->count() }}</span>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 80px;">Image</th>
+                                            <th>Attributes</th>
+                                            <th>SKU</th>
+                                            <th>Price</th>
+                                            <th>Sale Price</th>
+                                            <th>Stock</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($product->variations as $variation)
+                                        <tr>
+                                            <td>
+                                                @if($variation->image)
+                                                    <img src="{{ asset('storage/' . $variation->image) }}" 
+                                                        alt="Variation" 
+                                                        class="img-thumbnail" 
+                                                        style="width: 60px; height: 60px; object-fit: cover;">
+                                                @else
+                                                    <div class="bg-light d-flex align-items-center justify-content-center" 
+                                                        style="width: 60px; height: 60px; border-radius: 4px;">
+                                                        <i class="bi bi-image text-muted"></i>
+                                                    </div>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($variation->attributes && is_array($variation->attributes))
+                                                    @foreach($variation->attributes as $key => $value)
+                                                        <span class="badge bg-info-subtle text-info me-1 mb-1">
+                                                            {{ ucfirst($key) }}: {{ $value }}
+                                                        </span>
+                                                    @endforeach
+                                                @else
+                                                    <span class="text-muted">N/A</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <code class="text-dark">{{ $variation->sku ?? 'N/A' }}</code>
+                                            </td>
+                                            <td>
+                                                <strong>${{ number_format($variation->price, 2) }}</strong>
+                                            </td>
+                                            <td>
+                                                @if($variation->sale_price)
+                                                    <span class="text-danger fw-bold">
+                                                        ${{ number_format($variation->sale_price, 2) }}
+                                                    </span>
+                                                    <br>
+                                                    <small class="badge bg-success">
+                                                        {{ round((($variation->price - $variation->sale_price) / $variation->price) * 100) }}% OFF
+                                                    </small>
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <span class="badge {{ $variation->stock > 10 ? 'bg-success' : ($variation->stock > 0 ? 'bg-warning' : 'bg-danger') }}">
+                                                    {{ $variation->stock }} units
+                                                </span>
+                                            </td>
+                                            <td>
+                                                @if($variation->stock > 10)
+                                                    <span class="badge bg-success-subtle text-success">
+                                                        <i class="bi bi-check-circle me-1"></i>In Stock
+                                                    </span>
+                                                @elseif($variation->stock > 0)
+                                                    <span class="badge bg-warning-subtle text-warning">
+                                                        <i class="bi bi-exclamation-triangle me-1"></i>Low Stock
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-danger-subtle text-danger">
+                                                        <i class="bi bi-x-circle me-1"></i>Out of Stock
+                                                    </span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Variation Summary Cards -->
+                            <div class="row g-3 mt-3">
+                                <div class="col-md-3">
+                                    <div class="card border shadow-none bg-light mb-0">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-muted mb-2">Total Variations</h6>
+                                            <h4 class="mb-0">{{ $product->variations->count() }}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card border shadow-none bg-light mb-0">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-muted mb-2">Total Stock</h6>
+                                            <h4 class="mb-0">{{ $product->variations->sum('stock') }}</h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card border shadow-none bg-light mb-0">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-muted mb-2">Lowest Price</h6>
+                                            <h4 class="mb-0 text-success">
+                                                ${{ number_format($product->variations->min(function($v) {
+                                                    return $v->sale_price ?? $v->price;
+                                                }), 2) }}
+                                            </h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card border shadow-none bg-light mb-0">
+                                        <div class="card-body text-center">
+                                            <h6 class="text-muted mb-2">Highest Price</h6>
+                                            <h4 class="mb-0 text-primary">
+                                                ${{ number_format($product->variations->max('price'), 2) }}
+                                            </h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
+                    <!-- Product Attributes Section (if variable product) -->
+                    @if($product->product_type === 'variable' && $product->attributes->count() > 0)
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-tags me-2"></i>Product Attributes
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-borderless mb-0">
+                                    <tbody>
+                                        @foreach($product->attributes as $attribute)
+                                        <tr>
+                                            <th style="width: 200px;" class="text-muted">{{ ucfirst($attribute->name) }}:</th>
+                                            <td>
+                                                @if(is_array($attribute->values))
+                                                    @foreach($attribute->values as $value)
+                                                        <span class="badge bg-secondary-subtle text-secondary me-1">{{ $value }}</span>
+                                                    @endforeach
+                                                @else
+                                                    <span class="badge bg-secondary-subtle text-secondary">{{ $attribute->values }}</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
+
                     <!-- Reviews Section -->
                     <div class="card mt-4">
                         <div class="card-header d-flex flex-wrap align-items-center gap-3 mb-2">
