@@ -1,11 +1,14 @@
 <?php
+
 namespace App\Models;
 
 use App\Models\Brand;
+use App\Models\Stock;
 use App\Models\Category;
 use App\Models\OrderItem;
 use App\Models\ProductImage;
 use App\Models\ProductReview;
+use App\Models\StockMovement;
 use App\Models\ProductAttribute;
 use App\Models\ProductVariation;
 use Illuminate\Database\Eloquent\Model;
@@ -37,15 +40,18 @@ class Product extends Model
     ];
 
     /**
-     * Boot the model - REMOVED automatic stock logging
-     * Inventory system handles all stock tracking
+     * Boot the model
      */
     protected static function boot()
     {
         parent::boot();
         
-        // No automatic stock logging here
-        // InventoryController handles all stock updates
+        // Calculate stock from inventory when accessing stock attribute
+        static::retrieved(function ($product) {
+            if (isset($product->stock)) {
+                $product->stock = $product->calculateStockFromInventory();
+            }
+        });
     }
     
     /**
@@ -56,7 +62,7 @@ class Product extends Model
         $totalStock = Stock::where('product_id', $this->id)
             ->selectRaw('
                 SUM(CASE 
-                    WHEN type IN ("in", "adjustment", "transfer_in") THEN quantity
+                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
                     WHEN type IN ("out", "damage", "transfer") THEN -quantity
                     ELSE 0
                 END) as total
@@ -64,6 +70,22 @@ class Product extends Model
             ->value('total') ?? 0;
         
         return max(0, $totalStock);
+    }
+    
+    /**
+     * Get current stock from inventory (always fresh calculation)
+     */
+    public function getCurrentStockAttribute()
+    {
+        return $this->calculateStockFromInventory();
+    }
+    
+    /**
+     * Stock relationship
+     */
+    public function stocks()
+    {
+        return $this->hasMany(Stock::class);
     }
 
     public function category()

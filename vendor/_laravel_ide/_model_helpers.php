@@ -4796,10 +4796,13 @@ namespace App\Models {
      * @property string|null $sku
      * @property string $title
      * @property int $id
+     * @property-read mixed $current_stock
      * @property-read mixed $total_sold
      * @property-read mixed $reviews_count
      * @property-read mixed $average_rating
      * @property-read mixed $revenue
+     * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Stock> $stocks
+     * @property-read int|null $stocks_count
      * @property-read \App\Models\Category $category
      * @property-read \App\Models\Brand $brand
      * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\ProductAttribute> $attributes

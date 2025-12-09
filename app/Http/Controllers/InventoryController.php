@@ -43,14 +43,14 @@ class InventoryController extends Controller
         $totalStock = Stock::where('product_id', $productId)
             ->selectRaw('
                 SUM(CASE 
-                    WHEN type IN ("in", "adjustment", "transfer_in") THEN quantity
+                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
                     WHEN type IN ("out", "damage", "transfer") THEN -quantity
                     ELSE 0
                 END) as total
             ')
             ->value('total') ?? 0;
         
-        return max(0, $totalStock); // Ensure no negative stock
+        return max(0, $totalStock);
     }
 
     /**
@@ -67,12 +67,16 @@ class InventoryController extends Controller
             
             $calculatedStock = $this->calculateProductStockFromInventory($productId);
             
-            // Only update if changed
-            if ($product->stock !== $calculatedStock) {
-                $oldStock = $product->stock;
-                $product->update(['stock' => $calculatedStock]);
-                Log::info("Updated product {$productId} stock: {$oldStock} → {$calculatedStock}");
-            }
+            // Always update to ensure sync
+            $oldStock = $product->stock;
+            
+            // Use update instead of save to avoid model events
+            Product::where('id', $productId)->update(['stock' => $calculatedStock]);
+            
+            // Refresh the product model
+            $product->refresh();
+            
+            Log::info("Updated product {$productId} stock: {$oldStock} → {$calculatedStock}");
             
             return $calculatedStock;
         } catch (\Exception $e) {
@@ -458,8 +462,6 @@ class InventoryController extends Controller
                 'created_at' => now(),
             ]);
             
-            Log::info("Stock movement created");
-            
             // IMPORTANT: Update product stock from inventory calculations
             $newProductStock = $this->updateProductStock($product->id);
             Log::info("Updated product stock to: {$newProductStock}");
@@ -722,7 +724,7 @@ class InventoryController extends Controller
                 $updatedProducts[] = [
                     'id' => $product->id,
                     'title' => $product->title,
-                    'stock' => $product->fresh()->stock
+                    'stock' => $newProductStock
                 ];
             }
             
@@ -1164,5 +1166,38 @@ class InventoryController extends Controller
     {
         $products = Product::select('id', 'title', 'sku', 'stock')->get();
         return response()->json($products);
+    }
+    
+    /**
+     * Sync all product stocks from inventory (one-time fix)
+     */
+    public function syncAllProductStocks()
+    {
+        try {
+            $products = Product::all();
+            $updatedCount = 0;
+            
+            foreach ($products as $product) {
+                $calculatedStock = $this->calculateProductStockFromInventory($product->id);
+                
+                if ($product->stock != $calculatedStock) {
+                    Product::where('id', $product->id)->update(['stock' => $calculatedStock]);
+                    $updatedCount++;
+                    Log::info("Synced product {$product->id} stock: {$product->stock} → {$calculatedStock}");
+                }
+            }
+            
+            return response()->json([
+                'success' => true,
+                'message' => "Synced {$updatedCount} product stocks from inventory",
+                'updated_count' => $updatedCount
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to sync product stocks: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to sync product stocks: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

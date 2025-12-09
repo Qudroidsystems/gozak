@@ -158,4 +158,7 @@ Route::middleware(['auth'])->group(function () {
     // Real-time stock updates
     Route::get('/inventory/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);
     Route::get('/inventory/product/{productId}/location/{locationId}/stock', [InventoryController::class, 'getLocationStock']);
+    // Sync product stock (admin only)
+    Route::post('/inventory/sync-stocks', [InventoryController::class, 'syncAllProductStocks'])
+        ->name('inventory.sync-stocks');
 });
