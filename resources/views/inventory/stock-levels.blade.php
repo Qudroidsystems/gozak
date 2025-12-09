@@ -324,18 +324,26 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 function showStockHistory(productId) {
+    console.log('Fetching history for product:', productId);
+    
     axios.get(`/inventory/history/${productId}`)
         .then(response => {
+            console.log('Response received:', response);
+            
+            if (!response.data.success) {
+                throw new Error(response.data.message || 'Failed to load history');
+            }
+            
             const product = response.data.product;
             const history = response.data.history;
             
             let html = `
                 <h5>${product.title} (${product.sku})</h5>
-                <p class="text-muted">Stock History</p>
+                <p class="text-muted">Current Stock: <strong>${product.stock}</strong></p>
                 
                 <div class="table-responsive">
-                    <table class="table table-bordered">
-                        <thead>
+                    <table class="table table-bordered table-sm">
+                        <thead class="table-light">
                             <tr>
                                 <th>Date</th>
                                 <th>Type</th>
@@ -343,6 +351,7 @@ function showStockHistory(productId) {
                                 <th>Quantity</th>
                                 <th>Reference</th>
                                 <th>User</th>
+                                <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -355,31 +364,40 @@ function showStockHistory(productId) {
                         'out': 'danger',
                         'adjustment': 'warning',
                         'transfer': 'info',
+                        'transfer_in': 'info',
                         'return': 'primary',
                         'damage': 'dark'
                     };
                     
+                    const userName = transaction.user 
+                        ? `${transaction.user.first_name} ${transaction.user.last_name}` 
+                        : 'System';
+                    
                     html += `
                         <tr>
-                            <td>${new Date(transaction.created_at).toLocaleString()}</td>
+                            <td>${new Date(transaction.transaction_date).toLocaleString()}</td>
                             <td>
                                 <span class="badge bg-${typeColors[transaction.type] || 'secondary'}">
-                                    ${transaction.type}
+                                    ${transaction.type.replace('_', ' ')}
                                 </span>
                             </td>
                             <td>${transaction.stock_location?.name || '-'}</td>
-                            <td class="${transaction.type === 'in' || transaction.type === 'adjustment' ? 'text-success' : 'text-danger'}">
-                                ${transaction.type === 'in' || transaction.type === 'adjustment' ? '+' : '-'}${transaction.quantity}
+                            <td class="${['in', 'adjustment', 'transfer_in', 'return'].includes(transaction.type) ? 'text-success' : 'text-danger'}">
+                                ${['in', 'adjustment', 'transfer_in', 'return'].includes(transaction.type) ? '+' : '-'}${transaction.quantity}
                             </td>
-                            <td>${transaction.reference_number}</td>
-                            <td>${transaction.user?.name || 'System'}</td>
+                            <td><small>${transaction.reference_number || '-'}</small></td>
+                            <td><small>${userName}</small></td>
+                            <td><small>${transaction.notes || transaction.adjustment_reason || '-'}</small></td>
                         </tr>
                     `;
                 });
             } else {
                 html += `
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">No transactions found</td>
+                        <td colspan="7" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-2"></i>
+                            <p class="mb-0 mt-2">No transactions found</p>
+                        </td>
                     </tr>
                 `;
             }
@@ -388,21 +406,35 @@ function showStockHistory(productId) {
                         </tbody>
                     </table>
                 </div>
-                
-                <div class="mt-3">
-                    ${history.links ? history.links : ''}
-                </div>
             `;
             
             document.getElementById('stockHistoryContent').innerHTML = html;
             new bootstrap.Modal(document.getElementById('stockHistoryModal')).show();
         })
         .catch(error => {
-            console.error('Error loading stock history:', error);
+            console.error('Full error object:', error);
+            console.error('Error response:', error.response);
+            console.error('Error status:', error.response?.status);
+            console.error('Error data:', error.response?.data);
+            
+            let errorMessage = 'Failed to load stock history';
+            
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                errorMessage = error.response.data?.message || `Server error: ${error.response.status}`;
+            } else if (error.request) {
+                // The request was made but no response was received
+                errorMessage = 'No response from server';
+            } else {
+                // Something happened in setting up the request that triggered an Error
+                errorMessage = error.message;
+            }
+            
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: 'Failed to load stock history'
+                text: errorMessage
             });
         });
 }
