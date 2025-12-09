@@ -132,8 +132,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/low-stock-alerts', [InventoryController::class, 'lowStockAlerts'])->name('inventory.low-stock-alerts');
         Route::get('/stock-value-report', [InventoryController::class, 'stockValueReport'])->name('inventory.stock-value-report');
 
-        // Real-time stock updates for product listing
-        Route::get('/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);
 
         
         // Stock operations (AJAX)
@@ -156,5 +154,5 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/api/stock-value-report', [InventoryController::class, 'getStockValueReport'])->name('inventory.api.stock-value-report');
     });
  
-    
+    Route::get('/inventory/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);
 });
