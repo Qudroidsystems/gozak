@@ -87,6 +87,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
     Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
     Route::post('/products/bulk-update', [ProductController::class, 'bulkUpdate'])->name('products.bulkUpdate');
+ 
 
     // Product Reviews
     Route::group(['prefix' => 'products/{product}/reviews'], function() {
@@ -154,5 +155,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/api/stock-value-report', [InventoryController::class, 'getStockValueReport'])->name('inventory.api.stock-value-report');
     });
  
+    // Real-time stock updates
     Route::get('/inventory/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);
+    Route::get('/inventory/product/{productId}/location/{locationId}/stock', [InventoryController::class, 'getLocationStock']);
 });

@@ -62,7 +62,7 @@ class StockLocation extends Model
         return Product::select('products.*')
             ->join('stocks', 'stocks.product_id', '=', 'products.id')
             ->where('stocks.stock_location_id', $this->id)
-            ->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END) as current_stock')
+            ->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer_in") THEN stocks.quantity ELSE -stocks.quantity END) as current_stock')
             ->groupBy('products.id')
             ->having('current_stock', '>', 0)
             ->get();
@@ -80,7 +80,8 @@ class StockLocation extends Model
             $query->where('product_variant_id', $variantId);
         }
         
-        $incoming = (clone $query)->whereIn('type', ['in', 'adjustment'])->sum('quantity');
+        // UPDATED: Match stock types used in InventoryController
+        $incoming = (clone $query)->whereIn('type', ['in', 'adjustment', 'transfer_in'])->sum('quantity');
         $outgoing = (clone $query)->whereIn('type', ['out', 'transfer'])->sum('quantity');
         $returns = (clone $query)->where('type', 'return')->sum('quantity');
         $damages = (clone $query)->where('type', 'damage')->sum('quantity');
@@ -97,8 +98,8 @@ class StockLocation extends Model
             ->join('products', 'stocks.product_id', '=', 'products.id')
             ->selectRaw('SUM(
                 CASE 
-                    WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity * COALESCE(stocks.unit_cost, products.price)
-                    WHEN stocks.type IN ("out", "damage") THEN -stocks.quantity * COALESCE(stocks.unit_cost, products.price)
+                    WHEN stocks.type IN ("in", "adjustment", "transfer_in") THEN stocks.quantity * COALESCE(stocks.unit_cost, products.price)
+                    WHEN stocks.type IN ("out", "damage", "transfer") THEN -stocks.quantity * COALESCE(stocks.unit_cost, products.price)
                     ELSE 0
                 END
             ) as total_value')
@@ -123,7 +124,7 @@ class StockLocation extends Model
         return Product::select('products.*')
             ->join('stocks', 'stocks.product_id', '=', 'products.id')
             ->where('stocks.stock_location_id', $this->id)
-            ->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END) as current_stock')
+            ->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer_in") THEN stocks.quantity ELSE -stocks.quantity END) as current_stock')
             ->groupBy('products.id')
             ->having('current_stock', '>', 0)
             ->having('current_stock', '<=', $threshold)
@@ -138,7 +139,7 @@ class StockLocation extends Model
         $productIds = Stock::where('stock_location_id', $this->id)
             ->select('product_id')
             ->groupBy('product_id')
-            ->selectRaw('SUM(CASE WHEN type IN ("in", "adjustment", "transfer") THEN quantity ELSE -quantity END) as total')
+            ->selectRaw('SUM(CASE WHEN type IN ("in", "adjustment", "transfer_in") THEN quantity ELSE -quantity END) as total')
             ->having('total', '<=', 0)
             ->pluck('product_id');
             
@@ -199,12 +200,26 @@ class StockLocation extends Model
         return [
             'total_products' => $this->total_products,
             'total_value' => $this->total_value,
-            'incoming_stock' => $this->stocks()->whereIn('type', ['in', 'transfer'])->sum('quantity'),
-            'outgoing_stock' => $this->stocks()->whereIn('type', ['out'])->sum('quantity'),
+            'incoming_stock' => $this->stocks()->whereIn('type', ['in', 'transfer_in'])->sum('quantity'),
+            'outgoing_stock' => $this->stocks()->whereIn('type', ['out', 'transfer'])->sum('quantity'),
             'low_stock_count' => $this->lowStockProducts()->count(),
             'out_of_stock_count' => $this->outOfStockProducts()->count(),
         ];
     }
 
-    
+    /**
+     * Quick method to get stock for display
+     */
+    public function getProductStockForDisplay($productId)
+    {
+        $stock = $this->getProductStock($productId);
+        
+        if ($stock > 10) {
+            return '<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">' . $stock . ' in stock</span>';
+        } elseif ($stock > 0) {
+            return '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">' . $stock . ' low stock</span>';
+        } else {
+            return '<span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">Out of stock</span>';
+        }
+    }
 }

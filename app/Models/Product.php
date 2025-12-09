@@ -6,7 +6,6 @@ use App\Models\Category;
 use App\Models\OrderItem;
 use App\Models\ProductImage;
 use App\Models\ProductReview;
-use App\Traits\HasInventoryLog;
 use App\Models\ProductAttribute;
 use App\Models\ProductVariation;
 use Illuminate\Database\Eloquent\Model;
@@ -14,47 +13,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Product extends Model
 {
-
-    use HasInventoryLog;
-
-    /**
-     * Boot the model
-     */
-    protected static function boot()
-    {
-        parent::boot();
-        
-        // Automatically log initial stock when creating a product
-        static::created(function ($product) {
-            if ($product->stock > 0) {
-                $product->addStock($product->stock, 'Initial stock', 'Product created');
-            }
-        });
-        
-        // Log stock changes when updating
-        static::updating(function ($product) {
-            $originalStock = $product->getOriginal('stock');
-            $newStock = $product->stock;
-            
-            if ($originalStock !== $newStock) {
-                $difference = $newStock - $originalStock;
-                $type = $difference > 0 ? 'in' : 'out';
-                $quantity = abs($difference);
-                
-                $product->logInventoryChange(
-                    $type,
-                    $quantity,
-                    'Manual adjustment',
-                    'Stock updated from ' . $originalStock . ' to ' . $newStock
-                );
-            }
-        });
-    }
-    
     protected $fillable = [
         'title',
         'sku',
-        'stock',
+        'stock', // This gets updated from inventory system
         'price',
         'sale_price',
         'thumbnail',
@@ -73,6 +35,36 @@ class Product extends Model
         'is_featured' => 'boolean',
         'is_nsfw' => 'boolean',
     ];
+
+    /**
+     * Boot the model - REMOVED automatic stock logging
+     * Inventory system handles all stock tracking
+     */
+    protected static function boot()
+    {
+        parent::boot();
+        
+        // No automatic stock logging here
+        // InventoryController handles all stock updates
+    }
+    
+    /**
+     * Calculate stock from inventory (for verification/display)
+     */
+    public function calculateStockFromInventory()
+    {
+        $totalStock = Stock::where('product_id', $this->id)
+            ->selectRaw('
+                SUM(CASE 
+                    WHEN type IN ("in", "adjustment", "transfer_in") THEN quantity
+                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                    ELSE 0
+                END) as total
+            ')
+            ->value('total') ?? 0;
+        
+        return max(0, $totalStock);
+    }
 
     public function category()
     {
@@ -146,28 +138,27 @@ class Product extends Model
         return $totalSold * $price;
     }
 
-   // In your Product model (App\Models\Product.php)
+    // Inventory logs relationship
     public function inventoryLogs()
     {
-        // Assuming you have an InventoryLog model
-        return $this->hasMany(InventoryLog::class);
+        return $this->hasMany(StockMovement::class, 'product_id');
     }
 
-     /**
+    /**
      * Scope for active products.
      */
     public function scopeActive($query)
     {
-                // Simple approach - check for common column names
-            // Most Laravel applications use 'is_active' or 'status'
-            
-            // If you're not sure, let's check safely
-            if (\Schema::hasColumn($this->getTable(), 'is_active')) {
-                return $query->where('is_active', true);
-            }
-            
-            // If no is_active column, just return all products
-            return $query;
+        // Simple approach - check for common column names
+        // Most Laravel applications use 'is_active' or 'status'
+        
+        // If you're not sure, let's check safely
+        if (\Schema::hasColumn($this->getTable(), 'is_active')) {
+            return $query->where('is_active', true);
+        }
+        
+        // If no is_active column, just return all products
+        return $query;
     }
 
     /**
@@ -178,5 +169,29 @@ class Product extends Model
         return $query->where('status', 'inactive')
                      ->orWhere('is_active', false);
     }
-
+    
+    /**
+     * Scope for low stock products
+     */
+    public function scopeLowStock($query)
+    {
+        return $query->where('stock', '>', 0)
+                     ->where('stock', '<=', 10);
+    }
+    
+    /**
+     * Scope for out of stock products
+     */
+    public function scopeOutOfStock($query)
+    {
+        return $query->where('stock', '<=', 0);
+    }
+    
+    /**
+     * Scope for in stock products
+     */
+    public function scopeInStock($query)
+    {
+        return $query->where('stock', '>', 10);
+    }
 }

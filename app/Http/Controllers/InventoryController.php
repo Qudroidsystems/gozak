@@ -36,19 +36,49 @@ class InventoryController extends Controller
     }
 
     /**
-     * Calculate total stock across all locations for a product
+     * Calculate total stock for a product from all inventory transactions
      */
-    private function calculateTotalStockAcrossLocations($productId)
+    private function calculateProductStockFromInventory($productId)
     {
-        $totalStock = 0;
-        $locations = StockLocation::all();
+        $totalStock = Stock::where('product_id', $productId)
+            ->selectRaw('
+                SUM(CASE 
+                    WHEN type IN ("in", "adjustment", "transfer_in") THEN quantity
+                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                    ELSE 0
+                END) as total
+            ')
+            ->value('total') ?? 0;
         
-        foreach ($locations as $location) {
-            $stock = $location->getProductStock($productId);
-            $totalStock += $stock;
+        return max(0, $totalStock); // Ensure no negative stock
+    }
+
+    /**
+     * Update product stock based on inventory
+     */
+    private function updateProductStock($productId)
+    {
+        try {
+            $product = Product::find($productId);
+            if (!$product) {
+                Log::error("Product {$productId} not found when updating stock");
+                return 0;
+            }
+            
+            $calculatedStock = $this->calculateProductStockFromInventory($productId);
+            
+            // Only update if changed
+            if ($product->stock !== $calculatedStock) {
+                $oldStock = $product->stock;
+                $product->update(['stock' => $calculatedStock]);
+                Log::info("Updated product {$productId} stock: {$oldStock} → {$calculatedStock}");
+            }
+            
+            return $calculatedStock;
+        } catch (\Exception $e) {
+            Log::error("Failed to update product stock for {$productId}: " . $e->getMessage());
+            return 0;
         }
-        
-        return $totalStock;
     }
 
     public function index(Request $request)
@@ -147,15 +177,9 @@ class InventoryController extends Controller
         }])->get();
         
         // Low stock products
-        $lowStockProducts = Product::select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'current_stock')
-            ->having('current_stock', '>', 0)
-            ->having('current_stock', '<=', 10)
-            ->orderBy('current_stock')
+        $lowStockProducts = Product::where('stock', '>', 0)
+            ->where('stock', '<=', 10)
+            ->orderBy('stock')
             ->limit(10)
             ->get();
         
@@ -210,12 +234,7 @@ class InventoryController extends Controller
         $pagetitle = "Stock Levels Report";
         
         $query = Product::with(['category', 'brand'])
-            ->select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'total_stock');
+            ->select('products.*');
         
         // Apply filters
         if ($request->filled('category_id')) {
@@ -229,17 +248,17 @@ class InventoryController extends Controller
         if ($request->filled('stock_status')) {
             switch ($request->stock_status) {
                 case 'in_stock':
-                    $query->having('total_stock', '>', 10);
+                    $query->where('stock', '>', 10);
                     break;
                 case 'low_stock':
-                    $query->having('total_stock', '>', 0)
-                        ->having('total_stock', '<=', 10);
+                    $query->where('stock', '>', 0)
+                        ->where('stock', '<=', 10);
                     break;
                 case 'out_of_stock':
-                    $query->having('total_stock', '<=', 0);
+                    $query->where('stock', '<=', 0);
                     break;
                 case 'negative_stock':
-                    $query->having('total_stock', '<', 0);
+                    $query->where('stock', '<', 0);
                     break;
             }
         }
@@ -258,22 +277,17 @@ class InventoryController extends Controller
             });
         }
         
-        $sortBy = $request->get('sort_by', 'total_stock');
+        $sortBy = $request->get('sort_by', 'stock');
         $sortOrder = $request->get('sort_order', 'asc');
         
-        if ($sortBy === 'stock') {
-            $query->orderBy('total_stock', $sortOrder);
-        } else {
-            $query->orderBy($sortBy, $sortOrder);
-        }
+        $query->orderBy($sortBy, $sortOrder);
         
         $products = $query->paginate(25)->withQueryString();
         
         $locations = StockLocation::get();
         
-        // FIXED: Create a separate array for location stock instead of modifying the Product model
+        // Create location stock data array
         $locationStockData = [];
-        
         foreach ($products as $product) {
             $locationStockData[$product->id] = [];
             foreach ($locations as $location) {
@@ -288,7 +302,7 @@ class InventoryController extends Controller
             'pagetitle',
             'products',
             'locations',
-            'locationStockData', // Pass the separate array to the view
+            'locationStockData',
             'categories',
             'brands'
         ));
@@ -405,7 +419,7 @@ class InventoryController extends Controller
             
             Log::info("Creating stock transaction. Type: {$type}, Quantity: {$quantity}, Unit Cost: {$unitCost}");
             
-            // Create the stock transaction first
+            // Create the stock transaction
             $stock = Stock::create([
                 'product_id' => $product->id,
                 'stock_location_id' => $location->id,
@@ -425,14 +439,14 @@ class InventoryController extends Controller
             
             Log::info("Stock transaction created with ID: {$stock->id}");
             
-            // Now create the stock movement - MATCHING YOUR MIGRATION SCHEMA
+            // Create stock movement
             $movementType = ($type === 'in') ? 'in' : 'out';
             if ($type === 'in' || $type === 'out') {
                 $movementType = 'adjustment';
             }
             
-            $stockMovement = StockMovement::create([
-                'stock_id' => $stock->id, // Required foreign key
+            StockMovement::create([
+                'stock_id' => $stock->id,
                 'product_id' => $product->id,
                 'stock_location_id' => $location->id,
                 'movement_type' => $movementType,
@@ -444,12 +458,11 @@ class InventoryController extends Controller
                 'created_at' => now(),
             ]);
             
-            Log::info("Stock movement created with ID: {$stockMovement->id}");
+            Log::info("Stock movement created");
             
-            // IMPORTANT: Calculate and update product's main stock column
-            $totalStockAcrossLocations = $this->calculateTotalStockAcrossLocations($product->id);
-            $product->update(['stock' => $totalStockAcrossLocations]);
-            Log::info("Updated product stock to: {$totalStockAcrossLocations}");
+            // IMPORTANT: Update product stock from inventory calculations
+            $newProductStock = $this->updateProductStock($product->id);
+            Log::info("Updated product stock to: {$newProductStock}");
             
             DB::commit();
             Log::info('Stock adjustment completed successfully');
@@ -458,7 +471,7 @@ class InventoryController extends Controller
                 'success' => true,
                 'message' => 'Stock adjusted successfully',
                 'stock' => $stock->load(['product', 'user', 'stockLocation']),
-                'product_stock' => $product->stock // Return updated product stock
+                'product_stock' => $newProductStock
             ]);
             
         } catch (\Exception $e) {
@@ -562,9 +575,9 @@ class InventoryController extends Controller
             
             Log::info("Transfer IN created with ID: {$stockIn->id}");
             
-            // Create stock movements - MATCHING YOUR MIGRATION SCHEMA
+            // Create stock movements
             StockMovement::create([
-                'stock_id' => $stockOut->id, // Required foreign key
+                'stock_id' => $stockOut->id,
                 'product_id' => $product->id,
                 'stock_location_id' => $fromLocation->id,
                 'movement_type' => 'transfer_out',
@@ -577,7 +590,7 @@ class InventoryController extends Controller
             ]);
             
             StockMovement::create([
-                'stock_id' => $stockIn->id, // Required foreign key
+                'stock_id' => $stockIn->id,
                 'product_id' => $product->id,
                 'stock_location_id' => $toLocation->id,
                 'movement_type' => 'transfer_in',
@@ -589,11 +602,9 @@ class InventoryController extends Controller
                 'created_at' => now(),
             ]);
             
-            // IMPORTANT: Calculate and update product's main stock column
-            // For transfers, total stock remains the same, but we still update to ensure consistency
-            $totalStockAcrossLocations = $this->calculateTotalStockAcrossLocations($product->id);
-            $product->update(['stock' => $totalStockAcrossLocations]);
-            Log::info("Updated product stock after transfer to: {$totalStockAcrossLocations}");
+            // IMPORTANT: Update product stock from inventory calculations
+            $newProductStock = $this->updateProductStock($product->id);
+            Log::info("Updated product stock after transfer to: {$newProductStock}");
             
             DB::commit();
             Log::info('Stock transfer completed successfully');
@@ -602,7 +613,7 @@ class InventoryController extends Controller
                 'success' => true,
                 'message' => 'Stock transferred successfully',
                 'stock' => $stockOut->load(['product', 'user', 'stockLocation', 'destinationLocation']),
-                'product_stock' => $product->stock // Return updated product stock
+                'product_stock' => $newProductStock
             ]);
             
         } catch (\Exception $e) {
@@ -684,14 +695,14 @@ class InventoryController extends Controller
                     'transaction_date' => now(),
                 ]);
                 
-                // Create stock movement - MATCHING YOUR MIGRATION SCHEMA
+                // Create stock movement
                 $movementType = ($type === 'in') ? 'in' : 'out';
                 if ($type === 'in' || $type === 'out') {
                     $movementType = 'adjustment';
                 }
                 
                 StockMovement::create([
-                    'stock_id' => $stock->id, // Required foreign key
+                    'stock_id' => $stock->id,
                     'product_id' => $product->id,
                     'stock_location_id' => $location->id,
                     'movement_type' => $movementType,
@@ -703,16 +714,15 @@ class InventoryController extends Controller
                     'created_at' => now(),
                 ]);
                 
-                // IMPORTANT: Calculate and update product's main stock column
-                $totalStockAcrossLocations = $this->calculateTotalStockAcrossLocations($product->id);
-                $product->update(['stock' => $totalStockAcrossLocations]);
-                Log::info("Bulk: Updated product ID {$product->id} stock to: {$totalStockAcrossLocations}");
+                // Update product stock
+                $newProductStock = $this->updateProductStock($product->id);
+                Log::info("Bulk: Updated product ID {$product->id} stock to: {$newProductStock}");
                 
                 $createdStocks[] = $stock;
                 $updatedProducts[] = [
                     'id' => $product->id,
                     'title' => $product->title,
-                    'stock' => $product->stock
+                    'stock' => $product->fresh()->stock
                 ];
             }
             
@@ -724,7 +734,7 @@ class InventoryController extends Controller
                 'message' => 'Bulk adjustment completed successfully',
                 'count' => count($createdStocks),
                 'stocks' => $createdStocks,
-                'products' => $updatedProducts // Return updated products with their stock
+                'products' => $updatedProducts
             ]);
             
         } catch (\Exception $e) {
@@ -763,6 +773,7 @@ class InventoryController extends Controller
         DB::beginTransaction();
         try {
             $stock = Stock::findOrFail($id);
+            $productId = $stock->product_id;
             
             // Check if this is a recent transaction that can be deleted
             $hoursOld = now()->diffInHours($stock->created_at);
@@ -773,20 +784,14 @@ class InventoryController extends Controller
                 ], 400);
             }
             
-            // Get product for stock recalculation
-            $product = Product::find($stock->product_id);
-            
             // Delete associated movements
             StockMovement::where('stock_id', $id)->delete();
             
             $stock->delete();
             
-            // IMPORTANT: Recalculate and update product stock after deletion
-            if ($product) {
-                $totalStockAcrossLocations = $this->calculateTotalStockAcrossLocations($product->id);
-                $product->update(['stock' => $totalStockAcrossLocations]);
-                Log::info("Recalculated product stock after deletion: {$totalStockAcrossLocations}");
-            }
+            // IMPORTANT: Recalculate product stock after deletion
+            $newProductStock = $this->updateProductStock($productId);
+            Log::info("Recalculated product stock after deletion: {$newProductStock}");
             
             DB::commit();
             Log::info("Stock transaction {$id} deleted successfully");
@@ -794,7 +799,7 @@ class InventoryController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Transaction deleted successfully',
-                'product_stock' => $product ? $product->stock : null
+                'product_stock' => $newProductStock
             ]);
             
         } catch (\Exception $e) {
@@ -818,7 +823,7 @@ class InventoryController extends Controller
             return response()->json([
                 'success' => true,
                 'stock' => $stock,
-                'product_total_stock' => $product->stock, // Return total product stock
+                'product_total_stock' => $product->stock,
                 'product' => [
                     'id' => $product->id,
                     'title' => $product->title,
@@ -901,13 +906,7 @@ class InventoryController extends Controller
     public function exportStockLevels(Request $request)
     {
         $products = Product::with(['category', 'brand'])
-            ->select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'total_stock')
-            ->orderBy('total_stock')
+            ->orderBy('stock')
             ->get();
         
         $locations = StockLocation::get();
@@ -938,7 +937,7 @@ class InventoryController extends Controller
                     $product->category->name ?? '',
                     $product->brand->name ?? '',
                     '$' . number_format($product->price, 2),
-                    $product->total_stock ?? 0
+                    $product->stock
                 ];
                 
                 foreach ($locations as $location) {
@@ -946,7 +945,7 @@ class InventoryController extends Controller
                 }
                 
                 // Status
-                $stock = $product->total_stock ?? 0;
+                $stock = $product->stock;
                 if ($stock > 10) {
                     $status = 'In Stock';
                 } elseif ($stock > 0) {
@@ -989,15 +988,9 @@ class InventoryController extends Controller
     // API endpoints for AJAX
     public function getLowStockAlerts()
     {
-        $lowStockProducts = Product::select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'current_stock')
-            ->having('current_stock', '>', 0)
-            ->having('current_stock', '<=', 10)
-            ->orderBy('current_stock')
+        $lowStockProducts = Product::where('stock', '>', 0)
+            ->where('stock', '<=', 10)
+            ->orderBy('stock')
             ->get();
         
         return response()->json([
@@ -1044,14 +1037,8 @@ class InventoryController extends Controller
         $pagetitle = "Low Stock Alerts";
         
         $query = Product::with(['category', 'brand'])
-            ->select('products.*')
-            ->selectSub(function($query) {
-                $query->selectRaw('SUM(CASE WHEN stocks.type IN ("in", "adjustment", "transfer") THEN stocks.quantity ELSE -stocks.quantity END)')
-                    ->from('stocks')
-                    ->whereColumn('stocks.product_id', 'products.id');
-            }, 'current_stock')
-            ->having('current_stock', '>', 0)
-            ->having('current_stock', '<=', 10);
+            ->where('stock', '>', 0)
+            ->where('stock', '<=', 10);
         
         // Apply filters
         if ($request->filled('category_id')) {
@@ -1076,15 +1063,15 @@ class InventoryController extends Controller
             });
         }
         
-        $products = $query->orderBy('current_stock')->paginate(25);
+        $products = $query->orderBy('stock')->paginate(25);
         
         $categories = Category::orderBy('name')->get();
         $brands = Brand::orderBy('name')->get();
         
-        // ADD THIS LINE: Get locations for the table header
+        // Get locations for the table header
         $locations = StockLocation::orderBy('name')->get();
         
-        // ADD: Create location stock data array
+        // Create location stock data array
         $locationStockData = [];
         foreach ($products as $product) {
             $locationStockData[$product->id] = [];
@@ -1098,8 +1085,8 @@ class InventoryController extends Controller
             'products',
             'categories',
             'brands',
-            'locations', // ADD THIS
-            'locationStockData' // ADD THIS
+            'locations',
+            'locationStockData'
         ));
     }
 
@@ -1138,19 +1125,36 @@ class InventoryController extends Controller
     /**
      * Helper method to get stock at a specific location
      */
-    private function getLocationStock($productId, $locationId)
+    public function getLocationStock($productId, $locationId)
     {
-        $stockIn = Stock::where('product_id', $productId)
-            ->where('stock_location_id', $locationId)
-            ->whereIn('type', ['in', 'adjustment', 'transfer_in'])
-            ->sum('quantity');
+        try {
+            $product = Product::findOrFail($productId);
+            $location = StockLocation::findOrFail($locationId);
             
-        $stockOut = Stock::where('product_id', $productId)
-            ->where('stock_location_id', $locationId)
-            ->whereIn('type', ['out', 'damage', 'transfer'])
-            ->sum('quantity');
+            $stock = $location->getProductStock($productId);
             
-        return $stockIn - $stockOut;
+            return response()->json([
+                'success' => true,
+                'stock' => $stock,
+                'product_total_stock' => $product->stock,
+                'product' => [
+                    'id' => $product->id,
+                    'title' => $product->title,
+                    'sku' => $product->sku,
+                    'price' => $product->price
+                ],
+                'location' => [
+                    'id' => $location->id,
+                    'name' => $location->name
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get stock level: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get stock level: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

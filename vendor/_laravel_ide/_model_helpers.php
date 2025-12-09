@@ -4800,9 +4800,6 @@ namespace App\Models {
      * @property-read mixed $reviews_count
      * @property-read mixed $average_rating
      * @property-read mixed $revenue
-     * @property-read mixed $total_stock_in
-     * @property-read mixed $total_stock_out
-     * @property-read mixed $inventory_summary
      * @property-read \App\Models\Category $category
      * @property-read \App\Models\Brand $brand
      * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\ProductAttribute> $attributes
@@ -4819,7 +4816,7 @@ namespace App\Models {
      * @property-read int|null $reviews_count
      * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OrderItem> $orderItems
      * @property-read int|null $orderItems_count
-     * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\InventoryLog> $inventoryLogs
+     * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\StockMovement> $inventoryLogs
      * @property-read int|null $inventoryLogs_count
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereId($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereTitle($value)
@@ -4839,6 +4836,9 @@ namespace App\Models {
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product whereUpdatedAt($value)
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product active()
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product inactive()
+     * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product lowStock()
+     * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product outOfStock()
+     * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product inStock()
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product newModelQuery()
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product newQuery()
      * @method static \Illuminate\Database\Eloquent\Builder<Product>|Product query()
