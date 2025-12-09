@@ -35,6 +35,22 @@ class InventoryController extends Controller
         // $this->middleware('permission:Export inventory', ['only' => ['exportTransactions', 'exportStockLevels']]);
     }
 
+    /**
+     * Calculate total stock across all locations for a product
+     */
+    private function calculateTotalStockAcrossLocations($productId)
+    {
+        $totalStock = 0;
+        $locations = StockLocation::all();
+        
+        foreach ($locations as $location) {
+            $stock = $location->getProductStock($productId);
+            $totalStock += $stock;
+        }
+        
+        return $totalStock;
+    }
+
     public function index(Request $request)
     {
         $pagetitle = "Inventory Management";
@@ -430,16 +446,10 @@ class InventoryController extends Controller
             
             Log::info("Stock movement created with ID: {$stockMovement->id}");
             
-            // CORRECTED: Update product's main stock for all adjustments
-            if ($type === 'in') {
-                $product->increment('stock', $quantity);
-                Log::info("Incremented product stock by {$quantity}. New stock: {$product->stock}");
-            } elseif ($type === 'out') {
-                // Ensure we don't go below 0
-                $newProductStock = max(0, $product->stock - $quantity);
-                $product->update(['stock' => $newProductStock]);
-                Log::info("Decremented product stock by {$quantity}. New stock: {$product->stock}");
-            }
+            // IMPORTANT: Calculate and update product's main stock column
+            $totalStockAcrossLocations = $this->calculateTotalStockAcrossLocations($product->id);
+            $product->update(['stock' => $totalStockAcrossLocations]);
+            Log::info("Updated product stock to: {$totalStockAcrossLocations}");
             
             DB::commit();
             Log::info('Stock adjustment completed successfully');
@@ -579,16 +589,11 @@ class InventoryController extends Controller
                 'created_at' => now(),
             ]);
             
-            // CORRECTED: Update product stock only if it affects the main product stock
-            // For transfers, total stock remains the same, but we need to check if default location is involved
-            if ($fromLocation->is_default) {
-                $product->decrement('stock', $request->quantity);
-                Log::info("Decremented product stock from default location by {$request->quantity}. New stock: {$product->stock}");
-            }
-            if ($toLocation->is_default) {
-                $product->increment('stock', $request->quantity);
-                Log::info("Incremented product stock to default location by {$request->quantity}. New stock: {$product->stock}");
-            }
+            // IMPORTANT: Calculate and update product's main stock column
+            // For transfers, total stock remains the same, but we still update to ensure consistency
+            $totalStockAcrossLocations = $this->calculateTotalStockAcrossLocations($product->id);
+            $product->update(['stock' => $totalStockAcrossLocations]);
+            Log::info("Updated product stock after transfer to: {$totalStockAcrossLocations}");
             
             DB::commit();
             Log::info('Stock transfer completed successfully');
@@ -698,11 +703,10 @@ class InventoryController extends Controller
                     'created_at' => now(),
                 ]);
                 
-                // CORRECTED: Update product's main stock for all adjustments
-                if ($type === 'in') {
-                    $product->increment('stock', $quantity);
-                    Log::info("Bulk: Incremented product ID {$product->id} stock by {$quantity}. New stock: {$product->stock}");
-                }
+                // IMPORTANT: Calculate and update product's main stock column
+                $totalStockAcrossLocations = $this->calculateTotalStockAcrossLocations($product->id);
+                $product->update(['stock' => $totalStockAcrossLocations]);
+                Log::info("Bulk: Updated product ID {$product->id} stock to: {$totalStockAcrossLocations}");
                 
                 $createdStocks[] = $stock;
                 $updatedProducts[] = [
@@ -769,26 +773,20 @@ class InventoryController extends Controller
                 ], 400);
             }
             
-            // Get product and location for stock reversal
+            // Get product for stock recalculation
             $product = Product::find($stock->product_id);
-            $location = StockLocation::find($stock->stock_location_id);
-            
-            // Reverse the stock adjustment on product
-            if ($product && $location) {
-                if ($stock->type === 'in' || $stock->type === 'transfer_in') {
-                    $newStock = max(0, $product->stock - $stock->quantity);
-                    $product->update(['stock' => $newStock]);
-                    Log::info("Reversed IN transaction. Decremented product stock by {$stock->quantity}. New stock: {$product->stock}");
-                } elseif ($stock->type === 'out' || $stock->type === 'transfer') {
-                    $product->increment('stock', $stock->quantity);
-                    Log::info("Reversed OUT transaction. Incremented product stock by {$stock->quantity}. New stock: {$product->stock}");
-                }
-            }
             
             // Delete associated movements
             StockMovement::where('stock_id', $id)->delete();
             
             $stock->delete();
+            
+            // IMPORTANT: Recalculate and update product stock after deletion
+            if ($product) {
+                $totalStockAcrossLocations = $this->calculateTotalStockAcrossLocations($product->id);
+                $product->update(['stock' => $totalStockAcrossLocations]);
+                Log::info("Recalculated product stock after deletion: {$totalStockAcrossLocations}");
+            }
             
             DB::commit();
             Log::info("Stock transaction {$id} deleted successfully");

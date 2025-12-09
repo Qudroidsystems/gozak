@@ -757,50 +757,94 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Real-time stock updates
-    setInterval(() => {
-        axios.get('/products/realtime-stock')
+    // ============ REAL-TIME STOCK UPDATES ============
+
+    // Function to update stock display for a single product
+    function updateStockDisplay(productId, newStock) {
+        const cell = document.querySelector(`#stock-${productId}`);
+        if (!cell) return;
+        
+        const currentStock = parseInt(cell.getAttribute('data-current-stock') || 0);
+        
+        // Only update if stock has changed
+        if (currentStock !== newStock) {
+            let badgeClass, text;
+            if (newStock > 10) {
+                badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
+                text = `${newStock} in stock`;
+            } else if (newStock > 0) {
+                badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                text = `${newStock} low stock`;
+            } else {
+                badgeClass = 'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
+                text = 'Out of stock';
+            }
+            
+            // Update the display
+            cell.innerHTML = `<span class="badge ${badgeClass}">${text}</span>`;
+            
+            // Update the data attribute
+            cell.setAttribute('data-current-stock', newStock);
+            
+            // Highlight change with animation
+            cell.style.transition = 'all 0.3s';
+            
+            if (newStock > currentStock) {
+                // Stock increased - green highlight
+                cell.style.backgroundColor = '#d4edda';
+                cell.querySelector('.badge').style.animation = 'pulse 0.5s';
+            } else if (newStock < currentStock) {
+                // Stock decreased - red highlight
+                cell.style.backgroundColor = '#f8d7da';
+                cell.querySelector('.badge').style.animation = 'pulse 0.5s';
+            }
+            
+            // Remove highlight after 1 second
+            setTimeout(() => {
+                cell.style.backgroundColor = '';
+            }, 1000);
+            
+            console.log(`Updated stock for product ${productId}: ${currentStock} → ${newStock}`);
+        }
+    }
+
+    // Function to fetch and update all product stocks
+    function fetchRealTimeStock() {
+        axios.get('/inventory/realtime-product-stock')
             .then(response => {
                 if (response.data && Array.isArray(response.data)) {
                     response.data.forEach(item => {
-                        const row = document.querySelector(`tr[data-product-id="${item.id}"]`);
-                        if (row) {
-                            const cell = row.querySelector('.stock');
-                            if (cell) {
-                                const oldStock = parseInt(cell.textContent.match(/\d+/)?.[0] || 0);
-                                if (oldStock !== item.stock) {
-                                    let badgeClass, text;
-                                    if (item.stock > 10) {
-                                        badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
-                                        text = `${item.stock} in stock`;
-                                    } else if (item.stock > 0) {
-                                        badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-                                        text = `${item.stock} low stock`;
-                                    } else {
-                                        badgeClass = 'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
-                                        text = 'Out of stock';
-                                    }
-                                    
-                                    cell.innerHTML = `<span class="badge ${badgeClass}">${text}</span>`;
-                                    
-                                    // Highlight change
-                                    cell.style.transition = 'background-color 0.3s';
-                                    cell.style.backgroundColor = item.stock > oldStock ? '#d4edda' : '#f8d7da';
-                                    setTimeout(() => {
-                                        cell.style.backgroundColor = '';
-                                    }, 1000);
-                                }
-                            }
-                        }
+                        updateStockDisplay(item.id, item.stock);
                     });
                 }
             })
             .catch(error => {
                 console.error('Real-time stock update error:', error);
             });
-    }, 10000); // Update every 10 seconds
+    }
 
-    // Event delegation for dynamic elements
+    // Start polling every 5 seconds (5000ms)
+    let stockPollingInterval = setInterval(fetchRealTimeStock, 5000);
+    
+    // Initial fetch
+    fetchRealTimeStock();
+    
+    // Add CSS animation for pulse effect
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .stock-updated {
+            animation: pulse 0.5s ease-in-out;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // ============ EVENT DELEGATION FOR DYNAMIC ELEMENTS ============
+
     document.addEventListener('click', function(e) {
         // Inventory button click
         if (e.target.classList.contains('inventory-btn')) {
@@ -844,7 +888,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
         }
 
-        // Edit button click - FIXED VERSION
+        // Edit button click
         if (e.target.closest('.edit-item-btn')) {
             const btn = e.target.closest('.edit-item-btn');
             const id = btn.dataset.id;
@@ -1082,6 +1126,8 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     });
+
+    // ============ PRODUCT FORM HANDLERS ============
 
     // Variables for product form
     let attrIndex = 1;
@@ -1566,7 +1612,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     };
-
 });
 </script>
 @endsection
