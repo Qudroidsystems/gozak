@@ -208,15 +208,15 @@
                                                     </td>
                                                     <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
                                                     <!-- FIXED: Added id and data-current-stock attributes -->
-                                                    <td class="stock" id="stock-{{ $product->id }}" data-current-stock="{{ $product->stock }}">
-                                                        @if($product->stock > 10)
-                                                            <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">{{ $product->stock }} in stock</span>
-                                                        @elseif($product->stock > 0)
-                                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ $product->stock }} low stock</span>
-                                                        @else
-                                                            <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">Out of stock</span>
-                                                        @endif
-                                                    </td>
+                                                   <td class="stock" id="stock-{{ $product->id }}" data-current-stock="{{ $product->stock }}">
+    @if($product->stock > 10)
+        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">{{ $product->stock }} in stock</span>
+    @elseif($product->stock > 0)
+        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ $product->stock }} low stock</span>
+    @else
+        <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">Out of stock</span>
+    @endif
+</td>
                                                     <td class="price">
                                                         @if($product->sale_price && $product->sale_price < $product->price)
                                                             @php $discount = round((($product->price - $product->sale_price) / $product->price) * 100); @endphp
