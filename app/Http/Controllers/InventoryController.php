@@ -1200,4 +1200,36 @@ class InventoryController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get stock history for AJAX requests
+     */
+    public function getStockHistory($id)
+    {
+        try {
+            $product = Product::with(['category', 'brand'])->findOrFail($id);
+            
+            $history = Stock::with(['user', 'stockLocation', 'destinationLocation'])
+                ->where('product_id', $id)
+                ->latest('transaction_date')
+                ->paginate(20);
+            
+            return response()->json([
+                'success' => true,
+                'product' => [
+                    'id' => $product->id,
+                    'title' => $product->title,
+                    'sku' => $product->sku,
+                    'stock' => $product->stock
+                ],
+                'history' => $history
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch stock history: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch stock history: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
