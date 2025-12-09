@@ -758,110 +758,110 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // ============ REAL-TIME STOCK UPDATES ============
+ // ============ REAL-TIME STOCK UPDATES ============
 
-    // Function to update stock display for a single product
-    function updateStockDisplay(productId, newStock) {
-        const cell = document.querySelector(`#stock-${productId}`);
-        if (!cell) {
-            console.log(`Stock cell not found for product ${productId}`);
-            return;
+// Function to update stock display for a single product
+function updateStockDisplay(productId, newStock) {
+    const cell = document.querySelector(`#stock-${productId}`);
+    if (!cell) {
+        console.log(`Stock cell not found for product ${productId}`);
+        return;
+    }
+    
+    const currentStock = parseInt(cell.getAttribute('data-current-stock') || 0);
+    
+    // Only update if stock has changed
+    if (currentStock !== newStock) {
+        console.log(`Updating stock for product ${productId}: ${currentStock} → ${newStock}`);
+        
+        let badgeClass, text;
+        if (newStock > 10) {
+            badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
+            text = `${newStock} in stock`;
+        } else if (newStock > 0) {
+            badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+            text = `${newStock} low stock`;
+        } else {
+            badgeClass = 'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
+            text = 'Out of stock';
         }
         
-        const currentStock = parseInt(cell.getAttribute('data-current-stock') || 0);
+        // Update the display
+        cell.innerHTML = `<span class="badge ${badgeClass}">${text}</span>`;
         
-        // Only update if stock has changed
-        if (currentStock !== newStock) {
-            console.log(`Updating stock for product ${productId}: ${currentStock} → ${newStock}`);
-            
-            let badgeClass, text;
-            if (newStock > 10) {
-                badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
-                text = `${newStock} in stock`;
-            } else if (newStock > 0) {
-                badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-                text = `${newStock} low stock`;
+        // Update the data attribute
+        cell.setAttribute('data-current-stock', newStock);
+        
+        // Highlight change with animation
+        cell.style.transition = 'all 0.3s';
+        
+        if (newStock > currentStock) {
+            // Stock increased - green highlight
+            cell.style.backgroundColor = '#d4edda';
+            const badge = cell.querySelector('.badge');
+            if (badge) {
+                badge.style.animation = 'pulse 0.5s';
+            }
+        } else if (newStock < currentStock) {
+            // Stock decreased - red highlight
+            cell.style.backgroundColor = '#f8d7da';
+            const badge = cell.querySelector('.badge');
+            if (badge) {
+                badge.style.animation = 'pulse 0.5s';
+            }
+        }
+        
+        // Remove highlight after 1 second
+        setTimeout(() => {
+            cell.style.backgroundColor = '';
+        }, 1000);
+    }
+}
+
+// Function to fetch and update all product stocks
+function fetchRealTimeStock() {
+    console.log('Fetching real-time stock updates...');
+    axios.get('/inventory/realtime-product-stock')
+        .then(response => {
+            if (response.data && Array.isArray(response.data)) {
+                console.log(`Received ${response.data.length} product stock updates`);
+                response.data.forEach(item => {
+                    updateStockDisplay(item.id, item.stock);
+                });
             } else {
-                badgeClass = 'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
-                text = 'Out of stock';
+                console.log('No stock data received or invalid format');
             }
-            
-            // Update the display
-            cell.innerHTML = `<span class="badge ${badgeClass}">${text}</span>`;
-            
-            // Update the data attribute
-            cell.setAttribute('data-current-stock', newStock);
-            
-            // Highlight change with animation
-            cell.style.transition = 'all 0.3s';
-            
-            if (newStock > currentStock) {
-                // Stock increased - green highlight
-                cell.style.backgroundColor = '#d4edda';
-                const badge = cell.querySelector('.badge');
-                if (badge) {
-                    badge.style.animation = 'pulse 0.5s';
-                }
-            } else if (newStock < currentStock) {
-                // Stock decreased - red highlight
-                cell.style.backgroundColor = '#f8d7da';
-                const badge = cell.querySelector('.badge');
-                if (badge) {
-                    badge.style.animation = 'pulse 0.5s';
-                }
+        })
+        .catch(error => {
+            console.error('Real-time stock update error:', error);
+            // Check if route exists
+            if (error.response && error.response.status === 404) {
+                console.error('Route /inventory/realtime-product-stock not found!');
+                console.error('Please add this route to routes/web.php:');
+                console.error("Route::get('/inventory/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);");
             }
-            
-            // Remove highlight after 1 second
-            setTimeout(() => {
-                cell.style.backgroundColor = '';
-            }, 1000);
-        }
-    }
+        });
+}
 
-    // Function to fetch and update all product stocks
-    function fetchRealTimeStock() {
-        console.log('Fetching real-time stock updates...');
-        axios.get('/inventory/realtime-product-stock')
-            .then(response => {
-                if (response.data && Array.isArray(response.data)) {
-                    console.log(`Received ${response.data.length} product stock updates`);
-                    response.data.forEach(item => {
-                        updateStockDisplay(item.id, item.stock);
-                    });
-                } else {
-                    console.log('No stock data received or invalid format');
-                }
-            })
-            .catch(error => {
-                console.error('Real-time stock update error:', error);
-                // Check if route exists
-                if (error.response && error.response.status === 404) {
-                    console.error('Route /inventory/realtime-product-stock not found!');
-                    console.error('Please add this route to routes/web.php:');
-                    console.error("Route::get('/inventory/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);");
-                }
-            });
-    }
+// Start polling every 5 seconds (5000ms)
+let stockPollingInterval = setInterval(fetchRealTimeStock, 5000);
 
-    // Start polling every 5 seconds (5000ms)
-    let stockPollingInterval = setInterval(fetchRealTimeStock, 5000);
-    
-    // Initial fetch after 1 second
-    setTimeout(fetchRealTimeStock, 1000);
-    
-    // Add CSS animation for pulse effect
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-        .stock-updated {
-            animation: pulse 0.5s ease-in-out;
-        }
-    `;
-    document.head.appendChild(style);
+// Initial fetch after 1 second
+setTimeout(fetchRealTimeStock, 1000);
+
+// Add CSS animation for pulse effect
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    .stock-updated {
+        animation: pulse 0.5s ease-in-out;
+    }
+`;
+document.head.appendChild(style);
 
     // ============ EVENT DELEGATION FOR DYNAMIC ELEMENTS ============
 
