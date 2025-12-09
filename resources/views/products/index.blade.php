@@ -207,7 +207,8 @@
                                                         </div>
                                                     </td>
                                                     <td class="category">{{ $product->category?->name ?? 'Uncategorized' }}</td>
-                                                    <td class="stock">
+                                                    <!-- FIXED: Added id and data-current-stock attributes -->
+                                                    <td class="stock" id="stock-{{ $product->id }}" data-current-stock="{{ $product->stock }}">
                                                         @if($product->stock > 10)
                                                             <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">{{ $product->stock }} in stock</span>
                                                         @elseif($product->stock > 0)
@@ -762,12 +763,17 @@ document.addEventListener('DOMContentLoaded', function () {
     // Function to update stock display for a single product
     function updateStockDisplay(productId, newStock) {
         const cell = document.querySelector(`#stock-${productId}`);
-        if (!cell) return;
+        if (!cell) {
+            console.log(`Stock cell not found for product ${productId}`);
+            return;
+        }
         
         const currentStock = parseInt(cell.getAttribute('data-current-stock') || 0);
         
         // Only update if stock has changed
         if (currentStock !== newStock) {
+            console.log(`Updating stock for product ${productId}: ${currentStock} → ${newStock}`);
+            
             let badgeClass, text;
             if (newStock > 10) {
                 badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
@@ -792,42 +798,56 @@ document.addEventListener('DOMContentLoaded', function () {
             if (newStock > currentStock) {
                 // Stock increased - green highlight
                 cell.style.backgroundColor = '#d4edda';
-                cell.querySelector('.badge').style.animation = 'pulse 0.5s';
+                const badge = cell.querySelector('.badge');
+                if (badge) {
+                    badge.style.animation = 'pulse 0.5s';
+                }
             } else if (newStock < currentStock) {
                 // Stock decreased - red highlight
                 cell.style.backgroundColor = '#f8d7da';
-                cell.querySelector('.badge').style.animation = 'pulse 0.5s';
+                const badge = cell.querySelector('.badge');
+                if (badge) {
+                    badge.style.animation = 'pulse 0.5s';
+                }
             }
             
             // Remove highlight after 1 second
             setTimeout(() => {
                 cell.style.backgroundColor = '';
             }, 1000);
-            
-            console.log(`Updated stock for product ${productId}: ${currentStock} → ${newStock}`);
         }
     }
 
     // Function to fetch and update all product stocks
     function fetchRealTimeStock() {
+        console.log('Fetching real-time stock updates...');
         axios.get('/inventory/realtime-product-stock')
             .then(response => {
                 if (response.data && Array.isArray(response.data)) {
+                    console.log(`Received ${response.data.length} product stock updates`);
                     response.data.forEach(item => {
                         updateStockDisplay(item.id, item.stock);
                     });
+                } else {
+                    console.log('No stock data received or invalid format');
                 }
             })
             .catch(error => {
                 console.error('Real-time stock update error:', error);
+                // Check if route exists
+                if (error.response && error.response.status === 404) {
+                    console.error('Route /inventory/realtime-product-stock not found!');
+                    console.error('Please add this route to routes/web.php:');
+                    console.error("Route::get('/inventory/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);");
+                }
             });
     }
 
     // Start polling every 5 seconds (5000ms)
     let stockPollingInterval = setInterval(fetchRealTimeStock, 5000);
     
-    // Initial fetch
-    fetchRealTimeStock();
+    // Initial fetch after 1 second
+    setTimeout(fetchRealTimeStock, 1000);
     
     // Add CSS animation for pulse effect
     const style = document.createElement('style');
@@ -1390,7 +1410,7 @@ document.addEventListener('DOMContentLoaded', function () {
             };
             reader.readAsDataURL(e.target.files[0]);
         }
-    });
+    }
 
     // Remove attribute and variation buttons
     document.addEventListener('click', function(e) {
