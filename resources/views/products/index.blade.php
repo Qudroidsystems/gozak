@@ -534,6 +534,7 @@
     </div>
 </div>
 
+
 <!-- COMPLETE JAVASCRIPT -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -758,110 +759,412 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
- // ============ REAL-TIME STOCK UPDATES ============
+    // ============ REAL-TIME STOCK UPDATES ============
 
-// Function to update stock display for a single product
-function updateStockDisplay(productId, newStock) {
-    const cell = document.querySelector(`#stock-${productId}`);
-    if (!cell) {
-        console.log(`Stock cell not found for product ${productId}`);
-        return;
-    }
-    
-    const currentStock = parseInt(cell.getAttribute('data-current-stock') || 0);
-    
-    // Only update if stock has changed
-    if (currentStock !== newStock) {
-        console.log(`Updating stock for product ${productId}: ${currentStock} → ${newStock}`);
-        
-        let badgeClass, text;
-        if (newStock > 10) {
-            badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
-            text = `${newStock} in stock`;
-        } else if (newStock > 0) {
-            badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
-            text = `${newStock} low stock`;
-        } else {
-            badgeClass = 'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
-            text = 'Out of stock';
+    // Function to update stock display for a single product
+    function updateStockDisplay(productId, newStock) {
+        const cell = document.querySelector(`#stock-${productId}`);
+        if (!cell) {
+            console.log(`Stock cell not found for product ${productId}`);
+            return;
         }
         
-        // Update the display
-        cell.innerHTML = `<span class="badge ${badgeClass}">${text}</span>`;
+        const currentStock = parseInt(cell.getAttribute('data-current-stock') || 0);
         
-        // Update the data attribute
-        cell.setAttribute('data-current-stock', newStock);
-        
-        // Highlight change with animation
-        cell.style.transition = 'all 0.3s';
-        
-        if (newStock > currentStock) {
-            // Stock increased - green highlight
-            cell.style.backgroundColor = '#d4edda';
-            const badge = cell.querySelector('.badge');
-            if (badge) {
-                badge.style.animation = 'pulse 0.5s';
-            }
-        } else if (newStock < currentStock) {
-            // Stock decreased - red highlight
-            cell.style.backgroundColor = '#f8d7da';
-            const badge = cell.querySelector('.badge');
-            if (badge) {
-                badge.style.animation = 'pulse 0.5s';
-            }
-        }
-        
-        // Remove highlight after 1 second
-        setTimeout(() => {
-            cell.style.backgroundColor = '';
-        }, 1000);
-    }
-}
-
-// Function to fetch and update all product stocks
-function fetchRealTimeStock() {
-    console.log('Fetching real-time stock updates...');
-    axios.get('/inventory/realtime-product-stock')
-        .then(response => {
-            if (response.data && Array.isArray(response.data)) {
-                console.log(`Received ${response.data.length} product stock updates`);
-                response.data.forEach(item => {
-                    updateStockDisplay(item.id, item.stock);
-                });
+        // Only update if stock has changed
+        if (currentStock !== newStock) {
+            console.log(`Updating stock for product ${productId}: ${currentStock} → ${newStock}`);
+            
+            let badgeClass, text;
+            if (newStock > 10) {
+                badgeClass = 'bg-success-subtle text-success-emphasis border border-success-subtle';
+                text = `${newStock} in stock`;
+            } else if (newStock > 0) {
+                badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                text = `${newStock} low stock`;
             } else {
-                console.log('No stock data received or invalid format');
+                badgeClass = 'bg-danger-subtle text-danger-emphasis border border-danger-subtle';
+                text = 'Out of stock';
             }
-        })
-        .catch(error => {
-            console.error('Real-time stock update error:', error);
-            // Check if route exists
-            if (error.response && error.response.status === 404) {
-                console.error('Route /inventory/realtime-product-stock not found!');
-                console.error('Please add this route to routes/web.php:');
-                console.error("Route::get('/inventory/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);");
+            
+            // Update the display
+            cell.innerHTML = `<span class="badge ${badgeClass}">${text}</span>`;
+            
+            // Update the data attribute
+            cell.setAttribute('data-current-stock', newStock);
+            
+            // Highlight change with animation
+            cell.style.transition = 'all 0.3s';
+            
+            if (newStock > currentStock) {
+                // Stock increased - green highlight
+                cell.style.backgroundColor = '#d4edda';
+                const badge = cell.querySelector('.badge');
+                if (badge) {
+                    badge.style.animation = 'pulse 0.5s';
+                }
+            } else if (newStock < currentStock) {
+                // Stock decreased - red highlight
+                cell.style.backgroundColor = '#f8d7da';
+                const badge = cell.querySelector('.badge');
+                if (badge) {
+                    badge.style.animation = 'pulse 0.5s';
+                }
+            }
+            
+            // Remove highlight after 1 second
+            setTimeout(() => {
+                cell.style.backgroundColor = '';
+            }, 1000);
+        }
+    }
+
+    // Function to fetch and update all product stocks
+    function fetchRealTimeStock() {
+        console.log('Fetching real-time stock updates...');
+        axios.get('/inventory/realtime-product-stock')
+            .then(response => {
+                if (response.data && Array.isArray(response.data)) {
+                    console.log(`Received ${response.data.length} product stock updates`);
+                    response.data.forEach(item => {
+                        updateStockDisplay(item.id, item.stock);
+                    });
+                } else {
+                    console.log('No stock data received or invalid format');
+                }
+            })
+            .catch(error => {
+                console.error('Real-time stock update error:', error);
+                // Check if route exists
+                if (error.response && error.response.status === 404) {
+                    console.error('Route /inventory/realtime-product-stock not found!');
+                    console.error('Please add this route to routes/web.php:');
+                    console.error("Route::get('/inventory/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);");
+                }
+            });
+    }
+
+    // Start polling every 5 seconds (5000ms)
+    let stockPollingInterval = setInterval(fetchRealTimeStock, 5000);
+
+    // Initial fetch after 1 second
+    setTimeout(fetchRealTimeStock, 1000);
+
+    // Add CSS animation for pulse effect
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .stock-updated {
+            animation: pulse 0.5s ease-in-out;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // ============ PRODUCT FORM HANDLERS ============
+
+    // Function to toggle variations section
+    function toggleVariationsSection() {
+        const productTypeSelect = document.getElementById('product_type');
+        const variationsSection = document.getElementById('variationsSection');
+        
+        if (productTypeSelect && variationsSection) {
+            // Show variations section only for "variable" product type
+            if (productTypeSelect.value === 'variable') {
+                variationsSection.style.display = 'block';
+                console.log('Variations section shown');
+            } else {
+                variationsSection.style.display = 'none';
+                console.log('Variations section hidden');
+            }
+        }
+    }
+
+    // Product type change handler - INITIALIZATION
+    const productTypeSelect = document.getElementById('product_type');
+    if (productTypeSelect) {
+        // Set initial state
+        toggleVariationsSection();
+        
+        // Add change event listener
+        productTypeSelect.addEventListener('change', toggleVariationsSection);
+        
+        // Also trigger on modal show for edit cases
+        const modalElement = document.getElementById('showModal');
+        if (modalElement) {
+            modalElement.addEventListener('shown.bs.modal', function() {
+                toggleVariationsSection();
+            });
+        }
+    }
+
+    // Variables for product form
+    let attrIndex = 1;
+    let priceChanging = false;
+    let discountChanging = false;
+    let salePriceChanging = false;
+
+    // Add attribute button
+    const addAttributeBtn = document.getElementById('addAttribute');
+    if (addAttributeBtn) {
+        addAttributeBtn.addEventListener('click', () => {
+            const html = `
+                <div class="row g-3 align-items-end attribute-row mt-3">
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]">
+                    </div>
+                    <div class="col-md-6">
+                        <input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById('attributesContainer').insertAdjacentHTML('beforeend', html);
+            attrIndex++;
+        });
+    }
+
+    // Price calculation handlers
+    const priceInput = document.getElementById('price');
+    const discountInput = document.getElementById('discount_percent');
+    const salePriceInput = document.getElementById('sale_price');
+
+    if (priceInput) {
+        priceInput.addEventListener('input', () => {
+            if (!priceChanging) {
+                priceChanging = true;
+                calculateFromPrice();
+                priceChanging = false;
             }
         });
-}
-
-// Start polling every 5 seconds (5000ms)
-let stockPollingInterval = setInterval(fetchRealTimeStock, 5000);
-
-// Initial fetch after 1 second
-setTimeout(fetchRealTimeStock, 1000);
-
-// Add CSS animation for pulse effect
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-        100% { transform: scale(1); }
     }
-    .stock-updated {
-        animation: pulse 0.5s ease-in-out;
+
+    if (discountInput) {
+        discountInput.addEventListener('input', () => {
+            if (!discountChanging) {
+                discountChanging = true;
+                calculateFromDiscount();
+                discountChanging = false;
+            }
+        });
     }
-`;
-document.head.appendChild(style);
+
+    if (salePriceInput) {
+        salePriceInput.addEventListener('input', () => {
+            if (!salePriceChanging) {
+                salePriceChanging = true;
+                calculateFromSalePrice();
+                salePriceChanging = false;
+            }
+        });
+    }
+
+    function calculateFromPrice() {
+        const price = parseFloat(priceInput.value) || 0;
+        const discount = parseFloat(discountInput.value) || 0;
+        if (discount > 0 && discount <= 100) {
+            salePriceInput.value = (price * (1 - discount / 100)).toFixed(2);
+            document.getElementById('sale_price_note').style.display = 'block';
+        }
+    }
+
+    function calculateFromDiscount() {
+        const price = parseFloat(priceInput.value) || 0;
+        const discount = parseFloat(discountInput.value) || 0;
+        if (price && discount) {
+            salePriceInput.value = (price * (1 - discount / 100)).toFixed(2);
+            document.getElementById('sale_price_note').style.display = 'block';
+        }
+    }
+
+    function calculateFromSalePrice() {
+        const price = parseFloat(priceInput.value) || 0;
+        const sale = parseFloat(salePriceInput.value) || 0;
+        if (price && sale && sale < price) {
+            const discount = ((price - sale) / price) * 100;
+            discountInput.value = discount.toFixed(2);
+            document.getElementById('sale_price_note').style.display = 'block';
+        }
+    }
+
+    // Apply bulk discount to variations
+    const applyBulkDiscountBtn = document.getElementById('applyBulkDiscount');
+    if (applyBulkDiscountBtn) {
+        applyBulkDiscountBtn.addEventListener('click', () => {
+            const bulkDiscount = parseFloat(document.getElementById('bulk_discount').value) || 0;
+            if (bulkDiscount < 0 || bulkDiscount > 100) {
+                Swal.fire('Warning', 'Please enter a valid discount percentage (0-100).', 'warning');
+                return;
+            }
+            
+            document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
+                const priceInput = row.querySelector('input[name*="price"]');
+                const saleInput = row.querySelector('input[name*="sale_price"]');
+                const price = parseFloat(priceInput.value) || 0;
+                if (price > 0) {
+                    saleInput.value = (price * (1 - bulkDiscount / 100)).toFixed(2);
+                }
+            });
+            
+            Swal.fire('Success', `Applied ${bulkDiscount}% discount to all variations.`, 'success');
+        });
+    }
+
+    // Generate variations button
+    const generateVariationsBtn = document.getElementById('generateVariations');
+    if (generateVariationsBtn) {
+        generateVariationsBtn.addEventListener('click', () => {
+            const attrs = [];
+            document.querySelectorAll('.attribute-row').forEach(row => {
+                const name = row.querySelector('input[name$="[name]"]').value.trim();
+                const values = row.querySelector('input[name$="[values]"]').value.split(',').map(v => v.trim()).filter(v => v);
+                if (name && values.length) attrs.push({name, values});
+            });
+            
+            if (!attrs.length) {
+                document.getElementById('variationsTable').innerHTML = '<p class="text-muted">Please add attributes first</p>';
+                return;
+            }
+            
+            // Generate all combinations
+            const combos = attrs.reduce((accumulator, currentAttr) => 
+                accumulator.flatMap(combo => 
+                    currentAttr.values.map(value => ({...combo, [currentAttr.name]: value}))
+                ), 
+                [{}]
+            ).filter(combo => Object.keys(combo).length > 0);
+            
+            let html = `
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Variant</th>
+                            <th>SKU</th>
+                            <th>Price</th>
+                            <th>Sale Price</th>
+                            <th>Stock</th>
+                            <th>Image</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            
+            combos.forEach((combo, i) => {
+                const name = Object.entries(combo).map(([key, value]) => `${key}: ${value}`).join(' | ');
+                html += `
+                    <tr>
+                        <td>
+                            <small>${name}</small>
+                            ${Object.entries(combo).map(([key, value]) => 
+                                `<input type="hidden" name="variations[${i}][attributes][${key}]" value="${value}">`
+                            ).join('')}
+                        </td>
+                        <td>
+                            <input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" required>
+                        </td>
+                        <td>
+                            <input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm" required>
+                        </td>
+                        <td>
+                            <input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm">
+                        </td>
+                        <td>
+                            <input type="number" name="variations[${i}][stock]" class="form-control form-control-sm" required>
+                        </td>
+                        <td>
+                            <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
+                            <img class="variation-preview mt-2 img-fluid rounded" style="max-height:80px;display:none;">
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-danger btn-sm remove-variation">Remove</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table>`;
+            document.getElementById('variationsTable').innerHTML = html;
+        });
+    }
+
+    // Thumbnail image preview
+    const thumbnailInput = document.getElementById('thumbnail_input');
+    if (thumbnailInput) {
+        thumbnailInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('thumbnail_preview').src = event.target.result;
+                    document.getElementById('thumbnail_preview').style.display = 'block';
+                    document.getElementById('thumbnail_placeholder').style.display = 'none';
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+    }
+
+    // Gallery images preview
+    const galleryInput = document.getElementById('gallery_input');
+    if (galleryInput) {
+        galleryInput.addEventListener('change', function(e) {
+            const container = document.getElementById('imageGallery');
+            container.innerHTML = '';
+            
+            Array.from(e.target.files).forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const div = document.createElement('div');
+                    div.className = 'col-6 col-md-4 position-relative';
+                    div.innerHTML = `
+                        <img src="${event.target.result}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
+                        <button type="button" class="btn-close position-absolute top-0 end-0 bg-white" onclick="this.parentElement.remove()"></button>
+                    `;
+                    container.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
+    }
+
+    // Make gallery sortable
+    const imageGallery = document.getElementById('imageGallery');
+    if (imageGallery) {
+        new Sortable(imageGallery, {
+            animation: 150,
+            ghostClass: 'bg-light'
+        });
+    }
+
+    // Variation image preview
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('variation-image') && e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const previewImg = e.target.closest('td').querySelector('.variation-preview');
+                if (previewImg) {
+                    previewImg.src = event.target.result;
+                    previewImg.style.display = 'block';
+                }
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
+
+    // Remove attribute and variation buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-attribute')) {
+            e.target.closest('.attribute-row').remove();
+        }
+        
+        if (e.target.classList.contains('remove-variation')) {
+            e.target.closest('tr').remove();
+        }
+    });
 
     // ============ EVENT DELEGATION FOR DYNAMIC ELEMENTS ============
 
@@ -1147,282 +1450,6 @@ document.head.appendChild(style);
         }
     });
 
-    // ============ PRODUCT FORM HANDLERS ============
-
-    // Variables for product form
-    let attrIndex = 1;
-    let priceChanging = false;
-    let discountChanging = false;
-    let salePriceChanging = false;
-
-    // Product type change handler
-    const productTypeSelect = document.getElementById('product_type');
-    if (productTypeSelect) {
-        productTypeSelect.addEventListener('change', function() {
-            const variationsSection = document.getElementById('variationsSection');
-            variationsSection.style.display = this.value === 'variable' ? 'block' : 'none';
-        });
-    }
-
-    // Add attribute button
-    const addAttributeBtn = document.getElementById('addAttribute');
-    if (addAttributeBtn) {
-        addAttributeBtn.addEventListener('click', () => {
-            const html = `
-                <div class="row g-3 align-items-end attribute-row mt-3">
-                    <div class="col-md-5">
-                        <input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]">
-                    </div>
-                    <div class="col-md-6">
-                        <input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]">
-                    </div>
-                    <div class="col-md-1">
-                        <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
-                    </div>
-                </div>
-            `;
-            document.getElementById('attributesContainer').insertAdjacentHTML('beforeend', html);
-            attrIndex++;
-        });
-    }
-
-    // Price calculation handlers
-    const priceInput = document.getElementById('price');
-    const discountInput = document.getElementById('discount_percent');
-    const salePriceInput = document.getElementById('sale_price');
-
-    if (priceInput) {
-        priceInput.addEventListener('input', () => {
-            if (!priceChanging) {
-                priceChanging = true;
-                calculateFromPrice();
-                priceChanging = false;
-            }
-        });
-    }
-
-    if (discountInput) {
-        discountInput.addEventListener('input', () => {
-            if (!discountChanging) {
-                discountChanging = true;
-                calculateFromDiscount();
-                discountChanging = false;
-            }
-        });
-    }
-
-    if (salePriceInput) {
-        salePriceInput.addEventListener('input', () => {
-            if (!salePriceChanging) {
-                salePriceChanging = true;
-                calculateFromSalePrice();
-                salePriceChanging = false;
-            }
-        });
-    }
-
-    function calculateFromPrice() {
-        const price = parseFloat(priceInput.value) || 0;
-        const discount = parseFloat(discountInput.value) || 0;
-        if (discount > 0 && discount <= 100) {
-            salePriceInput.value = (price * (1 - discount / 100)).toFixed(2);
-            document.getElementById('sale_price_note').style.display = 'block';
-        }
-    }
-
-    function calculateFromDiscount() {
-        const price = parseFloat(priceInput.value) || 0;
-        const discount = parseFloat(discountInput.value) || 0;
-        if (price && discount) {
-            salePriceInput.value = (price * (1 - discount / 100)).toFixed(2);
-            document.getElementById('sale_price_note').style.display = 'block';
-        }
-    }
-
-    function calculateFromSalePrice() {
-        const price = parseFloat(priceInput.value) || 0;
-        const sale = parseFloat(salePriceInput.value) || 0;
-        if (price && sale && sale < price) {
-            const discount = ((price - sale) / price) * 100;
-            discountInput.value = discount.toFixed(2);
-            document.getElementById('sale_price_note').style.display = 'block';
-        }
-    }
-
-    // Apply bulk discount to variations
-    const applyBulkDiscountBtn = document.getElementById('applyBulkDiscount');
-    if (applyBulkDiscountBtn) {
-        applyBulkDiscountBtn.addEventListener('click', () => {
-            const bulkDiscount = parseFloat(document.getElementById('bulk_discount').value) || 0;
-            if (bulkDiscount < 0 || bulkDiscount > 100) {
-                Swal.fire('Warning', 'Please enter a valid discount percentage (0-100).', 'warning');
-                return;
-            }
-            
-            document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
-                const priceInput = row.querySelector('input[name*="price"]');
-                const saleInput = row.querySelector('input[name*="sale_price"]');
-                const price = parseFloat(priceInput.value) || 0;
-                if (price > 0) {
-                    saleInput.value = (price * (1 - bulkDiscount / 100)).toFixed(2);
-                }
-            });
-            
-            Swal.fire('Success', `Applied ${bulkDiscount}% discount to all variations.`, 'success');
-        });
-    }
-
-    // Generate variations button
-    const generateVariationsBtn = document.getElementById('generateVariations');
-    if (generateVariationsBtn) {
-        generateVariationsBtn.addEventListener('click', () => {
-            const attrs = [];
-            document.querySelectorAll('.attribute-row').forEach(row => {
-                const name = row.querySelector('input[name$="[name]"]').value.trim();
-                const values = row.querySelector('input[name$="[values]"]').value.split(',').map(v => v.trim()).filter(v => v);
-                if (name && values.length) attrs.push({name, values});
-            });
-            
-            if (!attrs.length) {
-                document.getElementById('variationsTable').innerHTML = '<p class="text-muted">Please add attributes first</p>';
-                return;
-            }
-            
-            // Generate all combinations
-            const combos = attrs.reduce((accumulator, currentAttr) => 
-                accumulator.flatMap(combo => 
-                    currentAttr.values.map(value => ({...combo, [currentAttr.name]: value}))
-                ), 
-                [{}]
-            ).filter(combo => Object.keys(combo).length > 0);
-            
-            let html = `
-                <table class="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th>Variant</th>
-                            <th>SKU</th>
-                            <th>Price</th>
-                            <th>Sale Price</th>
-                            <th>Stock</th>
-                            <th>Image</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-            
-            combos.forEach((combo, i) => {
-                const name = Object.entries(combo).map(([key, value]) => `${key}: ${value}`).join(' | ');
-                html += `
-                    <tr>
-                        <td>
-                            <small>${name}</small>
-                            ${Object.entries(combo).map(([key, value]) => 
-                                `<input type="hidden" name="variations[${i}][attributes][${key}]" value="${value}">`
-                            ).join('')}
-                        </td>
-                        <td>
-                            <input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" required>
-                        </td>
-                        <td>
-                            <input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm" required>
-                        </td>
-                        <td>
-                            <input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm">
-                        </td>
-                        <td>
-                            <input type="number" name="variations[${i}][stock]" class="form-control form-control-sm" required>
-                        </td>
-                        <td>
-                            <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
-                            <img class="variation-preview mt-2 img-fluid rounded" style="max-height:80px;display:none;">
-                        </td>
-                        <td>
-                            <button type="button" class="btn btn-danger btn-sm remove-variation">Remove</button>
-                        </td>
-                    </tr>
-                `;
-            });
-            
-            html += `</tbody></table>`;
-            document.getElementById('variationsTable').innerHTML = html;
-        });
-    }
-
-    // Thumbnail image preview
-    const thumbnailInput = document.getElementById('thumbnail_input');
-    if (thumbnailInput) {
-        thumbnailInput.addEventListener('change', function(e) {
-            if (e.target.files && e.target.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    document.getElementById('thumbnail_preview').src = event.target.result;
-                    document.getElementById('thumbnail_preview').style.display = 'block';
-                    document.getElementById('thumbnail_placeholder').style.display = 'none';
-                };
-                reader.readAsDataURL(e.target.files[0]);
-            }
-        });
-    }
-
-    // Gallery images preview
-    const galleryInput = document.getElementById('gallery_input');
-    if (galleryInput) {
-        galleryInput.addEventListener('change', function(e) {
-            const container = document.getElementById('imageGallery');
-            container.innerHTML = '';
-            
-            Array.from(e.target.files).forEach((file, index) => {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const div = document.createElement('div');
-                    div.className = 'col-6 col-md-4 position-relative';
-                    div.innerHTML = `
-                        <img src="${event.target.result}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
-                        <button type="button" class="btn-close position-absolute top-0 end-0 bg-white" onclick="this.parentElement.remove()"></button>
-                    `;
-                    container.appendChild(div);
-                };
-                reader.readAsDataURL(file);
-            });
-        });
-    }
-
-    // Make gallery sortable
-    const imageGallery = document.getElementById('imageGallery');
-    if (imageGallery) {
-        new Sortable(imageGallery, {
-            animation: 150,
-            ghostClass: 'bg-light'
-        });
-    }
-
-    // Variation image preview
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('variation-image') && e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const previewImg = e.target.closest('td').querySelector('.variation-preview');
-                if (previewImg) {
-                    previewImg.src = event.target.result;
-                    previewImg.style.display = 'block';
-                }
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-    }
-
-    // Remove attribute and variation buttons
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-attribute')) {
-            e.target.closest('.attribute-row').remove();
-        }
-        
-        if (e.target.classList.contains('remove-variation')) {
-            e.target.closest('tr').remove();
-        }
-    });
-
     // Import form submission
     const importForm = document.getElementById('importForm');
     if (importForm) {
@@ -1575,12 +1602,15 @@ document.head.appendChild(style);
         // Clear hidden fields
         document.getElementById('product_id').value = '';
         
+        // Reset product type to "simple" by default
+        if (productTypeSelect) {
+            productTypeSelect.value = 'simple';
+            toggleVariationsSection(); // Update the display immediately
+        }
+        
         // Reset modal title and button
         document.getElementById('modalTitle').textContent = 'Add Product';
         document.getElementById('submitBtn').innerHTML = '<span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span> Save Product';
-        
-        // Hide variations section
-        document.getElementById('variationsSection').style.display = 'none';
         
         // Reset attributes container
         const container = document.getElementById('attributesContainer');
