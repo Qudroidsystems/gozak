@@ -321,10 +321,10 @@
 
                          @can('View order')
                             <li class="nav-item">
-                                <a class="nav-link menu-link collapsed" href="#sidebarreviews" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarreviews">
+                                <a class="nav-link menu-link collapsed" href="#sidebarorders" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarorders">
                                     <i class="ph-star"></i> <span data-key="t-authentication">Orders Management</span>
                                 </a>
-                                <div class="collapse menu-dropdown" id="sidebarreviews">
+                                <div class="collapse menu-dropdown" id="sidebarorders">
                                     <ul class="nav nav-sm flex-column">
                                         <li class="nav-item">
                                             <a href="{{ route('orders.index') }}" class="nav-link" role="button" data-key="t-signin"> Orders </a>
