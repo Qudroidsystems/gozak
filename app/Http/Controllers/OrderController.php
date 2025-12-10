@@ -19,7 +19,7 @@ class OrderController extends Controller
         $this->middleware('permission:Manage order', ['only' => ['updateStatus']]);
     }
 
-    public function index(Request $request)
+   public function index(Request $request)
     {
         $pagetitle = "Order Management";
 
@@ -27,7 +27,9 @@ class OrderController extends Controller
             ->withCount('items')
             ->latest();
 
+        // Filters
         if ($request->filled('status')) $query->where('status', $request->status);
+        if ($request->filled('payment_status')) $query->where('payment_status', $request->payment_status);
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -36,9 +38,12 @@ class OrderController extends Controller
                   ->orWhereHas('user', fn($q) => $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]));
             });
         }
+        if ($request->filled('from')) $query->whereDate('created_at', '>=', $request->from);
+        if ($request->filled('to')) $query->whereDate('created_at', '<=', $request->to);
 
         $orders = $query->paginate(15)->appends($request->all());
 
+        // Stats & Analytics
         $stats = [
             'total' => Order::count(),
             'pending' => Order::where('status', 'pending')->count(),
@@ -46,9 +51,42 @@ class OrderController extends Controller
             'shipped' => Order::where('status', 'shipped')->count(),
             'delivered' => Order::where('status', 'delivered')->count(),
             'cancelled' => Order::where('status', 'cancelled')->count(),
+            'paid' => Order::where('payment_status', 'paid')->count(),
+            'unpaid' => Order::where('payment_status', 'unpaid')->count(),
         ];
 
-        return view('orders.index', compact('orders', 'pagetitle', 'stats'));
+        $startDate = Carbon::now()->subDays(29);
+        $dailySales = Order::where('created_at', '>=', $startDate)
+            ->where('payment_status', 'paid')
+            ->selectRaw('DATE(created_at) as date, SUM(total_amount) as total')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->pluck('total', 'date');
+
+        $labels = $data = [];
+        for ($i = 29; $i >= 0; $i--) {
+            $date = Carbon::now()->subDays($i);
+            $labels[] = $date->format('d M');
+            $data[] = $dailySales->get($date->format('Y-m-d'), 0);
+        }
+
+        $analytics = [
+            'total_revenue' => Order::where('payment_status', 'paid')->sum('total_amount'),
+            'sales_chart' => ['labels' => $labels, 'data' => $data],
+        ];
+
+        return view('orders.index', compact('orders', 'pagetitle', 'stats', 'analytics'));
+    }
+
+    public function export(Request $request)
+    {
+        $format = $request->get('format', 'xlsx');
+        $filename = 'orders_' . now()->format('Y-m-d_His');
+
+        return Excel::download(new OrdersExport, "{$filename}.{$format}", 
+            $format === 'csv' ? \Maatwebsite\Excel\Excel::CSV : \Maatwebsite\Excel\Excel::XLSX
+        );
+    }
     }
 
     public function show($id)

@@ -334,6 +334,21 @@
                             </li>
                         @endcan
 
+                        @can('View constomer')
+                            <li class="nav-item">
+                                <a class="nav-link menu-link collapsed" href="#sidebarcustomer" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarcustomer">
+                                    <i class="ph-star"></i> <span data-key="t-authentication">Orders Management</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="sidebarcustomer">
+                                    <ul class="nav nav-sm flex-column">
+                                        <li class="nav-item">
+                                            <a href="{{ route('customers.index') }}" class="nav-link" role="button" data-key="t-signin"> Customers </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        @endcan
+
                     </ul>
                 </div>
                 <!-- Sidebar -->
@@ -1320,6 +1335,10 @@
 
      @if (Route::is('orders.*'))
                 @include('layouts.pages-assets.js.order-list-js')
+     @endif
+
+     @if (Route::is('customers.*'))
+                @include('layouts.pages-assets.js.customer-list-js')
      @endif
 
       </body>

@@ -12,6 +12,7 @@ use App\Http\Controllers\APIAuthController;
 use App\Http\Controllers\BiodataController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InventoryController;
@@ -175,7 +176,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('{order}/status', [OrderController::class, 'updateStatus'])->name('status');
         Route::get('{order}/invoice', [OrderController::class, 'invoice'])->name('invoice');
         Route::post('{order}/email-invoice', [OrderController::class, 'emailInvoice'])->name('emailInvoice');
+        // routes/web.php
+        Route::get('/export', [OrderController::class, 'export'])->name('orders.export');
     });
 
-    
+    Route::resource('customers', CustomerController::class)->only(['index']);
+    Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
     });
