@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Order;
+use App\Models\Address;
+use App\Models\Setting;
+use App\Models\WishlistItem;
 use Laravel\Sanctum\HasApiTokens;
 use App\Notifications\VerifyEmail;
 use Spatie\Permission\Traits\HasRoles;
@@ -97,6 +101,26 @@ class User extends Authenticatable implements MustVerifyEmail
         return trim("{$this->first_name} {$this->last_name}");
     }
 
+
+
+    // Scopes — THIS IS KEY
+    public function scopeCustomers($query)
+    {
+        return $query->where('role', 'user');
+    }
+
+    public function scopeStaff($query)
+    {
+        return $query->where('role', 'staff');
+    }
+
+    public function scopeWithOrderStats($query)
+    {
+        return $query->withCount('orders')
+                     ->withSum('orders', 'total_amount');
+    }
+
+    
     public function getNameAttribute(): string
     {
         return $this->getFullNameAttribute();

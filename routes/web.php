@@ -185,4 +185,5 @@ Route::middleware(['auth'])->group(function () {
 
     Route::resource('customers', CustomerController::class)->only(['index']);
     Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
+
     });
