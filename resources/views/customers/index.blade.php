@@ -20,39 +20,42 @@
 
             <!-- Stats -->
             <div class="row">
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-primary-subtle">
-                        <div class="card-body">
-                            <p class="text-uppercase fw-medium text-primary mb-0">Total Customers</p>
-                            <h4 class="fs-22 fw-semibold mb-0">{{ number_format($stats['total']) }}</h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-success-subtle">
-                        <div class="card-body">
-                            <p class="text-uppercase fw-medium text-success mb-0">Active</p>
-                            <h4 class="fs-22 fw-semibold mb-0">{{ $stats['active'] }}</h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-warning-subtle">
-                        <div class="card-body">
-                            <p class="text-uppercase fw-medium text-warning mb-0">Total Spent</p>
-                            <h4 class="fs-22 fw-semibold mb-0">${{ number_format($stats['total_spent'], 2) }}</h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-danger-subtle">
-                        <div class="card-body">
-                            <p class="text-uppercase fw-medium text-danger mb-0">Blocked</p>
-                            <h4 class="fs-22 fw-semibold mb-0">{{ $stats['blocked'] }}</h4>
-                        </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate bg-primary-subtle">
+                    <div class="card-body">
+                        <p class="text-uppercase fw-medium text-primary mb-0">Total Customers</p>
+                        <h4 class="fs-22 fw-semibold mb-0">{{ number_format($stats['total']) }}</h4>
                     </div>
                 </div>
             </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate bg-success-subtle">
+                    <div class="card-body">
+                        <p class="text-uppercase fw-medium text-success mb-0">Verified Customers</p>
+                        <h4 class="fs-22 fw-semibold mb-0">{{ number_format($stats['active']) }}</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate bg-secondary-subtle">
+                    <div class="card-body">
+                        <p class="text-uppercase fw-medium text-secondary mb-0">Unverified</p>
+                        <h4 class="fs-22 fw-semibold mb-0">{{ number_format($stats['total'] - $stats['active']) }}</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6">
+                <div class="card card-animate bg-info-subtle">
+                    <div class="card-body">
+                        <p class="text-uppercase fw-medium text-info mb-0">Total Revenue</p>
+                        <h4 class="fs-22 fw-semibold mb-0">${{ number_format($stats['total_spent'], 2) }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
 
             <!-- Search & Export -->
             <div class="row mt-4">
