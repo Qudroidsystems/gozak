@@ -8,6 +8,7 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use App\Models\ProductCategory;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -47,8 +48,144 @@ class APIProductController extends Controller
     }
 
     /**
-         * Format product data with real-time stock calculation
-         */
+     * Format product attributes properly for Flutter
+     */
+    private function formatProductAttributes($attributes)
+    {
+        if (!$attributes || $attributes->isEmpty()) {
+            return [];
+        }
+        
+        return $attributes->map(function ($attr) {
+            return [
+                'id' => $attr->id ?? null,
+                'name' => $attr->name ?? '',
+                'values' => $this->formatAttributeValues($attr->values),
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Format attribute values properly
+     */
+    private function formatAttributeValues($values)
+    {
+        if (is_string($values)) {
+            try {
+                $decoded = json_decode($values, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    return $decoded;
+                }
+            } catch (\Exception $e) {
+                // If not JSON, try comma-separated
+                return array_map('trim', explode(',', $values));
+            }
+        } elseif (is_array($values)) {
+            return $values;
+        }
+        
+        return [];
+    }
+
+    /**
+     * Extract attributes from variations when product_attributes table is empty
+     */
+    private function extractAttributesFromVariations($variations)
+    {
+        if (!$variations || $variations->isEmpty()) {
+            return [];
+        }
+        
+        Log::info('Extracting attributes from variations');
+        
+        $attributes = [];
+        
+        foreach ($variations as $variation) {
+            $varAttributes = $variation->attributes;
+            
+            Log::info('Variation ID: ' . $variation->id . ', Raw attributes: ' . json_encode($varAttributes));
+            
+            if (is_string($varAttributes) && $varAttributes !== '') {
+                try {
+                    $varAttributes = json_decode($varAttributes, true);
+                    Log::info('Decoded attributes: ' . json_encode($varAttributes));
+                } catch (\Exception $e) {
+                    Log::error('Error decoding variation attributes: ' . $e->getMessage());
+                    continue;
+                }
+            }
+            
+            if (is_array($varAttributes) && !empty($varAttributes)) {
+                foreach ($varAttributes as $key => $value) {
+                    if (!isset($attributes[$key])) {
+                        $attributes[$key] = [];
+                    }
+                    
+                    if (!in_array($value, $attributes[$key])) {
+                        $attributes[$key][] = $value;
+                    }
+                }
+            }
+        }
+        
+        // Convert to the format Flutter expects
+        $formattedAttributes = [];
+        foreach ($attributes as $name => $values) {
+            $formattedAttributes[] = [
+                'id' => null, // No ID since extracted from variations
+                'name' => $name,
+                'values' => $values,
+            ];
+        }
+        
+        Log::info('Extracted attributes from variations: ' . json_encode($formattedAttributes));
+        
+        return $formattedAttributes;
+    }
+
+    /**
+     * Format product variations properly for Flutter
+     */
+    private function formatProductVariations($variations)
+    {
+        if (!$variations || $variations->isEmpty()) {
+            return [];
+        }
+        
+        return $variations->map(function ($var) {
+            $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : null;
+            
+            return [
+                'id' => $var->id ?? null,
+                'sku' => $var->sku ?? '',
+                'price' => floatval($var->price ?? 0.0),
+                'sale_price' => $var->sale_price ? floatval($var->sale_price) : null,
+                'stock' => intval($var->stock ?? 0),
+                'attributes' => $this->parseVariationAttributes($var->attributes),
+                'image' => $cleanImagePath ? url(Storage::url($cleanImagePath)) : null,
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Parse variation attributes
+     */
+    private function parseVariationAttributes($attributes)
+    {
+        if (is_string($attributes) && $attributes !== '') {
+            try {
+                return json_decode($attributes, true);
+            } catch (\Exception $e) {
+                Log::error('Error parsing variation attributes: ' . $e->getMessage());
+                return [];
+            }
+        } elseif (is_array($attributes)) {
+            return $attributes;
+        }
+        
+        return [];
+    }
+
     /**
      * Format product data with real-time stock calculation
      */
@@ -57,54 +194,29 @@ class APIProductController extends Controller
         // Calculate real-time stock
         $realStock = $this->calculateProductStock($product->id);
         
-        // Debug logging
-        \Log::info('Formatting product ID: ' . $product->id);
-        \Log::info('Product attributes count: ' . ($product->attributes ? $product->attributes->count() : 0));
-        \Log::info('Product variations count: ' . ($product->variations ? $product->variations->count() : 0));
+        Log::info('Formatting product ID: ' . $product->id);
+        Log::info('Product type: ' . $product->product_type);
+        Log::info('Attributes from DB: ' . ($product->attributes ? $product->attributes->count() : 0));
+        Log::info('Variations from DB: ' . ($product->variations ? $product->variations->count() : 0));
         
-        // Format attributes properly
+        // Get attributes from both sources
         $formattedAttributes = [];
-        if ($product->attributes) {
-            foreach ($product->attributes as $attr) {
-                \Log::info('Processing attribute: ' . $attr->name);
-                \Log::info('Attribute values: ' . json_encode($attr->values));
-                
-                $formattedAttributes[] = [
-                    'id' => $attr->id ?? null,
-                    'name' => $attr->name ?? '',
-                    'values' => $this->formatAttributeValues($attr->values),
-                ];
-            }
+        
+        // 1. First try to get from product_attributes table
+        if ($product->attributes && $product->attributes->isNotEmpty()) {
+            Log::info('Using attributes from product_attributes table');
+            $formattedAttributes = $this->formatProductAttributes($product->attributes);
+        } 
+        // 2. If no attributes in product_attributes table, extract from variations
+        else if ($product->variations && $product->variations->isNotEmpty()) {
+            Log::info('Extracting attributes from variations');
+            $formattedAttributes = $this->extractAttributesFromVariations($product->variations);
+        } else {
+            Log::info('No attributes found anywhere');
         }
         
-        // Format variations properly
-        $formattedVariations = [];
-        if ($product->variations) {
-            foreach ($product->variations as $var) {
-                $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : null;
-                
-                // Ensure attributes are properly formatted
-                $attributes = $var->attributes;
-                if (is_string($attributes)) {
-                    try {
-                        $attributes = json_decode($attributes, true);
-                    } catch (\Exception $e) {
-                        \Log::error('Error decoding variation attributes: ' . $e->getMessage());
-                        $attributes = [];
-                    }
-                }
-                
-                $formattedVariations[] = [
-                    'id' => $var->id ?? null,
-                    'sku' => $var->sku ?? '',
-                    'price' => floatval($var->price ?? 0.0),
-                    'sale_price' => $var->sale_price ? floatval($var->sale_price) : null,
-                    'stock' => intval($var->stock ?? 0),
-                    'attributes' => is_array($attributes) ? $attributes : (array) $attributes,
-                    'image' => $cleanImagePath ? url(Storage::url($cleanImagePath)) : null,
-                ];
-            }
-        }
+        Log::info('Final attributes count: ' . count($formattedAttributes));
+        Log::info('Final attributes: ' . json_encode($formattedAttributes));
         
         return [
             'id' => $product->id,
@@ -136,43 +248,16 @@ class APIProductController extends Controller
                 return $cleanPath ? url(Storage::url($cleanPath)) : null;
             })->filter()->toArray() : [],
             'product_attributes' => $formattedAttributes,
-            'product_variations' => $formattedVariations,
+            'product_variations' => $this->formatProductVariations($product->variations),
         ];
     }
 
     /**
-     * Format attribute values properly
-     */
-    private function formatAttributeValues($values)
-    {
-        if (is_string($values)) {
-            try {
-                $decoded = json_decode($values, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    return $decoded;
-                }
-            } catch (\Exception $e) {
-                // If not JSON, try comma-separated
-                return array_map('trim', explode(',', $values));
-            }
-        } elseif (is_array($values)) {
-            return $values;
-        }
-        
-        return [];
-    }
-
-    /**
      * Get a list of products with optional filters and limit.
-     * Stock is always calculated from inventory in real-time
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
     {
         $query = Product::query()
-            ->select('id', 'title', 'sku', 'stock', 'price', 'sale_price', 'thumbnail', 'description', 'product_type', 'sold_quantity', 'is_featured', 'category_id', 'brand_id')
             ->with([
                 'category:id,name',
                 'brand:id,name,logo',
@@ -215,37 +300,6 @@ class APIProductController extends Controller
             $query->where('price', '<=', $request->max_price);
         }
 
-        // Optional stock status filter
-        if ($request->has('stock_status')) {
-            $products = $query->get();
-            $filteredProducts = $products->filter(function ($product) use ($request) {
-                $realStock = $this->calculateProductStock($product->id);
-                $status = $this->getStockStatus($realStock);
-                return $status === $request->stock_status;
-            });
-            
-            // Apply pagination manually
-            $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
-            $page = $request->input('page', 1);
-            $offset = ($page - 1) * $perPage;
-            $paginatedProducts = $filteredProducts->slice($offset, $perPage)->values();
-            
-            $formattedProducts = $paginatedProducts->map(function ($product) {
-                return $this->formatProductData($product);
-            });
-
-            return response()->json([
-                'success' => true,
-                'data' => $formattedProducts,
-                'pagination' => [
-                    'current_page' => (int) $page,
-                    'last_page' => ceil($filteredProducts->count() / $perPage),
-                    'total' => $filteredProducts->count(),
-                    'per_page' => $perPage,
-                ],
-            ]);
-        }
-
         try {
             // Handle limit parameter
             if ($request->has('limit') && $request->limit != -1) {
@@ -286,6 +340,7 @@ class APIProductController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
+            Log::error('Failed to fetch products: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch products: ' . $e->getMessage(),
@@ -295,15 +350,13 @@ class APIProductController extends Controller
 
     /**
      * Get a single product by ID with real-time stock calculation
-     *
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
      */
     public function show($id)
     {
         try {
+            Log::info('Fetching product ID: ' . $id);
+            
             $product = Product::query()
-                ->select('id', 'title', 'sku', 'stock', 'price', 'sale_price', 'thumbnail', 'description', 'product_type', 'sold_quantity', 'is_featured', 'category_id', 'brand_id')
                 ->with([
                     'category:id,name',
                     'brand:id,name,logo',
@@ -320,6 +373,7 @@ class APIProductController extends Controller
                 'data' => $formattedProduct,
             ]);
         } catch (\Exception $e) {
+            Log::error('Product not found: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Product not found: ' . $e->getMessage(),
@@ -329,17 +383,13 @@ class APIProductController extends Controller
 
     /**
      * Create a new product.
-     * IMPORTANT: Stock should be managed through inventory system
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'sku' => 'required|string|unique:products,sku',
-            'stock' => 'integer|min:0', // Stock is optional - managed by inventory
+            'stock' => 'integer|min:0',
             'price' => 'required|numeric|min:0',
             'sale_price' => 'nullable|numeric|min:0',
             'thumbnail' => 'nullable|string',
@@ -372,39 +422,15 @@ class APIProductController extends Controller
         }
 
         try {
-            // Create product with initial stock (0 by default)
+            // Create product with initial stock
             $productData = $request->only([
                 'title', 'sku', 'price', 'sale_price', 'thumbnail', 'description',
                 'product_type', 'sold_quantity', 'is_featured', 'category_id', 'brand_id'
             ]);
             
-            // Set initial stock from request or default to 0
             $productData['stock'] = $request->stock ?? 0;
             
             $product = Product::create($productData);
-
-            // If initial stock is provided, create an inventory transaction
-            if ($request->has('stock') && $request->stock > 0) {
-                $defaultLocation = \App\Models\StockLocation::where('is_default', true)->first();
-                
-                if ($defaultLocation) {
-                    Stock::create([
-                        'product_id' => $product->id,
-                        'stock_location_id' => $defaultLocation->id,
-                        'user_id' => auth()->id() ?? 1,
-                        'type' => 'in',
-                        'quantity' => $request->stock,
-                        'previous_quantity' => 0,
-                        'new_quantity' => $request->stock,
-                        'unit_cost' => $product->price,
-                        'total_cost' => $product->price * $request->stock,
-                        'reference_number' => 'API-INIT-' . date('YmdHis'),
-                        'reference_type' => 'initial',
-                        'notes' => 'Initial stock from API creation',
-                        'transaction_date' => now(),
-                    ]);
-                }
-            }
 
             // Handle images
             if ($request->has('images')) {
@@ -448,6 +474,7 @@ class APIProductController extends Controller
                 'message' => 'Product created successfully',
             ], 201);
         } catch (\Exception $e) {
+            Log::error('Failed to create product: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create product: ' . $e->getMessage(),
@@ -456,108 +483,7 @@ class APIProductController extends Controller
     }
 
     /**
-     * Update specific fields of a product.
-     * Stock updates are handled through inventory system
-     *
-     * @param Request $request
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function updateSingleField(Request $request, $id)
-    {
-        try {
-            $product = Product::findOrFail($id);
-
-            $validator = Validator::make($request->all(), [
-                'title' => 'string|max:255',
-                'sku' => 'string|unique:products,sku,' . $id,
-                'stock' => 'integer|min:0', // Note: Not recommended to update directly
-                'price' => 'numeric|min:0',
-                'sale_price' => 'nullable|numeric|min:0',
-                'thumbnail' => 'nullable|string',
-                'description' => 'nullable|string',
-                'product_type' => 'string',
-                'sold_quantity' => 'integer|min:0',
-                'is_featured' => 'boolean',
-                'category_id' => 'nullable|exists:categories,id',
-                'brand_id' => 'nullable|exists:brands,id',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            // If updating stock, create inventory transaction
-            if ($request->has('stock')) {
-                $currentStock = $this->calculateProductStock($product->id);
-                $newStock = $request->stock;
-                
-                if ($newStock != $currentStock) {
-                    $adjustment = $newStock - $currentStock;
-                    
-                    if ($adjustment != 0) {
-                        $defaultLocation = \App\Models\StockLocation::where('is_default', true)->first();
-                        
-                        if ($defaultLocation) {
-                            $type = $adjustment > 0 ? 'in' : 'out';
-                            $quantity = abs($adjustment);
-                            
-                            Stock::create([
-                                'product_id' => $product->id,
-                                'stock_location_id' => $defaultLocation->id,
-                                'user_id' => auth()->id() ?? 1,
-                                'type' => $type,
-                                'quantity' => $quantity,
-                                'previous_quantity' => $currentStock,
-                                'new_quantity' => $newStock,
-                                'unit_cost' => $product->price,
-                                'total_cost' => $product->price * $quantity,
-                                'reference_number' => 'API-ADJ-' . date('YmdHis'),
-                                'reference_type' => 'adjustment',
-                                'adjustment_reason' => 'Stock update via API',
-                                'notes' => 'Stock updated via API single field update',
-                                'transaction_date' => now(),
-                            ]);
-                        }
-                    }
-                    
-                    // Remove stock from request since it's handled
-                    $request->request->remove('stock');
-                }
-            }
-
-            // Update other fields
-            $product->update($request->only([
-                'title', 'sku', 'price', 'sale_price', 'thumbnail', 'description',
-                'product_type', 'sold_quantity', 'is_featured', 'category_id', 'brand_id'
-            ]));
-
-            // Format response with real-time stock
-            $formattedProduct = $this->formatProductData($product->fresh());
-
-            return response()->json([
-                'success' => true,
-                'data' => $formattedProduct,
-                'message' => 'Product updated successfully',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found: ' . $e->getMessage(),
-            ], 404);
-        }
-    }
-
-    /**
-     * Fully update a product.
-     *
-     * @param Request $request
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
+     * Update a product.
      */
     public function update(Request $request, $id)
     {
@@ -567,7 +493,7 @@ class APIProductController extends Controller
             $validator = Validator::make($request->all(), [
                 'title' => 'required|string|max:255',
                 'sku' => 'required|string|unique:products,sku,' . $id,
-                'stock' => 'integer|min:0', // Optional - managed by inventory
+                'stock' => 'integer|min:0',
                 'price' => 'required|numeric|min:0',
                 'sale_price' => 'nullable|numeric|min:0',
                 'thumbnail' => 'nullable|string',
@@ -597,47 +523,6 @@ class APIProductController extends Controller
                     'message' => 'Validation failed',
                     'errors' => $validator->errors(),
                 ], 422);
-            }
-
-            // Handle stock update through inventory system
-            if ($request->has('stock')) {
-                $currentStock = $this->calculateProductStock($product->id);
-                $newStock = $request->stock;
-                
-                if ($newStock != $currentStock) {
-                    $adjustment = $newStock - $currentStock;
-                    
-                    if ($adjustment != 0) {
-                        $defaultLocation = \App\Models\StockLocation::where('is_default', true)->first();
-                        
-                        if ($defaultLocation) {
-                            $type = $adjustment > 0 ? 'in' : 'out';
-                            $quantity = abs($adjustment);
-                            
-                            Stock::create([
-                                'product_id' => $product->id,
-                                'stock_location_id' => $defaultLocation->id,
-                                'user_id' => auth()->id() ?? 1,
-                                'type' => $type,
-                                'quantity' => $quantity,
-                                'previous_quantity' => $currentStock,
-                                'new_quantity' => $newStock,
-                                'unit_cost' => $product->price,
-                                'total_cost' => $product->price * $quantity,
-                                'reference_number' => 'API-FULL-' . date('YmdHis'),
-                                'reference_type' => 'adjustment',
-                                'adjustment_reason' => 'Stock update via API',
-                                'notes' => 'Stock updated via API full update',
-                                'transaction_date' => now(),
-                            ]);
-                        }
-                    }
-                    
-                    // Remove stock from request
-                    $requestData = $request->all();
-                    unset($requestData['stock']);
-                    $request->replace($requestData);
-                }
             }
 
             // Update product
@@ -691,6 +576,7 @@ class APIProductController extends Controller
                 'message' => 'Product updated successfully',
             ]);
         } catch (\Exception $e) {
+            Log::error('Product not found: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Product not found: ' . $e->getMessage(),
@@ -699,10 +585,60 @@ class APIProductController extends Controller
     }
 
     /**
+     * Diagnostic endpoint to check product data structure
+     */
+    public function diagnose($id)
+    {
+        try {
+            $product = Product::with(['attributes', 'variations'])->findOrFail($id);
+            
+            // Check database directly
+            $attributesFromDB = \DB::table('product_attributes')
+                ->where('product_id', $id)
+                ->get();
+                
+            $variationsFromDB = \DB::table('product_variations')
+                ->where('product_id', $id)
+                ->get();
+                
+            // Extract attributes from variations
+            $extractedAttributes = $this->extractAttributesFromVariations($product->variations);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'product_id' => $id,
+                    'title' => $product->title,
+                    'product_type' => $product->product_type,
+                    'database_check' => [
+                        'attributes_table_count' => $attributesFromDB->count(),
+                        'attributes_table_data' => $attributesFromDB,
+                        'variations_table_count' => $variationsFromDB->count(),
+                        'variations_table_data' => $variationsFromDB,
+                    ],
+                    'eloquent_check' => [
+                        'attributes_count' => $product->attributes ? $product->attributes->count() : 0,
+                        'attributes_data' => $product->attributes,
+                        'variations_count' => $product->variations ? $product->variations->count() : 0,
+                        'variations_data' => $product->variations,
+                    ],
+                    'extracted_attributes' => $extractedAttributes,
+                    'api_response_sample' => [
+                        'product_attributes' => $this->formatProductAttributes($product->attributes),
+                        'extracted_product_attributes' => $extractedAttributes,
+                    ]
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Upload an image file for products.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      */
     public function uploadFile(Request $request)
     {
@@ -736,6 +672,7 @@ class APIProductController extends Controller
                 'message' => 'No image file provided',
             ], 400);
         } catch (\Exception $e) {
+            Log::error('Failed to upload image: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload image: ' . $e->getMessage(),
