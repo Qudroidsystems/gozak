@@ -2,13 +2,10 @@
 
 namespace App\Models;
 
-use App\Models\Order;
-use App\Models\Stock;
 use App\Models\Address;
-use App\Models\Setting;
-use App\Models\WishlistItem;
 use Laravel\Sanctum\HasApiTokens;
 use App\Notifications\VerifyEmail;
+use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -16,12 +13,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasApiTokens, HasFactory, Notifiable, HasRoles; // ← ADD HasRoles HERE
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
     protected $fillable = [
         'role',
         'first_name',
-        'last_name',
+        'last_name', 
         'username',
         'email',
         'phone_number',
@@ -31,18 +28,17 @@ class User extends Authenticatable implements MustVerifyEmail
         'date_of_birth',
         'password',
         'email_verified_at',
+        // Notification fields
         'fcm_tokens',
         'push_notifications_enabled',
         'order_updates_enabled',
-        'promotional_notifications_enabled',
+        'promotional_notifications_enabled', 
         'security_alerts_enabled',
         'email_notifications_enabled',
         'last_device_platform',
         'last_app_version',
         'quiet_hours_start',
         'quiet_hours_end',
-        'last_notification_at',
-        'notification_count',
     ];
 
     protected $hidden = [
@@ -53,21 +49,20 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'date_of_birth'     => 'date',
-        'created_at'        => 'datetime',
-        'updated_at'        => 'datetime',
+        'date_of_birth'    => 'date',
+        'created_at'       => 'datetime',
+        'updated_at'       => 'datetime',
         'last_notification_at' => 'datetime',
-        'fcm_tokens'        => 'array',
+        'fcm_tokens' => 'array',
         'push_notifications_enabled' => 'boolean',
-        'order_updates_enabled'      => 'boolean',
+        'order_updates_enabled' => 'boolean',
         'promotional_notifications_enabled' => 'boolean',
-        'security_alerts_enabled'    => 'boolean',
+        'security_alerts_enabled' => 'boolean',
         'email_notifications_enabled' => 'boolean',
-        'quiet_hours_start' => 'datetime:H:i',
-        'quiet_hours_end'   => 'datetime:H:i',
+        'quiet_hours_start' => 'datetime',
+        'quiet_hours_end' => 'datetime',
     ];
 
-    // Relationships
     public function addresses()
     {
         return $this->hasMany(Address::class);
@@ -88,30 +83,24 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(WishlistItem::class);
     }
 
-    public function stocks()
+    public function notifications()
     {
-        return $this->hasMany(Stock::class);
+        return $this->hasMany(Notification::class)->latest();
     }
 
-    // Accessors
+    public function unreadNotifications()
+    {
+        return $this->notifications()->where('read_at', null);
+    }
+
     public function getFullNameAttribute(): string
     {
         return trim("{$this->first_name} {$this->last_name}");
     }
 
-    public function getNameAttribute(): string
-    {
-        return $this->getFullNameAttribute();
-    }
 
-    public function setNameAttribute($value): void
-    {
-        $parts = explode(' ', trim($value), 2);
-        $this->attributes['first_name'] = $parts[0] ?? '';
-        $this->attributes['last_name']  = $parts[1] ?? '';
-    }
 
-    // Scopes — Critical for your CustomerController
+    // Scopes — THIS IS KEY
     public function scopeCustomers($query)
     {
         return $query->where('role', 'user');
@@ -128,33 +117,51 @@ class User extends Authenticatable implements MustVerifyEmail
                      ->withSum('orders', 'total_amount');
     }
 
-    // FCM & Notification Methods
+    
+    public function getNameAttribute(): string
+    {
+        return $this->getFullNameAttribute();
+    }
+
+    public function setNameAttribute($value): void
+    {
+        $parts = explode(' ', trim($value), 2);
+        $this->attributes['first_name'] = $parts[0] ?? '';
+        $this->attributes['last_name']  = $parts[1] ?? '';
+    }
+
     public function addFcmToken(string $token, string $deviceId, string $platform = 'flutter', string $appVersion = '1.0.0'): void
     {
         $tokens = $this->fcm_tokens ?? [];
-        $tokens = array_filter($tokens, fn($item) => $item['device_id'] !== $deviceId);
-
+        
+        $tokens = array_filter($tokens, function($item) use ($deviceId) {
+            return $item['device_id'] !== $deviceId;
+        });
+        
         $tokens[] = [
-            'token'       => $token,
-            'device_id'   => $deviceId,
-            'platform'    => $platform,
+            'token' => $token,
+            'device_id' => $deviceId,
+            'platform' => $platform,
             'app_version' => $appVersion,
-            'added_at'    => now()->toISOString(),
-            'last_used_at'=> now()->toISOString(),
+            'added_at' => now()->toISOString(),
+            'last_used_at' => now()->toISOString(),
         ];
-
+        
         $this->update([
-            'fcm_tokens'           => $tokens,
+            'fcm_tokens' => $tokens,
             'last_device_platform' => $platform,
-            'last_app_version'     => $appVersion,
+            'last_app_version' => $appVersion,
         ]);
     }
 
     public function removeFcmToken(string $deviceId): void
     {
         $tokens = $this->fcm_tokens ?? [];
-        $tokens = array_filter($tokens, fn($item) => $item['device_id'] !== $deviceId);
-        $this->update(['fcm_tokens' => array_values($tokens)]);
+        $tokens = array_filter($tokens, function($item) use ($deviceId) {
+            return $item['device_id'] !== $deviceId;
+        });
+        
+        $this->update(['fcm_tokens' => $tokens]);
     }
 
     public function clearAllFcmTokens(): void
@@ -172,65 +179,113 @@ class User extends Authenticatable implements MustVerifyEmail
         return !empty($this->getActiveFcmTokens());
     }
 
+    /**
+     * Check if user can receive push notifications
+     */
     public function canReceivePushNotifications(string $type = 'general'): bool
     {
-        if (!($this->push_notifications_enabled ?? true)) return false;
+        // Check global notification setting
+        if (!($this->push_notifications_enabled ?? true)) {
+            return false;
+        }
 
-        return match ($type) {
-            'order_update'  => $this->order_updates_enabled ?? true,
-            'promotional'   => $this->promotional_notifications_enabled ?? false,
-            'security'      => $this->security_alerts_enabled ?? true,
-            default         => true,
-        } && !$this->isInQuietHours() && $this->hasActiveFcmTokens();
+        // Check type-specific settings
+        switch ($type) {
+            case 'order_update':
+                if (!($this->order_updates_enabled ?? true)) return false;
+                break;
+            case 'promotional':
+                if (!($this->promotional_notifications_enabled ?? false)) return false;
+                break;
+            case 'security':
+                if (!($this->security_alerts_enabled ?? true)) return false;
+                break;
+        }
+
+        // Check quiet hours
+        if ($this->isInQuietHours()) {
+            return false;
+        }
+
+        return $this->hasActiveFcmTokens();
     }
+
 
     public function canReceiveEmailNotifications(string $type = 'general'): bool
     {
-        return ($this->email_notifications_enabled ?? true) && $this->hasVerifiedEmail();
+        if (!($this->email_notifications_enabled ?? true)) {
+            return false;
+        }
+
+        return !empty($this->email) && $this->hasVerifiedEmail();
     }
 
+    /**
+     * Check if current time is within user's quiet hours
+     */
     public function isInQuietHours(): bool
     {
-        if (!$this->quiet_hours_start || !$this->quiet_hours_end) return false;
+        if (!$this->quiet_hours_start || !$this->quiet_hours_end) {
+            return false;
+        }
 
-        $now   = now()->format('H:i');
-        $start = $this->quiet_hours_start->format('H:i');
-        $end   = $this->quiet_hours_end->format('H:i');
+        $now = now();
+        $start = $this->quiet_hours_start;
+        $end = $this->quiet_hours_end;
 
+        // Handle overnight quiet hours
         if ($start < $end) {
-            return $now >= $start && $now <= $end;
+            return $now->between($start, $end);
         } else {
             return $now >= $start || $now <= $end;
         }
     }
 
+
     public function recordNotificationSent(): void
     {
         $this->update([
             'last_notification_at' => now(),
-            'notification_count'   => ($this->notification_count ?? 0) + 1,
+            'notification_count' => ($this->notification_count ?? 0) + 1,
         ]);
     }
-
+    /**
+     * Get the user's notification preferences
+     */
     public function getNotificationPreferences(): array
     {
         return [
             'push_notifications_enabled' => $this->push_notifications_enabled ?? true,
-            'order_updates_enabled'      => $this->order_updates_enabled ?? true,
+            'order_updates_enabled' => $this->order_updates_enabled ?? true,
             'promotional_notifications_enabled' => $this->promotional_notifications_enabled ?? false,
-            'security_alerts_enabled'    => $this->security_alerts_enabled ?? true,
+            'security_alerts_enabled' => $this->security_alerts_enabled ?? true,
             'email_notifications_enabled' => $this->email_notifications_enabled ?? true,
             'quiet_hours' => [
                 'start' => $this->quiet_hours_start?->format('H:i'),
-                'end'   => $this->quiet_hours_end?->format('H:i'),
+                'end' => $this->quiet_hours_end?->format('H:i'),
             ],
             'has_active_tokens' => $this->hasActiveFcmTokens(),
-            'device_count'      => count($this->fcm_tokens ?? []),
+            'device_count' => count($this->fcm_tokens ?? []),
         ];
     }
+
 
     public function sendEmailVerificationNotification()
     {
         $this->notify(new VerifyEmail);
+    }
+
+     /**
+     * Get the stocks created by this user.
+     */
+    public function stocks()
+    {
+        return $this->hasMany(Stock::class);
+    }
+
+    // User.php
+    public function scopeCustomers($query)
+    {
+        return $query->where('role', 'user');
     }
 }
