@@ -166,4 +166,47 @@ class OrderController extends Controller
             default => 'bg-secondary-subtle text-secondary',
         };
     }
+
+
+
+    public function addNote(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+        OrderNote::create([
+            'order_id' => $order->id,
+            'user_id' => auth()->id(),
+            'note' => $request->note,
+            'is_customer_visible' => $request->boolean('is_customer_visible'),
+        ]);
+
+        return back()->with('success', 'Note added');
+    }
+
+    public function refund(Request $request, $id)
+    {
+        $order = Order::findOrFail($id);
+        $amount = $request->amount;
+
+        if ($amount > $order->refundableAmount()) {
+            return back()->with('error', 'Refund amount too high');
+        }
+
+        Refund::create([
+            'order_id' => $order->id,
+            'user_id' => auth()->id(),
+            'amount' => $amount,
+            'reason' => $request->reason,
+            'status' => 'processed',
+            'processed_at' => now(),
+        ]);
+
+        return back()->with('success', 'Refund processed');
+    }
+
+    public function packingSlip($id)
+    {
+        $order = Order::with('items', 'shippingAddress')->findOrFail($id);
+        $pdf = Pdf::loadView('orders.packing-slip', compact('order'));
+        return $pdf->stream("packing-slip-{$order->invoice_number}.pdf");
+    }
 }

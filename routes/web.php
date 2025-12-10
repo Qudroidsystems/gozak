@@ -176,6 +176,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('{order}/status', [OrderController::class, 'updateStatus'])->name('status');
         Route::get('{order}/invoice', [OrderController::class, 'invoice'])->name('invoice');
         Route::post('{order}/email-invoice', [OrderController::class, 'emailInvoice'])->name('emailInvoice');
+        Route::post('{order}/note', [OrderController::class, 'addNote'])->name('note');
+        Route::post('{order}/refund', [OrderController::class, 'refund'])->name('refund');
+        Route::get('{order}/packing-slip', [OrderController::class, 'packingSlip'])->name('packing-slip');
         // routes/web.php
         Route::get('/export', [OrderController::class, 'export'])->name('orders.export');
     });

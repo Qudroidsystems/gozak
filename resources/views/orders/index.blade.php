@@ -12,7 +12,7 @@
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0">{{ $pagetitle ?? 'Order Management' }}</h4>
+                        <h4 class="mb-sm-0">Order Management</h4>
                         <ol class="breadcrumb m-0">
                             <li class="breadcrumb-item"><a href="javascript:void(0)">Ecommerce</a></li>
                             <li class="breadcrumb-item active">Orders</li>
@@ -40,6 +40,7 @@
                         </div>
                     </div>
                 </div>
+
                 <div class="col-xl-3 col-md-6">
                     <div class="card card-animate bg-success-subtle border-0">
                         <div class="card-body">
@@ -57,16 +58,17 @@
                         </div>
                     </div>
                 </div>
+
                 <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-info-subtle border-0">
+                    <div class="card card-animate bg-warning-subtle border-0">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
-                                    <p class="text-uppercase fw-medium text-info mb-0">Pending Orders</p>
+                                    <p class="text-uppercase fw-medium text-warning mb-0">Pending Orders</p>
                                     <h4 class="fs-22 fw-semibold mb-0">{{ $stats['pending'] }}</h4>
                                 </div>
                                 <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title bg-info rounded-circle fs-3">
+                                    <span class="avatar-title bg-warning rounded-circle fs-3">
                                         <i class="bi bi-hourglass-split"></i>
                                     </span>
                                 </div>
@@ -74,17 +76,18 @@
                         </div>
                     </div>
                 </div>
+
                 <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate {{ $stats['low_stock_count'] > 0 ? 'bg-danger-subtle' : 'bg-secondary-subtle' }} border-0">
+                    <div class="card card-animate bg-danger-subtle border-0">
                         <div class="card-body">
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
-                                    <p class="text-uppercase fw-medium {{ $stats['low_stock_count'] > 0 ? 'text-danger' : 'text-secondary' }} mb-0">Low Stock Alert</p>
-                                    <h4 class="fs-22 fw-semibold mb-0 {{ $stats['low_stock_count'] > 0 ? 'text-danger' : 'text-secondary' }}">{{ $stats['low_stock_count'] ?? 0 }}</h4>
+                                    <p class="text-uppercase fw-medium text-danger mb-0">Unpaid Orders</p>
+                                    <h4 class="fs-22 fw-semibold mb-0">{{ $stats['unpaid'] }}</h4>
                                 </div>
                                 <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title {{ $stats['low_stock_count'] > 0 ? 'bg-danger' : 'bg-secondary' }} rounded-circle fs-3">
-                                        <i class="bi bi-exclamation-triangle-fill text-white"></i>
+                                    <span class="avatar-title bg-danger rounded-circle fs-3">
+                                        <i class="bi bi-credit-card-2-back text-white"></i>
                                     </span>
                                 </div>
                             </div>
@@ -93,7 +96,7 @@
                 </div>
             </div>
 
-            <!-- Charts Row -->
+            <!-- Charts -->
             <div class="row mt-4">
                 <div class="col-xl-8">
                     <div class="card">
@@ -117,42 +120,40 @@
                 </div>
             </div>
 
-            <!-- Filters & Search -->
+            <!-- Filters -->
             <div class="row mt-4">
                 <div class="col-lg-12">
                     <div class="card">
                         <div class="card-body">
-                            <form action="{{ route('orders.index') }}" method="GET">
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <input type="text" name="search" class="form-control" placeholder="Search by Invoice, ID, Customer..." value="{{ request('search') }}">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <select name="status" class="form-select">
-                                            <option value="">All Status</option>
-                                            @foreach(['pending','processing','shipped','delivered','cancelled'] as $s)
-                                                <option value="{{ $s }}" {{ request('status') == $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <select name="payment_status" class="form-select">
-                                            <option value="">All Payment</option>
-                                            <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>Paid</option>
-                                            <option value="unpaid" {{ request('payment_status') == 'unpaid' ? 'selected' : '' }}>Unpaid</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <input type="date" name="from" class="form-control" value="{{ request('from') }}" placeholder="From Date">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <input type="date" name="to" class="form-control" value="{{ request('to') }}" placeholder="To Date">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <button type="submit" class="btn btn-primary w-100">
-                                            <i class="bi bi-funnel"></i> Filter
-                                        </button>
-                                    </div>
+                            <form action="{{ route('orders.index') }}" method="GET" class="row g-3 align-items-end">
+                                <div class="col-md-3">
+                                    <input type="text" name="search" class="form-control" placeholder="Search Invoice / Customer..." value="{{ request('search') }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <select name="status" class="form-select">
+                                        <option value="">All Status</option>
+                                        @foreach(['pending','processing','shipped','delivered','cancelled'] as $s)
+                                            <option value="{{ $s }}" {{ request('status') == $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <select name="payment_status" class="form-select">
+                                        <option value="">Payment Status</option>
+                                        <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>Paid</option>
+                                        <option value="unpaid" {{ request('payment_status') == 'unpaid' ? 'selected' : '' }}>Unpaid</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="date" name="from" class="form-control" value="{{ request('from') }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="date" name="to" class="form-control" value="{{ request('to') }}">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="bi bi-funnel"></i> Filter
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -164,12 +165,17 @@
             <div class="row mt-4">
                 <div class="col-lg-12">
                     <div class="card">
-                        <div class="card-header d-flex align-items-center">
-                            <h5 class="card-title mb-0 flex-grow-1">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h5 class="card-title mb-0">
                                 Orders <span class="badge bg-dark-subtle text-dark ms-1">{{ $orders->total() }}</span>
                             </h5>
-                            <div>
-                                <button class="btn btn-subtle-danger d-none" id="remove-actions">Delete Selected</button>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-success" onclick="exportOrders('xlsx')">
+                                    Export Excel
+                                </button>
+                                <button type="button" class="btn btn-info" onclick="exportOrders('csv')">
+                                    Export CSV
+                                </button>
                             </div>
                         </div>
                         <div class="card-body">
@@ -177,7 +183,6 @@
                                 <table class="table table-centered align-middle table-nowrap mb-0">
                                     <thead class="table-active">
                                         <tr>
-                                            <th><input class="form-check-input" type="checkbox" id="checkAll"></th>
                                             <th>Invoice</th>
                                             <th>Customer</th>
                                             <th>Date</th>
@@ -188,23 +193,18 @@
                                             <th>Action</th>
                                         </tr>
                                     </thead>
-                                    <tbody class="list form-check-all">
+                                    <tbody>
                                         @forelse($orders as $order)
                                         <tr>
                                             <td>
-                                                <div class="form-check">
-                                                    <input class="form-check-input bulk-checkbox" type="checkbox" value="{{ $order->id }}">
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <a href="{{ route('orders.show', $order->id) }}" class="fw-bold">
+                                                <a href="{{ route('orders.show', $order->id) }}" class="fw-bold text-primary">
                                                     {{ $order->invoice_number ?? substr($order->id, 0, 8) }}
                                                 </a>
                                             </td>
                                             <td>
                                                 <div class="d-flex align-items-center">
                                                     <div class="avatar-xs me-3">
-                                                        <div class="avatar-title bg-secondary-subtle rounded-circle">
+                                                        <div class="avatar-title bg-secondary-subtle rounded-circle text-uppercase">
                                                             {{ Str::substr($order->user->first_name, 0, 1) }}
                                                         </div>
                                                     </div>
@@ -215,7 +215,7 @@
                                                 </div>
                                             </td>
                                             <td>{{ $order->created_at->format('d M, Y') }}</td>
-                                            <td class="fw-bold">${{ number_format($order->total_amount, 2) }}</td>
+                                            <td class="fw-bold text-success">${{ number_format($order->total_amount, 2) }}</td>
                                             <td>
                                                 <span class="badge {{ $order->payment_status == 'paid' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' }}">
                                                     {{ ucfirst($order->payment_status) }}
@@ -244,19 +244,20 @@
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="9" class="text-center py-5 text-muted">No orders found</td>
+                                            <td colspan="8" class="text-center py-5 text-muted">No orders found.</td>
                                         </tr>
                                         @endforelse
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="row mt-3 align-items-center">
+
+                            <div class="row mt-4 align-items-center">
                                 <div class="col-sm">
                                     <div class="text-muted text-center text-sm-start">
-                                        Showing {{ $orders->firstItem() }} to {{ $orders->lastItem() }} of {{ $orders->total() }} Results
+                                        Showing {{ $orders->firstItem() }} to {{ $orders->lastItem() }} of {{ $orders->total() }} entries
                                     </div>
                                 </div>
-                                <div class="col-sm-auto mt-3 mt-sm-0">
+                                <div class="col-sm-auto">
                                     {!! $orders->appends(request()->query())->links('pagination::bootstrap-5') !!}
                                 </div>
                             </div>
@@ -269,7 +270,7 @@
     </div>
 </div>
 
-{{-- Charts Script --}}
+{{-- Scripts --}}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -277,17 +278,21 @@ document.addEventListener('DOMContentLoaded', function () {
     new Chart(document.getElementById('salesChart'), {
         type: 'line',
         data: {
-            labels: @json($analytics['sales_chart']['labels'] ?? []),
+            labels: @json($analytics['sales_chart']['labels']),
             datasets: [{
-                label: 'Sales ($)',
-                data: @json($analytics['sales_chart']['data'] ?? []),
+                label: 'Daily Sales ($)',
+                data: @json($analytics['sales_chart']['data']),
                 borderColor: '#0d6efd',
                 backgroundColor: 'rgba(13,110,253,0.1)',
                 tension: 0.4,
                 fill: true
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'top' } } }
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+        }
     });
 
     // Status Chart
@@ -296,29 +301,29 @@ document.addEventListener('DOMContentLoaded', function () {
         data: {
             labels: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
             datasets: [{
-                data: [
-                    {{ $stats['pending'] }},
-                    {{ $stats['processing'] }},
-                    {{ $stats['shipped'] }},
-                    {{ $stats['delivered'] }},
-                    {{ $stats['cancelled'] }}
-                ],
+                data: [{{ $stats['pending'] }}, {{ $stats['processing'] }}, {{ $stats['shipped'] }}, {{ $stats['delivered'] }}, {{ $stats['cancelled'] }}],
                 backgroundColor: ['#ffc107', '#0dcaf0', '#0d6efd', '#198754', '#dc3545']
             }]
         },
-        options: { responsive: true }
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
     });
 
     // Status Update
     document.querySelectorAll('.status-select').forEach(el => {
-        el.addEventListener('change', function() {
+        el.addEventListener('change', function () {
             axios.post(`/orders/${this.dataset.id}/status`, { status: this.value })
-                .then(() => Swal.fire('Success', 'Status updated!', 'success'))
+                .then(() => Swal.fire('Success', 'Status updated', 'success'))
                 .catch(() => this.value = this.dataset.previousValue || 'pending');
         });
     });
 
-    window.emailInvoice = function(id) {
+    window.exportOrders = (format) => {
+        const url = new URL('/orders/export', window.location.origin);
+        url.search = new URLSearchParams({ ...Object.fromEntries(new URLSearchParams(location.search)), format }).toString();
+        window.location = url;
+    };
+
+    window.emailInvoice = (id) => {
         axios.post(`/orders/${id}/email-invoice`)
             .then(() => Swal.fire('Sent!', 'Invoice emailed', 'success'))
             .catch(() => Swal.fire('Error', 'Failed to send', 'error'));

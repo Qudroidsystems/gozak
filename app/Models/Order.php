@@ -161,4 +161,25 @@ class Order extends Model
     {
         return in_array($this->status, ['pending', 'processing']);
     }
+
+
+    public function notes()
+    {
+        return $this->hasMany(OrderNote::class)->latest();
+    }
+
+    public function refunds()
+    {
+        return $this->hasMany(Refund::class)->latest();
+    }
+
+    public function totalRefunded()
+    {
+        return $this->refunds()->where('status', 'processed')->sum('amount');
+    }
+
+    public function refundableAmount()
+    {
+        return $this->total_amount - $this->totalRefunded();
+    }
 }
