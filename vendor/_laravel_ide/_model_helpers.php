@@ -10230,6 +10230,10 @@ namespace App\Models {
      * @property-read int|null $tokens_count
      * @property-read \Illuminate\Database\Eloquent\Collection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
      * @property-read int|null $notifications_count
+     * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Permission\Models\Role> $roles
+     * @property-read int|null $roles_count
+     * @property-read \Illuminate\Database\Eloquent\Collection<int, \Spatie\Permission\Models\Permission> $permissions
+     * @property-read int|null $permissions_count
      * @method static \Illuminate\Database\Eloquent\Builder<User>|User whereId($value)
      * @method static \Illuminate\Database\Eloquent\Builder<User>|User whereFirstName($value)
      * @method static \Illuminate\Database\Eloquent\Builder<User>|User whereLastName($value)
@@ -10264,6 +10268,10 @@ namespace App\Models {
      * @method static \Illuminate\Database\Eloquent\Builder<User>|User customers()
      * @method static \Illuminate\Database\Eloquent\Builder<User>|User staff()
      * @method static \Illuminate\Database\Eloquent\Builder<User>|User withOrderStats()
+     * @method static \Illuminate\Database\Eloquent\Builder<User>|User role()
+     * @method static \Illuminate\Database\Eloquent\Builder<User>|User withoutRole()
+     * @method static \Illuminate\Database\Eloquent\Builder<User>|User permission()
+     * @method static \Illuminate\Database\Eloquent\Builder<User>|User withoutPermission()
      * @method static \Illuminate\Database\Eloquent\Builder<User>|User newModelQuery()
      * @method static \Illuminate\Database\Eloquent\Builder<User>|User newQuery()
      * @method static \Illuminate\Database\Eloquent\Builder<User>|User query()
