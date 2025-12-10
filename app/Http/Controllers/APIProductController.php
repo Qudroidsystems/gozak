@@ -47,6 +47,9 @@ class APIProductController extends Controller
     }
 
     /**
+         * Format product data with real-time stock calculation
+         */
+    /**
      * Format product data with real-time stock calculation
      */
     private function formatProductData($product)
@@ -54,20 +57,71 @@ class APIProductController extends Controller
         // Calculate real-time stock
         $realStock = $this->calculateProductStock($product->id);
         
+        // Debug logging
+        \Log::info('Formatting product ID: ' . $product->id);
+        \Log::info('Product attributes count: ' . ($product->attributes ? $product->attributes->count() : 0));
+        \Log::info('Product variations count: ' . ($product->variations ? $product->variations->count() : 0));
+        
+        // Format attributes properly
+        $formattedAttributes = [];
+        if ($product->attributes) {
+            foreach ($product->attributes as $attr) {
+                \Log::info('Processing attribute: ' . $attr->name);
+                \Log::info('Attribute values: ' . json_encode($attr->values));
+                
+                $formattedAttributes[] = [
+                    'id' => $attr->id ?? null,
+                    'name' => $attr->name ?? '',
+                    'values' => $this->formatAttributeValues($attr->values),
+                ];
+            }
+        }
+        
+        // Format variations properly
+        $formattedVariations = [];
+        if ($product->variations) {
+            foreach ($product->variations as $var) {
+                $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : null;
+                
+                // Ensure attributes are properly formatted
+                $attributes = $var->attributes;
+                if (is_string($attributes)) {
+                    try {
+                        $attributes = json_decode($attributes, true);
+                    } catch (\Exception $e) {
+                        \Log::error('Error decoding variation attributes: ' . $e->getMessage());
+                        $attributes = [];
+                    }
+                }
+                
+                $formattedVariations[] = [
+                    'id' => $var->id ?? null,
+                    'sku' => $var->sku ?? '',
+                    'price' => floatval($var->price ?? 0.0),
+                    'sale_price' => $var->sale_price ? floatval($var->sale_price) : null,
+                    'stock' => intval($var->stock ?? 0),
+                    'attributes' => is_array($attributes) ? $attributes : (array) $attributes,
+                    'image' => $cleanImagePath ? url(Storage::url($cleanImagePath)) : null,
+                ];
+            }
+        }
+        
         return [
             'id' => $product->id,
             'title' => $product->title ?? '',
             'sku' => $product->sku ?? '',
-            'stock' => $realStock, // Always use calculated stock
-            'price' => $product->price ?? 0.0,
-            'sale_price' => $product->sale_price ?? null,
+            'stock' => $realStock,
+            'price' => floatval($product->price ?? 0.0),
+            'sale_price' => $product->sale_price ? floatval($product->sale_price) : null,
             'thumbnail' => $product->thumbnail ? url(Storage::url($product->thumbnail)) : null,
             'description' => $product->description ?? '',
             'product_type' => $product->product_type ?? '',
-            'sold_quantity' => $product->sold_quantity ?? 0,
-            'is_featured' => $product->is_featured ?? false,
+            'sold_quantity' => intval($product->sold_quantity ?? 0),
+            'is_featured' => boolval($product->is_featured ?? false),
             'category_id' => $product->category_id,
             'brand_id' => $product->brand_id,
+            'real_time_stock' => $realStock,
+            'stock_status' => $this->getStockStatus($realStock),
             'brand' => $product->brand ? [
                 'id' => $product->brand->id,
                 'name' => $product->brand->name ?? '',
@@ -81,27 +135,31 @@ class APIProductController extends Controller
                 $cleanPath = preg_replace('/^storage\//', '', $path);
                 return $cleanPath ? url(Storage::url($cleanPath)) : null;
             })->filter()->toArray() : [],
-            'product_attributes' => $product->attributes ? $product->attributes->map(function ($attr) {
-                return [
-                    'id' => $attr->id,
-                    'name' => $attr->name ?? '',
-                    'values' => $attr->values ?? [],
-                ];
-            })->toArray() : [],
-            'product_variations' => $product->variations ? $product->variations->map(function ($var) {
-                $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : null;
-                return [
-                    'id' => $var->id,
-                    'sku' => $var->sku ?? '',
-                    'price' => $var->price ?? 0.0,
-                    'sale_price' => $var->sale_price ?? null,
-                    'stock' => $var->stock ?? 0,
-                    'attributes' => $var->attributes ?? [],
-                    'image' => $cleanImagePath ? url(Storage::url($cleanImagePath)) : null,
-                ];
-            })->toArray() : [],
-            'stock_status' => $this->getStockStatus($realStock), // Add stock status
+            'product_attributes' => $formattedAttributes,
+            'product_variations' => $formattedVariations,
         ];
+    }
+
+    /**
+     * Format attribute values properly
+     */
+    private function formatAttributeValues($values)
+    {
+        if (is_string($values)) {
+            try {
+                $decoded = json_decode($values, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    return $decoded;
+                }
+            } catch (\Exception $e) {
+                // If not JSON, try comma-separated
+                return array_map('trim', explode(',', $values));
+            }
+        } elseif (is_array($values)) {
+            return $values;
+        }
+        
+        return [];
     }
 
     /**
