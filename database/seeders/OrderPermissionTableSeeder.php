@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 
-class ProductPermissionTableSeeder extends Seeder
+class OrderPermissionTableSeeder extends Seeder
 {
     // database/seeders/OrderPermissionSeeder.php
     public function run(): void
