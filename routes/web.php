@@ -6,6 +6,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\APIAuthController;
 use App\Http\Controllers\BiodataController;
@@ -165,4 +166,16 @@ Route::middleware(['auth'])->group(function () {
     // Sync product stock (admin only)
     Route::post('/inventory/sync-stocks', [InventoryController::class, 'syncAllProductStocks'])
         ->name('inventory.sync-stocks');
-});
+
+
+
+    Route::prefix('orders')->name('orders.')->group(function () {
+        Route::get('/', [OrderController::class, 'index'])->name('index');
+        Route::get('{order}', [OrderController::class, 'show'])->name('show');
+        Route::post('{order}/status', [OrderController::class, 'updateStatus'])->name('status');
+        Route::get('{order}/invoice', [OrderController::class, 'invoice'])->name('invoice');
+        Route::post('{order}/email-invoice', [OrderController::class, 'emailInvoice'])->name('emailInvoice');
+    });
+
+    
+    });

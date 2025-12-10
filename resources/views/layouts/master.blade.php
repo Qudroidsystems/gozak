@@ -58,11 +58,13 @@
     @if (Route::is('products.*'))
         @include('layouts.pages-assets.css.users-list-css')
     @endif
-    
-    <!-- Add CSS includes for inventory routes -->
+
     @if (Route::is('inventory.*') || Route::is('stock-locations.*'))
          @include('layouts.pages-assets.css.users-list-css')
-        {{-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css"> --}}
+    @endif
+
+     @if (Route::is('orders.*'))
+         @include('layouts.pages-assets.css.users-list-css')
     @endif
     
 </head>
@@ -311,6 +313,21 @@
                                     <ul class="nav nav-sm flex-column">
                                         <li class="nav-item">
                                             <a href="{{ route('reviews.index') }}" class="nav-link" role="button" data-key="t-signin"> Product Reviews </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        @endcan
+
+                         @can('View order')
+                            <li class="nav-item">
+                                <a class="nav-link menu-link collapsed" href="#sidebarreviews" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarreviews">
+                                    <i class="ph-star"></i> <span data-key="t-authentication">Orders Management</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="sidebarreviews">
+                                    <ul class="nav nav-sm flex-column">
+                                        <li class="nav-item">
+                                            <a href="{{ route('orders.index') }}" class="nav-link" role="button" data-key="t-signin"> Orders </a>
                                         </li>
                                     </ul>
                                 </div>
@@ -1297,14 +1314,14 @@
             @include('layouts.pages-assets.js.product-list-js')
       @endif
 
-       <!-- Add JavaScript includes for inventory routes -->
-        @if (Route::is('inventory.*') || Route::is('stock-locations.*'))
+     @if (Route::is('inventory.*') || Route::is('stock-locations.*'))
                 @include('layouts.pages-assets.js.inventory-list-js')
-            {{-- <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-            <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-            <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script> --}}
-        @endif
+     @endif
+
+     @if (Route::is('orders.*'))
+                @include('layouts.pages-assets.js.order-list-js')
+     @endif
+
       </body>
       
       </html>
