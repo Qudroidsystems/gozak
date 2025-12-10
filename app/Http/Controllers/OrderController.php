@@ -87,7 +87,7 @@ class OrderController extends Controller
             $format === 'csv' ? \Maatwebsite\Excel\Excel::CSV : \Maatwebsite\Excel\Excel::XLSX
         );
     }
-    }
+    
 
     public function show($id)
     {
