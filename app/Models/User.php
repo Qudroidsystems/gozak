@@ -261,4 +261,10 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Stock::class);
     }
+
+    // User.php
+    public function scopeCustomers($query)
+    {
+        return $query->where('role', 'user');
+    }
 }
