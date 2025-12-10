@@ -61,11 +61,11 @@ class OrderController extends Controller
             'transactions'
         ])->findOrFail($id);
 
-        $pagetitle = "Order #{$order->invoice_number ?? substr($order->id, 0, 8)}";
+        $invoiceDisplay = $order->invoice_number ?? substr($order->id, 0, 8);
+        $pagetitle = "Order #{$invoiceDisplay}";
 
-        return view('wiąz.orders.show', compact('order', 'pagetitle'));
+        return view('orders.show', compact('order', 'pagetitle'));
     }
-
     public function updateStatus(Request $request, $id)
     {
         $request->validate(['status' => 'required|in:pending,processing,shipped,delivered,cancelled']);
