@@ -17,7 +17,7 @@ return new class extends Migration
                 ->after('status');
 
             $table->timestamp('paid_at')->nullable()->after('payment_status');
-            $table->string('invoice_number')->nullable()->unique()->after('id');
+            // $table->string('invoice_number')->nullable()->unique()->after('id');
             
             $table->index('payment_status');
             $table->index('status');
