@@ -66,6 +66,10 @@
      @if (Route::is('orders.*'))
          @include('layouts.pages-assets.css.users-list-css')
     @endif
+
+    @if (Route::is('customers.*'))
+         @include('layouts.pages-assets.css.users-list-css')
+    @endif
     
 </head>
 
