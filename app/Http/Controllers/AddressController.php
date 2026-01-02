@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Address;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class AddressController extends Controller
 {
@@ -15,47 +14,49 @@ class AddressController extends Controller
         $this->middleware('permission:Manage addresses', ['only' => ['store', 'update', 'destroy']]);
     }
 
-public function index(Request $request)
-{
-    $query = Address::with('user:id,first_name,last_name,email')->latest();
+    public function index(Request $request)
+    {
+        $query = Address::with('user:id,first_name,last_name,email')->latest();
 
-    if ($request->filled('search')) {
-        $search = $request->search;
-        $query->where(function ($q) use ($search) {
-            $q->where('street', 'like', "%{$search}%")
-              ->orWhere('city', 'like', "%{$search}%")
-              ->orWhere('postal_code', 'like', "%{$search}%")
-              ->orWhere('phone_number', 'like', "%{$search}%")
-              ->orWhereHas('user', function ($q) use ($search) {
-                  $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                    ->orWhere('email', 'like', "%{$search}%");
-              });
-        });
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('street', 'like', "%{$search}%")
+                  ->orWhere('city', 'like', "%{$search}%")
+                  ->orWhere('state', 'like', "%{$search}%")
+                  ->orWhere('postal_code', 'like', "%{$search}%")
+                  ->orWhere('phone_number', 'like', "%{$search}%")
+                  ->orWhere('name', 'like', "%{$search}%")
+                  ->orWhereHas('user', function ($q) use ($search) {
+                      $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+                        ->orWhere('email', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($request->filled('customer_id')) {
+            $query->where('user_id', $request->customer_id);
+        }
+
+        $addresses = $query->paginate(15)->appends($request->all());
+        $customers = User::select('id', 'first_name', 'last_name', 'email')->orderBy('first_name')->get();
+
+        $pagetitle = 'Address Management';
+
+        // Return partial for AJAX (live search)
+        if ($request->ajax()) {
+            return view('addresses.partials.table', compact('addresses'))->render();
+        }
+
+        return view('addresses.index', compact('addresses', 'customers', 'pagetitle'));
     }
 
-    if ($request->filled('customer_id')) {
-        $query->where('user_id', $request->customer_id);
-    }
-
-    $addresses = $query->paginate(15)->appends($request->all());
-    $customers = User::select('id', 'first_name', 'last_name', 'email')->orderBy('first_name')->get();
-    $pagetitle = 'Address Management';
-
-    // ← IMPROVED AJAX HANDLING
-    if ($request->ajax()) {
-        return view('addresses.partials.table', compact('addresses'))->render();
-    }
-
-    return view('addresses.index', compact('addresses', 'customers', 'pagetitle'));
-}
-    // For AJAX View Modal
     public function show($id)
     {
         $address = Address::with('user')->findOrFail($id);
         return response()->json(['address' => $address]);
     }
 
-    // For AJAX Edit Modal
     public function edit($id)
     {
         $address = Address::with('user')->findOrFail($id);
@@ -125,7 +126,9 @@ public function index(Request $request)
 
         if ($address->is_default) {
             $newDefault = Address::where('user_id', $userId)->first();
-            if ($newDefault) $newDefault->update(['is_default' => true]);
+            if ($newDefault) {
+                $newDefault->update(['is_default' => true]);
+            }
         }
 
         return response()->json(['success' => true, 'message' => 'Address deleted successfully!']);

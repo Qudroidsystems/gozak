@@ -31,28 +31,18 @@
                     @endif
                 </td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-light border" onclick="viewAddress({{ $address->id }})" title="View">
-                        <i class="bi bi-eye-fill text-primary"></i>
-                    </button>
-                    <button class="btn btn-sm btn-light border" onclick="editAddress({{ $address->id }})" title="Edit">
-                        <i class="bi bi-pencil-fill text-warning"></i>
-                    </button>
-                    <button class="btn btn-sm btn-light border" onclick="deleteAddress({{ $address->id }})" title="Delete">
-                        <i class="bi bi-trash-fill text-danger"></i>
-                    </button>
+                    <button class="btn btn-sm btn-light border" onclick="viewAddress({{ $address->id }})" title="View"><i class="bi bi-eye-fill text-primary"></i></button>
+                    <button class="btn btn-sm btn-light border" onclick="editAddress({{ $address->id }})" title="Edit"><i class="bi bi-pencil-fill text-warning"></i></button>
+                    <button class="btn btn-sm btn-light border" onclick="deleteAddress({{ $address->id }})" title="Delete"><i class="bi bi-trash-fill text-danger"></i></button>
                 </td>
             </tr>
             @empty
-            <tr>
-                <td colspan="5" class="text-center py-5 text-muted">No addresses found.</td>
-            </tr>
+            <tr><td colspan="5" class="text-center py-5 text-muted">No addresses found.</td></tr>
             @endforelse
         </tbody>
     </table>
 </div>
 
 @if($addresses->hasPages())
-<div class="mt-4">
-    {!! $addresses->appends(request()->query())->links('pagination::bootstrap-5') !!}
-</div>
+<div class="mt-4">{!! $addresses->appends(request()->query())->links('pagination::bootstrap-5') !!}</div>
 @endif
