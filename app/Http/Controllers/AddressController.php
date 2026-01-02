@@ -17,6 +17,7 @@ class AddressController extends Controller
 
     public function index(Request $request)
     {
+        $pagetitle = 'Address Management'; // ← Add this
         $query = Address::with('user:id,first_name,last_name,email')->latest();
 
         if ($request->filled('search')) {
@@ -40,7 +41,7 @@ class AddressController extends Controller
         $addresses = $query->paginate(15)->appends($request->all());
         $customers = User::select('id', 'first_name', 'last_name', 'email')->orderBy('first_name')->get();
 
-        return view('addresses.index', compact('addresses', 'customers'));
+        return view('addresses.index', compact('addresses', 'customers','pagetitle'));
     }
 
     // For AJAX View Modal
