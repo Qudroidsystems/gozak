@@ -23,7 +23,7 @@ class OrderController extends Controller
         $this->middleware('permission:Manage order', ['only' => ['updateStatus']]);
     }
 
-   public function index(Request $request)
+ public function index(Request $request)
     {
         $pagetitle = "Order Management";
 
@@ -47,21 +47,46 @@ class OrderController extends Controller
 
         $orders = $query->paginate(15)->appends($request->all());
 
-        // Stats & Analytics
-        $stats = [
-            'total' => Order::count(),
-            'pending' => Order::where('status', 'pending')->count(),
-            'processing' => Order::where('status', 'processing')->count(),
-            'shipped' => Order::where('status', 'shipped')->count(),
-            'delivered' => Order::where('status', 'delivered')->count(),
-            'cancelled' => Order::where('status', 'cancelled')->count(),
-            'paid' => Order::where('payment_status', 'paid')->count(),
-            'unpaid' => Order::where('payment_status', 'unpaid')->count(),
-        ];
+        // === Full Analytics Dashboard Data ===
+        $now = Carbon::now();
+        $last30Days = $now->clone()->subDays(30);
 
-        $startDate = Carbon::now()->subDays(29);
-        $dailySales = Order::where('created_at', '>=', $startDate)
-            ->where('payment_status', 'paid')
+        // Key Metrics
+        $totalRevenue = Order::where('payment_status', 'paid')->sum('total_amount');
+        $totalOrders = Order::count();
+        $paidOrders = Order::where('payment_status', 'paid')->count();
+        $avgOrderValue = $paidOrders > 0 ? $totalRevenue / $paidOrders : 0;
+
+        // Revenue Growth (this month vs last month)
+        $thisMonthRevenue = Order::where('payment_status', 'paid')
+            ->whereMonth('created_at', $now->month)
+            ->whereYear('created_at', $now->year)
+            ->sum('total_amount');
+
+        $lastMonthRevenue = Order::where('payment_status', 'paid')
+            ->whereMonth('created_at', $now->clone()->subMonth()->month)
+            ->whereYear('created_at', $now->clone()->subMonth()->year)
+            ->sum('total_amount');
+
+        $revenueGrowth = $lastMonthRevenue > 0 ? round((($thisMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100, 1) : ($thisMonthRevenue > 0 ? 100 : 0);
+
+        // New Customers (last 30 days)
+        $newCustomers = User::whereHas('orders', fn($q) => $q->where('created_at', '>=', $last30Days))
+            ->where('created_at', '>=', $last30Days)
+            ->count();
+
+        // Top Selling Products (last 30 days)
+        $topProducts = OrderItem::with('product')
+            ->selectRaw('product_id, SUM(quantity) as total_sold')
+            ->whereHas('order', fn($q) => $q->where('payment_status', 'paid')->where('created_at', '>=', $last30Days))
+            ->groupBy('product_id')
+            ->orderByDesc('total_sold')
+            ->limit(5)
+            ->get();
+
+        // Daily Sales Chart (Last 30 Days)
+        $dailySales = Order::where('payment_status', 'paid')
+            ->where('created_at', '>=', $last30Days)
             ->selectRaw('DATE(created_at) as date, SUM(total_amount) as total')
             ->groupBy('date')
             ->orderBy('date')
@@ -69,13 +94,29 @@ class OrderController extends Controller
 
         $labels = $data = [];
         for ($i = 29; $i >= 0; $i--) {
-            $date = Carbon::now()->subDays($i);
+            $date = $now->clone()->subDays($i);
             $labels[] = $date->format('d M');
             $data[] = $dailySales->get($date->format('Y-m-d'), 0);
         }
 
+        // Stats for Charts
+        $stats = [
+            'total' => $totalOrders,
+            'pending' => Order::where('status', 'pending')->count(),
+            'processing' => Order::where('status', 'processing')->count(),
+            'shipped' => Order::where('status', 'shipped')->count(),
+            'delivered' => Order::where('status', 'delivered')->count(),
+            'cancelled' => Order::where('status', 'cancelled')->count(),
+            'paid' => $paidOrders,
+            'unpaid' => Order::where('payment_status', 'unpaid')->count(),
+        ];
+
         $analytics = [
-            'total_revenue' => Order::where('payment_status', 'paid')->sum('total_amount'),
+            'total_revenue' => $totalRevenue,
+            'avg_order_value' => $avgOrderValue,
+            'revenue_growth' => $revenueGrowth,
+            'new_customers' => $newCustomers,
+            'top_products' => $topProducts,
             'sales_chart' => ['labels' => $labels, 'data' => $data],
         ];
 
@@ -87,11 +128,11 @@ class OrderController extends Controller
         $format = $request->get('format', 'xlsx');
         $filename = 'orders_' . now()->format('Y-m-d_His');
 
-        return Excel::download(new OrdersExport, "{$filename}.{$format}", 
+        return Excel::download(new OrdersExport, "{$filename}.{$format}",
             $format === 'csv' ? \Maatwebsite\Excel\Excel::CSV : \Maatwebsite\Excel\Excel::XLSX
         );
     }
-    
+
 
     public function show($id)
     {

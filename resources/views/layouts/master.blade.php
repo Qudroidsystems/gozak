@@ -63,7 +63,7 @@
          @include('layouts.pages-assets.css.users-list-css')
     @endif
 
-     @if (Route::is('orders.*'))
+     @if (Route::is('adminorders.*'))
          @include('layouts.pages-assets.css.users-list-css')
     @endif
 
@@ -334,7 +334,7 @@
                                 <div class="collapse menu-dropdown" id="sidebarorders">
                                     <ul class="nav nav-sm flex-column">
                                         <li class="nav-item">
-                                            <a href="{{ route('orders.index') }}" class="nav-link" role="button" data-key="t-signin"> Orders </a>
+                                            <a href="{{ route('adminorders.index') }}" class="nav-link" role="button" data-key="t-signin"> Orders </a>
                                         </li>
                                     </ul>
                                 </div>
@@ -1355,7 +1355,7 @@
                 @include('layouts.pages-assets.js.inventory-list-js')
      @endif
 
-     @if (Route::is('orders.*'))
+     @if (Route::is('adminorders.*'))
                 @include('layouts.pages-assets.js.order-list-js')
      @endif
 
