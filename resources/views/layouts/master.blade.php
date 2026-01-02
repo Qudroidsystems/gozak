@@ -356,7 +356,7 @@
                             </li>
                         @endcan
 
-                         @can('View address')
+                         @can('View addresses')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebaraddress" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebaraddress">
                                     <i class="ph-star"></i> <span data-key="t-authentication">Address Management</span>
