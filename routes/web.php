@@ -182,7 +182,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('{order}/refund', [OrderController::class, 'refund'])->name('refund');
         Route::get('{order}/packing-slip', [OrderController::class, 'packingSlip'])->name('packing-slip');
         // routes/web.php
-        Route::get('/export', [OrderController::class, 'export'])->name('adminorders.export');
+        Route::get('/export', [OrderController::class, 'export'])->name('export');
     });
 
     Route::resource('adminaddresses', AddressController::class);
