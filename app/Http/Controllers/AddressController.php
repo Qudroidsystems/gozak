@@ -15,35 +15,40 @@ class AddressController extends Controller
         $this->middleware('permission:Manage addresses', ['only' => ['store', 'update', 'destroy']]);
     }
 
-    public function index(Request $request)
-    {
-        $pagetitle = 'Address Management'; // ← Add this
-        $query = Address::with('user:id,first_name,last_name,email')->latest();
+   public function index(Request $request)
+{
+    $query = Address::with('user:id,first_name,last_name,email')->latest();
 
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('street', 'like', "%{$search}%")
-                  ->orWhere('city', 'like', "%{$search}%")
-                  ->orWhere('postal_code', 'like', "%{$search}%")
-                  ->orWhere('phone_number', 'like', "%{$search}%")
-                  ->orWhereHas('user', function ($q) use ($search) {
-                      $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                        ->orWhere('email', 'like', "%{$search}%");
-                  });
-            });
-        }
-
-        if ($request->filled('customer_id')) {
-            $query->where('user_id', $request->customer_id);
-        }
-
-        $addresses = $query->paginate(15)->appends($request->all());
-        $customers = User::select('id', 'first_name', 'last_name', 'email')->orderBy('first_name')->get();
-
-        return view('addresses.index', compact('addresses', 'customers','pagetitle'));
+    if ($request->filled('search')) {
+        $search = $request->search;
+        $query->where(function ($q) use ($search) {
+            $q->where('street', 'like', "%{$search}%")
+              ->orWhere('city', 'like', "%{$search}%")
+              ->orWhere('postal_code', 'like', "%{$search}%")
+              ->orWhere('phone_number', 'like', "%{$search}%")
+              ->orWhereHas('user', function ($q) use ($search) {
+                  $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+                    ->orWhere('email', 'like', "%{$search}%");
+              });
+        });
     }
 
+    if ($request->filled('customer_id')) {
+        $query->where('user_id', $request->customer_id);
+    }
+
+    $addresses = $query->paginate(15)->appends($request->all());
+    $customers = User::select('id', 'first_name', 'last_name', 'email')->orderBy('first_name')->get();
+
+    $pagetitle = 'Address Management';
+
+    // ← THIS IS THE FIX
+    if ($request->ajax() || $request->wantsJson()) {
+        return view('addresses.partials.table', compact('addresses'))->render();
+    }
+
+    return view('addresses.index', compact('addresses', 'customers', 'pagetitle'));
+}
     // For AJAX View Modal
     public function show($id)
     {
