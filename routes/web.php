@@ -1,24 +1,26 @@
 <?php
 
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\BrandController;
-use App\Http\Controllers\OrderController;
-use App\Http\Controllers\BannerController;
+use App\Http\Controllers\AddressController;
 use App\Http\Controllers\APIAuthController;
+use App\Http\Controllers\BannerController;
 use App\Http\Controllers\BiodataController;
-use App\Http\Controllers\ProductController;
+use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StockLocationController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
+
 
 // Public Routes
 Route::get('/', function () {
@@ -89,22 +91,22 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/products/import', [ProductController::class, 'import'])->name('products.import');
     Route::get('/products/export', [ProductController::class, 'export'])->name('products.export');
     Route::post('/products/bulk-update', [ProductController::class, 'bulkUpdate'])->name('products.bulkUpdate');
- 
+
 
     // Product Reviews
     Route::group(['prefix' => 'products/{product}/reviews'], function() {
         Route::post('/', [ProductReviewController::class, 'store'])->name('products.reviews.store');
     });
-    
+
     // Admin Reviews Management
     Route::resource('reviews', ProductReviewController::class)->except(['show']);
     Route::get('/reviews/{id}/edit', [ProductReviewController::class, 'edit'])->name('reviews.edit');
     Route::post('/reviews/{id}/company-comment', [ProductReviewController::class, 'addCompanyComment'])->name('reviews.company-comment');
-    
+
     // ===================================================================
     // INVENTORY MANAGEMENT ROUTES
     // ===================================================================
-    
+
 
     // Stock Locations Management - SIMPLIFIED VERSION
     // Remove ALL duplicate routes and use this clean version:
@@ -122,7 +124,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('stock-locations/update-sort', [StockLocationController::class, 'updateSortOrder'])->name('stock-locations.update-sort');
     Route::get('stock-locations/export', [StockLocationController::class, 'exportLocations'])->name('stock-locations.export');
 
-    
+
     // Inventory Management Routes
     Route::prefix('inventory')->group(function () {
         // Main inventory routes
@@ -133,34 +135,34 @@ Route::middleware(['auth'])->group(function () {
         // In your routes file (web.php)
         // ADD THIS LINE - API endpoint for stock history
         Route::get('/history/{id}', [InventoryController::class, 'getStockHistory'])->name('inventory.history.api');
-      
-        
+
+
         // Report pages
         Route::get('/low-stock-alerts', [InventoryController::class, 'lowStockAlerts'])->name('inventory.low-stock-alerts');
         Route::get('/stock-value-report', [InventoryController::class, 'stockValueReport'])->name('inventory.stock-value-report');
 
 
-        
+
         // Stock operations (AJAX)
         Route::post('/adjust', [InventoryController::class, 'adjustStock'])->name('inventory.adjust');
         Route::post('/transfer', [InventoryController::class, 'transferStock'])->name('inventory.transfer');
         Route::post('/bulk-adjust', [InventoryController::class, 'bulkAdjust'])->name('inventory.bulk-adjust');
         Route::post('/import', [InventoryController::class, 'import'])->name('inventory.import');
-        
+
         // Export routes
         Route::get('/export/transactions', [InventoryController::class, 'exportTransactions'])->name('inventory.export.transactions');
         Route::get('/export/stock-levels', [InventoryController::class, 'exportStockLevels'])->name('inventory.export.stock-levels');
-        
+
         // API endpoints for AJAX requests
         Route::get('/{id}', [InventoryController::class, 'show'])->name('inventory.show');
         Route::delete('/{id}', [InventoryController::class, 'destroy'])->name('inventory.destroy');
         Route::get('/stock-level/{productId}/{locationId}', [InventoryController::class, 'getProductStock'])->name('inventory.get-product-stock');
-        
+
         // API endpoints for data
         Route::get('/api/low-stock-alerts', [InventoryController::class, 'getLowStockAlerts'])->name('inventory.api.low-stock-alerts');
         Route::get('/api/stock-value-report', [InventoryController::class, 'getStockValueReport'])->name('inventory.api.stock-value-report');
     });
- 
+
     // Real-time stock updates
     Route::get('/inventory/realtime-product-stock', [InventoryController::class, 'realtimeProductStock']);
     Route::get('/inventory/product/{productId}/location/{locationId}/stock', [InventoryController::class, 'getLocationStock']);
@@ -182,6 +184,8 @@ Route::middleware(['auth'])->group(function () {
         // routes/web.php
         Route::get('/export', [OrderController::class, 'export'])->name('orders.export');
     });
+
+    Route::resource('addresses', AddressController::class);
 
     Route::resource('customers', CustomerController::class)->only(['index']);
     Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
