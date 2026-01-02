@@ -1,39 +1,36 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-       // create_order_notes_table.php
-        Schema::create('order_notes', function (Blueprint $table) {
+        Schema::create('refunds', function (Blueprint $table) {
             $table->id();
-            $table->string('order_id');                    // ← string
-            $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
-            $table->text('note');
-            $table->boolean('is_customer_visible')->default(false);
+            $table->string('order_id'); // ← MUST be string to match orders.id
+            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // Admin who processed refund
+            $table->decimal('amount', 10, 2);
+            $table->text('reason')->nullable();
+            $table->enum('status', ['pending', 'processed', 'rejected'])->default('pending');
+            $table->timestamp('processed_at')->nullable();
             $table->timestamps();
 
+            // Index for performance
+            $table->index('order_id');
+
+            // Manual foreign key constraint (string → string)
             $table->foreign('order_id')
-                ->references('id')
-                ->on('orders')
-                ->onDelete('cascade');
+                  ->references('id')
+                  ->on('orders')
+                  ->onDelete('cascade');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('refunds', function (Blueprint $table) {
-            //
-        });
+        Schema::dropIfExists('refunds');
     }
 };
