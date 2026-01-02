@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('order_notes', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('order_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
-            $table->text('note');
-            $table->boolean('is_customer_visible')->default(false);
-            $table->timestamps();
-        });
+        // Schema::create('order_notes', function (Blueprint $table) {
+        //     $table->id();
+        //     $table->foreignId('order_id')->constrained()->onDelete('cascade');
+        //     $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
+        //     $table->text('note');
+        //     $table->boolean('is_customer_visible')->default(false);
+        //     $table->timestamps();
+        // });
     }
 
     /**
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('order_notes');
+        // Schema::dropIfExists('order_notes');
     }
 };
