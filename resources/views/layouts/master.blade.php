@@ -501,82 +501,154 @@
                         </form>
                     </div>
 
-                    <div class="d-flex align-items-center">
+                   <div class="d-flex align-items-center">
 
-                        <div class="dropdown topbar-head-dropdown ms-1 header-item">
-                            <button type="button" class="btn btn-icon btn-topbar btn-ghost-dark rounded-circle mode-layout" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <i class="bi bi-sun align-middle fs-3xl"></i>
-                            </button>
-                            <div class="dropdown-menu p-2 dropdown-menu-end" id="light-dark-mode">
-                                <a href="#!" class="dropdown-item" data-mode="light"><i class="bi bi-sun align-middle me-2"></i> Default (light mode)</a>
-                                <a href="#!" class="dropdown-item" data-mode="dark"><i class="bi bi-moon align-middle me-2"></i> Dark</a>
-                                <a href="#!" class="dropdown-item" data-mode="auto"><i class="bi bi-moon-stars align-middle me-2"></i> Auto (system default)</a>
-                            </div>
+                    <!-- Dark Mode Toggle -->
+                    <div class="dropdown topbar-head-dropdown ms-1 header-item">
+                        <button type="button" class="btn btn-icon btn-topbar btn-ghost-dark rounded-circle mode-layout" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="bi bi-sun align-middle fs-3xl"></i>
+                        </button>
+                        <div class="dropdown-menu p-2 dropdown-menu-end" id="light-dark-mode">
+                            <a href="#!" class="dropdown-item" data-mode="light"><i class="bi bi-sun align-middle me-2"></i> Default (light mode)</a>
+                            <a href="#!" class="dropdown-item" data-mode="dark"><i class="bi bi-moon align-middle me-2"></i> Dark</a>
+                            <a href="#!" class="dropdown-item" data-mode="auto"><i class="bi bi-moon-stars align-middle me-2"></i> Auto (system default)</a>
                         </div>
+                    </div>
 
-                        <div class="dropdown ms-sm-3 header-item topbar-user">
-                            <button type="button" class="btn shadow-none" id="page-header-user-dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <span class="d-flex align-items-center">
-                                    @php
-                                        use App\Models\User;
-                                        $userdata = User::find(Auth::id());
-                                    @endphp
-
-                                    <?php
-                                        $image = "unnamed.png";
-                                        if ($userdata && $userdata->avatar) {
-                                            $image = $userdata->avatar;
-                                        }
-                                    ?>
-
-                                    @if($userdata)
-                                        <img class="rounded-circle header-profile-user" src="{{ Storage::url('images/staffavatar/'.$image)}}" alt="{{ $userdata->name }}">
-                                        <span class="text-start ms-xl-2">
-                                            <span class="d-none d-xl-inline-block ms-1 fw-medium user-name-text">{{ $userdata->name }}</span>
-                                            <span class="d-none d-xl-block ms-1 fs-sm user-name-sub-text">{{ $userdata->roles->first()->name ?? 'User' }}</span>
-                                        </span>
-                                    @else
-                                        <img class="rounded-circle header-profile-user" src="{{ asset('theme/layouts/assets/images/users/user-dummy-img.jpg') }}" alt="User">
-                                        <span class="text-start ms-xl-2">
-                                            <span class="d-none d-xl-inline-block ms-1 fw-medium user-name-text">Guest</span>
-                                            <span class="d-none d-xl-block ms-1 fs-sm user-name-sub-text">Not logged in</span>
-                                        </span>
-                                    @endif
+                    <!-- Notification Bell Dropdown -->
+                    <div class="dropdown ms-2 header-item topbar-user">
+                        <button type="button" class="btn btn-icon btn-topbar btn-ghost-dark rounded-circle position-relative" id="notificationDropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <i class="bi bi-bell fs-22"></i>
+                            @php
+                                $unreadCount = auth()->user()?->unreadNotifications->count() ?? 0;
+                            @endphp
+                            @if($unreadCount > 0)
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">
+                                    {{ $unreadCount > 99 ? '99+' : $unreadCount }}
+                                    <span class="visually-hidden">unread notifications</span>
                                 </span>
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                @if($userdata)
-                                    <h6 class="dropdown-header">Welcome {{ $userdata->name }}!</h6>
-                                    <a class="dropdown-item" href="{{ route('user.overview', $userdata->id) }}">
-                                        <i class="mdi mdi-account-circle text-muted fs-lg align-middle me-1"></i>
-                                        <span class="align-middle">Profile</span>
-                                    </a>
-                                    <div class="dropdown-divider"></div>
-                                    <a class="dropdown-item" href="{{ route('user.settings', $userdata->id) }}">
-                                        <i class="mdi mdi-cog text-muted fs-lg align-middle me-1"></i>
-                                        <span class="align-middle">Settings</span>
-                                    </a>
-                                    <a class="dropdown-item" href="auth-lockscreen.html">
-                                        <i class="mdi mdi-lock text-muted fs-lg align-middle me-1"></i>
-                                        <span class="align-middle">Lock screen</span>
-                                    </a>
+                            @endif
+                        </button>
 
-                                    <form method="POST" action="{{ route('logout') }}">
-                                        @csrf
-                                        <a class="dropdown-item" href="{{ route('logout') }}" onclick="event.preventDefault(); this.closest('form').submit();">
-                                            <i class="mdi mdi-logout text-muted fs-lg align-middle me-1"></i>
-                                            <span class="align-middle" data-key="t-logout">Logout</span>
+                        <div class="dropdown-menu dropdown-menu-end dropdown-menu-lg p-0 shadow-lg" aria-labelledby="notificationDropdown" style="width: 360px; max-height: 500px; overflow-y: auto;">
+                            <div class="card mb-0 rounded-0">
+                                <div class="card-header d-flex align-items-center justify-content-between bg-primary text-white">
+                                    <h6 class="mb-0">Notifications</h6>
+                                    @if($unreadCount > 0)
+                                        <a href="{{ route('notifications.markAllRead') }}" class="text-white text-decoration-underline small">
+                                            Mark all as read
                                         </a>
-                                    </form>
-                                @else
-                                    <a class="dropdown-item" href="{{ route('login') }}">
-                                        <i class="mdi mdi-login text-muted fs-lg align-middle me-1"></i>
-                                        <span class="align-middle">Login</span>
+                                    @endif
+                                </div>
+                                <div class="card-body p-0">
+                                    @forelse(auth()->user()?->unreadNotifications->take(10) as $notification)
+                                        @php
+                                            $data = $notification->data;
+                                            $icon = $data['icon'] ?? 'bi-bell';
+                                            $color = $data['color'] ?? 'primary';
+                                            $title = $data['message'] ?? 'New notification';
+                                            $time = $notification->created_at->diffForHumans();
+                                            $link = route('adminorders.show', $data['order_id'] ?? '#');
+                                        @endphp
+                                        <a href="{{ $link }}" class="text-reset notification-item border-bottom py-3 px-4 d-block">
+                                            <div class="d-flex align-items-start">
+                                                <div class="flex-shrink-0 me-3">
+                                                    <div class="avatar-sm bg-soft-{{ $color }} text-{{ $color }} rounded-circle d-flex align-items-center justify-content-center">
+                                                        <i class="bi {{ $icon }} fs-4"></i>
+                                                    </div>
+                                                </div>
+                                                <div class="flex-grow-1">
+                                                    <h6 class="mb-1">{{ $title }}</h6>
+                                                    <div class="text-muted small">
+                                                        Order #{{ $data['invoice'] ?? $data['order_id'] }}
+                                                        @if(isset($data['customer']))
+                                                            - {{ $data['customer'] }}
+                                                        @endif
+                                                    </div>
+                                                    <small class="mb-0 text-muted">{{ $time }}</small>
+                                                </div>
+                                            </div>
+                                        </a>
+                                    @empty
+                                        <div class="text-center py-5 text-muted">
+                                            <i class="bi bi-bell-slash fs-1 mb-3"></i>
+                                            <p class="mb-0">No new notifications</p>
+                                        </div>
+                                    @endforelse
+                                </div>
+                                <div class="card-footer text-center bg-light">
+                                    <a href="{{ route('adminorders.index') }}" class="text-primary text-decoration-none small">
+                                        View all orders <i class="bi bi-arrow-right ms-1"></i>
                                     </a>
-                                @endif
+                                </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- User Profile Dropdown -->
+                    <div class="dropdown ms-sm-3 header-item topbar-user">
+                        <button type="button" class="btn shadow-none" id="page-header-user-dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            <span class="d-flex align-items-center">
+                                @php
+                                    use App\Models\User;
+                                    $userdata = User::find(Auth::id());
+                                @endphp
+
+                                <?php
+                                    $image = "unnamed.png";
+                                    if ($userdata && $userdata->avatar) {
+                                        $image = $userdata->avatar;
+                                    }
+                                ?>
+
+                                @if($userdata)
+                                    <img class="rounded-circle header-profile-user" src="{{ Storage::url('images/staffavatar/'.$image)}}" alt="{{ $userdata->name }}">
+                                    <span class="text-start ms-xl-2">
+                                        <span class="d-none d-xl-inline-block ms-1 fw-medium user-name-text">{{ $userdata->name }}</span>
+                                        <span class="d-none d-xl-block ms-1 fs-sm user-name-sub-text">{{ $userdata->roles->first()->name ?? 'User' }}</span>
+                                    </span>
+                                @else
+                                    <img class="rounded-circle header-profile-user" src="{{ asset('theme/layouts/assets/images/users/user-dummy-img.jpg') }}" alt="User">
+                                    <span class="text-start ms-xl-2">
+                                        <span class="d-none d-xl-inline-block ms-1 fw-medium user-name-text">Guest</span>
+                                        <span class="d-none d-xl-block ms-1 fs-sm user-name-sub-text">Not logged in</span>
+                                    </span>
+                                @endif
+                            </span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            @if($userdata)
+                                <h6 class="dropdown-header">Welcome {{ $userdata->name }}!</h6>
+                                <a class="dropdown-item" href="{{ route('user.overview', $userdata->id) }}">
+                                    <i class="mdi mdi-account-circle text-muted fs-lg align-middle me-1"></i>
+                                    <span class="align-middle">Profile</span>
+                                </a>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="{{ route('user.settings', $userdata->id) }}">
+                                    <i class="mdi mdi-cog text-muted fs-lg align-middle me-1"></i>
+                                    <span class="align-middle">Settings</span>
+                                </a>
+                                <a class="dropdown-item" href="auth-lockscreen.html">
+                                    <i class="mdi mdi-lock text-muted fs-lg align-middle me-1"></i>
+                                    <span class="align-middle">Lock screen</span>
+                                </a>
+
+                                <form method="POST" action="{{ route('logout') }}">
+                                    @csrf
+                                    <a class="dropdown-item" href="{{ route('logout') }}" onclick="event.preventDefault(); this.closest('form').submit();">
+                                        <i class="mdi mdi-logout text-muted fs-lg align-middle me-1"></i>
+                                        <span class="align-middle" data-key="t-logout">Logout</span>
+                                    </a>
+                                </form>
+                            @else
+                                <a class="dropdown-item" href="{{ route('login') }}">
+                                    <i class="mdi mdi-login text-muted fs-lg align-middle me-1"></i>
+                                    <span class="align-middle">Login</span>
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                </div>
                 </div>
             </div>
         </header>

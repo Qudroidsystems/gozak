@@ -190,4 +190,10 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('customers', CustomerController::class)->only(['index']);
     Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
 
+
+
+    Route::post('/notifications/mark-all-read', function () {
+        auth()->user()->unreadNotifications->markAsRead();
+        return back()->with('success', 'All notifications marked as read.');
+    })->name('notifications.markAllRead');
     });

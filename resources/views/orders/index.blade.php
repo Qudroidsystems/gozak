@@ -21,41 +21,8 @@
                 </div>
             </div>
 
-            <!-- Date Range Selector -->
-            <div class="row mb-4">
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <div class="row g-3 align-items-end">
-                                <div class="col-md-3">
-                                    <label class="form-label">Start Date</label>
-                                    <input type="date" id="dateFrom" class="form-control">
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label">End Date</label>
-                                    <input type="date" id="dateTo" class="form-control">
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="btn-group w-100" role="group">
-                                        <button type="button" class="btn btn-outline-primary" onclick="setPreset('today')">Today</button>
-                                        <button type="button" class="btn btn-outline-primary" onclick="setPreset('7days')">Last 7 Days</button>
-                                        <button type="button" class="btn btn-outline-primary" onclick="setPreset('30days')">Last 30 Days</button>
-                                        <button type="button" class="btn btn-outline-primary active" onclick="setPreset('this_month')">This Month</button>
-                                        <button type="button" class="btn btn-outline-primary" onclick="setPreset('last_month')">Last Month</button>
-                                    </div>
-                                </div>
-                                <div class="col-md-2">
-                                    <button id="applyRange" class="btn btn-primary w-100">Apply Range</button>
-                                </div>
-                            </div>
-                            <small class="text-muted d-block mt-2">Current period: <strong id="periodDisplay">This Month</strong></small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Analytics Cards -->
-            <div class="row" id="analyticsCards">
+            <div class="row">
                 <div class="col-xl-3 col-md-6">
                     <div class="card card-animate bg-primary-subtle border-0">
                         <div class="card-body">
@@ -136,7 +103,7 @@
                 <div class="col-xl-8">
                     <div class="card">
                         <div class="card-header">
-                            <h5 class="card-title mb-0">Revenue Overview</h5>
+                            <h5 class="card-title mb-0">Revenue Overview (Last 30 Days)</h5>
                         </div>
                         <div class="card-body">
                             <canvas id="salesChart" height="300"></canvas>
@@ -147,22 +114,20 @@
                 <div class="col-xl-4">
                     <div class="card mb-4">
                         <div class="card-header">
-                            <h5 class="card-title mb-0">Top Selling Products</h5>
+                            <h5 class="card-title mb-0">Top Selling Products (Last 30 Days)</h5>
                         </div>
                         <div class="card-body">
                             @if($analytics['top_products']->count() > 0)
                                 <ul class="list-group list-group-flush">
                                     @foreach($analytics['top_products'] as $item)
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            <span class="text-truncate" style="max-width: 180px;">
-                                                {{ $item->product?->name ?? 'Unknown Product' }}
-                                            </span>
-                                            <span class="badge bg-primary rounded-pill">{{ $item->total_sold }} sold</span>
+                                            {{ $item->product?->name ?? 'Unknown Product' }}
+                                            <span class="badge bg-primary rounded-pill">{{ $item->total_sold }}</span>
                                         </li>
                                     @endforeach
                                 </ul>
                             @else
-                                <p class="text-muted text-center py-4">No sales in selected period</p>
+                                <p class="text-muted">No sales data.</p>
                             @endif
                         </div>
                     </div>
@@ -178,19 +143,12 @@
                 </div>
             </div>
 
-            <!-- Filters + Orders Table -->
+            <!-- Filters -->
             <div class="row mt-4">
                 <div class="col-lg-12">
                     <div class="card">
-                        <div class="card-header d-flex align-items-center justify-content-between">
-                            <h5 class="card-title mb-0">Orders <span class="badge bg-dark-subtle text-dark ms-1">{{ $orders->total() }}</span></h5>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-success" onclick="exportOrders('xlsx')">Export Excel</button>
-                                <button type="button" class="btn btn-info" onclick="exportOrders('csv')">Export CSV</button>
-                            </div>
-                        </div>
                         <div class="card-body">
-                            <form action="{{ route('adminorders.index') }}" method="GET" class="row g-3 align-items-end mb-4">
+                            <form action="{{ route('adminorders.index') }}" method="GET" class="row g-3 align-items-end">
                                 <div class="col-md-3">
                                     <input type="text" name="search" class="form-control" placeholder="Search Invoice / Customer..." value="{{ request('search') }}">
                                 </div>
@@ -209,11 +167,41 @@
                                         <option value="unpaid" {{ request('payment_status') == 'unpaid' ? 'selected' : '' }}>Unpaid</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
-                                    <button type="submit" class="btn btn-primary w-100">Filter</button>
+                                <div class="col-md-2">
+                                    <input type="date" name="from" class="form-control" value="{{ request('from') }}">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="date" name="to" class="form-control" value="{{ request('to') }}">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="submit" class="btn btn-primary w-100">
+                                        <i class="bi bi-funnel"></i> Filter
+                                    </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
+            <!-- Orders Table -->
+            <div class="row mt-4">
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-header d-flex align-items-center justify-content-between">
+                            <h5 class="card-title mb-0">
+                                Orders <span class="badge bg-dark-subtle text-dark ms-1">{{ $orders->total() }}</span>
+                            </h5>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-success" onclick="exportOrders('xlsx')">
+                                    Export Excel
+                                </button>
+                                <button type="button" class="btn btn-info" onclick="exportOrders('csv')">
+                                    Export CSV
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
                             <div class="table-responsive">
                                 <table class="table table-centered align-middle table-nowrap mb-0">
                                     <thead class="table-active">
@@ -322,128 +310,132 @@ function setPreset(period) {
     const today = new Date();
     to.value = today.toISOString().split('T')[0];
 
+    let fromDate = new Date(today);
     switch(period) {
         case 'today':
-            from.value = to.value;
             display.textContent = 'Today';
             break;
         case '7days':
-            from.value = new Date(today.setDate(today.getDate() - 6)).toISOString().split('T')[0];
+            fromDate.setDate(today.getDate() - 6);
             display.textContent = 'Last 7 Days';
             break;
         case '30days':
-            from.value = new Date(today.setDate(today.getDate() - 29)).toISOString().split('T')[0];
+            fromDate.setDate(today.getDate() - 29);
             display.textContent = 'Last 30 Days';
             break;
         case 'this_month':
-            from.value = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+            fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
             display.textContent = 'This Month';
             break;
         case 'last_month':
-            const last = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            from.value = last.toISOString().split('T')[0];
+            fromDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             to.value = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
             display.textContent = 'Last Month';
             break;
     }
+    from.value = fromDate.toISOString().split('T')[0];
 }
 
 function updateAnalytics() {
     const from = document.getElementById('dateFrom').value;
     const to = document.getElementById('dateTo').value;
 
-    if (!from || !to) return;
+    if (!from || !to) {
+        Swal.fire('Warning', 'Please select both start and end dates', 'warning');
+        return;
+    }
+
+    // Loading spinner (add to button if you have one)
+    // document.getElementById('applyRange').disabled = true;
 
     axios.get('{{ route("adminorders.index") }}', {
-        params: { from, to, analytics_only: 1 }
+        params: { from, to, ajax: 1 }
     })
-    .then(res => {
-        // Update cards
-        document.getElementById('analyticsCards').innerHTML = res.data.cards;
-
-        // Update charts and top products
-        const chartsContainer = document.querySelector('#chartsSection') || document.querySelector('.row.mt-4:nth-of-type(2)');
-        chartsContainer.innerHTML = res.data.charts;
-
-        // Re-init charts
-        initCharts(res.data.chart_data);
+    .then(response => {
+        document.getElementById('analyticsCards').innerHTML = response.data.cards;
+        document.getElementById('chartsAndProducts').innerHTML = response.data.charts_and_products;
+        initCharts(response.data.chart_data);
     })
-    .catch(() => Swal.fire('Error', 'Failed to update analytics', 'error'));
+    .catch(() => {
+        Swal.fire('Error', 'Failed to update analytics', 'error');
+    })
+    .finally(() => {
+        // document.getElementById('applyRange').disabled = false;
+    });
 }
+
+document.getElementById('applyRange').addEventListener('click', updateAnalytics);
 
 function initCharts(data) {
     if (salesChart) salesChart.destroy();
     if (statusChart) statusChart.destroy();
 
-    const salesCtx = document.getElementById('salesChart');
-    if (salesCtx) {
-        salesChart = new Chart(salesCtx, {
-            type: 'line',
-            data: {
-                labels: data.sales_labels,
-                datasets: [{
-                    label: 'Revenue ($)',
-                    data: data.sales_data,
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13,110,253,0.1)',
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { position: 'top' } },
-                scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
-            }
-        });
-    }
+    salesChart = new Chart(document.getElementById('salesChart'), {
+        type: 'line',
+        data: {
+            labels: data.sales_labels,
+            datasets: [{
+                label: 'Daily Sales ($)',
+                data: data.sales_data,
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13,110,253,0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
+        }
+    });
 
-    const statusCtx = document.getElementById('statusChart');
-    if (statusCtx) {
-        statusChart = new Chart(statusCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-                datasets: [{
-                    data: data.status_counts,
-                    backgroundColor: ['#ffc107', '#0dcaf0', '#0d6efd', '#198754', '#dc3545']
-                }]
-            },
-            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-        });
-    }
+    statusChart = new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
+            datasets: [{
+                data: data.status_counts,
+                backgroundColor: ['#ffc107', '#0dcaf0', '#0d6efd', '#198754', '#dc3545']
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
 }
 
-document.getElementById('applyRange').addEventListener('click', updateAnalytics);
-
-// Initial load
+// Initial Setup
 document.addEventListener('DOMContentLoaded', () => {
-    setPreset('this_month');
-    initCharts(@json([
-        'sales_labels' => $analytics['sales_chart']['labels'],
-        'sales_data' => $analytics['sales_chart']['data'],
-        'status_counts' => [$stats['pending'], $stats['processing'], $stats['shipped'], $stats['delivered'], $stats['cancelled']]
-    ]));
+    setPreset('30days');
+    initCharts({
+        sales_labels: @json($analytics['sales_chart']['labels']),
+        sales_data: @json($analytics['sales_chart']['data']),
+        status_counts: [{{ $stats['pending'] }}, {{ $stats['processing'] }}, {{ $stats['shipped'] }}, {{ $stats['delivered'] }}, {{ $stats['cancelled'] }}]
+    });
 });
 
-// Existing functionality
+// Status Update
 document.querySelectorAll('.status-select').forEach(el => {
     el.addEventListener('change', function () {
         axios.post('{{ route("adminorders.status", ":id") }}'.replace(':id', this.dataset.id), { status: this.value })
             .then(() => Swal.fire('Success', 'Status updated', 'success'))
-            .catch(() => this.value = this.dataset.previousValue || 'pending');
+            .catch(() => {
+                Swal.fire('Error', 'Update failed', 'error');
+                this.value = this.dataset.previousValue || 'pending';
+            });
         this.dataset.previousValue = this.value;
     });
 });
 
-window.exportOrders = format => {
+// Export
+window.exportOrders = (format) => {
     const url = new URL('{{ route("adminorders.export") }}');
     new URLSearchParams(window.location.search).forEach((v, k) => url.searchParams.append(k, v));
     url.searchParams.append('format', format);
     window.location = url;
 };
 
-window.emailInvoice = id => {
+// Email Invoice
+window.emailInvoice = (id) => {
     axios.post('{{ route("adminorders.emailInvoice", ":id") }}'.replace(':id', id))
         .then(() => Swal.fire('Sent!', 'Invoice emailed', 'success'))
         .catch(() => Swal.fire('Error', 'Failed to send', 'error'));

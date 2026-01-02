@@ -2,11 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Refund extends Model
 {
-    protected $fillable = ['order_id', 'user_id', 'amount', 'reason', 'status', 'processed_at'];
+    use HasFactory;
+
+    protected $fillable = [
+        'order_id',
+        'user_id',
+        'amount',
+        'reason',
+        'status',
+        'processed_at',
+    ];
 
     protected $casts = [
         'amount' => 'decimal:2',
@@ -18,8 +28,13 @@ class Refund extends Model
         return $this->belongsTo(Order::class);
     }
 
-    public function admin()
+    public function user()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class);
+    }
+
+    public function isProcessed()
+    {
+        return $this->status === 'processed';
     }
 }

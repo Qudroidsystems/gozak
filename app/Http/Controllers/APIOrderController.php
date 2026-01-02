@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Services\NotificationService;
+use Illuminate\Support\Facades\Notification;
+use App\Notifications\OrderPlacedNotification;
 
 class APIOrderController extends Controller
 {
@@ -93,10 +95,30 @@ class APIOrderController extends Controller
                     ]);
                 }
 
+                // === NOTIFY ALL ADMINS OF NEW ORDER ===
+                try {
+                    $admins = \App\Models\User::role('Admin')->get();
+
+                    if ($admins->isNotEmpty()) {
+                        Notification::send($admins, new OrderPlacedNotification($order));
+                        Log::info('New order notification sent to admins', [
+                            'order_id' => $order->id,
+                            'admin_count' => $admins->count()
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Failed to send new order notification to admins', [
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    // Do not fail order creation if notification fails
+                }
+
                 Log::info('APIOrderController: Order created successfully', ['order_id' => $order->id]);
 
                 return response()->json([
-                    'success' => true, 
+                    'success' => true,
                     'order' => $order->load(['items.product', 'shippingAddress', 'billingAddress']),
                     'message' => 'Order created successfully. Please proceed to payment.'
                 ], 201);
@@ -106,6 +128,8 @@ class APIOrderController extends Controller
             return response()->json(['success' => false, 'message' => 'Error placing order: ' . $e->getMessage()], 500);
         }
     }
+
+    // The rest of your methods remain unchanged...
 
     public function updateStatus(Request $request, $id)
     {
@@ -376,15 +400,15 @@ class APIOrderController extends Controller
             $order = Order::where('id', $id)
                 ->where('user_id', auth()->id())
                 ->firstOrFail();
-            
+
             $order->update($request->all());
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Order updated successfully',
                 'data' => $order->fresh()
             ], 200);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
