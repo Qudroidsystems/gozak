@@ -364,7 +364,7 @@
                                 <div class="collapse menu-dropdown" id="sidebaraddress">
                                     <ul class="nav nav-sm flex-column">
                                         <li class="nav-item">
-                                            <a href="{{ route('addresses.index') }}" class="nav-link" role="button" data-key="t-signin"> Address </a>
+                                            <a href="{{ route('adminaddresses.index') }}" class="nav-link" role="button" data-key="t-signin"> Address </a>
                                         </li>
                                     </ul>
                                 </div>

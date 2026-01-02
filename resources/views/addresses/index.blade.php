@@ -24,13 +24,13 @@
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">All Addresses</h5>
-                            <a href="{{ route('addresses.create') }}" class="btn btn-primary">
+                            <a href="{{ route('adminaddresses.create') }}" class="btn btn-primary">
                                 <i class="bi bi-plus-lg"></i> Add Address
                             </a>
                         </div>
                         <div class="card-body">
 
-                            <form action="{{ route('addresses.index') }}" method="GET" class="row g-3 mb-4">
+                            <form action="{{ route('adminaddresses.index') }}" method="GET" class="row g-3 mb-4">
                                 <div class="col-md-4">
                                     <input type="text" name="search" class="form-control" placeholder="Search address or customer..." value="{{ request('search') }}">
                                 </div>
@@ -89,8 +89,8 @@
                                                         <i class="bi bi-three-dots-vertical"></i>
                                                     </button>
                                                     <ul class="dropdown-menu">
-                                                        <li><a class="dropdown-item" href="{{ route('addresses.show', $address) }}">View</a></li>
-                                                        <li><a class="dropdown-item" href="{{ route('addresses.edit', $address) }}">Edit</a></li>
+                                                        <li><a class="dropdown-item" href="{{ route('adminaddresses.show', $address) }}">View</a></li>
+                                                        <li><a class="dropdown-item" href="{{ route('adminaddresses.edit', $address) }}">Edit</a></li>
                                                         <li>
                                                             <form action="{{ route('addresses.destroy', $address) }}" method="POST" style="display:inline">
                                                                 @csrf @method('DELETE')

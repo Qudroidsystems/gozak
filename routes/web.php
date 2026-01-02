@@ -185,7 +185,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/export', [OrderController::class, 'export'])->name('orders.export');
     });
 
-    Route::resource('addresses', AddressController::class);
+    Route::resource('adminaddresses', AddressController::class);
 
     Route::resource('customers', CustomerController::class)->only(['index']);
     Route::get('customers/export', [CustomerController::class, 'export'])->name('customers.export');
