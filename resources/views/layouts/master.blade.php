@@ -70,7 +70,7 @@
     @if (Route::is('customers.*'))
          @include('layouts.pages-assets.css.users-list-css')
     @endif
-     @if (Route::is('addresses.*'))
+     @if (Route::is('adminaddresses.*'))
          @include('layouts.pages-assets.css.users-list-css')
     @endif
 
@@ -1363,7 +1363,7 @@
                 @include('layouts.pages-assets.js.customer-list-js')
      @endif
 
-       @if (Route::is('addresses.*'))
+       @if (Route::is('adminaddresses.*'))
                 @include('layouts.pages-assets.js.address-list-js')
      @endif
 
