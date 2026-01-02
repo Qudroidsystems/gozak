@@ -1,25 +1,22 @@
 <?php
 
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        // Drop the broken table if it exists
-        Schema::dropIfExists('order_notes');
-
         Schema::create('order_notes', function (Blueprint $table) {
             $table->id();
-            $table->string('order_id'); // ← Must be string to match orders.id
+            $table->string('order_id'); // ← Must be string to match orders.id (string)
             $table->foreignId('user_id')->nullable()->constrained()->onDelete('set null');
             $table->text('note');
             $table->boolean('is_customer_visible')->default(false);
             $table->timestamps();
 
-            // Now this will work!
+            // Correct foreign key for string-based primary key
             $table->foreign('order_id')
                   ->references('id')
                   ->on('orders')
@@ -32,5 +29,3 @@ return new class extends Migration
         Schema::dropIfExists('order_notes');
     }
 };
-
- 
