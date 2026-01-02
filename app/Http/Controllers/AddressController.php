@@ -15,7 +15,7 @@ class AddressController extends Controller
         $this->middleware('permission:Manage addresses', ['only' => ['store', 'update', 'destroy']]);
     }
 
-   public function index(Request $request)
+public function index(Request $request)
 {
     $query = Address::with('user:id,first_name,last_name,email')->latest();
 
@@ -39,11 +39,10 @@ class AddressController extends Controller
 
     $addresses = $query->paginate(15)->appends($request->all());
     $customers = User::select('id', 'first_name', 'last_name', 'email')->orderBy('first_name')->get();
-
     $pagetitle = 'Address Management';
 
-    // ← THIS IS THE FIX
-    if ($request->ajax() || $request->wantsJson()) {
+    // ← IMPROVED AJAX HANDLING
+    if ($request->ajax()) {
         return view('addresses.partials.table', compact('addresses'))->render();
     }
 
