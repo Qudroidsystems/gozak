@@ -34,7 +34,7 @@ class APIProductController extends Controller
             END) as total
         ')->value('total') ?? 0;
 
-        return max(0, $totalStock);
+        return max(0, (int) $totalStock);
     }
 
     /**
@@ -61,10 +61,13 @@ class APIProductController extends Controller
         }
 
         return $attributes->map(function ($attr) {
+            // Format values properly
+            $values = $this->formatAttributeValues($attr->values);
+
             return [
-                'id' => $attr->id ?? null,
+                'id' => (int) ($attr->id ?? 0),
                 'name' => $attr->name ?? '',
-                'values' => $this->formatAttributeValues($attr->values),
+                'values' => $values,
             ];
         })->toArray();
     }
@@ -78,14 +81,15 @@ class APIProductController extends Controller
             try {
                 $decoded = json_decode($values, true);
                 if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    return $decoded;
+                    return array_map('strval', $decoded);
                 }
             } catch (\Exception $e) {
                 // If not JSON, try comma-separated
-                return array_map('trim', explode(',', $values));
+                $exploded = array_map('trim', explode(',', $values));
+                return array_filter($exploded);
             }
         } elseif (is_array($values)) {
-            return $values;
+            return array_map('strval', $values);
         }
 
         return [];
@@ -100,21 +104,15 @@ class APIProductController extends Controller
             return [];
         }
 
-        Log::info('Extracting attributes from variations');
-
         $attributes = [];
 
         foreach ($variations as $variation) {
             $varAttributes = $variation->attributes;
 
-            Log::info('Variation ID: ' . $variation->id . ', Raw attributes: ' . json_encode($varAttributes));
-
             if (is_string($varAttributes) && $varAttributes !== '') {
                 try {
                     $varAttributes = json_decode($varAttributes, true);
-                    Log::info('Decoded attributes: ' . json_encode($varAttributes));
                 } catch (\Exception $e) {
-                    Log::error('Error decoding variation attributes: ' . $e->getMessage());
                     continue;
                 }
             }
@@ -126,7 +124,7 @@ class APIProductController extends Controller
                     }
 
                     if (!in_array($value, $attributes[$key])) {
-                        $attributes[$key][] = $value;
+                        $attributes[$key][] = (string) $value;
                     }
                 }
             }
@@ -136,13 +134,11 @@ class APIProductController extends Controller
         $formattedAttributes = [];
         foreach ($attributes as $name => $values) {
             $formattedAttributes[] = [
-                'id' => null, // No ID since extracted from variations
-                'name' => $name,
+                'id' => 0, // No ID since extracted from variations
+                'name' => (string) $name,
                 'values' => $values,
             ];
         }
-
-        Log::info('Extracted attributes from variations: ' . json_encode($formattedAttributes));
 
         return $formattedAttributes;
     }
@@ -158,21 +154,22 @@ class APIProductController extends Controller
 
         return $variations->map(function ($var) use ($productId) {
             $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : null;
+            $imageUrl = $cleanImagePath ? Storage::url($cleanImagePath) : null;
 
             // Calculate real-time stock for this variation
             $realStock = $this->calculateProductStock($productId, $var->id);
 
             return [
-                'id' => $var->id ?? null,
-                'sku' => $var->sku ?? '',
-                'barcode' => $var->barcode ?? '',
-                'price' => floatval($var->price ?? 0.0),
-                'sale_price' => $var->sale_price ? floatval($var->sale_price) : null,
-                'stock' => $realStock,
-                'real_time_stock' => $realStock,
+                'id' => (int) ($var->id ?? 0),
+                'sku' => (string) ($var->sku ?? ''),
+                'barcode' => (string) ($var->barcode ?? ''),
+                'price' => (float) ($var->price ?? 0.0),
+                'sale_price' => $var->sale_price ? (float) $var->sale_price : null,
+                'stock' => (int) $realStock,
+                'real_time_stock' => (int) $realStock,
                 'stock_status' => $this->getStockStatus($realStock),
                 'attributes' => $this->parseVariationAttributes($var->attributes),
-                'image' => $cleanImagePath ? url(Storage::url($cleanImagePath)) : null,
+                'image' => $imageUrl,
                 'is_in_stock' => $realStock > 0,
                 'is_on_sale' => !is_null($var->sale_price) && $var->sale_price < $var->price,
                 'effective_price' => $var->sale_price ?? $var->price,
@@ -189,7 +186,6 @@ class APIProductController extends Controller
             try {
                 return json_decode($attributes, true);
             } catch (\Exception $e) {
-                Log::error('Error parsing variation attributes: ' . $e->getMessage());
                 return [];
             }
         } elseif (is_array($attributes)) {
@@ -207,59 +203,62 @@ class APIProductController extends Controller
         // Calculate real-time stock
         $realStock = $this->calculateProductStock($product->id);
 
-        Log::info('Formatting product ID: ' . $product->id);
-        Log::info('Product type: ' . $product->product_type);
-        Log::info('Attributes from DB: ' . ($product->attributes ? $product->attributes->count() : 0));
-        Log::info('Variations from DB: ' . ($product->variations ? $product->variations->count() : 0));
-
         // Get attributes from both sources
         $formattedAttributes = [];
 
         // 1. First try to get from product_attributes table
         if ($product->attributes && $product->attributes->isNotEmpty()) {
-            Log::info('Using attributes from product_attributes table');
             $formattedAttributes = $this->formatProductAttributes($product->attributes);
         }
         // 2. If no attributes in product_attributes table, extract from variations
-        else if ($product->variations && $product->variations->isNotEmpty()) {
-            Log::info('Extracting attributes from variations');
+        elseif ($product->variations && $product->variations->isNotEmpty()) {
             $formattedAttributes = $this->extractAttributesFromVariations($product->variations);
-        } else {
-            Log::info('No attributes found anywhere');
         }
 
-        Log::info('Final attributes count: ' . count($formattedAttributes));
-        Log::info('Final attributes: ' . json_encode($formattedAttributes));
+        // Get product images with proper URLs
+        $images = [];
+        if ($product->images) {
+            foreach ($product->images as $image) {
+                $cleanPath = preg_replace('/^storage\//', '', $image->image_path);
+                if ($cleanPath) {
+                    $images[] = Storage::url($cleanPath);
+                }
+            }
+        }
+
+        // Get thumbnail URL
+        $thumbnail = null;
+        if ($product->thumbnail) {
+            $cleanThumbnail = preg_replace('/^storage\//', '', $product->thumbnail);
+            $thumbnail = Storage::url($cleanThumbnail);
+        }
 
         return [
-            'id' => $product->id,
-            'title' => $product->title ?? '',
-            'sku' => $product->sku ?? '',
-            'stock' => $realStock,
-            'price' => floatval($product->price ?? 0.0),
-            'sale_price' => $product->sale_price ? floatval($product->sale_price) : null,
-            'thumbnail' => $product->thumbnail ? url(Storage::url($product->thumbnail)) : null,
-            'description' => $product->description ?? '',
-            'product_type' => $product->product_type ?? '',
-            'sold_quantity' => intval($product->sold_quantity ?? 0),
-            'is_featured' => boolval($product->is_featured ?? false),
-            'category_id' => $product->category_id,
-            'brand_id' => $product->brand_id,
-            'real_time_stock' => $realStock,
+            'id' => (int) $product->id,
+            'title' => (string) ($product->title ?? ''),
+            'sku' => (string) ($product->sku ?? ''),
+            'stock' => (int) $realStock,
+            'price' => (float) ($product->price ?? 0.0),
+            'sale_price' => $product->sale_price ? (float) $product->sale_price : null,
+            'thumbnail' => $thumbnail,
+            'description' => (string) ($product->description ?? ''),
+            'product_type' => (string) ($product->product_type ?? ''),
+            'sold_quantity' => (int) ($product->sold_quantity ?? 0),
+            'is_featured' => (bool) ($product->is_featured ?? false),
+            'category_id' => $product->category_id ? (int) $product->category_id : null,
+            'brand_id' => $product->brand_id ? (int) $product->brand_id : null,
+            'real_time_stock' => (int) $realStock,
             'stock_status' => $this->getStockStatus($realStock),
             'brand' => $product->brand ? [
-                'id' => $product->brand->id,
-                'name' => $product->brand->name ?? '',
-                'logo' => $product->brand->logo ? url(Storage::url($product->brand->logo)) : null,
+                'id' => (int) $product->brand->id,
+                'name' => (string) ($product->brand->name ?? ''),
+                'logo' => $product->brand->logo ? Storage::url(preg_replace('/^storage\//', '', $product->brand->logo)) : null,
             ] : null,
             'category' => $product->category ? [
-                'id' => $product->category->id,
-                'name' => $product->category->name ?? '',
+                'id' => (int) $product->category->id,
+                'name' => (string) ($product->category->name ?? ''),
             ] : null,
-            'images' => $product->images ? $product->images->pluck('image_path')->map(function ($path) {
-                $cleanPath = preg_replace('/^storage\//', '', $path);
-                return $cleanPath ? url(Storage::url($cleanPath)) : null;
-            })->filter()->toArray() : [],
+            'images' => $images,
             'product_attributes' => $formattedAttributes,
             'product_variations' => $this->formatProductVariations($product->variations, $product->id),
         ];
@@ -270,50 +269,50 @@ class APIProductController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Product::query()
-            ->with([
-                'category:id,name',
-                'brand:id,name,logo',
-                'attributes:id,product_id,name,values',
-                'variations:id,product_id,sku,barcode,price,sale_price,attributes,image',
-                'images:id,product_id,image_path'
-            ]);
-
-        // Apply filters
-        if ($request->has('featured') && $request->featured === 'true') {
-            $query->where('is_featured', true);
-        }
-
-        if ($request->has('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        if ($request->has('brand_id')) {
-            $query->where('brand_id', $request->brand_id);
-        }
-
-        if ($request->has('ids')) {
-            $ids = explode(',', $request->ids);
-            $query->whereIn('id', $ids);
-        }
-
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
-            });
-        }
-
-        if ($request->has('min_price')) {
-            $query->where('price', '>=', $request->min_price);
-        }
-
-        if ($request->has('max_price')) {
-            $query->where('price', '<=', $request->max_price);
-        }
-
         try {
+            $query = Product::query()
+                ->with([
+                    'category:id,name',
+                    'brand:id,name,logo',
+                    'attributes:id,product_id,name,values',
+                    'variations:id,product_id,sku,barcode,price,sale_price,attributes,image',
+                    'images:id,product_id,image_path'
+                ]);
+
+            // Apply filters
+            if ($request->has('featured') && $request->featured === 'true') {
+                $query->where('is_featured', true);
+            }
+
+            if ($request->has('category_id') && $request->category_id) {
+                $query->where('category_id', $request->category_id);
+            }
+
+            if ($request->has('brand_id') && $request->brand_id) {
+                $query->where('brand_id', $request->brand_id);
+            }
+
+            if ($request->has('ids')) {
+                $ids = explode(',', $request->ids);
+                $query->whereIn('id', array_filter($ids));
+            }
+
+            if ($request->has('search') && $request->search) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%");
+                });
+            }
+
+            if ($request->has('min_price')) {
+                $query->where('price', '>=', (float) $request->min_price);
+            }
+
+            if ($request->has('max_price')) {
+                $query->where('price', '<=', (float) $request->max_price);
+            }
+
             // Handle limit parameter
             if ($request->has('limit') && $request->limit != -1) {
                 $limit = min(max((int) $request->limit, 1), 100);
@@ -356,7 +355,8 @@ class APIProductController extends Controller
             Log::error('Failed to fetch products: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch products: ' . $e->getMessage(),
+                'message' => 'Failed to fetch products',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -367,8 +367,6 @@ class APIProductController extends Controller
     public function show($id)
     {
         try {
-            Log::info('Fetching product ID: ' . $id);
-
             $product = Product::query()
                 ->with([
                     'category:id,name',
@@ -389,7 +387,8 @@ class APIProductController extends Controller
             Log::error('Product not found: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Product not found: ' . $e->getMessage(),
+                'message' => 'Product not found',
+                'error' => $e->getMessage(),
             ], 404);
         }
     }
@@ -406,7 +405,7 @@ class APIProductController extends Controller
             'sale_price' => 'nullable|numeric|min:0',
             'thumbnail' => 'nullable|string',
             'description' => 'nullable|string',
-            'product_type' => 'required|string',
+            'product_type' => 'required|string|in:single,variable',
             'sold_quantity' => 'nullable|integer|min:0',
             'is_featured' => 'nullable|boolean',
             'category_id' => 'nullable|exists:categories,id',
@@ -455,7 +454,7 @@ class APIProductController extends Controller
                 foreach ($request->product_attributes as $attr) {
                     $product->attributes()->create([
                         'name' => $attr['name'],
-                        'values' => $attr['values'],
+                        'values' => json_encode($attr['values']),
                     ]);
                 }
             }
@@ -469,7 +468,7 @@ class APIProductController extends Controller
                         'barcode' => $var['barcode'] ?? null,
                         'price' => $var['price'],
                         'sale_price' => $var['sale_price'] ?? null,
-                        'attributes' => $var['attributes'] ?? [],
+                        'attributes' => json_encode($var['attributes'] ?? []),
                         'image' => $cleanImagePath,
                     ]);
                 }
@@ -487,7 +486,8 @@ class APIProductController extends Controller
             Log::error('Failed to create product: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create product: ' . $e->getMessage(),
+                'message' => 'Failed to create product',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -507,7 +507,7 @@ class APIProductController extends Controller
                 'sale_price' => 'nullable|numeric|min:0',
                 'thumbnail' => 'nullable|string',
                 'description' => 'nullable|string',
-                'product_type' => 'required|string',
+                'product_type' => 'required|string|in:single,variable',
                 'sold_quantity' => 'nullable|integer|min:0',
                 'is_featured' => 'nullable|boolean',
                 'category_id' => 'nullable|exists:categories,id',
@@ -555,7 +555,7 @@ class APIProductController extends Controller
                 foreach ($request->product_attributes as $attr) {
                     $product->attributes()->create([
                         'name' => $attr['name'],
-                        'values' => $attr['values'],
+                        'values' => json_encode($attr['values']),
                     ]);
                 }
             }
@@ -570,7 +570,7 @@ class APIProductController extends Controller
                         'barcode' => $var['barcode'] ?? null,
                         'price' => $var['price'],
                         'sale_price' => $var['sale_price'] ?? null,
-                        'attributes' => $var['attributes'] ?? [],
+                        'attributes' => json_encode($var['attributes'] ?? []),
                         'image' => $cleanImagePath,
                     ]);
                 }
@@ -585,63 +585,11 @@ class APIProductController extends Controller
                 'message' => 'Product updated successfully',
             ]);
         } catch (\Exception $e) {
-            Log::error('Product not found: ' . $e->getMessage());
+            Log::error('Failed to update product: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Product not found: ' . $e->getMessage(),
-            ], 404);
-        }
-    }
-
-    /**
-     * Diagnostic endpoint to check product data structure
-     */
-    public function diagnose($id)
-    {
-        try {
-            $product = Product::with(['attributes', 'variations'])->findOrFail($id);
-
-            // Check database directly
-            $attributesFromDB = \DB::table('product_attributes')
-                ->where('product_id', $id)
-                ->get();
-
-            $variationsFromDB = \DB::table('product_variations')
-                ->where('product_id', $id)
-                ->get();
-
-            // Extract attributes from variations
-            $extractedAttributes = $this->extractAttributesFromVariations($product->variations);
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'product_id' => $id,
-                    'title' => $product->title,
-                    'product_type' => $product->product_type,
-                    'database_check' => [
-                        'attributes_table_count' => $attributesFromDB->count(),
-                        'attributes_table_data' => $attributesFromDB,
-                        'variations_table_count' => $variationsFromDB->count(),
-                        'variations_table_data' => $variationsFromDB,
-                    ],
-                    'eloquent_check' => [
-                        'attributes_count' => $product->attributes ? $product->attributes->count() : 0,
-                        'attributes_data' => $product->attributes,
-                        'variations_count' => $product->variations ? $product->variations->count() : 0,
-                        'variations_data' => $product->variations,
-                    ],
-                    'extracted_attributes' => $extractedAttributes,
-                    'api_response_sample' => [
-                        'product_attributes' => $this->formatProductAttributes($product->attributes),
-                        'extracted_product_attributes' => $extractedAttributes,
-                    ]
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error: ' . $e->getMessage(),
+                'message' => 'Failed to update product',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -652,7 +600,7 @@ class APIProductController extends Controller
     public function uploadFile(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
 
         if ($validator->fails()) {
@@ -667,11 +615,12 @@ class APIProductController extends Controller
             if ($request->hasFile('image')) {
                 $file = $request->file('image');
                 $path = $file->store('products', 'public');
-                $url = url(Storage::url($path));
+                $url = Storage::url($path);
 
                 return response()->json([
                     'success' => true,
                     'url' => $url,
+                    'path' => $path,
                     'message' => 'Image uploaded successfully',
                 ], 200);
             }
@@ -684,7 +633,8 @@ class APIProductController extends Controller
             Log::error('Failed to upload image: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to upload image: ' . $e->getMessage(),
+                'message' => 'Failed to upload image',
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
