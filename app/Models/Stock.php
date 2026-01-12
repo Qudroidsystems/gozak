@@ -217,7 +217,7 @@ class Stock extends Model
             self::TYPE_RETURN => 'Return',
             self::TYPE_DAMAGE => 'Damage/Loss',
         ];
-        
+
         return $labels[$this->type] ?? ucfirst($this->type);
     }
 
@@ -234,7 +234,7 @@ class Stock extends Model
             self::TYPE_RETURN => 'primary',
             self::TYPE_DAMAGE => 'dark',
         ];
-        
+
         return $colors[$this->type] ?? 'secondary';
     }
 
@@ -272,7 +272,7 @@ class Stock extends Model
             self::REFERENCE_DAMAGE => 'Damage',
             self::REFERENCE_OTHER => 'Other',
         ];
-        
+
         return $labels[$this->reference_type] ?? ucfirst($this->reference_type);
     }
 
@@ -320,7 +320,7 @@ class Stock extends Model
                 'user_id' => $this->user_id,
             ]);
         }
-        
+
         return StockMovement::create([
             'stock_id' => $this->id,
             'product_id' => $this->product_id,

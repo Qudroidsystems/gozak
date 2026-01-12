@@ -10,17 +10,17 @@
         position: sticky;
         top: 100px;
     }
-    
+
     /* Swiper container styling */
     .product-thumbnail-slider {
         height: 400px;
         width: 100%;
     }
-    
+
     .product-thumbnail-slider .swiper-wrapper {
         height: 100%;
     }
-    
+
     .product-thumbnail-slider .swiper-slide {
         display: flex;
         align-items: center;
@@ -28,18 +28,18 @@
         background: #fff;
         height: 100%;
     }
-    
+
     .product-thumbnail-slider .swiper-slide img {
         max-width: 100%;
         max-height: 100%;
         object-fit: contain;
     }
-    
+
     .product-nav-slider {
         margin-top: 15px;
         height: 100px;
     }
-    
+
     .product-nav-slider .swiper-slide {
         width: 80px;
         height: 80px;
@@ -47,11 +47,11 @@
         transition: opacity 0.3s;
         cursor: pointer;
     }
-    
+
     .product-nav-slider .swiper-slide-thumb-active {
         opacity: 1;
     }
-    
+
     .nav-slide-item {
         border: 2px solid transparent;
         border-radius: 6px;
@@ -64,18 +64,18 @@
         background: #f8f9fa;
         transition: border-color 0.3s;
     }
-    
+
     .product-nav-slider .swiper-slide-thumb-active .nav-slide-item {
         border-color: #0d6efd;
     }
-    
+
     .nav-slide-item img {
         border-radius: 4px;
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
-    
+
     .swiper-button-next,
     .swiper-button-prev {
         color: #fff;
@@ -85,43 +85,43 @@
         border-radius: 50%;
         transition: background 0.3s;
     }
-    
+
     .swiper-button-next:after,
     .swiper-button-prev:after {
         font-size: 20px;
     }
-    
+
     .swiper-button-next:hover,
     .swiper-button-prev:hover {
         background: rgba(0,0,0,0.8);
     }
-    
+
     /* Badge styles for stock */
     .badge.bg-success { background-color: #0a3622 !important; color: white !important; }
     .badge.bg-warning { background-color: #664d03 !important; color: white !important; }
     .badge.bg-danger { background-color: #58151c !important; color: white !important; }
-    
+
     /* Custom styles */
     .card-height-100 {
         min-height: 100%;
     }
-    
+
     .rounded-start-0 {
         border-top-left-radius: 0 !important;
         border-bottom-left-radius: 0 !important;
     }
-    
+
     .rounded-end-0 {
         border-top-right-radius: 0 !important;
         border-bottom-right-radius: 0 !important;
     }
-    
+
     .description-table th {
         width: 200px;
         font-weight: 600;
         background-color: #f8f9fa;
     }
-    
+
     .rating-input .btn-outline-warning {
         width: 40px;
         height: 40px;
@@ -129,9 +129,16 @@
         align-items: center;
         justify-content: center;
     }
-    
+
     .rating-input .btn-outline-warning i {
         font-size: 1.5rem;
+    }
+
+    /* Unit badge styling */
+    .unit-badge {
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-weight: 500;
     }
 </style>
 
@@ -148,7 +155,7 @@
                         <h4 class="mb-sm-0">Product Overview</h4>
                         <div class="page-title-right">
                             <ol class="breadcrumb m-0">
-                                <li class="breadcrumb-item"><a href="{{ route('products.index') }}">Products</a></li>
+                                <li class="breadcrumb-item"><a href="{{ route('web.products.index') }}">Products</a></li>
                                 <li class="breadcrumb-item active">Product Overview</li>
                             </ol>
                         </div>
@@ -288,6 +295,48 @@
                                         <p class="fw-semibold">{{ $product->sku }}</p>
                                     </div>
 
+                                    <!-- Product Unit -->
+                                    <div class="mb-4">
+                                        <h6 class="text-muted mb-2">Primary Unit:</h6>
+                                        <p class="fw-semibold">
+                                            @if($product->units->count() > 0)
+                                                @php
+                                                    $primaryUnit = $product->units->first();
+                                                    $quantityPerUnit = $primaryUnit->pivot->quantity_per_unit ?? 1;
+                                                @endphp
+                                                <span class="badge bg-info-subtle text-info fs-6 unit-badge">
+                                                    <i class="bi bi-box me-1"></i>
+                                                    {{ $primaryUnit->name }} ({{ $primaryUnit->short_name }})
+                                                    @if($quantityPerUnit > 1)
+                                                        <span class="text-muted ms-1">- {{ $quantityPerUnit }} pieces per unit</span>
+                                                    @endif
+                                                </span>
+                                            @else
+                                                <span class="badge bg-secondary-subtle text-secondary">No unit assigned</span>
+                                            @endif
+                                        </p>
+                                    </div>
+
+                                    <!-- All Units -->
+                                    @if($product->units->count() > 1)
+                                    <div class="mb-4">
+                                        <h6 class="text-muted mb-2">All Units:</h6>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            @foreach($product->units as $unit)
+                                                @php
+                                                    $quantityPerUnit = $unit->pivot->quantity_per_unit ?? 1;
+                                                @endphp
+                                                <span class="badge bg-light text-dark border">
+                                                    {{ $unit->name }} ({{ $unit->short_name }})
+                                                    @if($quantityPerUnit > 1)
+                                                        <span class="text-muted">×{{ $quantityPerUnit }}</span>
+                                                    @endif
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                    @endif
+
                                     <!-- Description -->
                                     @if($product->description)
                                     <div class="mt-4">
@@ -318,7 +367,7 @@
                                                 </div>
                                             </div>
                                             @endif
-                                            
+
                                             <div class="row g-3">
                                                 <div class="col-md-6">
                                                     <div class="card border shadow-none mb-0">
@@ -366,9 +415,9 @@
 
                                     <div class="mt-4 d-grid gap-2">
                                         @can('Update product')
-                                            <a href="{{ route('products.index') }}#showModal" 
-                                               class="btn btn-primary edit-item-btn" 
-                                               data-bs-toggle="modal" 
+                                            <a href="{{ route('web.products.index') }}#showModal"
+                                               class="btn btn-primary edit-item-btn"
+                                               data-bs-toggle="modal"
                                                data-id="{{ $product->id }}"
                                                onclick="editProductFromShow({{ $product->id }})">
                                                 <i class="ph-pencil me-1"></i> Edit Product
@@ -379,7 +428,7 @@
                                                 <i class="ph-trash me-1"></i> Delete
                                             </button>
                                         @endcan
-                                        <a href="{{ route('products.index') }}" class="btn btn-outline-secondary">
+                                        <a href="{{ route('web.products.index') }}" class="btn btn-outline-secondary">
                                             <i class="bi bi-arrow-left me-1"></i> Back to Products
                                         </a>
                                     </div>
@@ -426,6 +475,23 @@
                                         </tr>
                                         @endif
                                         <tr>
+                                            <th>Primary Unit</th>
+                                            <td>
+                                                @if($product->units->count() > 0)
+                                                    @php
+                                                        $primaryUnit = $product->units->first();
+                                                        $quantityPerUnit = $primaryUnit->pivot->quantity_per_unit ?? 1;
+                                                    @endphp
+                                                    {{ $primaryUnit->name }} ({{ $primaryUnit->short_name }})
+                                                    @if($quantityPerUnit > 1)
+                                                        <small class="text-muted"> - {{ $quantityPerUnit }} pieces per unit</small>
+                                                    @endif
+                                                @else
+                                                    <span class="text-muted">Not assigned</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <tr>
                                             <th>Created Date</th>
                                             <td>{{ $product->created_at->format('d M, Y') }}</td>
                                         </tr>
@@ -443,20 +509,126 @@
                                                 @endif
                                             </td>
                                         </tr>
+                                        <tr>
+                                            <th>Active Status</th>
+                                            <td>
+                                                @if($product->is_active)
+                                                    <span class="badge bg-success">Active</span>
+                                                @else
+                                                    <span class="badge bg-danger">Inactive</span>
+                                                @endif
+                                            </td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
 
-                    {{-- Add this section after the Product Details Table card (around line 442) --}}
+                    <!-- Product Units Section -->
+                    @if($product->units->count() > 0)
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-rulers me-2"></i>Product Units
+                                <span class="badge bg-info ms-2">{{ $product->units->count() }}</span>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Unit Name</th>
+                                            <th>Short Name</th>
+                                            <th>Quantity per Unit</th>
+                                            <th>Status</th>
+                                            <th>Conversion</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($product->units as $index => $unit)
+                                            @php
+                                                $quantityPerUnit = $unit->pivot->quantity_per_unit ?? 1;
+                                            @endphp
+                                            <tr>
+                                                <td>{{ $index + 1 }}</td>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <div class="avatar-sm bg-light-info rounded-circle d-flex align-items-center justify-content-center me-3">
+                                                            <i class="bi bi-box fs-5 text-info"></i>
+                                                        </div>
+                                                        <div>
+                                                            <h6 class="mb-0">{{ $unit->name }}</h6>
+                                                            <small class="text-muted">{{ $unit->description ?? 'No description' }}</small>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <code class="text-dark">{{ $unit->short_name }}</code>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-primary-subtle text-primary">
+                                                        {{ $quantityPerUnit }} piece{{ $quantityPerUnit > 1 ? 's' : '' }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    @if($unit->is_default)
+                                                        <span class="badge bg-success-subtle text-success">
+                                                            <i class="bi bi-check-circle me-1"></i>Default
+                                                        </span>
+                                                    @else
+                                                        <span class="badge bg-secondary-subtle text-secondary">
+                                                            <i class="bi bi-circle me-1"></i>Alternative
+                                                        </span>
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if($quantityPerUnit > 1)
+                                                        <small class="text-muted">
+                                                            1 {{ $unit->short_name }} = {{ $quantityPerUnit }} pieces
+                                                        </small>
+                                                    @else
+                                                        <small class="text-muted">1:1 ratio</small>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Unit Conversion Help -->
+                            <div class="alert alert-info mt-3">
+                                <div class="d-flex">
+                                    <div class="flex-shrink-0">
+                                        <i class="bi bi-info-circle fs-4"></i>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h6 class="alert-heading">Unit Conversion Guide</h6>
+                                        <p class="mb-1">This product can be sold in different units. The system automatically converts between units during sales.</p>
+                                        <ul class="mb-0">
+                                            @foreach($product->units as $unit)
+                                                @php
+                                                    $quantityPerUnit = $unit->pivot->quantity_per_unit ?? 1;
+                                                @endphp
+                                                <li>1 {{ $unit->name }} ({{ $unit->short_name }}) = {{ $quantityPerUnit }} piece{{ $quantityPerUnit > 1 ? 's' : '' }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    @endif
 
                     <!-- Product Variations Section -->
                     @if($product->product_type === 'variable' && $product->variations->count() > 0)
                     <div class="card mt-4">
                         <div class="card-header">
                             <h5 class="card-title mb-0">
-                                <i class="bi bi-grid-3x3-gap me-2"></i>Product Variations 
+                                <i class="bi bi-grid-3x3-gap me-2"></i>Product Variations
                                 <span class="badge bg-primary ms-2">{{ $product->variations->count() }}</span>
                             </h5>
                         </div>
@@ -479,12 +651,12 @@
                                         <tr>
                                             <td>
                                                 @if($variation->image)
-                                                    <img src="{{ asset('storage/' . $variation->image) }}" 
-                                                        alt="Variation" 
-                                                        class="img-thumbnail" 
+                                                    <img src="{{ asset('storage/' . $variation->image) }}"
+                                                        alt="Variation"
+                                                        class="img-thumbnail"
                                                         style="width: 60px; height: 60px; object-fit: cover;">
                                                 @else
-                                                    <div class="bg-light d-flex align-items-center justify-content-center" 
+                                                    <div class="bg-light d-flex align-items-center justify-content-center"
                                                         style="width: 60px; height: 60px; border-radius: 4px;">
                                                         <i class="bi bi-image text-muted"></i>
                                                     </div>
@@ -711,7 +883,7 @@
                                                         </div>
 
                                                         <p class="review-desc mb-0">{{ $review->comment }}</p>
-                                                        
+
                                                         @if($review->company_comment)
                                                         <div class="mt-3 p-3 bg-light rounded">
                                                             <div class="d-flex align-items-center mb-2">
@@ -863,7 +1035,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     // Initialize Swiper Sliders
     let thumbnailSlider, navSlider;
-    
+
     function initSwiper() {
         // Thumbnail navigation slider
         navSlider = new Swiper('.product-nav-slider', {
@@ -895,10 +1067,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 swiper: navSlider
             }
         });
-        
+
         console.log('Swiper initialized successfully');
     }
-    
+
     // Initialize swiper when DOM is loaded
     initSwiper();
 
@@ -907,12 +1079,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const stars = document.querySelectorAll(`.${starClass}`);
         const ratingInput = document.getElementById(ratingInputId);
         const ratingText = document.getElementById(textElementId);
-        
+
         stars.forEach(star => {
             star.addEventListener('click', function() {
                 const rating = parseInt(this.dataset.rating);
                 ratingInput.value = rating;
-                
+
                 // Update stars display
                 stars.forEach((s, index) => {
                     if (index < rating) {
@@ -925,7 +1097,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         s.classList.add('btn-outline-warning');
                     }
                 });
-                
+
                 // Update rating text
                 const ratingTexts = ['Select a rating', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
                 ratingText.textContent = ratingTexts[rating];
@@ -935,22 +1107,22 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Setup rating stars for add review
     setupRatingStars('rating-star', 'rating', 'rating-text');
-    
+
     // Setup rating stars for edit review
     setupRatingStars('edit-rating-star', 'edit_rating', 'edit-rating-text');
 
     // Add review form submission
     document.getElementById('addReviewForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const formData = new FormData(this);
         const submitBtn = this.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
-        
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
-        
-        fetch(`/products/{{ $product->id }}/reviews`, {
+
+        fetch(`/web/products/{{ $product->id }}/reviews`, {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -988,14 +1160,14 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.edit-review-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const reviewId = this.dataset.id;
-            
-            fetch(`/reviews/${reviewId}/edit`)
+
+            fetch(`/web/reviews/${reviewId}/edit`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('edit_review_id').value = data.id;
                     document.getElementById('edit_comment').value = data.comment;
                     document.getElementById('edit_rating').value = data.rating;
-                    
+
                     // Update stars
                     const stars = document.querySelectorAll('.edit-rating-star');
                     stars.forEach((star, index) => {
@@ -1009,7 +1181,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             star.classList.add('btn-outline-warning');
                         }
                     });
-                    
+
                     // Update rating text
                     const ratingTexts = ['Select a rating', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
                     document.getElementById('edit-rating-text').textContent = ratingTexts[data.rating];
@@ -1024,16 +1196,16 @@ document.addEventListener('DOMContentLoaded', function () {
     // Edit review form submission
     document.getElementById('editReviewForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const reviewId = document.getElementById('edit_review_id').value;
         const formData = new FormData(this);
         const submitBtn = this.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
-        
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Updating...';
-        
-        fetch(`/reviews/${reviewId}`, {
+
+        fetch(`/web/reviews/${reviewId}`, {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -1071,7 +1243,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.delete-review-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const reviewId = this.dataset.id;
-            
+
             Swal.fire({
                 title: 'Delete Review?',
                 text: "This action cannot be undone!",
@@ -1082,7 +1254,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 confirmButtonText: 'Yes, delete it!'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    fetch(`/reviews/${reviewId}`, {
+                    fetch(`/web/reviews/${reviewId}`, {
                         method: 'DELETE',
                         headers: {
                             'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -1119,7 +1291,7 @@ document.addEventListener('DOMContentLoaded', function () {
             confirmButtonText: 'Yes, delete it!'
         }).then((result) => {
             if (result.isConfirmed) {
-                fetch(`/products/${id}`, {
+                fetch(`/web/products/${id}`, {
                     method: 'DELETE',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -1131,7 +1303,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(data => {
                     if (data.success) {
                         Swal.fire('Deleted!', data.message, 'success')
-                            .then(() => window.location.href = "{{ route('products.index') }}");
+                            .then(() => window.location.href = "{{ route('web.products.index') }}");
                     } else {
                         throw new Error(data.message || 'Failed to delete product');
                     }
@@ -1153,7 +1325,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('addReviewForm').reset();
         document.getElementById('rating').value = 0;
         document.getElementById('rating-text').textContent = 'Select a rating';
-        
+
         // Reset stars
         document.querySelectorAll('.rating-star').forEach(star => {
             star.querySelector('i').className = 'bi bi-star fs-2xl';
@@ -1167,7 +1339,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('editReviewForm').reset();
         document.getElementById('edit_rating').value = 0;
         document.getElementById('edit-rating-text').textContent = 'Select a rating';
-        
+
         // Reset stars
         document.querySelectorAll('.edit-rating-star').forEach(star => {
             star.querySelector('i').className = 'bi bi-star fs-2xl';

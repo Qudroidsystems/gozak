@@ -16,20 +16,24 @@ use Illuminate\Support\Facades\Validator;
 class APIProductController extends Controller
 {
     /**
-     * Calculate real-time stock from inventory for a product
+     * Calculate real-time stock from inventory for a product or variation
      */
-    private function calculateProductStock($productId)
+    private function calculateProductStock($productId, $variationId = null)
     {
-        $totalStock = Stock::where('product_id', $productId)
-            ->selectRaw('
-                SUM(CASE 
-                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
-                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
-                    ELSE 0
-                END) as total
-            ')
-            ->value('total') ?? 0;
-        
+        $query = Stock::where('product_id', $productId);
+
+        if ($variationId) {
+            $query->where('product_variant_id', $variationId);
+        }
+
+        $totalStock = $query->selectRaw('
+            SUM(CASE
+                WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
+                WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                ELSE 0
+            END) as total
+        ')->value('total') ?? 0;
+
         return max(0, $totalStock);
     }
 
@@ -55,7 +59,7 @@ class APIProductController extends Controller
         if (!$attributes || $attributes->isEmpty()) {
             return [];
         }
-        
+
         return $attributes->map(function ($attr) {
             return [
                 'id' => $attr->id ?? null,
@@ -83,7 +87,7 @@ class APIProductController extends Controller
         } elseif (is_array($values)) {
             return $values;
         }
-        
+
         return [];
     }
 
@@ -95,16 +99,16 @@ class APIProductController extends Controller
         if (!$variations || $variations->isEmpty()) {
             return [];
         }
-        
+
         Log::info('Extracting attributes from variations');
-        
+
         $attributes = [];
-        
+
         foreach ($variations as $variation) {
             $varAttributes = $variation->attributes;
-            
+
             Log::info('Variation ID: ' . $variation->id . ', Raw attributes: ' . json_encode($varAttributes));
-            
+
             if (is_string($varAttributes) && $varAttributes !== '') {
                 try {
                     $varAttributes = json_decode($varAttributes, true);
@@ -114,20 +118,20 @@ class APIProductController extends Controller
                     continue;
                 }
             }
-            
+
             if (is_array($varAttributes) && !empty($varAttributes)) {
                 foreach ($varAttributes as $key => $value) {
                     if (!isset($attributes[$key])) {
                         $attributes[$key] = [];
                     }
-                    
+
                     if (!in_array($value, $attributes[$key])) {
                         $attributes[$key][] = $value;
                     }
                 }
             }
         }
-        
+
         // Convert to the format Flutter expects
         $formattedAttributes = [];
         foreach ($attributes as $name => $values) {
@@ -137,32 +141,41 @@ class APIProductController extends Controller
                 'values' => $values,
             ];
         }
-        
+
         Log::info('Extracted attributes from variations: ' . json_encode($formattedAttributes));
-        
+
         return $formattedAttributes;
     }
 
     /**
-     * Format product variations properly for Flutter
+     * Format product variations properly for Flutter with real-time stock calculation
      */
-    private function formatProductVariations($variations)
+    private function formatProductVariations($variations, $productId)
     {
         if (!$variations || $variations->isEmpty()) {
             return [];
         }
-        
-        return $variations->map(function ($var) {
+
+        return $variations->map(function ($var) use ($productId) {
             $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : null;
-            
+
+            // Calculate real-time stock for this variation
+            $realStock = $this->calculateProductStock($productId, $var->id);
+
             return [
                 'id' => $var->id ?? null,
                 'sku' => $var->sku ?? '',
+                'barcode' => $var->barcode ?? '',
                 'price' => floatval($var->price ?? 0.0),
                 'sale_price' => $var->sale_price ? floatval($var->sale_price) : null,
-                'stock' => intval($var->stock ?? 0),
+                'stock' => $realStock,
+                'real_time_stock' => $realStock,
+                'stock_status' => $this->getStockStatus($realStock),
                 'attributes' => $this->parseVariationAttributes($var->attributes),
                 'image' => $cleanImagePath ? url(Storage::url($cleanImagePath)) : null,
+                'is_in_stock' => $realStock > 0,
+                'is_on_sale' => !is_null($var->sale_price) && $var->sale_price < $var->price,
+                'effective_price' => $var->sale_price ?? $var->price,
             ];
         })->toArray();
     }
@@ -182,7 +195,7 @@ class APIProductController extends Controller
         } elseif (is_array($attributes)) {
             return $attributes;
         }
-        
+
         return [];
     }
 
@@ -193,20 +206,20 @@ class APIProductController extends Controller
     {
         // Calculate real-time stock
         $realStock = $this->calculateProductStock($product->id);
-        
+
         Log::info('Formatting product ID: ' . $product->id);
         Log::info('Product type: ' . $product->product_type);
         Log::info('Attributes from DB: ' . ($product->attributes ? $product->attributes->count() : 0));
         Log::info('Variations from DB: ' . ($product->variations ? $product->variations->count() : 0));
-        
+
         // Get attributes from both sources
         $formattedAttributes = [];
-        
+
         // 1. First try to get from product_attributes table
         if ($product->attributes && $product->attributes->isNotEmpty()) {
             Log::info('Using attributes from product_attributes table');
             $formattedAttributes = $this->formatProductAttributes($product->attributes);
-        } 
+        }
         // 2. If no attributes in product_attributes table, extract from variations
         else if ($product->variations && $product->variations->isNotEmpty()) {
             Log::info('Extracting attributes from variations');
@@ -214,10 +227,10 @@ class APIProductController extends Controller
         } else {
             Log::info('No attributes found anywhere');
         }
-        
+
         Log::info('Final attributes count: ' . count($formattedAttributes));
         Log::info('Final attributes: ' . json_encode($formattedAttributes));
-        
+
         return [
             'id' => $product->id,
             'title' => $product->title ?? '',
@@ -248,7 +261,7 @@ class APIProductController extends Controller
                 return $cleanPath ? url(Storage::url($cleanPath)) : null;
             })->filter()->toArray() : [],
             'product_attributes' => $formattedAttributes,
-            'product_variations' => $this->formatProductVariations($product->variations),
+            'product_variations' => $this->formatProductVariations($product->variations, $product->id),
         ];
     }
 
@@ -262,7 +275,7 @@ class APIProductController extends Controller
                 'category:id,name',
                 'brand:id,name,logo',
                 'attributes:id,product_id,name,values',
-                'variations:id,product_id,sku,price,sale_price,stock,attributes,image',
+                'variations:id,product_id,sku,barcode,price,sale_price,attributes,image',
                 'images:id,product_id,image_path'
             ]);
 
@@ -305,7 +318,7 @@ class APIProductController extends Controller
             if ($request->has('limit') && $request->limit != -1) {
                 $limit = min(max((int) $request->limit, 1), 100);
                 $products = $query->take($limit)->get();
-                
+
                 $formattedProducts = $products->map(function ($product) {
                     return $this->formatProductData($product);
                 })->values();
@@ -355,13 +368,13 @@ class APIProductController extends Controller
     {
         try {
             Log::info('Fetching product ID: ' . $id);
-            
+
             $product = Product::query()
                 ->with([
                     'category:id,name',
                     'brand:id,name,logo',
                     'attributes:id,product_id,name,values',
-                    'variations:id,product_id,sku,price,sale_price,stock,attributes,image',
+                    'variations:id,product_id,sku,barcode,price,sale_price,attributes,image',
                     'images:id,product_id,image_path'
                 ])
                 ->findOrFail($id);
@@ -389,7 +402,6 @@ class APIProductController extends Controller
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'sku' => 'required|string|unique:products,sku',
-            'stock' => 'integer|min:0',
             'price' => 'required|numeric|min:0',
             'sale_price' => 'nullable|numeric|min:0',
             'thumbnail' => 'nullable|string',
@@ -406,9 +418,9 @@ class APIProductController extends Controller
             'product_attributes.*.values' => 'required_with:product_attributes|array',
             'product_variations' => 'nullable|array',
             'product_variations.*.sku' => 'required_with:product_variations|string',
+            'product_variations.*.barcode' => 'nullable|string',
             'product_variations.*.price' => 'required_with:product_variations|numeric|min:0',
             'product_variations.*.sale_price' => 'nullable|numeric|min:0',
-            'product_variations.*.stock' => 'required_with:product_variations|integer|min:0',
             'product_variations.*.attributes' => 'nullable|array',
             'product_variations.*.image' => 'nullable|string',
         ]);
@@ -427,9 +439,7 @@ class APIProductController extends Controller
                 'title', 'sku', 'price', 'sale_price', 'thumbnail', 'description',
                 'product_type', 'sold_quantity', 'is_featured', 'category_id', 'brand_id'
             ]);
-            
-            $productData['stock'] = $request->stock ?? 0;
-            
+
             $product = Product::create($productData);
 
             // Handle images
@@ -456,9 +466,9 @@ class APIProductController extends Controller
                     $cleanImagePath = isset($var['image']) ? preg_replace('/^storage\//', '', $var['image']) : null;
                     $product->variations()->create([
                         'sku' => $var['sku'],
+                        'barcode' => $var['barcode'] ?? null,
                         'price' => $var['price'],
                         'sale_price' => $var['sale_price'] ?? null,
-                        'stock' => $var['stock'] ?? 0,
                         'attributes' => $var['attributes'] ?? [],
                         'image' => $cleanImagePath,
                     ]);
@@ -493,7 +503,6 @@ class APIProductController extends Controller
             $validator = Validator::make($request->all(), [
                 'title' => 'required|string|max:255',
                 'sku' => 'required|string|unique:products,sku,' . $id,
-                'stock' => 'integer|min:0',
                 'price' => 'required|numeric|min:0',
                 'sale_price' => 'nullable|numeric|min:0',
                 'thumbnail' => 'nullable|string',
@@ -510,9 +519,9 @@ class APIProductController extends Controller
                 'product_attributes.*.values' => 'required_with:product_attributes|array',
                 'product_variations' => 'nullable|array',
                 'product_variations.*.sku' => 'required_with:product_variations|string',
+                'product_variations.*.barcode' => 'nullable|string',
                 'product_variations.*.price' => 'required_with:product_variations|numeric|min:0',
                 'product_variations.*.sale_price' => 'nullable|numeric|min:0',
-                'product_variations.*.stock' => 'required_with:product_variations|integer|min:0',
                 'product_variations.*.attributes' => 'nullable|array',
                 'product_variations.*.image' => 'nullable|string',
             ]);
@@ -558,9 +567,9 @@ class APIProductController extends Controller
                     $cleanImagePath = isset($var['image']) ? preg_replace('/^storage\//', '', $var['image']) : null;
                     $product->variations()->create([
                         'sku' => $var['sku'],
+                        'barcode' => $var['barcode'] ?? null,
                         'price' => $var['price'],
                         'sale_price' => $var['sale_price'] ?? null,
-                        'stock' => $var['stock'] ?? 0,
                         'attributes' => $var['attributes'] ?? [],
                         'image' => $cleanImagePath,
                     ]);
@@ -591,16 +600,16 @@ class APIProductController extends Controller
     {
         try {
             $product = Product::with(['attributes', 'variations'])->findOrFail($id);
-            
+
             // Check database directly
             $attributesFromDB = \DB::table('product_attributes')
                 ->where('product_id', $id)
                 ->get();
-                
+
             $variationsFromDB = \DB::table('product_variations')
                 ->where('product_id', $id)
                 ->get();
-                
+
             // Extract attributes from variations
             $extractedAttributes = $this->extractAttributesFromVariations($product->variations);
 

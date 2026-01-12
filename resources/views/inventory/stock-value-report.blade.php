@@ -80,10 +80,10 @@
                                                 <div class="d-flex align-items-center">
                                                     <div class="flex-grow-1">
                                                         <div class="progress" style="height: 5px;">
-                                                            <div class="progress-bar bg-success" role="progressbar" 
-                                                                 style="width: {{ $percentage }}%;" 
-                                                                 aria-valuenow="{{ $percentage }}" 
-                                                                 aria-valuemin="0" 
+                                                            <div class="progress-bar bg-success" role="progressbar"
+                                                                 style="width: {{ $percentage }}%;"
+                                                                 aria-valuenow="{{ $percentage }}"
+                                                                 aria-valuemin="0"
                                                                  aria-valuemax="100"></div>
                                                         </div>
                                                     </div>
@@ -93,7 +93,7 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <a href="{{ route('inventory.index', ['location_id' => $item['location']->id]) }}" 
+                                                <a href="{{ route('inventory.index', ['location_id' => $item['location']->id]) }}"
                                                    class="btn btn-sm btn-info">
                                                     <i class="bi bi-eye me-1"></i> View Transactions
                                                 </a>
@@ -166,10 +166,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize chart if we have data
     @if(count($report) > 0)
     var chartData = @json($report);
-    
+
     var labels = chartData.map(item => item.location.name);
     var values = chartData.map(item => item.value);
-    
+
     var options = {
         series: values,
         chart: {
@@ -206,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     };
-    
+
     var chart = new ApexCharts(document.querySelector("#valueChart"), options);
     chart.render();
     @endif

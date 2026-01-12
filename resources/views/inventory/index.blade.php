@@ -288,7 +288,7 @@
                             </tbody>
                         </table>
                     </div>
-                    
+
                     <div class="row mt-3 align-items-center">
                         <div class="col-sm">
                             <div class="text-muted text-center text-sm-start">
@@ -480,23 +480,23 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Inventory management script loaded');
-    
+
     // Setup axios defaults
     axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-    
+
     // DEBUG: Check if routes are available
     console.log('CSRF Token:', axios.defaults.headers.common['X-CSRF-TOKEN']);
-    
+
     // Check current stock when product/location changes in adjust modal
     document.getElementById('adjust_product_id')?.addEventListener('change', checkCurrentStock);
     document.getElementById('adjust_location_id')?.addEventListener('change', checkCurrentStock);
-    
+
     // Check stock for transfer modal
     document.getElementById('transfer_product_id')?.addEventListener('change', checkTransferStock);
     document.getElementById('from_location_id')?.addEventListener('change', checkTransferStock);
     document.getElementById('to_location_id')?.addEventListener('change', checkTransferStock);
-    
+
     // Update unit cost when product changes
     document.getElementById('adjust_product_id')?.addEventListener('change', function() {
         const selectedOption = this.options[this.selectedIndex];
@@ -506,13 +506,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('unit_cost').value = parseFloat(price).toFixed(2);
         }
     });
-    
+
     // Update adjustment type behavior
     document.getElementById('adjustment_type')?.addEventListener('change', function() {
         const type = this.value;
         const quantityInput = document.getElementById('adjust_quantity');
         const quantityLabel = quantityInput.previousElementSibling;
-        
+
         if (type === 'set') {
             quantityLabel.textContent = 'Set Stock To Quantity *';
             quantityInput.placeholder = 'Enter target stock quantity';
@@ -524,68 +524,68 @@ document.addEventListener('DOMContentLoaded', function() {
             quantityInput.placeholder = 'Enter quantity to remove';
         }
     });
-    
+
     function checkCurrentStock() {
         const productId = document.getElementById('adjust_product_id')?.value;
         const locationId = document.getElementById('adjust_location_id')?.value;
-        
+
         console.log('Checking current stock:', { productId, locationId });
-        
+
         if (productId && locationId) {
             // Construct URL manually to avoid route issues
             const url = `/inventory/stock-level/${productId}/${locationId}`;
             console.log('Fetching stock from:', url);
-            
+
             axios.get(url)
                 .then(response => {
                     console.log('Stock response:', response.data);
                     if (response.data.success) {
                         const stock = response.data.stock || 0;
-                        document.getElementById('currentStockDisplay').innerHTML = 
+                        document.getElementById('currentStockDisplay').innerHTML =
                             `<span class="text-info">Current stock: ${stock}</span>`;
                     }
                 })
                 .catch(error => {
                     console.error('Error fetching stock:', error);
-                    document.getElementById('currentStockDisplay').innerHTML = 
+                    document.getElementById('currentStockDisplay').innerHTML =
                         '<span class="text-muted">Current stock: 0</span>';
                 });
         } else {
             document.getElementById('currentStockDisplay').innerHTML = '';
         }
     }
-    
+
     function checkTransferStock() {
         const productId = document.getElementById('transfer_product_id')?.value;
         const fromLocationId = document.getElementById('from_location_id')?.value;
         const toLocationId = document.getElementById('to_location_id')?.value;
-        
+
         console.log('Checking transfer stock:', { productId, fromLocationId, toLocationId });
-        
+
         if (productId && fromLocationId) {
             const url = `/inventory/stock-level/${productId}/${fromLocationId}`;
             axios.get(url)
                 .then(response => {
                     if (response.data.success) {
                         const availableStock = response.data.stock || 0;
-                        document.getElementById('fromStockDisplay').innerHTML = 
+                        document.getElementById('fromStockDisplay').innerHTML =
                             `<span class="text-info">Available: ${availableStock}</span>`;
-                        
+
                         // Update max quantity
                         const quantityInput = document.getElementById('transfer_quantity');
                         if (quantityInput) {
                             quantityInput.max = availableStock;
-                            
+
                             // Validate quantity in real-time
                             quantityInput.addEventListener('input', function() {
                                 const requested = parseInt(this.value) || 0;
                                 if (requested > availableStock) {
                                     this.classList.add('is-invalid');
-                                    document.getElementById('fromStockDisplay').innerHTML = 
+                                    document.getElementById('fromStockDisplay').innerHTML =
                                         `<span class="text-danger">Available: ${availableStock} (Insufficient)</span>`;
                                 } else {
                                     this.classList.remove('is-invalid');
-                                    document.getElementById('fromStockDisplay').innerHTML = 
+                                    document.getElementById('fromStockDisplay').innerHTML =
                                         `<span class="text-info">Available: ${availableStock}</span>`;
                                 }
                             });
@@ -593,59 +593,59 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 })
                 .catch(() => {
-                    document.getElementById('fromStockDisplay').innerHTML = 
+                    document.getElementById('fromStockDisplay').innerHTML =
                         '<span class="text-danger">Available: 0</span>';
                 });
         } else {
             document.getElementById('fromStockDisplay').innerHTML = '';
         }
-        
+
         if (productId && toLocationId) {
             const url = `/inventory/stock-level/${productId}/${toLocationId}`;
             axios.get(url)
                 .then(response => {
                     if (response.data.success) {
-                        document.getElementById('toStockDisplay').innerHTML = 
+                        document.getElementById('toStockDisplay').innerHTML =
                             `<span class="text-info">Current: ${response.data.stock || 0}</span>`;
                     }
                 })
                 .catch(() => {
-                    document.getElementById('toStockDisplay').innerHTML = 
+                    document.getElementById('toStockDisplay').innerHTML =
                         '<span class="text-muted">Current: 0</span>';
                 });
         } else {
             document.getElementById('toStockDisplay').innerHTML = '';
         }
     }
-    
+
     // Adjust stock form submission - FIXED VERSION
     document.getElementById('adjustStockForm')?.addEventListener('submit', function(e) {
         e.preventDefault();
         console.log('Adjust stock form submitted');
-        
+
         const btn = document.getElementById('adjustStockBtn');
         const spinner = document.getElementById('adjustSpinner');
         if (btn) btn.disabled = true;
         if (spinner) spinner.classList.remove('d-none');
-        
+
         const formData = new FormData(this);
-        
+
         // Convert form data to object for logging
         const formDataObj = {};
         for (let [key, value] of formData.entries()) {
             formDataObj[key] = value;
         }
         console.log('Form data:', formDataObj);
-        
+
         // DEBUG: Check route
         const route = '{{ route("inventory.adjust") }}';
         console.log('Sending to route:', route);
-        
+
         // Send request
         axios.post(route, formData)
             .then(response => {
                 console.log('Server response:', response.data);
-                
+
                 if (response.data.success) {
                     Swal.fire({
                         icon: 'success',
@@ -659,11 +659,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         const modalEl = document.getElementById('adjustStockModal');
                         const modal = bootstrap.Modal.getInstance(modalEl);
                         if (modal) modal.hide();
-                        
+
                         // Reset form
                         document.getElementById('adjustStockForm').reset();
                         document.getElementById('currentStockDisplay').innerHTML = '';
-                        
+
                         // Reload page to show updated data
                         setTimeout(() => {
                             location.reload();
@@ -681,9 +681,9 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('AJAX error:', error);
                 console.error('Error response:', error.response);
-                
+
                 let errorMessage = 'Failed to adjust stock. Please try again.';
-                
+
                 if (error.response?.status === 422) {
                     // Validation errors
                     const errors = error.response.data.errors;
@@ -693,7 +693,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (error.message) {
                     errorMessage = error.message;
                 }
-                
+
                 Swal.fire({
                     icon: 'error',
                     title: 'Error!',
@@ -706,23 +706,23 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (spinner) spinner.classList.add('d-none');
             });
     });
-    
+
     // Transfer stock form submission - FIXED VERSION
     document.getElementById('transferStockForm')?.addEventListener('submit', function(e) {
         e.preventDefault();
         console.log('Transfer stock form submitted');
-        
+
         const btn = document.getElementById('transferStockBtn');
         const spinner = document.getElementById('transferSpinner');
         if (btn) btn.disabled = true;
         if (spinner) spinner.classList.remove('d-none');
-        
+
         const formData = new FormData(this);
-        
+
         // Validate from and to locations are different
         const fromLocation = document.getElementById('from_location_id').value;
         const toLocation = document.getElementById('to_location_id').value;
-        
+
         if (fromLocation === toLocation) {
             Swal.fire({
                 icon: 'error',
@@ -733,19 +733,19 @@ document.addEventListener('DOMContentLoaded', function() {
             spinner.classList.add('d-none');
             return;
         }
-        
+
         // Convert form data to object for logging
         const formDataObj = {};
         for (let [key, value] of formData.entries()) {
             formDataObj[key] = value;
         }
         console.log('Transfer form data:', formDataObj);
-        
+
         // Send request
         axios.post('{{ route("inventory.transfer") }}', formData)
             .then(response => {
                 console.log('Transfer response:', response.data);
-                
+
                 if (response.data.success) {
                     Swal.fire({
                         icon: 'success',
@@ -759,12 +759,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         const modalEl = document.getElementById('transferStockModal');
                         const modal = bootstrap.Modal.getInstance(modalEl);
                         if (modal) modal.hide();
-                        
+
                         // Reset form
                         document.getElementById('transferStockForm').reset();
                         document.getElementById('fromStockDisplay').innerHTML = '';
                         document.getElementById('toStockDisplay').innerHTML = '';
-                        
+
                         // Reload page to show updated data
                         setTimeout(() => {
                             location.reload();
@@ -782,9 +782,9 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => {
                 console.error('Transfer AJAX error:', error);
                 console.error('Error response:', error.response);
-                
+
                 let errorMessage = 'Failed to transfer stock. Please try again.';
-                
+
                 if (error.response?.status === 422) {
                     // Validation errors
                     const errors = error.response.data.errors;
@@ -794,7 +794,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (error.message) {
                     errorMessage = error.message;
                 }
-                
+
                 Swal.fire({
                     icon: 'error',
                     title: 'Error!',
@@ -807,19 +807,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (spinner) spinner.classList.add('d-none');
             });
     });
-    
+
     // View transaction details
     document.addEventListener('click', function(e) {
         if (e.target.closest('.view-transaction-btn')) {
             const transactionId = e.target.closest('.view-transaction-btn').dataset.id;
             console.log('Viewing transaction:', transactionId);
-            
+
             axios.get(`/inventory/${transactionId}`)
                 .then(response => {
                     console.log('Transaction details:', response.data);
                     if (response.data.success) {
                         const transaction = response.data.stock;
-                        
+
                         let html = `
                             <div class="row">
                                 <div class="col-md-6 mb-3">
@@ -856,7 +856,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                             </div>
                         `;
-                        
+
                         if (transaction.type === 'transfer' && transaction.destination_location) {
                             html += `
                                 <div class="row">
@@ -867,7 +867,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                             `;
                         }
-                        
+
                         if (transaction.adjustment_reason) {
                             html += `
                                 <div class="row">
@@ -878,7 +878,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                             `;
                         }
-                        
+
                         if (transaction.notes) {
                             html += `
                                 <div class="row">
@@ -889,7 +889,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                             `;
                         }
-                        
+
                         if (transaction.unit_cost) {
                             html += `
                                 <div class="row">
@@ -904,7 +904,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                             `;
                         }
-                        
+
                         html += `
                             <div class="row">
                                 <div class="col-md-12 mb-3">
@@ -913,7 +913,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 </div>
                             </div>
                         `;
-                        
+
                         document.getElementById('transactionDetails').innerHTML = html;
                         new bootstrap.Modal(document.getElementById('viewTransactionModal')).show();
                     }
@@ -927,11 +927,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 });
         }
-        
+
         // Delete transaction
         if (e.target.closest('.delete-transaction-btn')) {
             const transactionId = e.target.closest('.delete-transaction-btn').dataset.id;
-            
+
             Swal.fire({
                 title: 'Delete Transaction?',
                 text: "This action cannot be undone!",
@@ -975,21 +975,21 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
-    
+
     // Reset forms when modals are closed
     document.getElementById('adjustStockModal')?.addEventListener('hidden.bs.modal', function () {
         console.log('Adjust modal closed');
         document.getElementById('adjustStockForm')?.reset();
         document.getElementById('currentStockDisplay').innerHTML = '';
     });
-    
+
     document.getElementById('transferStockModal')?.addEventListener('hidden.bs.modal', function () {
         console.log('Transfer modal closed');
         document.getElementById('transferStockForm')?.reset();
         document.getElementById('fromStockDisplay').innerHTML = '';
         document.getElementById('toStockDisplay').innerHTML = '';
     });
-    
+
     // Helper functions
     function getTypeColor(type) {
         const typeColors = {
@@ -1003,7 +1003,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         return typeColors[type] || 'secondary';
     }
-    
+
     function getTypeLabel(type) {
         const typeLabels = {
             'in': 'Stock In',
@@ -1016,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         return typeLabels[type] || type.charAt(0).toUpperCase() + type.slice(1);
     }
-    
+
     // Initialize adjustment type label
     document.getElementById('adjustment_type')?.dispatchEvent(new Event('change'));
 });

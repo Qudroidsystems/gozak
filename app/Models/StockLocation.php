@@ -75,17 +75,17 @@ class StockLocation extends Model
     {
         $query = Stock::where('product_id', $productId)
             ->where('stock_location_id', $this->id);
-            
+
         if ($variantId) {
             $query->where('product_variant_id', $variantId);
         }
-        
+
         // UPDATED: Match stock types used in InventoryController
         $incoming = (clone $query)->whereIn('type', ['in', 'adjustment', 'transfer_in'])->sum('quantity');
         $outgoing = (clone $query)->whereIn('type', ['out', 'transfer'])->sum('quantity');
         $returns = (clone $query)->where('type', 'return')->sum('quantity');
         $damages = (clone $query)->where('type', 'damage')->sum('quantity');
-        
+
         return $incoming - $outgoing + $returns - $damages;
     }
 
@@ -97,7 +97,7 @@ class StockLocation extends Model
         return Stock::where('stock_location_id', $this->id)
             ->join('products', 'stocks.product_id', '=', 'products.id')
             ->selectRaw('SUM(
-                CASE 
+                CASE
                     WHEN stocks.type IN ("in", "adjustment", "transfer_in") THEN stocks.quantity * COALESCE(stocks.unit_cost, products.price)
                     WHEN stocks.type IN ("out", "damage", "transfer") THEN -stocks.quantity * COALESCE(stocks.unit_cost, products.price)
                     ELSE 0
@@ -142,7 +142,7 @@ class StockLocation extends Model
             ->selectRaw('SUM(CASE WHEN type IN ("in", "adjustment", "transfer_in") THEN quantity ELSE -quantity END) as total')
             ->having('total', '<=', 0)
             ->pluck('product_id');
-            
+
         return Product::whereIn('id', $productIds)->get();
     }
 
@@ -188,7 +188,7 @@ class StockLocation extends Model
         if ($this->contact_person) $parts[] = "Contact: {$this->contact_person}";
         if ($this->phone) $parts[] = "Phone: {$this->phone}";
         if ($this->email) $parts[] = "Email: {$this->email}";
-        
+
         return implode(' | ', $parts);
     }
 
@@ -213,7 +213,7 @@ class StockLocation extends Model
     public function getProductStockForDisplay($productId)
     {
         $stock = $this->getProductStock($productId);
-        
+
         if ($stock > 10) {
             return '<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">' . $stock . ' in stock</span>';
         } elseif ($stock > 0) {
