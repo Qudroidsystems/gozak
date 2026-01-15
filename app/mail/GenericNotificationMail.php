@@ -32,9 +32,7 @@ class GenericNotificationMail extends Mailable implements ShouldQueue
      */
     public function build()
     {
-        $subject = $this->getSubjectByType();
-
-        return $this->subject($subject)
+        return $this->subject($this->title)
                     ->view('emails.generic-notification')
                     ->with([
                         'title' => $this->title,
@@ -42,22 +40,5 @@ class GenericNotificationMail extends Mailable implements ShouldQueue
                         'data' => $this->data,
                         'type' => $this->type,
                     ]);
-    }
-
-    /**
-     * Get subject based on notification type
-     */
-    protected function getSubjectByType(): string
-    {
-        $prefixes = [
-            'promotional' => '🎁 ',
-            'security' => '🔒 ',
-            'system' => '⚙️ ',
-            'general' => '📢 ',
-        ];
-
-        $prefix = $prefixes[$this->type] ?? '📢 ';
-        
-        return $prefix . $this->title . ' - ' . config('app.name');
     }
 }

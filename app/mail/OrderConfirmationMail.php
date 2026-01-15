@@ -19,10 +19,12 @@ class OrderConfirmationMail extends Mailable implements ShouldQueue
     /**
      * Create a new message instance.
      */
-    public function __construct(Order $order, BarcodeService $barcodeService)
+    public function __construct(Order $order, ?BarcodeService $barcodeService = null)
     {
         $this->order = $order;
-        $this->barcodePng = $barcodeService->getBarcodeForEmail($order);
+        if ($barcodeService) {
+            $this->barcodePng = $barcodeService->getBarcodeForEmail($order);
+        }
     }
 
     /**
@@ -30,7 +32,7 @@ class OrderConfirmationMail extends Mailable implements ShouldQueue
      */
     public function build()
     {
-        $orderIdShort = substr($this->order->id, -8); // Last 8 characters for brevity
+        $orderIdShort = substr($this->order->id, -8);
 
         return $this->subject('🎉 Order Confirmation - ' . config('app.name'))
                     ->view('emails.order-confirmation')

@@ -5,11 +5,13 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\Order;
 use App\Models\Notification;
-use App\Mail\OrderConfirmationMail;
-use App\Mail\OrderStatusUpdateMail;
+
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Contracts\Mail\Mailable;
+use App\Mail\OrderConfirmationMail;
+use App\Mail\OrderStatusUpdateMail;
+use App\Mail\GenericNotificationMail;
 
 class NotificationService
 {
@@ -50,9 +52,9 @@ class NotificationService
             $results['barcode'] = $this->barcodeService->generateBarcodeForOrder($order);
 
             $this->createNotificationRecord(
-                $user, 
-                'Order Confirmation', 
-                "Your order #{$order->id} has been confirmed", 
+                $user,
+                'Order Confirmation',
+                "Your order #{$order->id} has been confirmed",
                 [
                     'order_id' => $order->id,
                     'type' => 'order_created',
@@ -77,7 +79,7 @@ class NotificationService
             Log::error('Failed to send order confirmation: ' . $e->getMessage(), [
                 'order_id' => $order->id,
             ]);
-            
+
             $results['error'] = $e->getMessage();
         }
 
@@ -113,7 +115,7 @@ class NotificationService
                 "Your order #{$order->id} status has been updated to " . ucfirst($newStatus),
                 [
                     'order_id' => $order->id,
-                    'type' => 'order_updated', 
+                    'type' => 'order_updated',
                     'status' => $newStatus,
                     'old_status' => $order->getOriginal('status')
                 ],
@@ -261,7 +263,7 @@ class NotificationService
 
         } catch (\Exception $e) {
             Log::error('Failed to send order confirmation email: ' . $e->getMessage());
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -285,7 +287,7 @@ class NotificationService
 
         } catch (\Exception $e) {
             Log::error('Failed to send order status update email: ' . $e->getMessage());
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -311,7 +313,7 @@ class NotificationService
 
         } catch (\Exception $e) {
             Log::error('Failed to send promotional email: ' . $e->getMessage());
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -336,7 +338,7 @@ class NotificationService
 
         } catch (\Exception $e) {
             Log::error('Failed to send security email: ' . $e->getMessage());
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -360,7 +362,7 @@ class NotificationService
 
         } catch (\Exception $e) {
             Log::error('Failed to send generic email: ' . $e->getMessage());
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
@@ -406,11 +408,11 @@ class NotificationService
     protected function getSentVia(array $sendResults): string
     {
         $channels = [];
-        
+
         if (isset($sendResults['push_notification']) && !isset($sendResults['push_notification']['error'])) {
             $channels[] = 'fcm';
         }
-        
+
         if (isset($sendResults['email']) && ($sendResults['email']['success'] ?? false)) {
             $channels[] = 'email';
         }

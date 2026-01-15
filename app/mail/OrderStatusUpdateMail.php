@@ -14,15 +14,14 @@ class OrderStatusUpdateMail extends Mailable implements ShouldQueue
     use Queueable, SerializesModels;
 
     public $order;
-    public $barcodePng;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(Order $order, BarcodeService $barcodeService)
+    public function __construct(Order $order, ?BarcodeService $barcodeService = null)
     {
         $this->order = $order;
-        $this->barcodePng = $barcodeService->getBarcodeForEmail($order);
+        // Add barcode logic if needed
     }
 
     /**
@@ -30,22 +29,10 @@ class OrderStatusUpdateMail extends Mailable implements ShouldQueue
      */
     public function build()
     {
-        $statusTitles = [
-            'shipped' => '📦 Your Order Has Been Shipped!',
-            'delivered' => '✅ Your Order Has Been Delivered!',
-            'cancelled' => '❌ Your Order Has Been Cancelled',
-        ];
-
-        $title = $statusTitles[$this->order->status] ?? 'Order Status Updated';
-        $orderIdShort = substr($this->order->id, -8);
-
-        return $this->subject($title . ' - Order #' . $orderIdShort)
+        return $this->subject('📦 Order Status Update - ' . config('app.name'))
                     ->view('emails.order-status-update')
                     ->with([
                         'order' => $this->order,
-                        'barcodePng' => $this->barcodePng,
-                        'orderIdShort' => $orderIdShort,
-                        'statusTitle' => $title,
                     ]);
     }
 }
