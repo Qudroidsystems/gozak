@@ -18,12 +18,12 @@ class BarcodeService
         try {
             // Create barcode data string
             $barcodeData = $this->createBarcodeData($order);
-            
+
             // Generate QR code as PNG string
             $barcodePng = DNS2D::getBarcodePNG($barcodeData, 'QRCODE', 8, 8);
-            
+
             return $barcodePng;
-            
+
         } catch (Exception $e) {
             Log::error('Barcode generation failed: ' . $e->getMessage());
             throw new Exception('Failed to generate barcode: ' . $e->getMessage());
@@ -31,30 +31,40 @@ class BarcodeService
     }
 
     /**
-     * Create structured data for barcode
+     * Create structured data for barcode - LIMIT THE SIZE
      */
     protected function createBarcodeData(Order $order): string
     {
+        // Limit the data to prevent database issues
         $data = [
             'order_id' => $order->id,
-            'customer' => $order->user->full_name,
-            'email' => $order->user->email,
-            'total' => $order->total_amount,
+            'customer' => substr($order->user->full_name ?? 'Customer', 0, 100), // Limit name length
+            'email' => substr($order->user->email ?? '', 0, 100), // Limit email length
+            'total' => number_format($order->total_amount, 2),
             'currency' => 'NGN',
             'date' => $order->created_at->toISOString(),
             'items_count' => $order->items->count(),
             'type' => 'order',
             'app' => config('app.name'),
-            'items' => $order->items->map(function ($item) {
-                return [
-                    'title' => $item->title,
-                    'quantity' => $item->quantity,
-                    'price' => $item->price,
-                ];
-            })->toArray(),
+            // Remove items from barcode data to reduce size
+            // 'items' => $order->items->map(function ($item) {
+            //     return [
+            //         'title' => substr($item->title, 0, 50), // Limit title length
+            //         'quantity' => $item->quantity,
+            //         'price' => number_format($item->price, 2),
+            //     ];
+            // })->toArray(),
         ];
 
-        return json_encode($data);
+        $jsonData = json_encode($data);
+
+        // If still too large, remove more fields
+        if (strlen($jsonData) > 10000) { // 10KB max
+            unset($data['customer'], $data['email']);
+            $jsonData = json_encode($data);
+        }
+
+        return $jsonData;
     }
 
     /**
@@ -65,11 +75,11 @@ class BarcodeService
         try {
             $barcodePng = $this->generateOrderBarcode($order);
             $filename = "barcodes/order_{$order->id}_" . time() . '.png';
-            
+
             Storage::disk('public')->put($filename, base64_decode($barcodePng));
-            
+
             return $filename;
-            
+
         } catch (Exception $e) {
             Log::error('Failed to save barcode to storage: ' . $e->getMessage());
             throw $e;
@@ -92,7 +102,7 @@ class BarcodeService
         try {
             $filename = $this->saveBarcodeToStorage($order);
             return Storage::disk('public')->url($filename);
-            
+
         } catch (Exception $e) {
             Log::error('Failed to get barcode download URL: ' . $e->getMessage());
             return '';
@@ -106,7 +116,7 @@ class BarcodeService
     {
         try {
             $data = json_decode($barcodeData, true);
-            
+
             return [
                 'order_id' => $data['order_id'] ?? null,
                 'customer' => $data['customer'] ?? null,
@@ -117,25 +127,34 @@ class BarcodeService
                 'items' => $data['items'] ?? [],
                 'valid' => isset($data['order_id']) && isset($data['type']) && $data['type'] === 'order',
             ];
-            
+
         } catch (Exception $e) {
             return ['valid' => false, 'error' => 'Invalid barcode data'];
         }
     }
 
     /**
-     * Generate barcode for order and return all data
+     * Generate barcode for order and return all data - FIXED VERSION
      */
     public function generateBarcodeForOrder(Order $order): array
     {
         try {
             $barcodePng = $this->generateOrderBarcode($order);
             $filename = $this->saveBarcodeToStorage($order);
-            
-            // Update order with barcode info
             $barcodeData = $this->createBarcodeData($order);
-            $order->updateBarcodeInfo($filename, json_decode($barcodeData, true));
-            
+
+            // Update the order directly - DON'T use non-existent method
+            $order->update([
+                'barcode_path' => $filename,
+                'barcode_data' => json_decode($barcodeData, true), // Store as array, not JSON string
+            ]);
+
+            Log::info('Barcode generated and saved for order', [
+                'order_id' => $order->id,
+                'barcode_path' => $filename,
+                'barcode_data_length' => strlen($barcodeData),
+            ]);
+
             return [
                 'success' => true,
                 'barcode_url' => Storage::disk('public')->url($filename),
@@ -148,6 +167,25 @@ class BarcodeService
                 'success' => false,
                 'error' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Get barcode data as array (for display)
+     */
+    public function getBarcodeDataArray(Order $order): array
+    {
+        try {
+            $barcodeData = $order->barcode_data;
+
+            if (is_string($barcodeData)) {
+                return json_decode($barcodeData, true) ?? [];
+            }
+
+            return is_array($barcodeData) ? $barcodeData : [];
+        } catch (Exception $e) {
+            Log::error('Failed to get barcode data array: ' . $e->getMessage());
+            return [];
         }
     }
 }

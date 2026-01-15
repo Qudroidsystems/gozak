@@ -182,4 +182,29 @@ class Order extends Model
     {
         return $this->total_amount - $this->totalRefunded();
     }
+
+    // In your Order model class
+/**
+ * Get barcode data as array
+ */
+public function getBarcodeDataAttribute($value)
+{
+    if (is_string($value)) {
+        return json_decode($value, true) ?? [];
+    }
+
+    return $value ?? [];
+}
+
+/**
+ * Set barcode data
+ */
+public function setBarcodeDataAttribute($value)
+{
+    if (is_array($value)) {
+        $this->attributes['barcode_data'] = json_encode($value);
+    } else {
+        $this->attributes['barcode_data'] = $value;
+    }
+}
 }
