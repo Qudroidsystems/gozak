@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\Order;
-use App\Models\Notification;
+// use App\Models\Notification;
+use Illuminate\Support\Facades\Notification;
+use App\Models\UserNotification;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -373,6 +375,8 @@ class NotificationService
     /**
      * Create notification record in database
      */
+
+    // Update the createNotificationRecord method
     protected function createNotificationRecord(User $user, string $title, string $body, array $data, string $type, array $sendResults): void
     {
         try {
@@ -384,9 +388,9 @@ class NotificationService
                 $successCount++;
             }
 
-            $deliveryStatus = $successCount > 0 ? Notification::STATUS_SENT : Notification::STATUS_FAILED;
+            $deliveryStatus = $successCount > 0 ? UserNotification::STATUS_SENT : UserNotification::STATUS_FAILED;
 
-            Notification::create([
+            UserNotification::create([
                 'user_id' => $user->id,
                 'type' => $type,
                 'title' => $title,
