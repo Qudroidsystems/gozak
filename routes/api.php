@@ -63,7 +63,7 @@ Route::get('/settings/global', [APISettingsController::class, 'global'])->name('
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [APIAuthController::class, 'logout'])->name('auth.logout');
     Route::post('/email/verification-notification', [APIAuthController::class, 'sendEmailVerificationNotification'])->name('verification.send');
-    
+
     // User Routes
     Route::get('/user', [APIUserController::class, 'show'])->name('user.show');
     Route::put('/user', [APIUserController::class, 'update'])->name('user.update');
@@ -86,7 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/orders/{id}', [APIOrderController::class, 'update'])->name('orders.update');
     Route::patch('/orders/{id}', [APIOrderController::class, 'patch']);
     Route::delete('/orders/{id}', [APIOrderController::class, 'destroy'])->name('orders.destroy');
-    
+
     // Enhanced Order Status & Barcode Routes
     Route::patch('/orders/{id}/status', [APIOrderController::class, 'updateStatus'])->name('orders.update-status');
     Route::get('/orders/{id}/barcode', [APIOrderController::class, 'getBarcode'])->name('orders.barcode');
@@ -99,17 +99,33 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/addresses/{id}', [APIAddressController::class, 'patch']);
     Route::delete('/addresses/{id}', [APIAddressController::class, 'destroy'])->name('addresses.destroy');
 
+    // // =====================
+    // // ENHANCED PAYMENT ROUTES
+    // // =====================
+    // Route::post('/payment/initialize', [PaymentController::class, 'initializePayment'])->name('payment.initialize');
+    // Route::post('/payment/charge', [PaymentController::class, 'chargeCard'])->name('payment.charge');
+    // Route::post('/payment/submit-otp', [PaymentController::class, 'submitOtp'])->name('payment.otp');
+    // Route::post('/payment/submit-pin', [PaymentController::class, 'submitPin'])->name('payment.pin');
+    // Route::post('/payment/verify', [PaymentController::class, 'verifyPayment'])->name('payment.verify');
+    // Route::get('/payment/public-key', [PaymentController::class, 'getPublicKey'])->name('payment.public-key');
+    // Route::get('/payment/history', [PaymentController::class, 'getPaymentHistory'])->name('payment.history');
+    // Route::get('/payment/{reference}', [PaymentController::class, 'getPayment'])->name('payment.show');
+
     // =====================
-    // ENHANCED PAYMENT ROUTES
-    // =====================
-    Route::post('/payment/initialize', [PaymentController::class, 'initializePayment'])->name('payment.initialize');
-    Route::post('/payment/charge', [PaymentController::class, 'chargeCard'])->name('payment.charge');
-    Route::post('/payment/submit-otp', [PaymentController::class, 'submitOtp'])->name('payment.otp');
-    Route::post('/payment/submit-pin', [PaymentController::class, 'submitPin'])->name('payment.pin');
-    Route::post('/payment/verify', [PaymentController::class, 'verifyPayment'])->name('payment.verify');
-    Route::get('/payment/public-key', [PaymentController::class, 'getPublicKey'])->name('payment.public-key');
-    Route::get('/payment/history', [PaymentController::class, 'getPaymentHistory'])->name('payment.history');
-    Route::get('/payment/{reference}', [PaymentController::class, 'getPayment'])->name('payment.show');
+// ENHANCED PAYMENT ROUTES
+// =====================
+Route::post('/payment/initialize', [PaymentController::class, 'initializePayment'])->name('payment.initialize');
+Route::post('/payment/charge', [PaymentController::class, 'chargeCard'])->name('payment.charge');
+Route::post('/payment/submit-otp', [PaymentController::class, 'submitOtp'])->name('payment.otp');
+Route::post('/payment/submit-pin', [PaymentController::class, 'submitPin'])->name('payment.pin');
+Route::post('/payment/verify', [PaymentController::class, 'verifyPayment'])->name('payment.verify');
+Route::get('/payment/public-key', [PaymentController::class, 'getPublicKey'])->name('payment.public-key');
+Route::get('/payment/history', [PaymentController::class, 'getPaymentHistory'])->name('payment.history');
+Route::get('/payment/{reference}', [PaymentController::class, 'getPayment'])->name('payment.show');
+Route::post('/payment/webhook', [PaymentController::class, 'webhook'])->name('payment.webhook');
+
+// NEW: Success page route (accessible via web)
+Route::get('/payment/success', [PaymentController::class, 'successPage'])->name('payment.success');
 
     // =====================
     // ENHANCED FCM ROUTES
@@ -118,14 +134,14 @@ Route::middleware('auth:sanctum')->group(function () {
         // Token Management
         Route::post('/token', [FcmController::class, 'storeToken'])->name('fcm.store-token');
         Route::delete('/token', [FcmController::class, 'removeToken'])->name('fcm.remove-token');
-        
+
         // Notification Preferences
         Route::get('/preferences', [FcmController::class, 'getPreferences'])->name('fcm.preferences');
         Route::put('/preferences', [FcmController::class, 'updatePreferences'])->name('fcm.update-preferences');
-        
+
         // Testing
         Route::post('/test', [FcmController::class, 'sendTestNotification'])->name('fcm.test');
-        
+
         // Notification History
         Route::get('/notifications', [FcmController::class, 'getNotifications'])->name('fcm.notifications');
         Route::post('/notifications/{notification}/read', [FcmController::class, 'markAsRead'])->name('fcm.mark-read');
@@ -144,7 +160,7 @@ Route::prefix('fcm')->group(function () {
             'timestamp' => now()->toDateTimeString()
         ]);
     });
-    
+
     Route::post('/send-test', function (Request $request) {
         return response()->json([
             'success' => false,

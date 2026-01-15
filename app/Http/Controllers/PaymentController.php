@@ -28,111 +28,136 @@ class PaymentController extends Controller
         $this->barcodeService = $barcodeService;
     }
 
-    public function initializePayment(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'order_id' => 'required|exists:orders,id',
-            'email' => 'required|email',
-        ]);
+ public function initializePayment(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'order_id' => 'required|exists:orders,id',
+        'email' => 'required|email',
+    ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            $order = Order::with(['user', 'items.product'])->findOrFail($request->order_id);
-
-            if ($order->user_id !== auth()->id()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized access to order'
-                ], 403);
-            }
-
-            if ($order->isPaid()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Order already paid'
-                ], 400);
-            }
-
-            $metadata = [
-                'order_id' => $order->id,
-                'user_id' => auth()->id(),
-                'customer_name' => auth()->user()->full_name,
-                'order_items' => $order->items->map(function ($item) {
-                    return [
-                        'product' => $item->title,
-                        'quantity' => $item->quantity,
-                        'price' => $item->price,
-                    ];
-                })->toArray(),
-                'custom_fields' => [
-                    [
-                        'display_name' => 'Order ID',
-                        'variable_name' => 'order_id',
-                        'value' => $order->id
-                    ],
-                    [
-                        'display_name' => 'Customer',
-                        'variable_name' => 'customer_name',
-                        'value' => auth()->user()->full_name
-                    ]
-                ]
-            ];
-
-            $response = $this->paystackService->initializePayment(
-                $request->email,
-                $order->total_amount,
-                null,
-                $metadata
-            );
-
-            $transaction = Transaction::create([
-                'order_id' => $order->id,
-                'user_id' => auth()->id(),
-                'reference' => $response['data']['reference'],
-                'amount' => $order->total_amount,
-                'status' => 'pending',
-                'payment_method' => 'paystack',
-            ]);
-
-            Log::info('Payment initialized successfully', [
-                'order_id' => $order->id,
-                'reference' => $transaction->reference,
-                'amount' => $order->total_amount
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Payment initialized successfully',
-                'data' => [
-                    'authorization_url' => $response['data']['authorization_url'],
-                    'access_code' => $response['data']['access_code'],
-                    'reference' => $response['data']['reference'],
-                    'amount' => $order->total_amount,
-                    'order_id' => $order->id
-                ]
-            ], 200);
-
-        } catch (\Exception $e) {
-            Log::error('Payment initialization failed', [
-                'error' => $e->getMessage(),
-                'order_id' => $request->order_id ?? null
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Payment initialization failed',
-                'error' => config('app.debug') ? $e->getMessage() : 'An error occurred'
-            ], 500);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors' => $validator->errors()
+        ], 422);
     }
 
+    try {
+        $order = Order::with(['user', 'items.product'])->findOrFail($request->order_id);
+
+        if ($order->user_id !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized access to order'
+            ], 403);
+        }
+
+        if ($order->isPaid()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order already paid'
+            ], 400);
+        }
+
+        // Debug log for amount - ADD MORE DETAILED LOGGING
+        Log::info('PaymentController: Starting payment initialization', [
+            'order_id' => $order->id,
+            'order_amount' => $order->total_amount,
+            'amount_type' => gettype($order->total_amount),
+            'amount_value' => $order->total_amount,
+            'user_email' => $request->email
+        ]);
+
+        $metadata = [
+            'order_id' => $order->id,
+            'user_id' => auth()->id(),
+            'customer_name' => auth()->user()->full_name,
+            'order_items' => $order->items->map(function ($item) {
+                return [
+                    'product' => $item->title,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                ];
+            })->toArray(),
+            'custom_fields' => [
+                [
+                    'display_name' => 'Order ID',
+                    'variable_name' => 'order_id',
+                    'value' => $order->id
+                ],
+                [
+                    'display_name' => 'Customer',
+                    'variable_name' => 'customer_name',
+                    'value' => auth()->user()->full_name
+                ]
+            ]
+        ];
+
+        Log::info('PaymentController: Calling PaystackService->initializePayment', [
+            'email' => $request->email,
+            'amount' => $order->total_amount,
+            'metadata' => $metadata
+        ]);
+
+        // Call Paystack service
+        $response = $this->paystackService->initializePayment(
+            $request->email,
+            $order->total_amount,
+            null,
+            $metadata
+        );
+
+        Log::info('PaymentController: PaystackService response received', [
+            'response_status' => isset($response['status']) ? $response['status'] : 'unknown',
+            'has_authorization_url' => isset($response['data']['authorization_url'])
+        ]);
+
+        $transaction = Transaction::create([
+            'order_id' => $order->id,
+            'user_id' => auth()->id(),
+            'reference' => $response['data']['reference'],
+            'amount' => $order->total_amount,
+            'status' => 'pending',
+            'payment_method' => 'paystack',
+        ]);
+
+        Log::info('Payment initialized successfully', [
+            'order_id' => $order->id,
+            'reference' => $transaction->reference,
+            'amount' => $order->total_amount,
+            'payment_status_before' => $order->payment_status,
+            'order_status_before' => $order->status,
+            'authorization_url' => $response['data']['authorization_url']
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment initialized successfully',
+            'data' => [
+                'authorization_url' => $response['data']['authorization_url'],
+                'access_code' => $response['data']['access_code'],
+                'reference' => $response['data']['reference'],
+                'amount' => $order->total_amount,
+                'order_id' => $order->id
+            ]
+        ], 200);
+
+    } catch (\Exception $e) {
+        Log::error('PaymentController: Payment initialization failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'order_id' => $request->order_id ?? null,
+            'email' => $request->email ?? null
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Payment initialization failed',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
     public function chargeCard(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -206,7 +231,7 @@ class PaymentController extends Controller
 
                 if ($status === 'success') {
                     return $this->handleSuccessfulPayment($transaction, $response);
-                } 
+                }
                 elseif ($status === 'send_otp') {
                     return response()->json([
                         'success' => true,
@@ -216,7 +241,7 @@ class PaymentController extends Controller
                             'reference' => $request->reference
                         ]
                     ], 200);
-                } 
+                }
                 elseif ($status === 'send_pin') {
                     return response()->json([
                         'success' => true,
@@ -226,7 +251,7 @@ class PaymentController extends Controller
                             'reference' => $request->reference
                         ]
                     ], 200);
-                } 
+                }
                 elseif (in_array($status, ['open_url', 'pending'])) {
                     return response()->json([
                         'success' => true,
@@ -237,7 +262,7 @@ class PaymentController extends Controller
                             'reference' => $request->reference
                         ]
                     ], 200);
-                } 
+                }
                 else {
                     return $this->handleFailedPayment($transaction, $response);
                 }
@@ -274,10 +299,22 @@ class PaymentController extends Controller
             ]);
 
             $order = Order::with('user')->find($transaction->order_id);
-            $order->markAsPaid();
+
+            // MANUALLY UPDATE ORDER STATUS TO ENSURE IT'S SAVED
+            $order->payment_status = 'paid';
+            $order->paid_at = now();
+            $order->status = 'processing';
+            $order->save();
+
+            Log::info('Payment successful - order status updated', [
+                'order_id' => $order->id,
+                'payment_status' => $order->payment_status,
+                'order_status' => $order->status,
+                'reference' => $transaction->reference
+            ]);
 
             $barcodeResult = $this->barcodeService->generateBarcodeForOrder($order);
-            
+
             $notificationResult = $this->notificationService->sendOrderConfirmation($order);
 
             Log::info('Payment successful with notifications', [
@@ -459,7 +496,7 @@ class PaymentController extends Controller
                     if ($transaction->status === 'success') {
                         $order = Order::with(['items.product', 'shippingAddress', 'billingAddress'])
                                     ->find($transaction->order_id);
-                        
+
                         return response()->json([
                             'success' => true,
                             'message' => 'Payment already verified',
@@ -477,7 +514,12 @@ class PaymentController extends Controller
                     ]);
 
                     $order = Order::find($transaction->order_id);
-                    $order->markAsPaid();
+
+                    // MANUALLY UPDATE ORDER STATUS
+                    $order->payment_status = 'paid';
+                    $order->paid_at = now();
+                    $order->status = 'processing';
+                    $order->save();
 
                     $barcodeResult = $this->barcodeService->generateBarcodeForOrder($order);
                     $notificationResult = $this->notificationService->sendOrderConfirmation($order);
@@ -485,6 +527,7 @@ class PaymentController extends Controller
                     Log::info('Payment verified successfully with notifications', [
                         'reference' => $request->reference,
                         'order_id' => $order->id,
+                        'payment_status' => $order->payment_status,
                         'barcode_generated' => $barcodeResult['success']
                     ]);
 
@@ -524,7 +567,7 @@ class PaymentController extends Controller
     public function webhook(Request $request)
     {
         $signature = $request->header('x-paystack-signature');
-        
+
         if (!$signature) {
             Log::warning('Webhook received without signature');
             return response()->json(['message' => 'No signature provided'], 401);
@@ -532,7 +575,7 @@ class PaymentController extends Controller
 
         $body = $request->getContent();
         $expectedSignature = hash_hmac('sha512', $body, config('services.paystack.secret_key'));
-        
+
         if ($signature !== $expectedSignature) {
             Log::warning('Webhook signature verification failed', [
                 'received_signature' => $signature,
@@ -545,7 +588,8 @@ class PaymentController extends Controller
 
         Log::info('Paystack webhook received', [
             'event' => $event['event'] ?? 'unknown',
-            'reference' => $event['data']['reference'] ?? null
+            'reference' => $event['data']['reference'] ?? null,
+            'metadata' => $event['data']['metadata'] ?? null
         ]);
 
         try {
@@ -560,6 +604,7 @@ class PaymentController extends Controller
         } catch (\Exception $e) {
             Log::error('Webhook processing failed', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'event' => $event['event'] ?? 'unknown'
             ]);
             return response()->json(['message' => 'Webhook processing failed'], 500);
@@ -585,15 +630,32 @@ class PaymentController extends Controller
                 return;
             }
 
+            // Update transaction
             $transaction->update([
                 'status' => 'success',
                 'paid_at' => now(),
                 'payment_data' => $data
             ]);
 
+            Log::info('Webhook: Transaction updated', [
+                'transaction_id' => $transaction->id,
+                'order_id' => $transaction->order_id
+            ]);
+
             $order = Order::with('user')->find($transaction->order_id);
             if ($order) {
-                $order->markAsPaid();
+                // MANUALLY UPDATE ORDER STATUS - CRITICAL FIX
+                $order->payment_status = 'paid';
+                $order->paid_at = now();
+                $order->status = 'processing';
+                $order->save();
+
+                Log::info('Webhook: Order marked as paid', [
+                    'order_id' => $order->id,
+                    'payment_status' => $order->payment_status,
+                    'status' => $order->status,
+                    'saved' => $order->wasChanged()
+                ]);
 
                 $this->barcodeService->generateBarcodeForOrder($order);
                 $this->notificationService->sendOrderConfirmation($order);
@@ -601,18 +663,21 @@ class PaymentController extends Controller
 
             DB::commit();
 
-            Log::info('Webhook: Payment processed successfully with notifications', [
+            Log::info('Webhook: Payment processed successfully', [
                 'reference' => $data['reference'],
-                'order_id' => $order->id ?? null
+                'order_id' => $order->id ?? null,
+                'transaction_id' => $transaction->id
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Webhook: Failed to process charge success', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'reference' => $data['reference'] ?? null
             ]);
-            throw $e;
+            // Don't throw - just log the error
+            return;
         }
     }
 
@@ -673,5 +738,13 @@ class PaymentController extends Controller
                 'message' => 'Failed to fetch payment history'
             ], 500);
         }
+    }
+
+    // NEW: Add success page route
+    public function successPage(Request $request)
+    {
+        return view('payment.success', [
+            'reference' => $request->query('reference')
+        ]);
     }
 }

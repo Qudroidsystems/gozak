@@ -85,18 +85,19 @@ class Order extends Model
 
     public function getPaymentStatusAttribute()
     {
-        if ($this->attributes['payment_status']) {
+        if (isset($this->attributes['payment_status']) && $this->attributes['payment_status']) {
             return $this->attributes['payment_status'];
         }
-        
+
         return $this->transactions()->where('status', 'success')->exists() ? 'paid' : 'unpaid';
     }
 
     public function scopePaid($query)
     {
-        return $query->whereHas('transactions', function($q) {
-            $q->where('status', 'success');
-        });
+        return $query->where('payment_status', 'paid')
+                    ->orWhereHas('transactions', function($q) {
+                        $q->where('status', 'success');
+                    });
     }
 
     public function getFormattedOrderDateAttribute(): string
@@ -143,9 +144,9 @@ class Order extends Model
         return null;
     }
 
-    public function markAsPaid(): void
+    public function markAsPaid(): bool
     {
-        $this->update([
+        return $this->update([
             'payment_status' => 'paid',
             'paid_at' => now(),
             'status' => 'processing',
@@ -161,7 +162,6 @@ class Order extends Model
     {
         return in_array($this->status, ['pending', 'processing']);
     }
-
 
     public function notes()
     {
