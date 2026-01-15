@@ -41,10 +41,10 @@ class APIProductReviewController extends Controller
 
             $formattedReviews = $reviews->map(function ($review) {
                 // Compute user_name from existing fields (fallback to stored or username if needed)
-                $userName = $review->user_name ?? 
-                    ($review->user && $review->user->first_name && $review->user->last_name 
-                        ? $review->user->first_name . ' ' . $review->user->last_name 
-                        : ($review->user->username ?? 'Anonymous')) 
+                $userName = $review->user_name ??
+                    ($review->user && $review->user->first_name && $review->user->last_name
+                        ? $review->user->first_name . ' ' . $review->user->last_name
+                        : ($review->user->username ?? 'Anonymous'))
                     ?? null;
 
                 // Map profile_image to user_image_url
@@ -135,10 +135,10 @@ class APIProductReviewController extends Controller
             ]);
 
             // Compute user_name from existing fields (fallback to stored or username if needed)
-            $userName = $review->user_name ?? 
-                ($review->user && $review->user->first_name && $review->user->last_name 
-                    ? $review->user->first_name . ' ' . $review->user->last_name 
-                    : ($review->user->username ?? 'Anonymous')) 
+            $userName = $review->user_name ??
+                ($review->user && $review->user->first_name && $review->user->last_name
+                    ? $review->user->first_name . ' ' . $review->user->last_name
+                    : ($review->user->username ?? 'Anonymous'))
                 ?? null;
 
             // Map profile_image to user_image_url
@@ -221,10 +221,10 @@ class APIProductReviewController extends Controller
             ]);
 
             // Compute user_name from existing fields (fallback to stored or username if needed)
-            $userName = $review->user_name ?? 
-                ($review->user && $review->user->first_name && $review->user->last_name 
-                    ? $review->user->first_name . ' ' . $review->user->last_name 
-                    : ($review->user->username ?? 'Anonymous')) 
+            $userName = $review->user_name ??
+                ($review->user && $review->user->first_name && $review->user->last_name
+                    ? $review->user->first_name . ' ' . $review->user->last_name
+                    : ($review->user->username ?? 'Anonymous'))
                 ?? null;
 
             // Map profile_image to user_image_url
@@ -314,10 +314,10 @@ class APIProductReviewController extends Controller
             ]);
 
             // Compute user_name from existing fields (fallback to stored or username if needed)
-            $userName = $review->user_name ?? 
-                ($review->user && $review->user->first_name && $review->user->last_name 
-                    ? $review->user->first_name . ' ' . $review->user->last_name 
-                    : ($review->user->username ?? 'Anonymous')) 
+            $userName = $review->user_name ??
+                ($review->user && $review->user->first_name && $review->user->last_name
+                    ? $review->user->first_name . ' ' . $review->user->last_name
+                    : ($review->user->username ?? 'Anonymous'))
                 ?? null;
 
             // Map profile_image to user_image_url

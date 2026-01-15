@@ -42,6 +42,7 @@ Route::patch('/products/{id}', [APIProductController::class, 'updateSingleField'
 Route::put('/products/{id}', [APIProductController::class, 'update']);
 Route::post('/upload', [APIProductController::class, 'uploadFile']);
 Route::post('/product-categories', [APIProductController::class, 'storeProductCategory']);
+Route::get('/products/{id}/related', [APIProductController::class, 'related'])->name('products.related');
 
 Route::get('/product-reviews', [APIProductReviewController::class, 'index'])->name('product-reviews.index');
 Route::post('/product-reviews', [APIProductReviewController::class, 'store']);

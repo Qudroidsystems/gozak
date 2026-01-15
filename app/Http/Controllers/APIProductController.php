@@ -470,5 +470,78 @@ class APIProductController extends Controller
         }
     }
 
+    /**
+     * Get related products for a specific product
+     */
+    public function related(Request $request, $id)
+    {
+        try {
+            $product = Product::findOrFail($id);
+
+            $limit = $request->input('limit', 6);
+            $limit = min(max((int)$limit, 1), 12);
+
+            $query = Product::query()
+                ->where('id', '!=', $id)           // exclude itself
+                ->where('product_type', '!=', 'variation') // optional
+                ->with([
+                    'category:id,name',
+                    'brand:id,name,logo',
+                    'images:id,product_id,image_path'
+                ])
+                ->select('products.*');
+
+            // Strategy 1: Same category + same brand (strongest signal)
+            $related = (clone $query)
+                ->where('category_id', $product->category_id)
+                ->where('brand_id', $product->brand_id)
+                ->whereNotNull('brand_id')
+                ->orderByDesc('sold_quantity')
+                ->take($limit)
+                ->get();
+
+            // Strategy 2: If not enough → same category only
+            if ($related->count() < $limit / 2) {
+                $more = (clone $query)
+                    ->where('category_id', $product->category_id)
+                    ->where('id', '!=', $id)
+                    ->orderByDesc('sold_quantity')
+                    ->take($limit - $related->count())
+                    ->get();
+
+                $related = $related->merge($more);
+            }
+
+            // Strategy 3: Fallback - most sold overall (last resort)
+            if ($related->count() < 3) {
+                $fallback = (clone $query)
+                    ->orderByDesc('sold_quantity')
+                    ->take($limit - $related->count())
+                    ->get();
+
+                $related = $related->merge($fallback);
+            }
+
+            $formatted = $related->map(function ($p) {
+                return $this->formatProductData($p);  // reuse your existing formatter
+            })->values();
+
+            return response()->json([
+                'success' => true,
+                'data'    => $formatted,
+                'count'   => $formatted->count(),
+                'product_id' => (int) $id,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get related products: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Could not load related products',
+            ], 500);
+        }
+    }
+
     // ... rest of the controller methods remain the same
 }
