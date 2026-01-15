@@ -1,4 +1,3 @@
-{{-- resources/views/orders/index.blade.php --}}
 @extends('layouts.master')
 
 @section('title', 'Order Management')
@@ -143,6 +142,16 @@
                 </div>
             </div>
 
+            <!-- Live Unattended Orders Counter -->
+            <div class="row mb-3">
+                <div class="col-12 text-end">
+                    <span class="badge bg-danger fs-6 px-3 py-2" id="unattendedBadge" style="display: none;">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <span id="unattendedCount">0</span> Unattended Orders
+                    </span>
+                </div>
+            </div>
+
             <!-- Filters -->
             <div class="row mt-4">
                 <div class="col-lg-12">
@@ -203,12 +212,12 @@
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
-                                <table class="table table-centered align-middle table-nowrap mb-0">
+                                <table class="table table-centered align-middle table-nowrap mb-0" id="ordersTable">
                                     <thead class="table-active">
                                         <tr>
                                             <th>Invoice</th>
                                             <th>Customer</th>
-                                            <th>Date</th>
+                                            <th>Date & Time</th>
                                             <th>Total</th>
                                             <th>Payment</th>
                                             <th>Status</th>
@@ -218,7 +227,11 @@
                                     </thead>
                                     <tbody>
                                         @forelse($orders as $order)
-                                        <tr>
+                                        <tr class="order-row"
+                                            data-order-id="{{ $order->id }}"
+                                            data-original-status="{{ $order->status }}"
+                                            data-has-been-updated="{{ $order->status_updated_at ? 'true' : 'false' }}"
+                                            data-is-delivered="{{ $order->status === 'delivered' ? 'true' : 'false' }}">
                                             <td>
                                                 <a href="{{ route('adminorders.show', $order) }}" class="fw-bold text-primary">
                                                     {{ $order->invoice_number ?? substr($order->id, 0, 8) }}
@@ -228,16 +241,16 @@
                                                 <div class="d-flex align-items-center">
                                                     <div class="avatar-xs me-3">
                                                         <div class="avatar-title bg-secondary-subtle rounded-circle text-uppercase">
-                                                            {{ Str::substr($order->user->first_name, 0, 1) }}
+                                                            {{ Str::substr($order->user->first_name ?? 'G', 0, 1) }}
                                                         </div>
                                                     </div>
                                                     <div>
-                                                        <h6 class="mb-0">{{ $order->user->first_name }} {{ $order->user->last_name }}</h6>
-                                                        <small class="text-muted">{{ $order->user->email }}</small>
+                                                        <h6 class="mb-0">{{ $order->user->first_name ?? 'Guest' }} {{ $order->user->last_name ?? '' }}</h6>
+                                                        <small class="text-muted">{{ $order->user->email ?? 'N/A' }}</small>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td>{{ $order->created_at->format('d M, Y') }}</td>
+                                            <td>{{ $order->created_at->format('d M, Y H:i') }}</td>
                                             <td class="fw-bold text-success">${{ number_format($order->total_amount, 2) }}</td>
                                             <td>
                                                 <span class="badge {{ $order->payment_status == 'paid' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' }}">
@@ -245,9 +258,13 @@
                                                 </span>
                                             </td>
                                             <td>
-                                                <select class="form-select form-select-sm status-select" data-id="{{ $order->id }}">
+                                                <select class="form-select form-select-sm status-select"
+                                                        data-id="{{ $order->id }}"
+                                                        data-current="{{ $order->status }}">
                                                     @foreach(['pending','processing','shipped','delivered','cancelled'] as $s)
-                                                        <option value="{{ $s }}" {{ $order->status == $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
+                                                        <option value="{{ $s }}" {{ $order->status == $s ? 'selected' : '' }}>
+                                                            {{ ucfirst($s) }}
+                                                        </option>
                                                     @endforeach
                                                 </select>
                                             </td>
@@ -293,88 +310,258 @@
     </div>
 </div>
 
+<!-- Audio Elements for Notifications -->
+<audio id="statusChangeSound" preload="auto">
+    <source src="{{ asset('sounds/notification-ding.mp3') }}" type="audio/mpeg">
+</audio>
+<audio id="newOrderSound" preload="auto">
+    <source src="{{ asset('sounds/cash-register.mp3') }}" type="audio/mpeg">
+</audio>
+
+@endsection
+
+@section('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://unpkg.com/laravel-echo@1.15.3/dist/echo.iife.js"></script>
+<script src="https://unpkg.com/@reverbjs/reverb-js@latest/dist/reverb.iife.js"></script>
 
 <script>
-let salesChart = null;
-let statusChart = null;
+// ================== GLOBAL VARIABLES ==================
+let unattendedCount = {{ $orders->whereNull('status_updated_at')->where('status', 'pending')->count() }};
 
-function setPreset(period) {
-    const from = document.getElementById('dateFrom');
-    const to = document.getElementById('dateTo');
-    const display = document.getElementById('periodDisplay');
-    const today = new Date();
-    to.value = today.toISOString().split('T')[0];
+// ================== BADGE UPDATE FUNCTION ==================
+function updateUnattendedBadge() {
+    const badge = document.getElementById('unattendedBadge');
+    const countEl = document.getElementById('unattendedCount');
 
-    let fromDate = new Date(today);
-    switch(period) {
-        case 'today':
-            display.textContent = 'Today';
-            break;
-        case '7days':
-            fromDate.setDate(today.getDate() - 6);
-            display.textContent = 'Last 7 Days';
-            break;
-        case '30days':
-            fromDate.setDate(today.getDate() - 29);
-            display.textContent = 'Last 30 Days';
-            break;
-        case 'this_month':
-            fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            display.textContent = 'This Month';
-            break;
-        case 'last_month':
-            fromDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            to.value = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
-            display.textContent = 'Last Month';
-            break;
-    }
-    from.value = fromDate.toISOString().split('T')[0];
+    if (!badge || !countEl) return;
+
+    countEl.textContent = unattendedCount;
+    badge.style.display = unattendedCount > 0 ? 'inline-block' : 'none';
 }
 
-function updateAnalytics() {
-    const from = document.getElementById('dateFrom').value;
-    const to = document.getElementById('dateTo').value;
+// ================== ROW HIGHLIGHT FUNCTION ==================
+function applyRowHighlight(row) {
+    row.classList.remove('table-warning', 'table-success');
 
-    if (!from || !to) {
-        Swal.fire('Warning', 'Please select both start and end dates', 'warning');
-        return;
+    if (row.dataset.isDelivered === 'true') {
+        row.classList.add('table-success');
+    } else if (row.dataset.hasBeenUpdated === 'false') {
+        row.classList.add('table-warning');
     }
+}
 
-    // Loading spinner (add to button if you have one)
-    // document.getElementById('applyRange').disabled = true;
+// ================== INITIAL SETUP ==================
+document.addEventListener('DOMContentLoaded', function () {
+    // Apply highlights to existing rows
+    document.querySelectorAll('.order-row').forEach(row => applyRowHighlight(row));
 
-    axios.get('{{ route("adminorders.index") }}', {
-        params: { from, to, ajax: 1 }
+    // Update badge
+    updateUnattendedBadge();
+});
+
+// ================== ECHO + REVERB INITIALIZATION ==================
+window.Echo = new Echo({
+    broadcaster: 'reverb',
+    key: '{{ env('REVERB_APP_KEY') }}',
+    wsHost: window.location.hostname,
+    wsPort: {{ env('REVERB_PORT', 8080) }},
+    wssPort: {{ env('REVERB_PORT', 8080) }},
+    forceTLS: window.location.protocol === 'https:',
+    enabledTransports: ['ws', 'wss'],
+});
+
+// ================== REAL-TIME LISTENERS ==================
+Echo.private('orders')
+    // Status Change Listener
+    .listen('OrderStatusChanged', (e) => {
+        const row = document.querySelector(`tr[data-order-id="${e.order_id}"]`);
+        if (!row) return;
+
+        // Play sound
+        document.getElementById('statusChangeSound').currentTime = 0;
+        document.getElementById('statusChangeSound').play().catch(() => {});
+
+        // Update status dropdown
+        const select = row.querySelector('.status-select');
+        if (select) select.value = e.new_status;
+
+        // Update data attributes
+        const wasPending = row.dataset.originalStatus === 'pending';
+        row.dataset.originalStatus = e.new_status;
+        row.dataset.isDelivered = (e.new_status === 'delivered') ? 'true' : 'false';
+        row.dataset.hasBeenUpdated = 'true';
+
+        // Re-apply highlight
+        applyRowHighlight(row);
+
+        // Decrease unattended count if it was pending and now changed
+        if (wasPending && e.new_status !== 'pending' && row.dataset.hasBeenUpdated === 'false') {
+            unattendedCount = Math.max(0, unattendedCount - 1);
+            updateUnattendedBadge();
+        }
+
+        // Toast notification
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'info',
+            title: `Order #${e.invoice_number} updated to ${e.new_status}`,
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true
+        });
     })
-    .then(response => {
-        document.getElementById('analyticsCards').innerHTML = response.data.cards;
-        document.getElementById('chartsAndProducts').innerHTML = response.data.charts_and_products;
-        initCharts(response.data.chart_data);
-    })
-    .catch(() => {
-        Swal.fire('Error', 'Failed to update analytics', 'error');
-    })
-    .finally(() => {
-        // document.getElementById('applyRange').disabled = false;
+
+    // New Order Arrival Listener
+    .listen('NewOrderCreated', (e) => {
+        // Play new order sound
+        document.getElementById('newOrderSound').currentTime = 0;
+        document.getElementById('newOrderSound').play().catch(() => {});
+
+        // Increase unattended count (new order is unattended)
+        unattendedCount++;
+        updateUnattendedBadge();
+
+        // Create new row at the top
+        const tbody = document.querySelector('#ordersTable tbody');
+        const newRow = document.createElement('tr');
+        newRow.classList.add('order-row', 'table-warning');
+        newRow.dataset.orderId = e.id;
+        newRow.dataset.originalStatus = 'pending';
+        newRow.dataset.hasBeenUpdated = 'false';
+        newRow.dataset.isDelivered = 'false';
+
+        newRow.innerHTML = `
+            <td>
+                <a href="{{ url('/adminorders') }}/${e.id}" class="fw-bold text-primary">${e.invoice_number}</a>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="avatar-xs me-3">
+                        <div class="avatar-title bg-secondary-subtle rounded-circle text-uppercase">
+                            ${e.customer.charAt(0) || 'G'}
+                        </div>
+                    </div>
+                    <div>
+                        <h6 class="mb-0">${e.customer}</h6>
+                        <small class="text-muted">New Customer</small>
+                    </div>
+                </div>
+            </td>
+            <td>${e.created_at}</td>
+            <td class="fw-bold text-success">$${e.total}</td>
+            <td>
+                <span class="badge bg-danger-subtle text-danger">Unpaid</span>
+            </td>
+            <td>
+                <select class="form-select form-select-sm status-select" data-id="${e.id}" data-current="pending">
+                    <option value="pending" selected>Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="shipped">Shipped</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </td>
+            <td class="text-center">0</td>
+            <td>
+                <div class="dropdown">
+                    <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ url('/adminorders') }}/${e.id}">View Details</a></li>
+                        <li><a class="dropdown-item" href="{{ url('/adminorders') }}/${e.id}/invoice" target="_blank">PDF Invoice</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" onclick="emailInvoice('${e.id}')">Email Invoice</a></li>
+                    </ul>
+                </div>
+            </td>
+        `;
+
+        // Insert at the very top
+        tbody.insertBefore(newRow, tbody.firstChild);
+
+        // Attach status change listener to the new select
+        newRow.querySelector('.status-select').addEventListener('change', statusChangeHandler);
+
+        // Toast notification for new order
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: `New Order Received! #${e.invoice_number} - $${e.total}`,
+            showConfirmButton: false,
+            timer: 6000,
+            timerProgressBar: true
+        });
     });
+
+// ================== STATUS CHANGE HANDLER ==================
+function statusChangeHandler() {
+    const orderId = this.dataset.id;
+    const newStatus = this.value;
+    const row = this.closest('.order-row');
+    const oldStatus = row.dataset.originalStatus;
+
+    // Optimistic update
+    row.dataset.originalStatus = newStatus;
+    row.dataset.isDelivered = newStatus === 'delivered' ? 'true' : 'false';
+    row.dataset.hasBeenUpdated = 'true';
+    applyRowHighlight(row);
+
+    axios.post(`/adminorders/${orderId}/status`, { status: newStatus })
+        .then(() => {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Status Updated',
+                showConfirmButton: false,
+                timer: 2000
+            });
+        })
+        .catch(() => {
+            Swal.fire('Error', 'Failed to update status', 'error');
+            this.value = oldStatus;
+            row.dataset.originalStatus = oldStatus;
+            row.dataset.isDelivered = oldStatus === 'delivered' ? 'true' : 'false';
+            row.dataset.hasBeenUpdated = row.dataset.hasBeenUpdated || 'false';
+            applyRowHighlight(row);
+        });
 }
 
-document.getElementById('applyRange').addEventListener('click', updateAnalytics);
+// Attach handler to all status selects
+document.querySelectorAll('.status-select').forEach(select => {
+    select.addEventListener('change', statusChangeHandler);
+});
 
-function initCharts(data) {
-    if (salesChart) salesChart.destroy();
-    if (statusChart) statusChart.destroy();
+// ================== EXPORT FUNCTION ==================
+function exportOrders(format) {
+    const url = new URL('{{ route("adminorders.export") }}');
+    new URLSearchParams(window.location.search).forEach((v, k) => url.searchParams.append(k, v));
+    url.searchParams.append('format', format);
+    window.location = url;
+}
 
-    salesChart = new Chart(document.getElementById('salesChart'), {
+// ================== EMAIL INVOICE FUNCTION ==================
+function emailInvoice(id) {
+    axios.post('{{ route("adminorders.emailInvoice", ":id") }}'.replace(':id', id))
+        .then(() => Swal.fire('Success', 'Invoice sent to customer', 'success'))
+        .catch(() => Swal.fire('Error', 'Failed to send invoice', 'error'));
+}
+
+// ================== CHART INITIALIZATION ==================
+document.addEventListener('DOMContentLoaded', function () {
+    const salesCtx = document.getElementById('salesChart').getContext('2d');
+    new Chart(salesCtx, {
         type: 'line',
         data: {
-            labels: data.sales_labels,
+            labels: @json($analytics['sales_chart']['labels'] ?? []),
             datasets: [{
                 label: 'Daily Sales ($)',
-                data: data.sales_data,
+                data: @json($analytics['sales_chart']['data'] ?? []),
                 borderColor: '#0d6efd',
                 backgroundColor: 'rgba(13,110,253,0.1)',
                 tension: 0.4,
@@ -388,55 +575,27 @@ function initCharts(data) {
         }
     });
 
-    statusChart = new Chart(document.getElementById('statusChart'), {
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
         type: 'doughnut',
         data: {
             labels: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
             datasets: [{
-                data: data.status_counts,
+                data: [
+                    {{ $stats['pending'] ?? 0 }},
+                    {{ $stats['processing'] ?? 0 }},
+                    {{ $stats['shipped'] ?? 0 }},
+                    {{ $stats['delivered'] ?? 0 }},
+                    {{ $stats['cancelled'] ?? 0 }}
+                ],
                 backgroundColor: ['#ffc107', '#0dcaf0', '#0d6efd', '#198754', '#dc3545']
             }]
         },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
-    });
-}
-
-// Initial Setup
-document.addEventListener('DOMContentLoaded', () => {
-    setPreset('30days');
-    initCharts({
-        sales_labels: @json($analytics['sales_chart']['labels']),
-        sales_data: @json($analytics['sales_chart']['data']),
-        status_counts: [{{ $stats['pending'] }}, {{ $stats['processing'] }}, {{ $stats['shipped'] }}, {{ $stats['delivered'] }}, {{ $stats['cancelled'] }}]
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
     });
 });
-
-// Status Update
-document.querySelectorAll('.status-select').forEach(el => {
-    el.addEventListener('change', function () {
-        axios.post('{{ route("adminorders.status", ":id") }}'.replace(':id', this.dataset.id), { status: this.value })
-            .then(() => Swal.fire('Success', 'Status updated', 'success'))
-            .catch(() => {
-                Swal.fire('Error', 'Update failed', 'error');
-                this.value = this.dataset.previousValue || 'pending';
-            });
-        this.dataset.previousValue = this.value;
-    });
-});
-
-// Export
-window.exportOrders = (format) => {
-    const url = new URL('{{ route("adminorders.export") }}');
-    new URLSearchParams(window.location.search).forEach((v, k) => url.searchParams.append(k, v));
-    url.searchParams.append('format', format);
-    window.location = url;
-};
-
-// Email Invoice
-window.emailInvoice = (id) => {
-    axios.post('{{ route("adminorders.emailInvoice", ":id") }}'.replace(':id', id))
-        .then(() => Swal.fire('Sent!', 'Invoice emailed', 'success'))
-        .catch(() => Swal.fire('Error', 'Failed to send', 'error'));
-};
 </script>
 @endsection
