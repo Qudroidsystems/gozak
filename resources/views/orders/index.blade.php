@@ -318,14 +318,14 @@
     <source src="{{ asset('sounds/cash-register.mp3') }}" type="audio/mpeg">
 </audio>
 
-@endsection
 
-@section('scripts')
+
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://unpkg.com/laravel-echo@1.15.3/dist/echo.iife.js"></script>
-<script src="https://unpkg.com/@reverbjs/reverb-js@latest/dist/reverb.iife.js"></script>
+<script src="https://js.pusher.com/8.2/pusher.min.js"></script>
 
 <script>
 // ================== GLOBAL VARIABLES ==================
@@ -355,22 +355,18 @@ function applyRowHighlight(row) {
 
 // ================== INITIAL SETUP ==================
 document.addEventListener('DOMContentLoaded', function () {
-    // Apply highlights to existing rows
     document.querySelectorAll('.order-row').forEach(row => applyRowHighlight(row));
-
-    // Update badge
     updateUnattendedBadge();
 });
 
-// ================== ECHO + REVERB INITIALIZATION ==================
+// ================== ECHO + PUSHER INITIALIZATION ==================
+window.Pusher = Pusher;
+
 window.Echo = new Echo({
-    broadcaster: 'reverb',
-    key: '{{ env('REVERB_APP_KEY') }}',
-    wsHost: window.location.hostname,
-    wsPort: {{ env('REVERB_PORT', 8080) }},
-    wssPort: {{ env('REVERB_PORT', 8080) }},
-    forceTLS: window.location.protocol === 'https:',
-    enabledTransports: ['ws', 'wss'],
+    broadcaster: 'pusher',
+    key: '{{ env('PUSHER_APP_KEY') }}',
+    cluster: '{{ env('PUSHER_APP_CLUSTER') }}',
+    forceTLS: true
 });
 
 // ================== REAL-TIME LISTENERS ==================
@@ -380,30 +376,24 @@ Echo.private('orders')
         const row = document.querySelector(`tr[data-order-id="${e.order_id}"]`);
         if (!row) return;
 
-        // Play sound
         document.getElementById('statusChangeSound').currentTime = 0;
         document.getElementById('statusChangeSound').play().catch(() => {});
 
-        // Update status dropdown
         const select = row.querySelector('.status-select');
         if (select) select.value = e.new_status;
 
-        // Update data attributes
         const wasPending = row.dataset.originalStatus === 'pending';
         row.dataset.originalStatus = e.new_status;
         row.dataset.isDelivered = (e.new_status === 'delivered') ? 'true' : 'false';
         row.dataset.hasBeenUpdated = 'true';
 
-        // Re-apply highlight
         applyRowHighlight(row);
 
-        // Decrease unattended count if it was pending and now changed
-        if (wasPending && e.new_status !== 'pending' && row.dataset.hasBeenUpdated === 'false') {
+        if (wasPending && e.new_status !== 'pending') {
             unattendedCount = Math.max(0, unattendedCount - 1);
             updateUnattendedBadge();
         }
 
-        // Toast notification
         Swal.fire({
             toast: true,
             position: 'top-end',
@@ -415,17 +405,14 @@ Echo.private('orders')
         });
     })
 
-    // New Order Arrival Listener
+    // New Order Listener
     .listen('NewOrderCreated', (e) => {
-        // Play new order sound
         document.getElementById('newOrderSound').currentTime = 0;
         document.getElementById('newOrderSound').play().catch(() => {});
 
-        // Increase unattended count (new order is unattended)
         unattendedCount++;
         updateUnattendedBadge();
 
-        // Create new row at the top
         const tbody = document.querySelector('#ordersTable tbody');
         const newRow = document.createElement('tr');
         newRow.classList.add('order-row', 'table-warning');
@@ -435,9 +422,7 @@ Echo.private('orders')
         newRow.dataset.isDelivered = 'false';
 
         newRow.innerHTML = `
-            <td>
-                <a href="{{ url('/adminorders') }}/${e.id}" class="fw-bold text-primary">${e.invoice_number}</a>
-            </td>
+            <td><a href="{{ url('/adminorders') }}/${e.id}" class="fw-bold text-primary">${e.invoice_number}</a></td>
             <td>
                 <div class="d-flex align-items-center">
                     <div class="avatar-xs me-3">
@@ -453,9 +438,7 @@ Echo.private('orders')
             </td>
             <td>${e.created_at}</td>
             <td class="fw-bold text-success">$${e.total}</td>
-            <td>
-                <span class="badge bg-danger-subtle text-danger">Unpaid</span>
-            </td>
+            <td><span class="badge bg-danger-subtle text-danger">Unpaid</span></td>
             <td>
                 <select class="form-select form-select-sm status-select" data-id="${e.id}" data-current="pending">
                     <option value="pending" selected>Pending</option>
@@ -480,13 +463,9 @@ Echo.private('orders')
             </td>
         `;
 
-        // Insert at the very top
         tbody.insertBefore(newRow, tbody.firstChild);
-
-        // Attach status change listener to the new select
         newRow.querySelector('.status-select').addEventListener('change', statusChangeHandler);
 
-        // Toast notification for new order
         Swal.fire({
             toast: true,
             position: 'top-end',
@@ -505,7 +484,6 @@ function statusChangeHandler() {
     const row = this.closest('.order-row');
     const oldStatus = row.dataset.originalStatus;
 
-    // Optimistic update
     row.dataset.originalStatus = newStatus;
     row.dataset.isDelivered = newStatus === 'delivered' ? 'true' : 'false';
     row.dataset.hasBeenUpdated = 'true';
@@ -532,7 +510,6 @@ function statusChangeHandler() {
         });
 }
 
-// Attach handler to all status selects
 document.querySelectorAll('.status-select').forEach(select => {
     select.addEventListener('change', statusChangeHandler);
 });
@@ -598,4 +575,5 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+
 @endsection
