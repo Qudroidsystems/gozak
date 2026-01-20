@@ -1,31 +1,49 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Banner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * @group Banners
+ * Manage promotional banners displayed on the homepage / app.
+ */
 class APIBannerController extends Controller
 {
     /**
-     * Display a listing of banners in random order.
+     * Display a listing of banners in random order
      *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Returns a random selection of active banners (useful for homepage carousel).
+     *
+     * @queryParam active boolean Filter by active status. Example: true
+     * @queryParam limit integer Number of banners to return (default 10). Example: 5
+     *
+     * @response 200 {
+     *     "success": true,
+     *     "data": [
+     *         {
+     *             "id": 1,
+     *             "image_url": "https://domain.com/storage/banners/banner1.jpg",
+     *             "target_screen": "home",
+     *             "active": true,
+     *             "created_at": "2025-01-01T10:00:00.000000Z",
+     *             "updated_at": "2025-01-01T10:00:00.000000Z"
+     *         }
+     *     ]
+     * }
      */
     public function index(Request $request)
     {
         $query = Banner::query()
             ->select('id', 'image_url', 'target_screen', 'active', 'created_at', 'updated_at');
 
-        // Filter by active status if provided
         if ($request->has('active')) {
             $query->where('active', $request->input('active') === 'true');
         }
 
-        // Apply random order and limit (default to 10 if not provided)
         $limit = $request->input('limit', 10);
         $banners = $query->inRandomOrder()->take($limit)->get();
 
@@ -47,10 +65,20 @@ class APIBannerController extends Controller
     }
 
     /**
-     * Store a newly created banner in storage.
+     * Store a newly created banner
      *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Requires admin authentication (not shown in code - add middleware if needed).
+     *
+     * @bodyParam image file required JPEG/PNG ≤ 2MB
+     * @bodyParam target_screen string required Where the banner should appear (e.g. "home", "products"). Example: home
+     * @bodyParam active boolean required Whether the banner is visible. Example: true
+     *
+     * @response 201 {
+     *     "success": true,
+     *     "data": { ... banner object ... },
+     *     "message": "Banner created successfully"
+     * }
+     * @response 422 validation errors
      */
     public function store(Request $request)
     {
@@ -68,7 +96,6 @@ class APIBannerController extends Controller
             ], 422);
         }
 
-        // Save the image directly to storage
         $path = $request->file('image')->store('public/banners');
 
         $banner = Banner::create([

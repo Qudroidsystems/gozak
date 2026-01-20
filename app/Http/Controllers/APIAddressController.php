@@ -8,6 +8,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * @group User Addresses
+ * Manage shipping and billing addresses for the authenticated user.
+ *
+ * All endpoints in this group require Sanctum authentication (Bearer Token).
+ */
 class APIAddressController extends Controller
 {
     public function __construct()
@@ -36,6 +42,37 @@ class APIAddressController extends Controller
 
     /**
      * Fetch all addresses for the authenticated user
+     *
+     * Returns a list of all addresses associated with the currently authenticated user.
+     *
+     * @authenticated
+     *
+     * @response 200 {
+     *     "success": true,
+     *     "addresses": [
+     *         {
+     *             "id": 1,
+     *             "name": "Home",
+     *             "street": "123 Main Street",
+     *             "city": "Lagos",
+     *             "state": "Lagos",
+     *             "postal_code": "100001",
+     *             "country": "Nigeria",
+     *             "phone_number": "+2348012345678",
+     *             "is_default": true,
+     *             "created_at": "2025-01-01T10:00:00.000000Z",
+     *             "updated_at": "2025-01-01T10:00:00.000000Z"
+     *         }
+     *     ],
+     *     "message": "Addresses retrieved successfully"
+     * }
+     * @response 401 {
+     *     "message": "Unauthenticated."
+     * }
+     * @response 500 {
+     *     "success": false,
+     *     "message": "Failed to fetch addresses: ..."
+     * }
      */
     public function index(Request $request)
     {
@@ -61,6 +98,32 @@ class APIAddressController extends Controller
 
     /**
      * Store a new address
+     *
+     * Creates a new address for the authenticated user.
+     * If `is_default` is true, all other addresses will have `is_default` set to false.
+     *
+     * @authenticated
+     *
+     * @bodyParam name string|null Optional friendly name for the address (e.g. "Home", "Office"). Example: Home
+     * @bodyParam street string required Full street address. Example: 123 Marina Road
+     * @bodyParam city string required City name. Example: Lagos
+     * @bodyParam state string required State or province. Example: Lagos State
+     * @bodyParam postal_code string required Postal/ZIP code. Example: 100001
+     * @bodyParam country string required Country name. Example: Nigeria
+     * @bodyParam phone_number string required Phone number in E.164 format. Example: +2348012345678
+     * @bodyParam is_default boolean Whether this should become the default address. Example: true
+     *
+     * @response 201 {
+     *     "success": true,
+     *     "address": { ... address object ... },
+     *     "message": "Address created successfully"
+     * }
+     * @response 422 {
+     *     "success": false,
+     *     "message": "Validation failed",
+     *     "errors": { ... validation errors ... }
+     * }
+     * @response 500 server error
      */
     public function store(Request $request)
     {
@@ -70,9 +133,9 @@ class APIAddressController extends Controller
                 'street' => 'required|string|max:255',
                 'city' => 'required|string|max:255',
                 'state' => 'required|string|max:255',
-                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/', // Matches US ZIP code format
+                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/',
                 'country' => 'required|string|max:255',
-                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/', // Matches E.164 phone format
+                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/',
                 'is_default' => 'boolean',
             ]);
 
@@ -111,7 +174,24 @@ class APIAddressController extends Controller
     }
 
     /**
-     * Update an existing address (Full update)
+     * Update an existing address (full update)
+     *
+     * @authenticated
+     *
+     * @urlParam id integer required The ID of the address to update. Example: 1
+     *
+     * @bodyParam name string|null Optional
+     * @bodyParam street string required
+     * @bodyParam city string required
+     * @bodyParam state string required
+     * @bodyParam postal_code string required
+     * @bodyParam country string required
+     * @bodyParam phone_number string required
+     * @bodyParam is_default boolean optional
+     *
+     * @response 200 updated address object
+     * @response 403/404 address not found or not owned
+     * @response 422 validation errors
      */
     public function update(Request $request, $id)
     {
@@ -123,9 +203,9 @@ class APIAddressController extends Controller
                 'street' => 'required|string|max:255',
                 'city' => 'required|string|max:255',
                 'state' => 'required|string|max:255',
-                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/', // Matches US ZIP code format
+                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/',
                 'country' => 'required|string|max:255',
-                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/', // Matches E.164 phone format
+                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/',
                 'is_default' => 'boolean',
             ]);
 
@@ -163,20 +243,26 @@ class APIAddressController extends Controller
     }
 
     /**
-     * Update ONLY the is_default field for an address (Partial update)
+     * Partially update an address (only is_default field)
+     *
+     * @authenticated
+     *
+     * @urlParam id integer required The ID of the address
+     * @bodyParam is_default boolean required Whether to set this address as default
+     *
+     * @response 200 updated address
+     * @response 422 invalid input
      */
     public function patch(Request $request, $id)
     {
         try {
             $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
 
-            // Only validate the is_default field for PATCH requests
             $validated = $request->validate([
                 'is_default' => 'required|boolean',
             ]);
 
             if ($validated['is_default']) {
-                // If setting this address as default, unset all others
                 $this->setDefaultAddress($request->user(), $id);
             }
 
@@ -213,15 +299,24 @@ class APIAddressController extends Controller
 
     /**
      * Delete an address
+     *
+     * @authenticated
+     *
+     * @urlParam id integer required The ID of the address to delete
+     *
+     * @response 200 {
+     *     "success": true,
+     *     "message": "Address deleted successfully"
+     * }
+     * @response 404 address not found or not owned
      */
     public function destroy(Request $request, $id)
     {
         try {
             $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
-            
-            // If this was the default address, you might want to set another as default, but for now, just delete
+
             $wasDefault = $address->is_default;
-            $address->forceDelete(); // Hard delete
+            $address->forceDelete();
 
             Log::info('Address deleted for user: ' . $request->user()->id . ', ID: ' . $id . ', was default: ' . ($wasDefault ? 'true' : 'false'));
 

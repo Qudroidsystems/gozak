@@ -16,11 +16,49 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 
+/**
+ * @group Authentication
+ * User registration, login, social login, email verification, password reset and logout.
+ */
 class APIAuthController extends Controller
 {
-    
-    
-     public function register(Request $request)
+    /**
+     * Register a new user
+     *
+     * Creates a new user account and returns an authentication token.
+     * A verification email is sent (if mail is configured).
+     *
+     * @bodyParam email string required Unique email address. Example: user@example.com
+     * @bodyParam password string required Minimum 6 characters. Example: password123
+     * @bodyParam first_name string required User's first name. Example: John
+     * @bodyParam last_name string required User's last name. Example: Doe
+     * @bodyParam phone_number string|null Optional phone number. Example: +2348012345678
+     *
+     * @response 201 {
+     *     "success": true,
+     *     "token": "1|randomsanctumtokenhere",
+     *     "user": {
+     *         "id": 1,
+     *         "first_name": "John",
+     *         "last_name": "Doe",
+     *         "username": "user@example.com",
+     *         "email": "user@example.com",
+     *         "phone_number": "+2348012345678",
+     *         "profile_image": null,
+     *         "social_provider": null,
+     *         "gender": null,
+     *         "date_of_birth": null,
+     *         "email_verified_at": null,
+     *         "created_at": "2025-01-01T10:00:00.000000Z",
+     *         "updated_at": "2025-01-01T10:00:00.000000Z",
+     *         "addresses": []
+     *     },
+     *     "message": "Registration successful. Please verify your email."
+     * }
+     * @response 422 validation errors
+     * @response 500 server error
+     */
+    public function register(Request $request)
     {
         try {
             $validated = $request->validate([
@@ -34,20 +72,17 @@ class APIAuthController extends Controller
             $user = User::create([
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
-                'username' => $validated['email'], // Use email as username
+                'username' => $validated['email'],
                 'email' => $validated['email'],
                 'phone_number' => $validated['phone_number'] ?? null,
                 'password' => bcrypt($validated['password']),
             ]);
 
-            // Try to send verification email, but don't fail registration if it fails
             try {
                 event(new Registered($user));
                 Log::info('Verification email sent successfully for user: ' . $user->email);
             } catch (\Exception $emailError) {
-                // Log the error but continue with registration
                 Log::error('Failed to send verification email for user ' . $user->email . ': ' . $emailError->getMessage());
-                // Don't throw - let user complete registration even if email fails
             }
 
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -89,6 +124,17 @@ class APIAuthController extends Controller
         }
     }
 
+    /**
+     * Login user with email and password
+     *
+     * @bodyParam email string required Example: user@example.com
+     * @bodyParam password string required
+     *
+     * @response 200 success with token and user data
+     * @response 401 invalid credentials
+     * @response 403 email not verified
+     * @response 422 validation errors
+     */
     public function login(Request $request)
     {
         try {
@@ -142,7 +188,7 @@ class APIAuthController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Login error: ' . $e->getMessage());
+            Log::error('Login error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Login failed',
@@ -151,6 +197,16 @@ class APIAuthController extends Controller
         }
     }
 
+    /**
+     * Social login (Google / Facebook)
+     *
+     * @bodyParam provider string required Must be "google" or "facebook". Example: google
+     * @bodyParam access_token string required OAuth access token from the provider
+     *
+     * @response 200 success with token and user (creates user if not exists)
+     * @response 422 validation errors
+     * @response 500 provider error or server error
+     */
     public function socialLogin(Request $request)
     {
         try {
@@ -211,7 +267,7 @@ class APIAuthController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Social login error: ' . $e->getMessage());
+            Log::error('Social login error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Social login failed',
@@ -220,6 +276,14 @@ class APIAuthController extends Controller
         }
     }
 
+    /**
+     * Get social provider user information
+     *
+     * @param string $provider
+     * @param string $accessToken
+     * @return array
+     * @throws \Exception
+     */
     protected function getSocialUserInfo(string $provider, string $accessToken)
     {
         if ($provider === 'google') {
@@ -253,34 +317,24 @@ class APIAuthController extends Controller
         throw new \Exception('Unsupported provider');
     }
 
-    
     /**
-     * Verify the user's email address.
+     * Verify email address (web route - returns view)
      *
-     * @param Request $request
-     * @param int $id
-     * @param string $hash
-     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+     * This endpoint is typically accessed via browser link from email.
+     * It marks the email as verified and shows success/failure page.
      */
     public function verifyEmail(Request $request, $id, $hash)
     {
         try {
             $user = User::findOrFail($id);
 
-            // Verify the hash
             if (!hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
                 Log::error('Email verification failed: Invalid hash for user ID ' . $id);
                 return view('auth.verify-email-failed', ['message' => 'Invalid verification link']);
             }
 
-            // if ($user->hasVerifiedEmail()) {
-            //     Log::info('Email already verified for user ID: ' . $id);
-            //     $request->session()->flash('status', 'Email already verified.');
-            //     return redirect('/login'); // Or wherever you want to redirect after verification
-            // }
-
             $user->markEmailAsVerified();
-            event(new Verified($user)); // Fire the Verified event if needed for additional logic
+            event(new Verified($user));
             Log::info('Email verified for user ID: ' . $id);
 
             $request->session()->flash('verified', true);
@@ -298,7 +352,16 @@ class APIAuthController extends Controller
             return view('auth.verify-email-failed', ['message' => 'Verification failed. Please try again.']);
         }
     }
-    
+
+    /**
+     * Resend email verification notification
+     *
+     * @authenticated
+     *
+     * @response 200 verification email sent
+     * @response 400 email already verified
+     * @response 500 server error
+     */
     public function sendEmailVerificationNotification(Request $request)
     {
         try {
@@ -317,7 +380,7 @@ class APIAuthController extends Controller
                 'message' => 'Verification email sent',
             ], 200);
         } catch (\Exception $e) {
-            \Log::error('Email verification notification error: ' . $e->getMessage());
+            Log::error('Email verification notification error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send verification email',
@@ -326,6 +389,15 @@ class APIAuthController extends Controller
         }
     }
 
+    /**
+     * Send password reset link
+     *
+     * @bodyParam email string required Must exist in the users table. Example: user@example.com
+     *
+     * @response 200 reset link sent
+     * @response 422 invalid email
+     * @response 400 other failure
+     */
     public function sendPasswordResetEmail(Request $request)
     {
         try {
@@ -353,7 +425,7 @@ class APIAuthController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Password reset email error: ' . $e->getMessage());
+            Log::error('Password reset email error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send password reset email',
@@ -362,6 +434,17 @@ class APIAuthController extends Controller
         }
     }
 
+    /**
+     * Reset password using reset token
+     *
+     * @bodyParam token string required Password reset token from email
+     * @bodyParam email string required
+     * @bodyParam password string required min:6 confirmed
+     *
+     * @response 200 password reset successful
+     * @response 422 invalid data
+     * @response 400 reset failed
+     */
     public function resetPassword(Request $request)
     {
         try {
@@ -401,7 +484,7 @@ class APIAuthController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('Password reset error: ' . $e->getMessage());
+            Log::error('Password reset error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to reset password',
@@ -410,6 +493,17 @@ class APIAuthController extends Controller
         }
     }
 
+    /**
+     * Logout the authenticated user (revoke current token)
+     *
+     * @authenticated
+     *
+     * @response 200 {
+     *     "success": true,
+     *     "message": "Logout successful"
+     * }
+     * @response 500 server error
+     */
     public function logout(Request $request)
     {
         try {
@@ -419,7 +513,7 @@ class APIAuthController extends Controller
                 'message' => 'Logout successful',
             ], 200);
         } catch (\Exception $e) {
-            \Log::error('Logout error: ' . $e->getMessage());
+            Log::error('Logout error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Logout failed',

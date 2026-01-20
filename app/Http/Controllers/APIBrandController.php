@@ -1,7 +1,7 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\BrandCategory;
@@ -10,8 +10,21 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * @group Brands
+ * Manage product brands and their category associations.
+ */
 class APIBrandController extends Controller
 {
+    /**
+     * Get paginated list of brands
+     *
+     * @queryParam isFeatured boolean Show only featured brands. Example: true
+     * @queryParam per_page integer Items per page (1-100). Default: 10. Example: 20
+     *
+     * @response 200 paginated brands with categories and products_count
+     * @response 500 database/server error
+     */
     public function index(Request $request)
     {
         try {
@@ -19,7 +32,7 @@ class APIBrandController extends Controller
                 $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
             }])
             ->select('id', 'name', 'logo', 'is_featured')
-            ->withCount('products'); // Add products_count
+            ->withCount('products');
 
             if ($request->has('isFeatured')) {
                 $query->where('is_featured', $request->input('isFeatured') === 'true');
@@ -34,7 +47,7 @@ class APIBrandController extends Controller
                     'name' => $brand->name ?? '',
                     'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                     'is_featured' => $brand->is_featured ?? false,
-                    'products_count' => $brand->products_count ?? 0, // Include products_count
+                    'products_count' => $brand->products_count ?? 0,
                     'categories' => $brand->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
@@ -68,6 +81,15 @@ class APIBrandController extends Controller
         }
     }
 
+    /**
+     * Get single brand by ID
+     *
+     * @urlParam id integer required Brand ID. Example: 1
+     *
+     * @response 200 brand object with categories and products_count
+     * @response 404 brand not found
+     * @response 500 server error
+     */
     public function show($id)
     {
         try {
@@ -75,7 +97,7 @@ class APIBrandController extends Controller
                 $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
             }])
             ->select('id', 'name', 'logo', 'is_featured')
-            ->withCount('products') // Add products_count
+            ->withCount('products')
             ->find($id);
 
             if (!$brand) {
@@ -90,7 +112,7 @@ class APIBrandController extends Controller
                 'name' => $brand->name ?? '',
                 'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                 'is_featured' => $brand->is_featured ?? false,
-                'products_count' => $brand->products_count ?? 0, // Include products_count
+                'products_count' => $brand->products_count ?? 0,
                 'categories' => $brand->categories->map(function ($category) {
                     return [
                         'id' => $category->id,
@@ -113,6 +135,16 @@ class APIBrandController extends Controller
         }
     }
 
+    /**
+     * Get brands associated with a specific category
+     *
+     * @urlParam categoryId integer required Category ID. Example: 5
+     * @queryParam per_page integer Items per page (1-100). Default: 10
+     *
+     * @response 200 paginated brands
+     * @response 404 category not found
+     * @response 500 server error
+     */
     public function getBrandsForCategory(Request $request, $categoryId)
     {
         try {
@@ -128,7 +160,7 @@ class APIBrandController extends Controller
                 $q->select('categories.id', 'categories.name', 'categories.image', 'categories.is_featured');
             }])
             ->select('id', 'name', 'logo', 'is_featured')
-            ->withCount('products') // Add products_count
+            ->withCount('products')
             ->whereHas('categories', function ($q) use ($categoryId) {
                 $q->where('categories.id', $categoryId);
             });
@@ -142,7 +174,7 @@ class APIBrandController extends Controller
                     'name' => $brand->name ?? '',
                     'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                     'is_featured' => $brand->is_featured ?? false,
-                    'products_count' => $brand->products_count ?? 0, // Include products_count
+                    'products_count' => $brand->products_count ?? 0,
                     'categories' => $brand->categories->map(function ($category) {
                         return [
                             'id' => $category->id,
@@ -171,6 +203,18 @@ class APIBrandController extends Controller
         }
     }
 
+    /**
+     * Create a new brand
+     *
+     * @bodyParam name string required Unique brand name. Example: Nike
+     * @bodyParam logo file required JPEG/PNG/JPG ≤ 2MB
+     * @bodyParam is_featured boolean Whether the brand is featured. Example: true
+     * @bodyParam categories integer[] Optional array of category IDs. Example: [3,7,12]
+     *
+     * @response 201 created brand with categories
+     * @response 422 validation errors
+     * @response 500 server error
+     */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -214,7 +258,7 @@ class APIBrandController extends Controller
                 'name' => $brand->name ?? '',
                 'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                 'is_featured' => $brand->is_featured ?? false,
-                'products_count' => $brand->products()->count(), // Include products_count
+                'products_count' => $brand->products()->count(),
                 'categories' => $brand->categories->map(function ($category) {
                     return [
                         'id' => $category->id,
@@ -239,6 +283,15 @@ class APIBrandController extends Controller
         }
     }
 
+    /**
+     * Attach a category to a brand
+     *
+     * @bodyParam brand_id integer required
+     * @bodyParam category_id integer required
+     *
+     * @response 201 relationship created
+     * @response 422 validation errors
+     */
     public function storeBrandCategory(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -281,6 +334,20 @@ class APIBrandController extends Controller
         }
     }
 
+    /**
+     * Update an existing brand
+     *
+     * @urlParam id integer required Brand ID
+     *
+     * @bodyParam name string|null New name (must be unique if changed)
+     * @bodyParam logo file|null New logo file
+     * @bodyParam is_featured boolean|null
+     * @bodyParam categories integer[]|null New category IDs (replaces existing)
+     *
+     * @response 200 updated brand
+     * @response 404 not found
+     * @response 422 validation errors
+     */
     public function update(Request $request, $id)
     {
         $brand = Brand::find($id);
@@ -340,7 +407,7 @@ class APIBrandController extends Controller
                 'name' => $brand->name ?? '',
                 'logo' => $brand->logo ? url(Storage::url($brand->logo)) : '',
                 'is_featured' => $brand->is_featured ?? false,
-                'products_count' => $brand->products()->count(), // Include products_count
+                'products_count' => $brand->products()->count(),
                 'categories' => $brand->categories->map(function ($category) {
                     return [
                         'id' => $category->id,
@@ -365,6 +432,14 @@ class APIBrandController extends Controller
         }
     }
 
+    /**
+     * Delete a brand
+     *
+     * @urlParam id integer required Brand ID
+     *
+     * @response 200 brand deleted
+     * @response 404 not found
+     */
     public function destroy($id)
     {
         $brand = Brand::find($id);
