@@ -16,6 +16,13 @@ use App\Services\NotificationService;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\OrderPlacedNotification;
 
+/**
+ * @group Orders
+ *
+ * Manage user orders: creation, status updates, barcode generation & scanning.
+ *
+ * All endpoints require Sanctum authentication (Bearer token).
+ */
 class APIOrderController extends Controller
 {
     protected $notificationService;
@@ -27,6 +34,46 @@ class APIOrderController extends Controller
         $this->barcodeService = $barcodeService;
     }
 
+    /**
+     * Create a new order
+     *
+     * @authenticated
+     *
+     * @bodyParam user_id integer required User ID placing the order
+     * @bodyParam status string required One of: pending, shipped, delivered, cancelled
+     * @bodyParam total_amount numeric required Grand total
+     * @bodyParam total numeric required Same as total_amount (legacy field)
+     * @bodyParam shipping_cost numeric required
+     * @bodyParam tax_cost numeric required
+     * @bodyParam order_date date required Order placement date
+     * @bodyParam payment_method string required e.g. "card", "wallet", "bank_transfer"
+     * @bodyParam shipping_address array required
+     * @bodyParam shipping_address.name string required
+     * @bodyParam shipping_address.street string required
+     * @bodyParam shipping_address.city string required
+     * @bodyParam shipping_address.country string required
+     * @bodyParam shipping_address.phone_number string|null optional
+     * @bodyParam billing_address_same_as_shipping boolean required
+     * @bodyParam billing_address array required if billing_address_same_as_shipping = false
+     * @bodyParam delivery_date date|null Expected delivery date
+     * @bodyParam items array required Minimum 1 item
+     * @bodyParam items.*.product_id integer required
+     * @bodyParam items.*.title string required Product title
+     * @bodyParam items.*.price numeric required Unit price
+     * @bodyParam items.*.quantity integer required ≥1
+     * @bodyParam items.*.variation_id integer|null Variation ID
+     * @bodyParam items.*.image string|null Image URL/path
+     * @bodyParam items.*.brand_name string|null Brand name
+     * @bodyParam items.*.selected_variation array|null Selected attributes
+     *
+     * @response 201 {
+     *     "success": true,
+     *     "order": { ... full order with items ... },
+     *     "message": "Order created successfully. Please proceed to payment."
+     * }
+     * @response 422 validation errors
+     * @response 500 transaction or server error
+     */
     public function store(Request $request)
     {
         try {
@@ -95,7 +142,6 @@ class APIOrderController extends Controller
                     ]);
                 }
 
-                // === NOTIFY ALL ADMINS OF NEW ORDER ===
                 try {
                     $admins = \App\Models\User::role('Admin')->get();
 
@@ -112,7 +158,6 @@ class APIOrderController extends Controller
                         'error' => $e->getMessage(),
                         'trace' => $e->getTraceAsString()
                     ]);
-                    // Do not fail order creation if notification fails
                 }
 
                 Log::info('APIOrderController: Order created successfully', ['order_id' => $order->id]);
@@ -129,8 +174,20 @@ class APIOrderController extends Controller
         }
     }
 
-    // The rest of your methods remain unchanged...
-
+    /**
+     * Update order status
+     *
+     * @authenticated
+     *
+     * @urlParam id string required Order UUID
+     *
+     * @bodyParam status string required pending|processing|shipped|delivered|cancelled
+     * @bodyParam send_notifications boolean Whether to send notifications (default: true)
+     *
+     * @response 200 status updated successfully
+     * @response 403 access denied (wrong user)
+     * @response 500 update failed
+     */
     public function updateStatus(Request $request, $id)
     {
         $request->validate([
@@ -174,7 +231,6 @@ class APIOrderController extends Controller
                 'data' => $order->fresh(['items.product', 'shippingAddress', 'billingAddress']),
                 'notifications' => $notificationResult,
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error updating order status: ' . $e->getMessage());
             return response()->json([
@@ -185,6 +241,19 @@ class APIOrderController extends Controller
         }
     }
 
+    /**
+     * Generate barcode for a paid order
+     *
+     * @authenticated
+     *
+     * @urlParam id string required Order UUID
+     *
+     * @response 200 barcode information (URL, data URL, parsed data)
+     * @response 400 order not paid
+     * @response 403 access denied
+     * @response 404 order not found
+     * @response 500 generation failed
+     */
     public function getBarcode($id)
     {
         try {
@@ -222,7 +291,6 @@ class APIOrderController extends Controller
                     'data' => json_decode($barcodeResult['barcode_data'], true),
                 ],
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error generating barcode: ' . $e->getMessage());
             return response()->json([
@@ -232,6 +300,19 @@ class APIOrderController extends Controller
         }
     }
 
+    /**
+     * Scan / verify barcode data
+     *
+     * @authenticated
+     *
+     * @bodyParam barcode_data string required Scanned barcode content
+     *
+     * @response 200 order + parsed barcode information
+     * @response 400 invalid barcode
+     * @response 403 access denied
+     * @response 404 order not found
+     * @response 500 scan failed
+     */
     public function scanBarcode(Request $request)
     {
         try {
@@ -249,7 +330,7 @@ class APIOrderController extends Controller
             }
 
             $order = Order::with(['user', 'items.product', 'shippingAddress', 'billingAddress'])
-                        ->find($parsedData['order_id']);
+                ->find($parsedData['order_id']);
 
             if (!$order) {
                 return response()->json([
@@ -270,7 +351,6 @@ class APIOrderController extends Controller
                 'order' => $order,
                 'barcode_data' => $parsedData,
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error scanning barcode: ' . $e->getMessage());
             return response()->json([
@@ -280,6 +360,14 @@ class APIOrderController extends Controller
         }
     }
 
+    /**
+     * List all orders for the authenticated user
+     *
+     * @authenticated
+     *
+     * @response 200 list of orders with relations
+     * @response 500 fetch error
+     */
     public function index()
     {
         try {
@@ -301,6 +389,16 @@ class APIOrderController extends Controller
         }
     }
 
+    /**
+     * Show details of a single order
+     *
+     * @authenticated
+     *
+     * @urlParam id string required Order UUID
+     *
+     * @response 200 order with items, addresses, transactions
+     * @response 404 order not found or access denied
+     */
     public function show($id)
     {
         try {
@@ -326,6 +424,19 @@ class APIOrderController extends Controller
         }
     }
 
+    /**
+     * Update order (limited fields)
+     *
+     * @authenticated
+     *
+     * @urlParam id string required Order UUID
+     *
+     * @bodyParam status string|null pending|processing|shipped|delivered|cancelled
+     * @bodyParam delivery_date date|null
+     *
+     * @response 200 updated order
+     * @response 404 not found or access denied
+     */
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -361,6 +472,17 @@ class APIOrderController extends Controller
         }
     }
 
+    /**
+     * Cancel (soft-delete) an order
+     *
+     * @authenticated
+     *
+     * @urlParam id string required Order UUID
+     *
+     * @response 200 order cancelled
+     * @response 400 cannot cancel at this stage
+     * @response 404 not found or access denied
+     */
     public function destroy($id)
     {
         try {
@@ -394,6 +516,16 @@ class APIOrderController extends Controller
         }
     }
 
+    /**
+     * Partial update of an order (PATCH)
+     *
+     * @authenticated
+     *
+     * @urlParam id string required Order UUID
+     *
+     * @response 200 order updated
+     * @response 500 update failed
+     */
     public function patch($id, Request $request)
     {
         try {
@@ -408,7 +540,6 @@ class APIOrderController extends Controller
                 'message' => 'Order updated successfully',
                 'data' => $order->fresh()
             ], 200);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

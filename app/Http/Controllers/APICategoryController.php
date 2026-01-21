@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Category;
@@ -9,18 +10,46 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * @group Categories
+ *
+ * Endpoints for viewing and managing product categories.
+ * Most endpoints are public; creating/updating usually requires admin privileges.
+ */
 class APICategoryController extends Controller
 {
     /**
-     * Get a paginated list of categories with optional filters.
+     * Get a paginated list of categories with optional filters
      *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Public endpoint — no authentication required.
+     *
+     * @queryParam per_page integer Number of items per page (max 100). Default: 20. Example: 30
+     * @queryParam is_featured boolean Only return featured categories. Example: true
+     * @queryParam parent_id integer Show only sub-categories of this parent. Example: 5
+     * @queryParam safe_mode boolean Hide NSFW categories (when enabled globally). Example: true
+     *
+     * @response 200 {
+     *     "success": true,
+     *     "data": [
+     *         {
+     *             "id": 1,
+     *             "name": "Electronics",
+     *             "image": "https://example.com/storage/categories/electronics.jpg",
+     *             "parent_id": null,
+     *             "is_featured": true,
+     *             "is_nsfw": false
+     *         }
+     *     ]
+     * }
+     * @response 500 {
+     *     "success": false,
+     *     "message": "Failed to fetch categories: ..."
+     * }
      */
     public function index(Request $request)
     {
         $query = Category::query()
-            ->select('id', 'name', 'image', 'parent_id', 'is_featured', 'is_nsfw');  // NEW: Include is_nsfw for filtering
+            ->select('id', 'name', 'image', 'parent_id', 'is_featured', 'is_nsfw');
 
         // Apply filters
         if ($request->has('is_featured') && $request->is_featured === 'true') {
@@ -31,12 +60,10 @@ class APICategoryController extends Controller
             $query->where('parent_id', $request->parent_id);
         }
 
-        // NEW: Apply safe_mode filter from global settings (guests/auth)
         if ($request->has('safe_mode') && $request->safe_mode === 'true') {
-            $query->where('is_nsfw', false);  // Assumes Category has 'is_nsfw' boolean field (default: false)
+            $query->where('is_nsfw', false);
         }
 
-        // Validate per_page
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
 
         try {
@@ -44,23 +71,18 @@ class APICategoryController extends Controller
 
             $formattedCategories = $categories->map(function ($category) {
                 return [
-                    'id' => $category->id,
-                    'name' => $category->name ?? '',
-                    'image' => $category->image ? url(Storage::url($category->image)) : null,
-                    'parent_id' => $category->parent_id,
+                    'id'          => $category->id,
+                    'name'        => $category->name ?? '',
+                    'image'       => $category->image ? url(Storage::url($category->image)) : null,
+                    'parent_id'   => $category->parent_id,
                     'is_featured' => $category->is_featured ?? false,
-                    'is_nsfw' => $category->is_nsfw ?? false,  // NEW: Include in response for client-side handling if needed
+                    'is_nsfw'     => $category->is_nsfw ?? false,
                 ];
             })->values();
 
             return response()->json([
                 'success' => true,
-                'data' => $formattedCategories,
-                // 'pagination' => [
-                //     'current_page' => $categories->currentPage(),
-                //     'last_page' => $categories->lastPage(),
-                //     'total' => $categories->total(),
-                // ],
+                'data'    => $formattedCategories,
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -71,48 +93,73 @@ class APICategoryController extends Controller
     }
 
     /**
-     * Create a new category.
+     * Create a new category
      *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Typically requires admin authentication (middleware not shown here).
+     *
+     * @bodyParam name string required Category name. Example: Smartphones
+     * @bodyParam image string|null Image path or URL
+     * @bodyParam parent_id integer|null Parent category ID (for sub-categories). Example: 3
+     * @bodyParam is_featured boolean Featured on homepage/sections. Default: false. Example: true
+     * @bodyParam is_nsfw boolean Mark as adult content (filtered in safe_mode). Default: false
+     *
+     * @response 201 {
+     *     "success": true,
+     *     "data": {
+     *         "id": 42,
+     *         "name": "Smartphones",
+     *         "image": "https://...",
+     *         "parent_id": 3,
+     *         "is_featured": true,
+     *         "is_nsfw": false
+     *     },
+     *     "message": "Category created successfully"
+     * }
+     * @response 422 {
+     *     "success": false,
+     *     "message": "Validation failed",
+     *     "errors": { ... }
+     * }
+     * @response 500 server error
      */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'image' => 'nullable|string',
-            'parent_id' => 'nullable|exists:categories,id',
+            'name'        => 'required|string|max:255',
+            'image'       => 'nullable|string',
+            'parent_id'   => 'nullable|exists:categories,id',
             'is_featured' => 'nullable|boolean',
-            'is_nsfw' => 'nullable|boolean',  // NEW: Optional NSFW flag for safe_mode filtering
+            'is_nsfw'     => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
         try {
             $categoryData = [
-                'name' => $request->name,
-                'image' => $request->image,
-                'parent_id' => $request->parent_id,
+                'name'        => $request->name,
+                'image'       => $request->image,
+                'parent_id'   => $request->parent_id,
                 'is_featured' => $request->is_featured ?? false,
-                'is_nsfw' => $request->is_nsfw ?? false,  // NEW
+                'is_nsfw'     => $request->is_nsfw ?? false,
             ];
+
             $category = Category::create($categoryData);
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'id' => $category->id,
-                    'name' => $category->name,
-                    'image' => $category->image ? url(Storage::url($category->image)) : null,
-                    'parent_id' => $category->parent_id,
+                'data'    => [
+                    'id'          => $category->id,
+                    'name'        => $category->name,
+                    'image'       => $category->image ? url(Storage::url($category->image)) : null,
+                    'parent_id'   => $category->parent_id,
                     'is_featured' => $category->is_featured,
-                    'is_nsfw' => $category->is_nsfw,  // NEW
+                    'is_nsfw'     => $category->is_nsfw,
                 ],
                 'message' => 'Category created successfully',
             ], 201);
@@ -125,53 +172,18 @@ class APICategoryController extends Controller
     }
 
     /**
-     * Create a product-category relationship.
+     * Upload an image file for a category
      *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    // public function storeProductCategory(Request $request)
-    // {
-    //     $validator = Validator::make($request->all(), [
-    //         'product_id' => 'required|exists:products,id',
-    //         'category_id' => 'required|exists:categories,id',
-    //     ]);
-
-    //     if ($validator->fails()) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Validation failed',
-    //             'errors' => $validator->errors(),
-    //         ], 422);
-    //     }
-
-    //     try {
-    //         $productCategory = ProductCategory::create([
-    //             'product_id' => $request->product_id,
-    //             'category_id' => $request->category_id,
-    //         ]);
-
-    //         return response()->json([
-    //             'success' => true,
-    //             'data' => [
-    //                 'product_id' => $productCategory->product_id,
-    //                 'category_id' => $productCategory->category_id,
-    //             ],
-    //             'message' => 'Product-category relationship created successfully',
-    //         ], 201);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Failed to create product-category relationship: ' . $e->getMessage(),
-    //         ], 500);
-    //     }
-    // }
-
-    /**
-     * Upload an image file.
+     * @bodyParam image file required JPEG, PNG, JPG or GIF. Max 2MB
      *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @response 200 {
+     *     "success": true,
+     *     "url": "https://example.com/storage/categories/abc123.jpg",
+     *     "message": "Image uploaded successfully"
+     * }
+     * @response 422 validation errors (wrong type, size, missing file)
+     * @response 400 no file provided
+     * @response 500 upload failed
      */
     public function uploadFile(Request $request)
     {
@@ -183,7 +195,7 @@ class APICategoryController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors(),
+                'errors'  => $validator->errors(),
             ], 422);
         }
 
@@ -191,11 +203,11 @@ class APICategoryController extends Controller
             if ($request->hasFile('image')) {
                 $file = $request->file('image');
                 $path = $file->store('categories', 'public');
-                $url = url(Storage::url($path));
+                $url  = url(Storage::url($path));
 
                 return response()->json([
                     'success' => true,
-                    'url' => $url,
+                    'url'     => $url,
                     'message' => 'Image uploaded successfully',
                 ], 200);
             }
