@@ -134,38 +134,30 @@ class FcmService
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 
-    protected function buildPayload(string $token, string $title, string $body, array $data = []): array
-    {
-        return [
-            'message' => [
-                'token' => $token,
+  protected function buildPayload(string $token, string $title, string $body, array $data = []): array
+{
+    return [
+        'message' => [
+            'token' => $token,
+            'notification' => [
+                'title' => $title,
+                'body' => $body,
+            ],
+            'android' => [
+                'priority' => 'high',
                 'notification' => [
-                    'title' => $title,
-                    'body' => $body
-                ],
-                'data' => array_merge(['click_action' => 'FLUTTER_NOTIFICATION_CLICK'], $data),
-                'android' => [
-                    'priority' => 'high',
-                    'notification' => [
-                        'sound' => 'default',
-                        'channel_id' => 'default_channel',
-                        'color' => '#FF6B35',
-                    ],
-                ],
-                'apns' => [
-                    'payload' => [
-                        'aps' => [
-                            'alert' => [
-                                'title' => $title,
-                                'body' => $body
-                            ],
-                            'sound' => 'default'
-                        ],
-                    ],
+                    'channel_id' => 'order_updates',
+                    'tag' => uniqid('notif_', true), // 🔥 THIS FIXES IT
                 ],
             ],
-        ];
-    }
+            'data' => array_merge([
+                'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+                'timestamp' => now()->toISOString(),
+            ], $data),
+        ],
+    ];
+}
+
 
     /**
     * Simple send method (used by test controller)
