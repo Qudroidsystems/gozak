@@ -16,6 +16,7 @@ use App\Http\Controllers\APICategoryController;
 use App\Http\Controllers\APISettingsController;
 use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\APIProductReviewController;
+use App\Http\Controllers\FcmTestController;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
 
 // Authentication Routes
@@ -153,22 +154,27 @@ Route::get('/payment/success', [PaymentController::class, 'successPage'])->name(
 // =====================
 // PUBLIC FCM TEST ROUTES (for development)
 // =====================
-Route::prefix('fcm')->group(function () {
-    Route::get('/test-connection', function () {
-        return response()->json([
-            'success' => true,
-            'message' => 'FCM Test API is accessible',
-            'timestamp' => now()->toDateTimeString()
-        ]);
-    });
+// Route::prefix('fcm')->group(function () {
+//     Route::get('/test-connection', function () {
+//         return response()->json([
+//             'success' => true,
+//             'message' => 'FCM Test API is accessible',
+//             'timestamp' => now()->toDateTimeString()
+//         ]);
+//     });
 
-    Route::post('/send-test', function (Request $request) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Please authenticate to send test notifications',
-            'hint' => 'Use the authenticated /api/fcm/test endpoint'
-        ], 401);
-    });
+//     Route::post('/send-test', function (Request $request) {
+//         return response()->json([
+//             'success' => false,
+//             'message' => 'Please authenticate to send test notifications',
+//             'hint' => 'Use the authenticated /api/fcm/test endpoint'
+//         ], 401);
+//     });
+// });
+
+Route::prefix('fcm')->group(function () {
+    Route::get('/test-connection', [FcmTestController::class, 'testConnection']);
+    Route::post('/send-test', [FcmTestController::class, 'sendTestNotification']);
 });
 
 // Webhook route (no authentication - Paystack calls this)

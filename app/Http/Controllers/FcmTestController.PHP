@@ -2,14 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\FcmService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
+use App\Services\FcmService;
 
 class FcmTestController extends Controller
 {
-    protected $fcmService;
+    protected FcmService $fcmService;
 
     public function __construct()
     {
@@ -21,18 +20,11 @@ class FcmTestController extends Controller
      */
     public function testConnection(): JsonResponse
     {
-        try {
-            return response()->json([
-                'success' => true,
-                'message' => 'FCM Test Controller is working!',
-                'timestamp' => now()->toDateTimeString()
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error: ' . $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'FCM Test Controller is working!',
+            'timestamp' => now()->toDateTimeString()
+        ]);
     }
 
     /**
@@ -40,16 +32,23 @@ class FcmTestController extends Controller
      */
     public function sendTestNotification(Request $request): JsonResponse
     {
-        // Simple validation
-        if (!$request->device_token || !$request->title || !$request->body) {
+        $validator = \Validator::make($request->all(), [
+            'device_token' => 'required|string',
+            'title' => 'required|string',
+            'body' => 'required|string',
+            'data' => 'nullable|array',
+        ]);
+
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Missing required fields: device_token, title, body'
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
             ], 422);
         }
 
         try {
-            $result = $this->fcmService->send(
+            $result = $this->fcmService->sendToToken(
                 $request->device_token,
                 $request->title,
                 $request->body,
@@ -57,54 +56,14 @@ class FcmTestController extends Controller
             );
 
             return response()->json([
-                'success' => true,
-                'message' => 'Notification sent successfully',
+                'success' => $result['success'],
+                'message' => $result['success'] ? 'Notification sent' : 'Failed to send notification',
                 'data' => $result
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to send notification',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Send to multiple devices
-     */
-    public function sendTestMulticast(Request $request): JsonResponse
-    {
-        if (!$request->device_tokens || !$request->title || !$request->body) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Missing required fields: device_tokens, title, body'
-            ], 422);
-        }
-
-        try {
-            $results = [];
-            foreach ($request->device_tokens as $token) {
-                $results[$token] = $this->fcmService->send(
-                    $token,
-                    $request->title,
-                    $request->body,
-                    $request->data ?? []
-                );
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Multicast notification sent successfully',
-                'data' => $results
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to send multicast notification',
-                'error' => $e->getMessage()
+                'message' => 'Exception: ' . $e->getMessage()
             ], 500);
         }
     }
