@@ -166,4 +166,13 @@ class FcmService
             ],
         ];
     }
+
+    /**
+    * Simple send method (used by test controller)
+    */
+    public function send(string $token, string $title, string $body, array $data = []): array
+    {
+        return $this->sendToToken($token, $title, $body, $data);
+    }
+
 }
