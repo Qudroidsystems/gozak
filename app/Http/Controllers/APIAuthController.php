@@ -198,10 +198,10 @@ class APIAuthController extends Controller
     }
 
     /**
-     * Social login (Google / Facebook)
+     * Social login (Google only)
      *
-     * @bodyParam provider string required Must be "google" or "facebook". Example: google
-     * @bodyParam access_token string required OAuth access token from the provider
+     * @bodyParam provider string required Must be "google". Example: google
+     * @bodyParam access_token string required OAuth access token from Google
      *
      * @response 200 success with token and user (creates user if not exists)
      * @response 422 validation errors
@@ -211,30 +211,40 @@ class APIAuthController extends Controller
     {
         try {
             $validated = $request->validate([
-                'provider' => 'required|string|in:google,facebook',
+                'provider' => 'required|string|in:google',
                 'access_token' => 'required|string',
             ]);
 
             $provider = $validated['provider'];
             $accessToken = $validated['access_token'];
 
-            $userInfo = $this->getSocialUserInfo($provider, $accessToken);
+            $userInfo = $this->getGoogleUserInfo($accessToken);
 
+            // Check if user exists
             $user = User::where('email', $userInfo['email'])->first();
 
             if (!$user) {
+                // Create new user
                 $user = User::create([
-                    'first_name' => $userInfo['first_name'] ?? 'User',
+                    'first_name' => $userInfo['first_name'] ?? explode('@', $userInfo['email'])[0],
                     'last_name' => $userInfo['last_name'] ?? '',
                     'username' => $userInfo['email'],
                     'email' => $userInfo['email'],
+                    'profile_image' => $userInfo['profile_image'] ?? null,
                     'social_provider' => $provider,
-                    'gender' => $userInfo['gender'] ?? null,
-                    'date_of_birth' => $userInfo['date_of_birth'] ?? null,
-                    'email_verified_at' => now(),
+                    'email_verified_at' => now(), // Google emails are already verified
                 ]);
+
+                Log::info('New user created via Google signup: ' . $user->email);
             } else {
-                $user->update(['social_provider' => $provider]);
+                // Update existing user with Google info
+                $user->update([
+                    'social_provider' => $provider,
+                    'profile_image' => $userInfo['profile_image'] ?? $user->profile_image,
+                    'email_verified_at' => $user->email_verified_at ?? now(),
+                ]);
+
+                Log::info('Existing user logged in via Google: ' . $user->email);
             }
 
             $token = $user->createToken('auth_token')->plainTextToken;
@@ -258,7 +268,7 @@ class APIAuthController extends Controller
                     'updated_at' => $user->updated_at?->toIso8601String(),
                     'addresses' => $user->addresses,
                 ],
-                'message' => 'Social login successful',
+                'message' => 'Google login successful',
             ], 200);
         } catch (ValidationException $e) {
             return response()->json([
@@ -267,54 +277,48 @@ class APIAuthController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Social login error: ' . $e->getMessage());
+            Log::error('Google login error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Social login failed',
+                'message' => 'Google login failed',
                 'error' => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Get social provider user information
+     * Get Google user information
      *
-     * @param string $provider
      * @param string $accessToken
      * @return array
      * @throws \Exception
      */
-    protected function getSocialUserInfo(string $provider, string $accessToken)
+    protected function getGoogleUserInfo(string $accessToken)
     {
-        if ($provider === 'google') {
-            $response = Http::withToken($accessToken)->get('https://www.googleapis.com/oauth2/v3/userinfo');
+        try {
+            $response = Http::withToken($accessToken)
+                ->get('https://www.googleapis.com/oauth2/v3/userinfo');
+
             if ($response->failed()) {
                 throw new \Exception('Failed to fetch Google user info');
             }
-            $data = $response->json();
-            return [
-                'email' => $data['email'],
-                'first_name' => $data['given_name'],
-                'last_name' => $data['family_name'],
-                'gender' => $data['gender'] ?? null,
-                'date_of_birth' => $data['date_of_birth'] ?? null,
-            ];
-        } elseif ($provider === 'facebook') {
-            $response = Http::get("https://graph.facebook.com/me?fields=id,name,email,first_name,last_name,gender,birthday&access_token=$accessToken");
-            if ($response->failed()) {
-                throw new \Exception('Failed to fetch Facebook user info');
-            }
-            $data = $response->json();
-            return [
-                'email' => $data['email'],
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'gender' => $data['gender'] ? ucfirst($data['gender']) : null,
-                'date_of_birth' => $data['birthday'] ? \Carbon\Carbon::createFromFormat('m/d/Y', $data['birthday'])->toDateString() : null,
-            ];
-        }
 
-        throw new \Exception('Unsupported provider');
+            $data = $response->json();
+
+            // Get profile picture if available
+            $profileImage = $data['picture'] ?? null;
+
+            return [
+                'email' => $data['email'],
+                'first_name' => $data['given_name'] ?? $data['name'] ?? '',
+                'last_name' => $data['family_name'] ?? '',
+                'profile_image' => $profileImage,
+                'gender' => $data['gender'] ?? null,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Google user info fetch error: ' . $e->getMessage());
+            throw new \Exception('Failed to retrieve user information from Google: ' . $e->getMessage());
+        }
     }
 
     /**
