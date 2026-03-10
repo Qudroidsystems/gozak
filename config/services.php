@@ -46,5 +46,11 @@ return [
     'project_id' => env('FIREBASE_PROJECT_ID'),
     'service_account_path' => env('FIREBASE_CREDENTIALS', storage_path('app/firebase/service-account.json')),
 ],
+// ✅ ADD THIS SECTION FOR GOOGLE OAUTH
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+    ],
 
 ];
