@@ -322,7 +322,7 @@
                                                 <div class="d-flex justify-content-center gap-1">
                                                     <button class="btn btn-sm btn-outline-primary edit-deal-btn"
                                                             title="Edit"
-                                                            data-deal="{{ htmlspecialchars($dealData, ENT_QUOTES, 'UTF-8') }}">
+                                                            data-deal="{{ base64_encode($dealData) }}">
                                                         <i class="bi bi-pencil"></i>
                                                     </button>
                                                     <button class="btn btn-sm btn-outline-danger delete-deal-btn"
@@ -519,9 +519,15 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('click', function (e) {
         if (!e.target.closest('.edit-deal-btn')) return;
         const btn = e.target.closest('.edit-deal-btn');
-        // data-deal is HTML-encoded, decode it before parsing
-        const raw = btn.getAttribute('data-deal');
-        const d   = JSON.parse(raw);
+        // Decode base64 then parse JSON
+        let d;
+        try {
+            d = JSON.parse(atob(btn.getAttribute('data-deal')));
+        } catch (err) {
+            console.error('Edit parse error:', err);
+            Swal.fire('Error', 'Could not read deal data. Check console.', 'error');
+            return;
+        }
 
         selected = { id: d.product_id, price: d.product_price };
         elHidden.value      = d.product_id;
@@ -546,7 +552,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('change', function (e) {
         if (!e.target.classList.contains('toggle-deal')) return;
         const id = e.target.dataset.id;
-        axios.patch(`/admin/lightning-deals/${id}/toggle`)
+        axios.patch(`/lightning-deals/${id}/toggle`)
             .then(res => {
                 const t = document.createElement('div');
                 t.className = 'alert alert-success position-fixed bottom-0 end-0 m-3 shadow';
@@ -570,7 +576,7 @@ document.addEventListener('DOMContentLoaded', function () {
             confirmButtonText:'Yes, remove!', confirmButtonColor:'#dc3545' })
         .then(r => {
             if (!r.isConfirmed) return;
-            axios.delete(`/admin/lightning-deals/${id}`)
+            axios.delete(`/lightning-deals/${id}`)
                 .then(() => {
                     document.querySelector(`tr[data-deal-id="${id}"]`)?.remove();
                     Swal.fire({ icon:'success', title:'Removed!', timer:1200, showConfirmButton:false });
