@@ -35,7 +35,11 @@ Route::get('/brands/isFeatured', [APIBrandController::class, 'featured'])->name(
 Route::get('/brands/category/{categoryId}', [APIBrandController::class, 'getbrandsForCategory'])->name('brands.category');
 Route::post('/brands', [APIBrandController::class, 'store']);
 Route::post('/brand-categories', [APIBrandController::class, 'storeBrandCategory']);
+// ✅ CORRECT — specific route first, wildcard second
+Route::get('/products/lightning-deals', [APIProductController::class, 'lightningDeals']);
 
+Route::get('/products/{id}', [APIProductController::class, 'show']);
+Route::get('/products/{id}/related', [APIProductController::class, 'related']);
 Route::get('/products', [APIProductController::class, 'index'])->name('products.index');
 Route::get('/products/{id}', [APIProductController::class, 'show'])->name('products.show');
 Route::post('/products', [APIProductController::class, 'store']);
@@ -45,12 +49,7 @@ Route::post('/upload', [APIProductController::class, 'uploadFile']);
 Route::post('/product-categories', [APIProductController::class, 'storeProductCategory']);
 Route::get('/products/{id}/related', [APIProductController::class, 'related'])->name('products.related');
 
-// ============================================================
-//  api.php  — Public API route for Flutter
-// ============================================================
 
-Route::get('products/lightning-deals', [APIProductController::class, 'lightningDeals']);
- 
 
 Route::get('/product-reviews', [APIProductReviewController::class, 'index'])->name('product-reviews.index');
 Route::post('/product-reviews', [APIProductReviewController::class, 'store']);
