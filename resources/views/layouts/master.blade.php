@@ -59,6 +59,10 @@
         @include('layouts.pages-assets.css.users-list-css')
     @endif
 
+    @if (Route::is('lightning-deals'))
+        @include('layouts.pages-assets.css.users-list-css')
+    @endif
+
     @if (Route::is('web.reviews.*'))
         @include('layouts.pages-assets.css.users-list-css')
     @endif
