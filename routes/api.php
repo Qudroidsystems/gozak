@@ -45,6 +45,13 @@ Route::post('/upload', [APIProductController::class, 'uploadFile']);
 Route::post('/product-categories', [APIProductController::class, 'storeProductCategory']);
 Route::get('/products/{id}/related', [APIProductController::class, 'related'])->name('products.related');
 
+// ============================================================
+//  api.php  — Public API route for Flutter
+// ============================================================
+
+Route::get('products/lightning-deals', [APIProductController::class, 'lightningDeals']);
+ 
+
 Route::get('/product-reviews', [APIProductReviewController::class, 'index'])->name('product-reviews.index');
 Route::post('/product-reviews', [APIProductReviewController::class, 'store']);
 Route::put('/product-reviews/{id}/company-comment', [APIProductReviewController::class, 'addCompanyComment']);

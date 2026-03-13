@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Product;
 use App\Models\Category;
 use App\Models\Unit;
+use App\Models\LightningDeal;
 use Illuminate\Http\Request;
 use App\Models\ProductReview;
 use App\Exports\ProductsExport;
@@ -664,5 +665,119 @@ class ProductController extends Controller
     {
         $units = Unit::orderBy('name')->get();
         return response()->json($units);
+    }
+
+    // ── Lightning Deals — Admin CRUD ────────────────────────────────────────────
+
+    /**
+     * List all lightning deals (admin view).
+     * Route: GET /admin/lightning-deals
+     */
+    public function lightningDealsIndex(Request $request)
+    {
+        $pagetitle = 'Lightning Deals';
+
+        $deals = LightningDeal::with(['product:id,title,thumbnail,price,sale_price,stock'])
+            ->orderBy('sort_order')
+            ->orderByDesc('created_at')
+            ->paginate(20);
+
+        // All products not yet in a deal — for the "add" dropdown
+        $availableProducts = Product::whereDoesntHave('lightningDeal')
+            ->select('id', 'title', 'price', 'stock', 'thumbnail')
+            ->orderBy('title')
+            ->get();
+
+        return view('products.lightning-deals', compact('deals', 'availableProducts', 'pagetitle'));
+    }
+
+    /**
+     * Create or update a lightning deal for a product.
+     * Route: POST /admin/lightning-deals
+     */
+    public function lightningDealStore(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'product_id'          => 'required|exists:products,id',
+            'discount_percentage' => 'required|integer|min:1|max:99',
+            'stock_limit'         => 'nullable|integer|min:1',
+            'starts_at'           => 'nullable|date',
+            'ends_at'             => 'nullable|date|after:starts_at',
+            'is_active'           => 'boolean',
+            'sort_order'          => 'nullable|integer|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            // updateOrCreate so re-submitting the same product just updates it
+            $deal = LightningDeal::updateOrCreate(
+                ['product_id' => $request->product_id],
+                [
+                    'discount_percentage' => $request->discount_percentage,
+                    'stock_limit'         => $request->stock_limit,
+                    'starts_at'           => $request->starts_at,
+                    'ends_at'             => $request->ends_at,
+                    'is_active'           => $request->boolean('is_active', true),
+                    'sort_order'          => $request->input('sort_order', 0),
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Lightning deal saved successfully',
+                'data'    => $deal,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save deal: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Toggle active state of a deal.
+     * Route: PATCH /admin/lightning-deals/{id}/toggle
+     */
+    public function lightningDealToggle($id)
+    {
+        try {
+            $deal = LightningDeal::findOrFail($id);
+            $deal->update(['is_active' => !$deal->is_active]);
+
+            return response()->json([
+                'success'   => true,
+                'is_active' => $deal->is_active,
+                'message'   => $deal->is_active ? 'Deal activated' : 'Deal deactivated',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Delete a lightning deal.
+     * Route: DELETE /admin/lightning-deals/{id}
+     */
+    public function lightningDealDestroy($id)
+    {
+        try {
+            LightningDeal::findOrFail($id)->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Lightning deal removed',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+
     }
 }

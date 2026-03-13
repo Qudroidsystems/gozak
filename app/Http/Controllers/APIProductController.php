@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use App\Models\ProductCategory;
+use App\Models\LightningDeal;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
@@ -463,6 +464,79 @@ class APIProductController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Could not load related products',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get active lightning deals with product data for Flutter app.
+     *
+     * @queryParam limit integer Max deals to return (default 6, max 20). Example: 4
+     *
+     * @response 200 array of active deals with embedded product + deal metadata
+     *
+     * Route: GET /api/products/lightning-deals
+     */
+    public function lightningDeals(Request $request)
+    {
+        try {
+            $limit = min(max((int) $request->input('limit', 6), 1), 20);
+
+            $deals = LightningDeal::active()
+                ->with([
+                    'product' => function ($q) {
+                        $q->with([
+                            'brand:id,name,logo',
+                            'category:id,name',
+                        ]);
+                    },
+                ])
+                ->orderBy('sort_order')
+                ->orderByDesc('created_at')
+                ->take($limit)
+                ->get();
+
+            $formatted = $deals->map(function (LightningDeal $deal) {
+                $product = $deal->product;
+
+                if (!$product) return null;
+
+                // Discounted price = original price minus the deal percentage
+                $originalPrice   = (float) $product->price;
+                $discountedPrice = round($originalPrice * (1 - $deal->discount_percentage / 100), 2);
+
+                $thumbnail = $product->thumbnail
+                    ? url(Storage::url(preg_replace('/^storage\//', '', $product->thumbnail)))
+                    : null;
+
+                return [
+                    'deal_id'             => (int) $deal->id,
+                    'product_id'          => (int) $product->id,
+                    'title'               => $product->title,
+                    'thumbnail'           => $thumbnail,
+                    'original_price'      => $originalPrice,
+                    'discounted_price'    => $discountedPrice,
+                    'discount_percentage' => (int) $deal->discount_percentage,
+                    'stock_left'          => $deal->stock_left,
+                    'ends_at'             => $deal->ends_at?->toIso8601String(),
+                    'is_active'           => $deal->is_active,
+                    'brand'               => $product->brand ? [
+                        'id'   => $product->brand->id,
+                        'name' => $product->brand->name,
+                    ] : null,
+                ];
+            })->filter()->values();
+
+            return response()->json([
+                'success' => true,
+                'data'    => $formatted,
+                'count'   => $formatted->count(),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Failed to fetch lightning deals: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch lightning deals',
             ], 500);
         }
     }

@@ -221,4 +221,16 @@ Route::middleware(['auth'])->group(function () {
         auth()->user()->unreadNotifications->markAsRead();
         return back()->with('success', 'All notifications marked as read.');
     })->name('notifications.markAllRead');
+
+
+    // ============================================================
+    //  web.php  — Admin routes (inside your auth middleware group)
+    // ============================================================
+
+    Route::prefix('lightning-deals')->name('lightning-deals.')->group(function () {
+        Route::get('/',              [ProductController::class, 'lightningDealsIndex'])->name('index');
+        Route::post('/',             [ProductController::class, 'lightningDealStore'])->name('store');
+        Route::patch('{id}/toggle',  [ProductController::class, 'lightningDealToggle'])->name('toggle');
+        Route::delete('{id}',        [ProductController::class, 'lightningDealDestroy'])->name('destroy');
+    });
 });
