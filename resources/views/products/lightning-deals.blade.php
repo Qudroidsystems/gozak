@@ -303,23 +303,26 @@
                                                            {{ $deal->is_active ? 'checked' : '' }}>
                                                 </div>
                                             </td>
+                                            @php
+                                                $dealData = json_encode([
+                                                    'product_id'          => $deal->product_id,
+                                                    'product_title'       => $deal->product?->title,
+                                                    'product_price'       => $deal->product?->price,
+                                                    'product_thumb'       => $deal->product?->thumbnail ? asset('storage/'.$deal->product->thumbnail) : '',
+                                                    'product_sku'         => $deal->product?->sku,
+                                                    'discount_percentage' => $deal->discount_percentage,
+                                                    'stock_limit'         => $deal->stock_limit,
+                                                    'starts_at'           => $deal->starts_at?->format('Y-m-d\TH:i'),
+                                                    'ends_at'             => $deal->ends_at?->format('Y-m-d\TH:i'),
+                                                    'is_active'           => $deal->is_active,
+                                                    'sort_order'          => $deal->sort_order,
+                                                ]);
+                                            @endphp
                                             <td class="text-center">
                                                 <div class="d-flex justify-content-center gap-1">
                                                     <button class="btn btn-sm btn-outline-primary edit-deal-btn"
                                                             title="Edit"
-                                                            data-deal='@json([
-                                                                "product_id"          => $deal->product_id,
-                                                                "product_title"       => $deal->product?->title,
-                                                                "product_price"       => $deal->product?->price,
-                                                                "product_thumb"       => $deal->product?->thumbnail ? asset("storage/".$deal->product->thumbnail) : "",
-                                                                "product_sku"         => $deal->product?->sku,
-                                                                "discount_percentage" => $deal->discount_percentage,
-                                                                "stock_limit"         => $deal->stock_limit,
-                                                                "starts_at"           => $deal->starts_at?->format("Y-m-d\TH:i"),
-                                                                "ends_at"             => $deal->ends_at?->format("Y-m-d\TH:i"),
-                                                                "is_active"           => $deal->is_active,
-                                                                "sort_order"          => $deal->sort_order,
-                                                            ])'>
+                                                            data-deal="{{ htmlspecialchars($dealData, ENT_QUOTES, 'UTF-8') }}">
                                                         <i class="bi bi-pencil"></i>
                                                     </button>
                                                     <button class="btn btn-sm btn-outline-danger delete-deal-btn"
@@ -509,7 +512,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Edit: populate form ───────────────────────────────────────────────────
     document.addEventListener('click', function (e) {
         if (!e.target.closest('.edit-deal-btn')) return;
-        const d = JSON.parse(e.target.closest('.edit-deal-btn').dataset.deal);
+        const btn = e.target.closest('.edit-deal-btn');
+        // data-deal is HTML-encoded, decode it before parsing
+        const raw = btn.getAttribute('data-deal');
+        const d   = JSON.parse(raw);
 
         selected = { id: d.product_id, price: d.product_price };
         elHidden.value      = d.product_id;
