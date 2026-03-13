@@ -358,6 +358,26 @@
     </div>
 </div>
 
+@php
+    $jsProducts = $availableProducts->map(fn($p) => [
+        'id'    => $p->id,
+        'title' => $p->title,
+        'sku'   => $p->sku ?? '',
+        'price' => $p->price,
+        'stock' => $p->stock,
+        'thumb' => $p->thumbnail ? asset('storage/'.$p->thumbnail) : '',
+    ]);
+    $jsDealsProducts = $deals->getCollection()->map(fn($d) => [
+        'id'    => $d->product_id,
+        'title' => $d->product?->title ?? '',
+        'sku'   => $d->product?->sku ?? '',
+        'price' => $d->product?->price ?? 0,
+        'stock' => $d->product?->stock ?? 0,
+        'thumb' => $d->product?->thumbnail ? asset('storage/'.$d->product->thumbnail) : '',
+    ]);
+    $allProductsJson = $jsProducts->merge($jsDealsProducts)->unique('id')->values()->toJson();
+@endphp
+
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -367,21 +387,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     axios.defaults.headers.common['X-CSRF-TOKEN'] = csrf;
 
-    // All products searchable (available + already-in-deals so admin can update)
-    const allProducts = @json(
-        $availableProducts->map(fn($p) => [
-            'id'    => $p->id, 'title' => $p->title, 'sku'   => $p->sku,
-            'price' => $p->price, 'stock' => $p->stock,
-            'thumb' => $p->thumbnail ? asset('storage/'.$p->thumbnail) : '',
-        ])->merge(
-            $deals->getCollection()->map(fn($d) => [
-                'id'    => $d->product_id, 'title' => $d->product?->title ?? '',
-                'sku'   => $d->product?->sku ?? '', 'price' => $d->product?->price ?? 0,
-                'stock' => $d->product?->stock ?? 0,
-                'thumb' => $d->product?->thumbnail ? asset('storage/'.$d->product->thumbnail) : '',
-            ])
-        )->unique('id')->values()
-    );
+    const allProducts = {!! $allProductsJson !!};
 
     // ── Product search ────────────────────────────────────────────────────────
     const elSearch   = document.getElementById('productSearch');
