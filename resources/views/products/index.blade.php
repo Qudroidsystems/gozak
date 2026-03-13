@@ -172,6 +172,10 @@
                                         @endcan
                                         <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">Import CSV</button>
                                         <a href="{{ route('web.products.export') }}" class="btn btn-info">Export CSV</a>
+                                        {{-- ⚡ Lightning Deals link --}}
+                                        <a href="{{ route('lightning-deals.index') }}" class="btn btn-warning">
+                                            <i class="bi bi-lightning-fill me-1"></i> Lightning Deals
+                                        </a>
                                     </div>
                                 </div>
                             </div>
