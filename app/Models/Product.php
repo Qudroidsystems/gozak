@@ -356,4 +356,10 @@ class Product extends Model
     {
         return $query->where('barcode', $barcode);
     }
+
+
+    public function lightningDeal(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(\App\Models\LightningDeal::class);
+    }
 }

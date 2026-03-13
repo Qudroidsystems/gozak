@@ -667,7 +667,10 @@ class ProductController extends Controller
         return response()->json($units);
     }
 
-    // ── Lightning Deals — Admin CRUD ────────────────────────────────────────────
+
+
+
+   // ── Lightning Deals — Admin CRUD ────────────────────────────────────────────
 
     /**
      * List all lightning deals (admin view).
@@ -677,14 +680,16 @@ class ProductController extends Controller
     {
         $pagetitle = 'Lightning Deals';
 
-        $deals = LightningDeal::with(['product:id,title,thumbnail,price,sale_price,stock'])
+        $deals = LightningDeal::with([
+                'product:id,title,sku,thumbnail,price,stock',
+            ])
             ->orderBy('sort_order')
             ->orderByDesc('created_at')
             ->paginate(20);
 
-        // All products not yet in a deal — for the "add" dropdown
+        // Products NOT yet in any deal — for the add-deal search
         $availableProducts = Product::whereDoesntHave('lightningDeal')
-            ->select('id', 'title', 'price', 'stock', 'thumbnail')
+            ->select('id', 'title', 'sku', 'price', 'stock', 'thumbnail')
             ->orderBy('title')
             ->get();
 
@@ -703,7 +708,7 @@ class ProductController extends Controller
             'stock_limit'         => 'nullable|integer|min:1',
             'starts_at'           => 'nullable|date',
             'ends_at'             => 'nullable|date|after:starts_at',
-            'is_active'           => 'boolean',
+            'is_active'           => 'nullable|boolean',
             'sort_order'          => 'nullable|integer|min:0',
         ]);
 
@@ -716,14 +721,13 @@ class ProductController extends Controller
         }
 
         try {
-            // updateOrCreate so re-submitting the same product just updates it
             $deal = LightningDeal::updateOrCreate(
                 ['product_id' => $request->product_id],
                 [
                     'discount_percentage' => $request->discount_percentage,
-                    'stock_limit'         => $request->stock_limit,
-                    'starts_at'           => $request->starts_at,
-                    'ends_at'             => $request->ends_at,
+                    'stock_limit'         => $request->stock_limit ?: null,
+                    'starts_at'           => $request->starts_at  ?: null,
+                    'ends_at'             => $request->ends_at    ?: null,
                     'is_active'           => $request->boolean('is_active', true),
                     'sort_order'          => $request->input('sort_order', 0),
                 ]
@@ -743,7 +747,7 @@ class ProductController extends Controller
     }
 
     /**
-     * Toggle active state of a deal.
+     * Toggle active state.
      * Route: PATCH /admin/lightning-deals/{id}/toggle
      */
     public function lightningDealToggle($id)
@@ -763,7 +767,7 @@ class ProductController extends Controller
     }
 
     /**
-     * Delete a lightning deal.
+     * Delete a deal.
      * Route: DELETE /admin/lightning-deals/{id}
      */
     public function lightningDealDestroy($id)
@@ -778,6 +782,5 @@ class ProductController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
-
     }
 }
