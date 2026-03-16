@@ -223,48 +223,81 @@ class APIUserController extends Controller
      * Save or refresh the user's FCM device token.
      * Flutter calls this after every login and whenever Firebase rotates the token.
      */
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Replace ONLY the updateFcmToken() method in your APIUserController.php
+// ══════════════════════════════════════════════════════════════════════════════
+
     public function updateFcmToken(Request $request)
     {
         try {
-            $validated = $request->validate([
-                'fcm_token'   => 'required|string|max:500',
-                'platform'    => 'nullable|in:android,ios,web',
-                'app_version' => 'nullable|string|max:20',
+            $userId     = $request->user()->id;
+            $token      = trim($request->input('fcm_token', ''));
+            $platform   = $request->input('platform', 'android');
+            $appVersion = $request->input('app_version', '');
+
+            // Log everything so you can check storage/logs/laravel.log
+            \Log::info('FCM updateFcmToken called', [
+                'user_id'          => $userId,
+                'token_received'   => $token ? substr($token, 0, 30) . '...' : 'EMPTY',
+                'token_length'     => strlen($token),
+                'platform'         => $platform,
+                'app_version'      => $appVersion,
+                'all_request_keys' => array_keys($request->all()),
             ]);
 
-            $updateData = ['fcm_token' => $validated['fcm_token']];
-
-            if (!empty($validated['platform'])) {
-                $updateData['last_device_platform'] = $validated['platform'];
+            if (empty($token)) {
+                \Log::warning('FCM updateFcmToken: empty token received', [
+                    'user_id'   => $userId,
+                    'raw_input' => $request->all(),
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'fcm_token is required and cannot be empty',
+                ], 422);
             }
 
-            if (!empty($validated['app_version'])) {
-                $updateData['last_app_version'] = $validated['app_version'];
+            $updateData = [
+                'fcm_token'  => $token,
+                'updated_at' => now(),
+            ];
+
+            if (!empty($platform)) {
+                $updateData['last_device_platform'] = $platform;
             }
 
-            $request->user()->update($updateData);
+            if (!empty($appVersion)) {
+                $updateData['last_app_version'] = $appVersion;
+            }
+
+            // Raw DB — bypasses Eloquent $fillable / $hidden / casts completely
+            $affected = \DB::table('users')
+                ->where('id', $userId)
+                ->update($updateData);
+
+            \Log::info('FCM token DB update result', [
+                'user_id'       => $userId,
+                'rows_affected' => $affected,
+                'token_preview' => substr($token, 0, 30) . '...',
+            ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'FCM token saved successfully',
             ], 200);
 
-        } catch (ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors'  => $e->errors(),
-            ], 422);
         } catch (\Exception $e) {
-            Log::error('FCM token update error: ' . $e->getMessage());
+            \Log::error('FCM updateFcmToken exception', [
+                'user_id' => $request->user()->id ?? null,
+                'error'   => $e->getMessage(),
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to save FCM token',
-                'error'   => $e->getMessage(),
+                'message' => 'Failed to save FCM token: ' . $e->getMessage(),
             ], 500);
         }
     }
-
     /**
      * PUT /api/user/notification-preferences
      * Toggle individual notification preference flags.

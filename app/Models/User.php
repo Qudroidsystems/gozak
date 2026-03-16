@@ -32,9 +32,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'date_of_birth',
         'password',
         'email_verified_at',
-
-        // ── FCM / Notifications ────────────────────────────────────────────
-        'fcm_token',                              // single device token string
+        'fcm_token',                              // ← single string token
         'push_notifications_enabled',
         'order_updates_enabled',
         'promotional_notifications_enabled',
@@ -48,10 +46,12 @@ class User extends Authenticatable implements MustVerifyEmail
         'notification_count',
     ];
 
+    // ── IMPORTANT: fcm_token is NOT in $hidden ────────────────────────────────
+    // Keeping it in $hidden can interfere with update() in some Laravel versions.
+    // We exclude it from API responses manually in formatUser() instead.
     protected $hidden = [
         'password',
         'remember_token',
-        'fcm_token',       // never expose the raw token in API responses
     ];
 
     protected $casts = [
@@ -135,45 +135,19 @@ class User extends Authenticatable implements MustVerifyEmail
                      ->withSum('orders', 'total_amount');
     }
 
-    // ── FCM / Notification helpers ────────────────────────────────────────────
+    // ── FCM helpers ───────────────────────────────────────────────────────────
 
-    /**
-     * Save or replace the user's single FCM token.
-     */
-    public function setFcmToken(string $token, string $platform = 'android', string $appVersion = ''): void
-    {
-        $data = [
-            'fcm_token'            => $token,
-            'last_device_platform' => $platform,
-        ];
-
-        if ($appVersion) {
-            $data['last_app_version'] = $appVersion;
-        }
-
-        $this->update($data);
-    }
-
-    /**
-     * Clear the FCM token on logout so notifications stop immediately.
-     */
-    public function clearFcmToken(): void
-    {
-        $this->update(['fcm_token' => null]);
-    }
-
-    /**
-     * Check whether this user has a valid FCM token.
-     */
     public function hasActiveFcmToken(): bool
     {
         return !empty($this->fcm_token);
     }
 
-    /**
-     * Check whether the user can receive push notifications of a given type,
-     * respecting preferences and quiet hours.
-     */
+    public function clearFcmToken(): void
+    {
+        \DB::table('users')->where('id', $this->id)->update(['fcm_token' => null]);
+        $this->fcm_token = null;
+    }
+
     public function canReceivePushNotifications(string $type = 'general'): bool
     {
         if (!$this->hasActiveFcmToken()) return false;
@@ -188,18 +162,12 @@ class User extends Authenticatable implements MustVerifyEmail
         };
     }
 
-    /**
-     * Check whether the user can receive email notifications.
-     */
     public function canReceiveEmailNotifications(): bool
     {
         return ($this->email_notifications_enabled ?? true)
             && $this->hasVerifiedEmail();
     }
 
-    /**
-     * Check if current time falls within the user's quiet hours.
-     */
     public function isInQuietHours(): bool
     {
         if (!$this->quiet_hours_start || !$this->quiet_hours_end) return false;
@@ -208,26 +176,19 @@ class User extends Authenticatable implements MustVerifyEmail
         $start = $this->quiet_hours_start->format('H:i');
         $end   = $this->quiet_hours_end->format('H:i');
 
-        // Handle overnight ranges e.g. 22:00 → 07:00
         return $start < $end
             ? ($now >= $start && $now <= $end)
             : ($now >= $start || $now <= $end);
     }
 
-    /**
-     * Increment notification counter and update last_notification_at.
-     */
     public function recordNotificationSent(): void
     {
-        $this->update([
+        \DB::table('users')->where('id', $this->id)->update([
             'last_notification_at' => now(),
             'notification_count'   => ($this->notification_count ?? 0) + 1,
         ]);
     }
 
-    /**
-     * Return all notification preferences as an array (for API responses).
-     */
     public function getNotificationPreferences(): array
     {
         return [
