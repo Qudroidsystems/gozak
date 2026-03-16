@@ -22,7 +22,13 @@ class FcmService
 
     protected function initializeServiceAccount(): void
     {
-        $serviceAccountPath = base_path(env('FIREBASE_CREDENTIALS'));
+        $credentialsPath = env('FIREBASE_CREDENTIALS');
+
+        if (!$credentialsPath) {
+            throw new Exception('FIREBASE_CREDENTIALS env variable is not set');
+        }
+
+        $serviceAccountPath = base_path($credentialsPath);
 
         if (!file_exists($serviceAccountPath)) {
             throw new Exception('Firebase service account file not found: ' . $serviceAccountPath);
@@ -42,7 +48,7 @@ class FcmService
     {
         try {
             $accessToken = $this->getAccessToken();
-            $payload = $this->buildPayload($token, $title, $body, $data);
+            $payload     = $this->buildPayload($token, $title, $body, $data);
 
             $response = Http::timeout(15)
                 ->retry(2, 100)
@@ -50,37 +56,47 @@ class FcmService
                 ->post($this->url, $payload);
 
             $responseData = $response->json();
-            $success = $response->successful();
+            $success      = $response->successful();
 
             if (!$success) {
                 Log::error('FCM API error', [
-                    'status' => $response->status(),
-                    'response' => $responseData,
-                    'token_prefix' => substr($token, 0, 10)
+                    'status'       => $response->status(),
+                    'response'     => $responseData,
+                    'token_prefix' => substr($token, 0, 10),
                 ]);
             }
 
             return [
-                'success' => $success,
+                'success'  => $success,
                 'response' => $responseData,
-                'status' => $response->status()
+                'status'   => $response->status(),
             ];
-
         } catch (Exception $e) {
             Log::error('FCM send failed: ' . $e->getMessage(), [
-                'token_prefix' => substr($token, 0, 10)
+                'token_prefix' => substr($token, 0, 10),
             ]);
 
             return [
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ];
         }
     }
 
+    /**
+     * Simple alias used by FcmTestController
+     */
+    public function send(string $token, string $title, string $body, array $data = []): array
+    {
+        return $this->sendToToken($token, $title, $body, $data);
+    }
+
+    // ── Token generation ────────────────────────────────────────────────────
+
     protected function getAccessToken(): string
     {
-        return Cache::remember('fcm_access_token', 3600, function () {
+        // Cache for 55 minutes (token lasts 60)
+        return Cache::remember('fcm_access_token', 3300, function () {
             return $this->generateAccessToken();
         });
     }
@@ -91,12 +107,12 @@ class FcmService
 
         $response = Http::asForm()->post('https://oauth2.googleapis.com/token', [
             'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-            'assertion' => $jwt
+            'assertion'  => $jwt,
         ]);
 
         if (!$response->successful()) {
-            Log::error('FCM Token generation failed', $response->json());
-            throw new Exception('Failed to generate access token: ' . $response->body());
+            Log::error('FCM token generation failed', $response->json());
+            throw new Exception('Failed to generate FCM access token: ' . $response->body());
         }
 
         return $response->json()['access_token'];
@@ -105,27 +121,26 @@ class FcmService
     protected function generateJWT(): string
     {
         $header = ['alg' => 'RS256', 'typ' => 'JWT'];
-        $now = time();
+        $now    = time();
+
         $payload = [
-            'iss' => $this->serviceAccount['client_email'],
+            'iss'   => $this->serviceAccount['client_email'],
             'scope' => 'https://www.googleapis.com/auth/firebase.messaging',
-            'aud' => 'https://oauth2.googleapis.com/token',
-            'exp' => $now + 3600,
-            'iat' => $now
+            'aud'   => 'https://oauth2.googleapis.com/token',
+            'exp'   => $now + 3600,
+            'iat'   => $now,
         ];
 
-        $headerBase64 = $this->base64UrlEncode(json_encode($header));
+        $headerBase64  = $this->base64UrlEncode(json_encode($header));
         $payloadBase64 = $this->base64UrlEncode(json_encode($payload));
-        $signature = $this->signData("{$headerBase64}.{$payloadBase64}");
-        $signatureBase64 = $this->base64UrlEncode($signature);
+        $signature     = $this->signData("{$headerBase64}.{$payloadBase64}");
 
-        return "{$headerBase64}.{$payloadBase64}.{$signatureBase64}";
+        return "{$headerBase64}.{$payloadBase64}.{$this->base64UrlEncode($signature)}";
     }
 
     protected function signData(string $data): string
     {
-        $privateKey = $this->serviceAccount['private_key'];
-        openssl_sign($data, $signature, $privateKey, 'SHA256');
+        openssl_sign($data, $signature, $this->serviceAccount['private_key'], 'SHA256');
         return $signature;
     }
 
@@ -134,37 +149,40 @@ class FcmService
         return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     }
 
-  protected function buildPayload(string $token, string $title, string $body, array $data = []): array
-{
-    return [
-        'message' => [
-            'token' => $token,
-            'notification' => [
-                'title' => $title,
-                'body' => $body,
-            ],
-            'android' => [
-                'priority' => 'high',
-                'notification' => [
-                    'channel_id' => 'order_updates',
-                    'tag' => uniqid('notif_', true), // 🔥 THIS FIXES IT
-                ],
-            ],
-            'data' => array_merge([
-                'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
-                'timestamp' => now()->toISOString(),
-            ], $data),
-        ],
-    ];
-}
+    // ── Payload builder ─────────────────────────────────────────────────────
 
-
-    /**
-    * Simple send method (used by test controller)
-    */
-    public function send(string $token, string $title, string $body, array $data = []): array
+    protected function buildPayload(string $token, string $title, string $body, array $data = []): array
     {
-        return $this->sendToToken($token, $title, $body, $data);
-    }
+        // Ensure all data values are strings (FCM requirement)
+        $stringData = array_map('strval', array_merge([
+            'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+            'timestamp'    => now()->toISOString(),
+        ], $data));
 
+        return [
+            'message' => [
+                'token'        => $token,
+                'notification' => [
+                    'title' => $title,
+                    'body'  => $body,
+                ],
+                'android' => [
+                    'priority'     => 'high',
+                    'notification' => [
+                        'channel_id' => 'lightning_deals',
+                        'tag'        => uniqid('notif_', true),
+                    ],
+                ],
+                'apns' => [
+                    'payload' => [
+                        'aps' => [
+                            'sound' => 'default',
+                            'badge' => 1,
+                        ],
+                    ],
+                ],
+                'data' => $stringData,
+            ],
+        ];
+    }
 }

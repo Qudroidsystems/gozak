@@ -37,22 +37,7 @@ class APIAuthController extends Controller
      * @response 201 {
      *     "success": true,
      *     "token": "1|randomsanctumtokenhere",
-     *     "user": {
-     *         "id": 1,
-     *         "first_name": "John",
-     *         "last_name": "Doe",
-     *         "username": "user@example.com",
-     *         "email": "user@example.com",
-     *         "phone_number": "+2348012345678",
-     *         "profile_image": null,
-     *         "social_provider": null,
-     *         "gender": null,
-     *         "date_of_birth": null,
-     *         "email_verified_at": null,
-     *         "created_at": "2025-01-01T10:00:00.000000Z",
-     *         "updated_at": "2025-01-01T10:00:00.000000Z",
-     *         "addresses": []
-     *     },
+     *     "user": { ... },
      *     "message": "Registration successful. Please verify your email."
      * }
      * @response 422 validation errors
@@ -62,20 +47,26 @@ class APIAuthController extends Controller
     {
         try {
             $validated = $request->validate([
-                'email' => 'required|email|unique:users,email',
-                'password' => 'required|string|min:6',
-                'first_name' => 'required|string|max:255',
-                'last_name' => 'required|string|max:255',
+                'email'        => 'required|email|unique:users,email',
+                'password'     => 'required|string|min:6',
+                'first_name'   => 'required|string|max:255',
+                'last_name'    => 'required|string|max:255',
                 'phone_number' => 'nullable|string|max:20',
             ]);
 
             $user = User::create([
-                'first_name' => $validated['first_name'],
-                'last_name' => $validated['last_name'],
-                'username' => $validated['email'],
-                'email' => $validated['email'],
-                'phone_number' => $validated['phone_number'] ?? null,
-                'password' => bcrypt($validated['password']),
+                'first_name'                        => $validated['first_name'],
+                'last_name'                         => $validated['last_name'],
+                'username'                          => $validated['email'],
+                'email'                             => $validated['email'],
+                'phone_number'                      => $validated['phone_number'] ?? null,
+                'password'                          => bcrypt($validated['password']),
+                // Default all notifications ON for new users
+                'push_notifications_enabled'        => true,
+                'order_updates_enabled'             => true,
+                'promotional_notifications_enabled' => true,
+                'security_alerts_enabled'           => true,
+                'email_notifications_enabled'       => true,
             ]);
 
             try {
@@ -89,37 +80,23 @@ class APIAuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'token' => $token,
-                'user' => [
-                    'id' => $user->id,
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'username' => $user->username,
-                    'email' => $user->email,
-                    'phone_number' => $user->phone_number,
-                    'profile_image' => $user->profile_image,
-                    'social_provider' => $user->social_provider,
-                    'gender' => $user->gender,
-                    'date_of_birth' => $user->date_of_birth?->toDateString(),
-                    'email_verified_at' => $user->email_verified_at?->toIso8601String(),
-                    'created_at' => $user->created_at?->toIso8601String(),
-                    'updated_at' => $user->updated_at?->toIso8601String(),
-                    'addresses' => $user->addresses,
-                ],
+                'token'   => $token,
+                'user'    => $this->formatUser($user),
                 'message' => 'Registration successful. Please verify your email.',
             ], 201);
+
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors(),
+                'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Registration error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Registration failed',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -139,7 +116,7 @@ class APIAuthController extends Controller
     {
         try {
             $validated = $request->validate([
-                'email' => 'required|email',
+                'email'    => 'required|email',
                 'password' => 'required|string',
             ]);
 
@@ -151,6 +128,7 @@ class APIAuthController extends Controller
             }
 
             $user = Auth::user();
+
             if (!$user->hasVerifiedEmail()) {
                 return response()->json([
                     'success' => false,
@@ -162,37 +140,23 @@ class APIAuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'token' => $token,
-                'user' => [
-                    'id' => $user->id,
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'username' => $user->username,
-                    'email' => $user->email,
-                    'phone_number' => $user->phone_number,
-                    'profile_image' => $user->profile_image,
-                    'social_provider' => $user->social_provider,
-                    'gender' => $user->gender,
-                    'date_of_birth' => $user->date_of_birth?->toDateString(),
-                    'email_verified_at' => $user->email_verified_at?->toIso8601String(),
-                    'created_at' => $user->created_at?->toIso8601String(),
-                    'updated_at' => $user->updated_at?->toIso8601String(),
-                    'addresses' => $user->addresses,
-                ],
+                'token'   => $token,
+                'user'    => $this->formatUser($user),
                 'message' => 'Login successful',
             ], 200);
+
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors(),
+                'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Login error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Login failed',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -211,36 +175,39 @@ class APIAuthController extends Controller
     {
         try {
             $validated = $request->validate([
-                'provider' => 'required|string|in:google',
+                'provider'     => 'required|string|in:google',
                 'access_token' => 'required|string',
             ]);
 
-            $provider = $validated['provider'];
+            $provider    = $validated['provider'];
             $accessToken = $validated['access_token'];
 
             $userInfo = $this->getGoogleUserInfo($accessToken);
 
-            // Check if user exists
             $user = User::where('email', $userInfo['email'])->first();
 
             if (!$user) {
-                // Create new user
                 $user = User::create([
-                    'first_name' => $userInfo['first_name'] ?? explode('@', $userInfo['email'])[0],
-                    'last_name' => $userInfo['last_name'] ?? '',
-                    'username' => $userInfo['email'],
-                    'email' => $userInfo['email'],
-                    'profile_image' => $userInfo['profile_image'] ?? null,
-                    'social_provider' => $provider,
-                    'email_verified_at' => now(), // Google emails are already verified
+                    'first_name'                        => $userInfo['first_name'] ?? explode('@', $userInfo['email'])[0],
+                    'last_name'                         => $userInfo['last_name'] ?? '',
+                    'username'                          => $userInfo['email'],
+                    'email'                             => $userInfo['email'],
+                    'profile_image'                     => $userInfo['profile_image'] ?? null,
+                    'social_provider'                   => $provider,
+                    'email_verified_at'                 => now(),
+                    // Default all notifications ON for new social users
+                    'push_notifications_enabled'        => true,
+                    'order_updates_enabled'             => true,
+                    'promotional_notifications_enabled' => true,
+                    'security_alerts_enabled'           => true,
+                    'email_notifications_enabled'       => true,
                 ]);
 
                 Log::info('New user created via Google signup: ' . $user->email);
             } else {
-                // Update existing user with Google info
                 $user->update([
-                    'social_provider' => $provider,
-                    'profile_image' => $userInfo['profile_image'] ?? $user->profile_image,
+                    'social_provider'   => $provider,
+                    'profile_image'     => $userInfo['profile_image'] ?? $user->profile_image,
                     'email_verified_at' => $user->email_verified_at ?? now(),
                 ]);
 
@@ -251,49 +218,31 @@ class APIAuthController extends Controller
 
             return response()->json([
                 'success' => true,
-                'token' => $token,
-                'user' => [
-                    'id' => $user->id,
-                    'first_name' => $user->first_name,
-                    'last_name' => $user->last_name,
-                    'username' => $user->username,
-                    'email' => $user->email,
-                    'phone_number' => $user->phone_number,
-                    'profile_image' => $user->profile_image,
-                    'social_provider' => $user->social_provider,
-                    'gender' => $user->gender,
-                    'date_of_birth' => $user->date_of_birth?->toDateString(),
-                    'email_verified_at' => $user->email_verified_at?->toIso8601String(),
-                    'created_at' => $user->created_at?->toIso8601String(),
-                    'updated_at' => $user->updated_at?->toIso8601String(),
-                    'addresses' => $user->addresses,
-                ],
+                'token'   => $token,
+                'user'    => $this->formatUser($user),
                 'message' => 'Google login successful',
             ], 200);
+
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors(),
+                'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Google login error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Google login failed',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Get Google user information
-     *
-     * @param string $accessToken
-     * @return array
-     * @throws \Exception
+     * Get Google user information from access token
      */
-    protected function getGoogleUserInfo(string $accessToken)
+    protected function getGoogleUserInfo(string $accessToken): array
     {
         try {
             $response = Http::withToken($accessToken)
@@ -305,15 +254,12 @@ class APIAuthController extends Controller
 
             $data = $response->json();
 
-            // Get profile picture if available
-            $profileImage = $data['picture'] ?? null;
-
             return [
-                'email' => $data['email'],
-                'first_name' => $data['given_name'] ?? $data['name'] ?? '',
-                'last_name' => $data['family_name'] ?? '',
-                'profile_image' => $profileImage,
-                'gender' => $data['gender'] ?? null,
+                'email'         => $data['email'],
+                'first_name'    => $data['given_name']  ?? $data['name'] ?? '',
+                'last_name'     => $data['family_name'] ?? '',
+                'profile_image' => $data['picture']     ?? null,
+                'gender'        => $data['gender']      ?? null,
             ];
         } catch (\Exception $e) {
             Log::error('Google user info fetch error: ' . $e->getMessage());
@@ -323,9 +269,6 @@ class APIAuthController extends Controller
 
     /**
      * Verify email address (web route - returns view)
-     *
-     * This endpoint is typically accessed via browser link from email.
-     * It marks the email as verified and shows success/failure page.
      */
     public function verifyEmail(Request $request, $id, $hash)
     {
@@ -346,7 +289,7 @@ class APIAuthController extends Controller
 
             return view('auth.verify-email-success', [
                 'email' => $user->email,
-                'user' => $user
+                'user'  => $user,
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             Log::error('Email verification failed: No user found with ID ' . $id);
@@ -370,6 +313,7 @@ class APIAuthController extends Controller
     {
         try {
             $user = $request->user();
+
             if ($user->hasVerifiedEmail()) {
                 return response()->json([
                     'success' => false,
@@ -383,12 +327,13 @@ class APIAuthController extends Controller
                 'success' => true,
                 'message' => 'Verification email sent',
             ], 200);
+
         } catch (\Exception $e) {
             Log::error('Email verification notification error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send verification email',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -422,18 +367,19 @@ class APIAuthController extends Controller
                 'success' => false,
                 'message' => 'Failed to send password reset email',
             ], 400);
+
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors(),
+                'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Password reset email error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send password reset email',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -453,8 +399,8 @@ class APIAuthController extends Controller
     {
         try {
             $validated = $request->validate([
-                'token' => 'required|string',
-                'email' => 'required|email|exists:users,email',
+                'token'    => 'required|string',
+                'email'    => 'required|email|exists:users,email',
                 'password' => 'required|string|min:6|confirmed',
             ]);
 
@@ -462,7 +408,7 @@ class APIAuthController extends Controller
                 $validated,
                 function ($user, $password) {
                     $user->forceFill([
-                        'password' => bcrypt($password),
+                        'password'       => bcrypt($password),
                         'remember_token' => Str::random(60),
                     ])->save();
 
@@ -481,48 +427,214 @@ class APIAuthController extends Controller
                 'success' => false,
                 'message' => 'Failed to reset password',
             ], 400);
+
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors(),
+                'errors'  => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Password reset error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to reset password',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Logout the authenticated user (revoke current token)
+     * Logout the authenticated user
+     * Clears the FCM token so push notifications stop immediately.
      *
      * @authenticated
      *
-     * @response 200 {
-     *     "success": true,
-     *     "message": "Logout successful"
-     * }
+     * @response 200 { "success": true, "message": "Logout successful" }
      * @response 500 server error
      */
     public function logout(Request $request)
     {
         try {
-            $request->user()->currentAccessToken()->delete();
+            $user = $request->user();
+
+            // Clear FCM token — stops push notifications after logout
+            $user->update(['fcm_token' => null]);
+
+            // Revoke the current Sanctum token
+            $user->currentAccessToken()->delete();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Logout successful',
             ], 200);
+
         } catch (\Exception $e) {
             Log::error('Logout error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Logout failed',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
+    }
+
+    // ── FCM token endpoint ────────────────────────────────────────────────────
+
+    /**
+     * Save or refresh the user's FCM device token.
+     * Called by Flutter after every login and on token refresh.
+     *
+     * @authenticated
+     *
+     * @bodyParam fcm_token string required The FCM device token. Example: dGhpcyBpcyBhIHRlc3Q...
+     * @bodyParam platform string nullable android|ios|web. Example: android
+     * @bodyParam app_version string nullable App version string. Example: 1.0.0
+     *
+     * @response 200 { "success": true, "message": "FCM token saved successfully" }
+     * @response 422 validation errors
+     */
+    public function updateFcmToken(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'fcm_token'   => 'required|string|max:500',
+                'platform'    => 'nullable|in:android,ios,web',
+                'app_version' => 'nullable|string|max:20',
+            ]);
+
+            $updateData = ['fcm_token' => $validated['fcm_token']];
+
+            if (!empty($validated['platform'])) {
+                $updateData['last_device_platform'] = $validated['platform'];
+            }
+
+            if (!empty($validated['app_version'])) {
+                $updateData['last_app_version'] = $validated['app_version'];
+            }
+
+            $request->user()->update($updateData);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'FCM token saved successfully',
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('FCM token update error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save FCM token',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update notification preferences
+     *
+     * @authenticated
+     *
+     * @bodyParam push_notifications_enabled boolean
+     * @bodyParam order_updates_enabled boolean
+     * @bodyParam promotional_notifications_enabled boolean
+     * @bodyParam security_alerts_enabled boolean
+     * @bodyParam email_notifications_enabled boolean
+     *
+     * @response 200 preferences updated
+     */
+    public function updateNotificationPreferences(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'push_notifications_enabled'        => 'nullable|boolean',
+                'order_updates_enabled'             => 'nullable|boolean',
+                'promotional_notifications_enabled' => 'nullable|boolean',
+                'security_alerts_enabled'           => 'nullable|boolean',
+                'email_notifications_enabled'       => 'nullable|boolean',
+            ]);
+
+            $user       = $request->user();
+            $updateData = [];
+
+            $fields = [
+                'push_notifications_enabled',
+                'order_updates_enabled',
+                'promotional_notifications_enabled',
+                'security_alerts_enabled',
+                'email_notifications_enabled',
+            ];
+
+            foreach ($fields as $field) {
+                if ($request->has($field)) {
+                    $updateData[$field] = $request->boolean($field);
+                }
+            }
+
+            // If push notifications are disabled, clear the FCM token
+            // so the user genuinely stops receiving notifications
+            if (isset($updateData['push_notifications_enabled']) &&
+                !$updateData['push_notifications_enabled']) {
+                $updateData['fcm_token'] = null;
+            }
+
+            $user->update($updateData);
+
+            return response()->json([
+                'success'     => true,
+                'message'     => 'Notification preferences updated',
+                'preferences' => $user->fresh()->only($fields),
+            ], 200);
+
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Notification preferences update error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update preferences',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Format user data consistently across all auth responses
+     */
+    private function formatUser(User $user): array
+    {
+        return [
+            'id'                                => $user->id,
+            'first_name'                        => $user->first_name,
+            'last_name'                         => $user->last_name,
+            'username'                          => $user->username,
+            'email'                             => $user->email,
+            'phone_number'                      => $user->phone_number,
+            'profile_image'                     => $user->profile_image,
+            'social_provider'                   => $user->social_provider,
+            'gender'                            => $user->gender,
+            'date_of_birth'                     => $user->date_of_birth?->toDateString(),
+            'email_verified_at'                 => $user->email_verified_at?->toIso8601String(),
+            'push_notifications_enabled'        => (bool) $user->push_notifications_enabled,
+            'order_updates_enabled'             => (bool) $user->order_updates_enabled,
+            'promotional_notifications_enabled' => (bool) $user->promotional_notifications_enabled,
+            'security_alerts_enabled'           => (bool) $user->security_alerts_enabled,
+            'email_notifications_enabled'       => (bool) $user->email_notifications_enabled,
+            'created_at'                        => $user->created_at?->toIso8601String(),
+            'updated_at'                        => $user->updated_at?->toIso8601String(),
+            'addresses'                         => $user->addresses ?? [],
+        ];
     }
 }
