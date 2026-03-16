@@ -41,8 +41,11 @@ class FcmService
         }
     }
 
+    // ── Core send ───────────────────────────────────────────────────────────
+
     /**
-     * Send notification to a single FCM token
+     * Send notification to a single FCM token.
+     * All other methods ultimately call this.
      */
     public function sendToToken(string $token, string $title, string $body, array $data = []): array
     {
@@ -75,27 +78,129 @@ class FcmService
             Log::error('FCM send failed: ' . $e->getMessage(), [
                 'token_prefix' => substr($token, 0, 10),
             ]);
-
-            return [
-                'success' => false,
-                'error'   => $e->getMessage(),
-            ];
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 
-    /**
-     * Simple alias used by FcmTestController
-     */
+    /** Alias used by FcmTestController */
     public function send(string $token, string $title, string $body, array $data = []): array
     {
         return $this->sendToToken($token, $title, $body, $data);
+    }
+
+    // ── Wrappers called by NotificationService ───────────────────────────────
+
+    /**
+     * Send to a User model directly.
+     * Called by NotificationService::sendToUser() and sendSecurityAlert().
+     */
+    public function sendToUser(\App\Models\User $user, string $title, string $body, array $data = [], string $type = 'general'): array
+    {
+        if (empty($user->fcm_token)) {
+            return ['success' => false, 'error' => 'User has no FCM token'];
+        }
+        $data['type'] = $data['type'] ?? $type;
+        return $this->sendToToken($user->fcm_token, $title, $body, $data);
+    }
+
+    /**
+     * Send order placed / confirmation notification.
+     * Called by NotificationService::sendOrderConfirmation().
+     */
+    public function sendOrderConfirmation(\App\Models\Order $order): array
+    {
+        $user = $order->user;
+        if (!$user || empty($user->fcm_token)) {
+            return ['success' => false, 'error' => 'User has no FCM token'];
+        }
+
+        $invoiceRef = $order->invoice_number ?? substr($order->id, 0, 8);
+        $total      = number_format($order->total_amount, 0);
+
+        return $this->sendToToken(
+            $user->fcm_token,
+            '🛍️ Order Confirmed!',
+            "Order #{$invoiceRef} placed for ₦{$total}. We'll update you when it ships.",
+            [
+                'type'           => 'order_placed',
+                'order_id'       => (string) $order->id,
+                'invoice_number' => (string) ($order->invoice_number ?? ''),
+                'status'         => 'pending',
+                'total_amount'   => (string) $order->total_amount,
+            ]
+        );
+    }
+
+    /**
+     * Send order status update notification.
+     * Called by NotificationService::sendOrderStatusUpdate()
+     * and directly by OrderNotificationService.
+     */
+    public function sendOrderStatusUpdate(\App\Models\Order $order, string $newStatus): array
+    {
+        $user = $order->user;
+        if (!$user || empty($user->fcm_token)) {
+            return ['success' => false, 'error' => 'User has no FCM token'];
+        }
+
+        $emojis = [
+            'pending'    => '🕐',
+            'processing' => '⚙️',
+            'shipped'    => '🚚',
+            'delivered'  => '✅',
+            'cancelled'  => '❌',
+        ];
+        $titles = [
+            'pending'    => 'Order Received',
+            'processing' => 'Order Processing',
+            'shipped'    => 'Order Shipped!',
+            'delivered'  => 'Order Delivered!',
+            'cancelled'  => 'Order Cancelled',
+        ];
+        $bodies = [
+            'pending'    => 'Your order is being reviewed.',
+            'processing' => 'Your order is being prepared for shipment.',
+            'shipped'    => 'Your order is on its way! Track it in the app.',
+            'delivered'  => 'Your order has been delivered. Enjoy! 🎉',
+            'cancelled'  => 'Your order has been cancelled. Contact support if needed.',
+        ];
+
+        $emoji       = $emojis[$newStatus]  ?? '📦';
+        $statusTitle = $titles[$newStatus]  ?? 'Order Update';
+        $statusBody  = $bodies[$newStatus]  ?? "Your order status is now: {$newStatus}.";
+        $invoiceRef  = $order->invoice_number ?? substr($order->id, 0, 8);
+
+        return $this->sendToToken(
+            $user->fcm_token,
+            "{$emoji} {$statusTitle}",
+            "Order #{$invoiceRef}: {$statusBody}",
+            [
+                'type'           => 'order_status_update',
+                'order_id'       => (string) $order->id,
+                'invoice_number' => (string) ($order->invoice_number ?? ''),
+                'status'         => $newStatus,
+                'total_amount'   => (string) $order->total_amount,
+            ]
+        );
+    }
+
+    /**
+     * Send promotional notification to a user.
+     * Called by NotificationService::sendPromotionalNotification().
+     */
+    public function sendPromotionalNotification(\App\Models\User $user, string $title, string $body, array $data = []): array
+    {
+        if (empty($user->fcm_token)) {
+            return ['success' => false, 'error' => 'User has no FCM token'];
+        }
+        $data['type'] = $data['type'] ?? 'promotional';
+        return $this->sendToToken($user->fcm_token, $title, $body, $data);
     }
 
     // ── Token generation ────────────────────────────────────────────────────
 
     protected function getAccessToken(): string
     {
-        // Cache for 55 minutes (token lasts 60)
         return Cache::remember('fcm_access_token', 3300, function () {
             return $this->generateAccessToken();
         });
@@ -120,9 +225,8 @@ class FcmService
 
     protected function generateJWT(): string
     {
-        $header = ['alg' => 'RS256', 'typ' => 'JWT'];
-        $now    = time();
-
+        $header  = ['alg' => 'RS256', 'typ' => 'JWT'];
+        $now     = time();
         $payload = [
             'iss'   => $this->serviceAccount['client_email'],
             'scope' => 'https://www.googleapis.com/auth/firebase.messaging',
@@ -153,11 +257,14 @@ class FcmService
 
     protected function buildPayload(string $token, string $title, string $body, array $data = []): array
     {
-        // Ensure all data values are strings (FCM requirement)
         $stringData = array_map('strval', array_merge([
             'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
             'timestamp'    => now()->toISOString(),
         ], $data));
+
+        // Route to correct Android channel based on notification type
+        $type      = $stringData['type'] ?? 'general';
+        $channelId = str_starts_with($type, 'order_') ? 'order_updates' : 'lightning_deals';
 
         return [
             'message' => [
@@ -169,7 +276,7 @@ class FcmService
                 'android' => [
                     'priority'     => 'high',
                     'notification' => [
-                        'channel_id' => 'lightning_deals',
+                        'channel_id' => $channelId,
                         'tag'        => uniqid('notif_', true),
                     ],
                 ],
