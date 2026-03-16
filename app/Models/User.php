@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasApiTokens, HasFactory, Notifiable, HasRoles; // ← THIS LINE
+    use HasApiTokens, HasFactory, Notifiable, HasRoles;
 
     protected $fillable = [
         'role',
@@ -32,7 +32,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'date_of_birth',
         'password',
         'email_verified_at',
-        'fcm_tokens',
+
+        // ── FCM / Notifications ────────────────────────────────────────────
+        'fcm_token',                              // single device token string
         'push_notifications_enabled',
         'order_updates_enabled',
         'promotional_notifications_enabled',
@@ -49,26 +51,28 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
-        'fcm_tokens',
+        'fcm_token',       // never expose the raw token in API responses
     ];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'date_of_birth'     => 'date',
-        'created_at'        => 'datetime',
-        'updated_at'        => 'datetime',
-        'last_notification_at' => 'datetime',
-        'fcm_tokens'        => 'array',
-        'push_notifications_enabled' => 'boolean',
-        'order_updates_enabled'      => 'boolean',
+        'email_verified_at'                 => 'datetime',
+        'date_of_birth'                     => 'date',
+        'created_at'                        => 'datetime',
+        'updated_at'                        => 'datetime',
+        'last_notification_at'              => 'datetime',
+        'quiet_hours_start'                 => 'datetime:H:i',
+        'quiet_hours_end'                   => 'datetime:H:i',
+        'push_notifications_enabled'        => 'boolean',
+        'order_updates_enabled'             => 'boolean',
         'promotional_notifications_enabled' => 'boolean',
-        'security_alerts_enabled'    => 'boolean',
-        'email_notifications_enabled' => 'boolean',
-        'quiet_hours_start' => 'datetime:H:i',
-        'quiet_hours_end'   => 'datetime:H:i',
+        'security_alerts_enabled'           => 'boolean',
+        'email_notifications_enabled'       => 'boolean',
+        'notification_count'                => 'integer',
+        'password'                          => 'hashed',
     ];
 
-    // Relationships
+    // ── Relationships ─────────────────────────────────────────────────────────
+
     public function addresses()
     {
         return $this->hasMany(Address::class);
@@ -94,7 +98,8 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Stock::class);
     }
 
-    // Accessors
+    // ── Accessors ─────────────────────────────────────────────────────────────
+
     public function getFullNameAttribute(): string
     {
         return trim("{$this->first_name} {$this->last_name}");
@@ -112,7 +117,8 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->attributes['last_name']  = $parts[1] ?? '';
     }
 
-    // Scopes — Critical for your CustomerController
+    // ── Scopes ────────────────────────────────────────────────────────────────
+
     public function scopeCustomers($query)
     {
         return $query->where('role', 'user');
@@ -129,67 +135,71 @@ class User extends Authenticatable implements MustVerifyEmail
                      ->withSum('orders', 'total_amount');
     }
 
-    // FCM & Notification Methods
-    public function addFcmToken(string $token, string $deviceId, string $platform = 'flutter', string $appVersion = '1.0.0'): void
-    {
-        $tokens = $this->fcm_tokens ?? [];
-        $tokens = array_filter($tokens, fn($item) => $item['device_id'] !== $deviceId);
+    // ── FCM / Notification helpers ────────────────────────────────────────────
 
-        $tokens[] = [
-            'token'       => $token,
-            'device_id'   => $deviceId,
-            'platform'    => $platform,
-            'app_version' => $appVersion,
-            'added_at'    => now()->toISOString(),
-            'last_used_at'=> now()->toISOString(),
+    /**
+     * Save or replace the user's single FCM token.
+     */
+    public function setFcmToken(string $token, string $platform = 'android', string $appVersion = ''): void
+    {
+        $data = [
+            'fcm_token'            => $token,
+            'last_device_platform' => $platform,
         ];
 
-        $this->update([
-            'fcm_tokens'           => $tokens,
-            'last_device_platform' => $platform,
-            'last_app_version'     => $appVersion,
-        ]);
+        if ($appVersion) {
+            $data['last_app_version'] = $appVersion;
+        }
+
+        $this->update($data);
     }
 
-    public function removeFcmToken(string $deviceId): void
+    /**
+     * Clear the FCM token on logout so notifications stop immediately.
+     */
+    public function clearFcmToken(): void
     {
-        $tokens = $this->fcm_tokens ?? [];
-        $tokens = array_filter($tokens, fn($item) => $item['device_id'] !== $deviceId);
-        $this->update(['fcm_tokens' => array_values($tokens)]);
+        $this->update(['fcm_token' => null]);
     }
 
-    public function clearAllFcmTokens(): void
+    /**
+     * Check whether this user has a valid FCM token.
+     */
+    public function hasActiveFcmToken(): bool
     {
-        $this->update(['fcm_tokens' => []]);
+        return !empty($this->fcm_token);
     }
 
-    public function getActiveFcmTokens(): array
-    {
-        return array_column($this->fcm_tokens ?? [], 'token');
-    }
-
-    public function hasActiveFcmTokens(): bool
-    {
-        return !empty($this->getActiveFcmTokens());
-    }
-
+    /**
+     * Check whether the user can receive push notifications of a given type,
+     * respecting preferences and quiet hours.
+     */
     public function canReceivePushNotifications(string $type = 'general'): bool
     {
+        if (!$this->hasActiveFcmToken()) return false;
         if (!($this->push_notifications_enabled ?? true)) return false;
+        if ($this->isInQuietHours()) return false;
 
         return match ($type) {
-            'order_update'  => $this->order_updates_enabled ?? true,
-            'promotional'   => $this->promotional_notifications_enabled ?? false,
-            'security'      => $this->security_alerts_enabled ?? true,
-            default         => true,
-        } && !$this->isInQuietHours() && $this->hasActiveFcmTokens();
+            'order_update' => $this->order_updates_enabled             ?? true,
+            'promotional'  => $this->promotional_notifications_enabled ?? false,
+            'security'     => $this->security_alerts_enabled           ?? true,
+            default        => true,
+        };
     }
 
-    public function canReceiveEmailNotifications(string $type = 'general'): bool
+    /**
+     * Check whether the user can receive email notifications.
+     */
+    public function canReceiveEmailNotifications(): bool
     {
-        return ($this->email_notifications_enabled ?? true) && $this->hasVerifiedEmail();
+        return ($this->email_notifications_enabled ?? true)
+            && $this->hasVerifiedEmail();
     }
 
+    /**
+     * Check if current time falls within the user's quiet hours.
+     */
     public function isInQuietHours(): bool
     {
         if (!$this->quiet_hours_start || !$this->quiet_hours_end) return false;
@@ -198,13 +208,15 @@ class User extends Authenticatable implements MustVerifyEmail
         $start = $this->quiet_hours_start->format('H:i');
         $end   = $this->quiet_hours_end->format('H:i');
 
-        if ($start < $end) {
-            return $now >= $start && $now <= $end;
-        } else {
-            return $now >= $start || $now <= $end;
-        }
+        // Handle overnight ranges e.g. 22:00 → 07:00
+        return $start < $end
+            ? ($now >= $start && $now <= $end)
+            : ($now >= $start || $now <= $end);
     }
 
+    /**
+     * Increment notification counter and update last_notification_at.
+     */
     public function recordNotificationSent(): void
     {
         $this->update([
@@ -213,22 +225,26 @@ class User extends Authenticatable implements MustVerifyEmail
         ]);
     }
 
+    /**
+     * Return all notification preferences as an array (for API responses).
+     */
     public function getNotificationPreferences(): array
     {
         return [
-            'push_notifications_enabled' => $this->push_notifications_enabled ?? true,
-            'order_updates_enabled'      => $this->order_updates_enabled ?? true,
+            'push_notifications_enabled'        => $this->push_notifications_enabled        ?? true,
+            'order_updates_enabled'             => $this->order_updates_enabled             ?? true,
             'promotional_notifications_enabled' => $this->promotional_notifications_enabled ?? false,
-            'security_alerts_enabled'    => $this->security_alerts_enabled ?? true,
-            'email_notifications_enabled' => $this->email_notifications_enabled ?? true,
+            'security_alerts_enabled'           => $this->security_alerts_enabled           ?? true,
+            'email_notifications_enabled'       => $this->email_notifications_enabled       ?? true,
             'quiet_hours' => [
                 'start' => $this->quiet_hours_start?->format('H:i'),
                 'end'   => $this->quiet_hours_end?->format('H:i'),
             ],
-            'has_active_tokens' => $this->hasActiveFcmTokens(),
-            'device_count'      => count($this->fcm_tokens ?? []),
+            'has_active_token' => $this->hasActiveFcmToken(),
         ];
     }
+
+    // ── Email verification ────────────────────────────────────────────────────
 
     public function sendEmailVerificationNotification()
     {
