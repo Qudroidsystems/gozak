@@ -16,7 +16,6 @@ use App\Http\Controllers\APICategoryController;
 use App\Http\Controllers\APISettingsController;
 use App\Http\Controllers\PrivacyPolicyController;
 use App\Http\Controllers\APIProductReviewController;
-use App\Http\Controllers\FcmTestController;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
 
 // ══════════════════════════════════════════════════════════════════════════════
