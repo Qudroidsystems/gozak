@@ -88,13 +88,13 @@
     <div class="info-grid">
         <div class="info-row">
             <div class="info-cell">
-                <strong>Invoice #:</strong> {{ substr($order->id, 0, 10) }}<br>
+                <strong>Invoice #:</strong> {{ $order->invoice_number ?? substr($order->id, 0, 10) }}<br>
                 <strong>Order Date:</strong> {{ $order->created_at->format('d M Y') }}<br>
-                <strong>Payment Method:</strong> {{ ucfirst(str_replace('_', ' ', $order->payment_method)) }}
+                <strong>Payment Method:</strong> {{ ucfirst(str_replace('_', ' ', $order->payment_method ?? 'N/A')) }}
             </div>
             <div class="info-cell text-right">
-                <span class="badge {{ $order->payment_status == 'paid' ? 'status-paid' : 'status-unpaid' }}">
-                    {{ ucfirst($order->payment_status) }}
+                <span class="badge {{ ($order->payment_status ?? '') == 'paid' ? 'status-paid' : 'status-unpaid' }}">
+                    {{ ucfirst($order->payment_status ?? 'unknown') }}
                 </span>
                 <h3 style="margin: 10px 0 0;">Invoice</h3>
             </div>
@@ -105,18 +105,38 @@
         <div class="info-row">
             <div class="info-cell">
                 <strong>Bill To:</strong><br>
-                {{ $order->billingAddress->name ?? $order->shippingAddress->name }}<br>
-                {{ $order->billingAddress->street ?? $order->shippingAddress->street }}<br>
-                {{ $order->billingAddress->city ?? $order->shippingAddress->city }},
-                {{ $order->billingAddress->country ?? $order->shippingAddress->country }}<br>
-                <strong>Phone:</strong> {{ $order->billingAddress->phone_number ?? 'N/A' }}
+                @if($order->billingAddress)
+                    {{ $order->billingAddress->name ?? 'N/A' }}<br>
+                    {{ $order->billingAddress->street ?? 'N/A' }}<br>
+                    {{ $order->billingAddress->city ?? 'N/A' }},
+                    {{ $order->billingAddress->country ?? 'N/A' }}<br>
+                    <strong>Phone:</strong> {{ $order->billingAddress->phone_number ?? 'N/A' }}
+                @elseif($order->shippingAddress)
+                    {{ $order->shippingAddress->name ?? 'N/A' }}<br>
+                    {{ $order->shippingAddress->street ?? 'N/A' }}<br>
+                    {{ $order->shippingAddress->city ?? 'N/A' }},
+                    {{ $order->shippingAddress->country ?? 'N/A' }}<br>
+                    <strong>Phone:</strong> {{ $order->shippingAddress->phone_number ?? 'N/A' }}
+                @else
+                    <span class="text-muted">No billing address available</span><br>
+                    <span class="text-muted">-</span><br>
+                    <span class="text-muted">-</span><br>
+                    <strong>Phone:</strong> N/A
+                @endif
             </div>
             <div class="info-cell">
                 <strong>Ship To:</strong><br>
-                {{ $order->shippingAddress->name }}<br>
-                {{ $order->shippingAddress->street }}<br>
-                {{ $order->shippingAddress->city }}, {{ $order->shippingAddress->country }}<br>
-                <strong>Phone:</strong> {{ $order->shippingAddress->phone_number ?? 'N/A' }}
+                @if($order->shippingAddress)
+                    {{ $order->shippingAddress->name ?? 'N/A' }}<br>
+                    {{ $order->shippingAddress->street ?? 'N/A' }}<br>
+                    {{ $order->shippingAddress->city ?? 'N/A' }}, {{ $order->shippingAddress->country ?? 'N/A' }}<br>
+                    <strong>Phone:</strong> {{ $order->shippingAddress->phone_number ?? 'N/A' }}
+                @else
+                    <span class="text-muted">No shipping address available</span><br>
+                    <span class="text-muted">-</span><br>
+                    <span class="text-muted">-</span><br>
+                    <strong>Phone:</strong> N/A
+                @endif
             </div>
         </div>
     </div>
@@ -133,44 +153,52 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($order->items as $index => $item)
+            @forelse($order->items as $index => $item)
             <tr>
                 <td>{{ $index + 1 }}</td>
-                <td>{{ $item->title }}</td>
+                <td>{{ $item->title ?? 'N/A' }}</td>
                 <td>
-                    @if($item->selected_variation)
+                    @if(!empty($item->selected_variation))
                         @php $attrs = json_decode($item->selected_variation, true); @endphp
-                        @foreach($attrs as $key => $val)
-                            <strong>{{ ucfirst($key) }}:</strong> {{ $val }}<br>
-                        @endforeach
+                        @if(is_array($attrs) && count($attrs) > 0)
+                            @foreach($attrs as $key => $val)
+                                <strong>{{ ucfirst($key) }}:</strong> {{ $val }}<br>
+                            @endforeach
+                        @else
+                            -
+                        @endif
                     @else
                         -
                     @endif
                 </td>
-                <td>{{ $item->quantity }}</td>
-                <td>${{ number_format($item->price, 2) }}</td>
-                <td>${{ number_format($item->price * $item->quantity, 2) }}</td>
+                <td>{{ $item->quantity ?? 0 }}</td>
+                <td>${{ number_format($item->price ?? 0, 2) }}</td>
+                <td>${{ number_format(($item->price ?? 0) * ($item->quantity ?? 0), 2) }}</td>
             </tr>
-            @endforeach
+            @empty
+            <tr>
+                <td colspan="6" class="text-center">No items found</td>
+            </tr>
+            @endforelse
         </tbody>
     </table>
 
     <table style="width: 40%; margin-left: auto;">
         <tr>
             <td style="border: none;"><strong>Subtotal</strong></td>
-            <td style="border: none;" class="text-right">${{ number_format($order->total, 2) }}</td>
+            <td style="border: none;" class="text-right">${{ number_format($order->total ?? 0, 2) }}</td>
         </tr>
         <tr>
             <td style="border: none;"><strong>Shipping</strong></td>
-            <td style="border: none;" class="text-right">${{ number_format($order->shipping_cost, 2) }}</td>
+            <td style="border: none;" class="text-right">${{ number_format($order->shipping_cost ?? 0, 2) }}</td>
         </tr>
         <tr>
             <td style="border: none;"><strong>Tax</strong></td>
-            <td style="border: none;" class="text-right">${{ number_format($order->tax_cost, 2) }}</td>
+            <td style="border: none;" class="text-right">${{ number_format($order->tax_cost ?? 0, 2) }}</td>
         </tr>
         <tr class="total-row">
             <td><strong>Grand Total</strong></td>
-            <td class="text-right"><strong>${{ number_format($order->total_amount, 2) }}</strong></td>
+            <td class="text-right"><strong>${{ number_format($order->total_amount ?? 0, 2) }}</strong></td>
         </tr>
     </table>
 

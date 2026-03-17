@@ -139,21 +139,24 @@ class OrderController extends Controller
         );
     }
 
-    public function show($id)
-    {
-        $order = Order::with([
-            'user:id,first_name,last_name,email,phone_number', // FIXED: Changed from 'phone' to 'phone_number'
-            'items.product',
-            'shippingAddress',
-            'billingAddress',
-            'transactions',
-        ])->findOrFail($id);
+public function show($id)
+{
+    $order = Order::with([
+        'user:id,first_name,last_name,email,phone_number',
+        'items.product',
+        'shippingAddress',
+        'billingAddress',
+        'transactions',
+        'refunds', // Add this if you want to show refunds
+        'notes',   // Add this if you want to show notes
+    ])->withCount('items') // Add this line to get the items count
+    ->findOrFail($id);
 
-        $invoiceDisplay = $order->invoice_number ?? substr($order->id, 0, 8);
-        $pagetitle      = "Order #{$invoiceDisplay}";
+    $invoiceDisplay = $order->invoice_number ?? substr($order->id, 0, 8);
+    $pagetitle      = "Order #{$invoiceDisplay}";
 
-        return view('orders.show', compact('order', 'pagetitle'));
-    }
+    return view('orders.show', compact('order', 'pagetitle'));
+}
 
     /**
      * Admin updates order status from the web panel.
