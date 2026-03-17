@@ -142,7 +142,7 @@ class OrderController extends Controller
     public function show($id)
     {
         $order = Order::with([
-            'user:id,first_name,last_name,email,phone',
+            'user:id,first_name,last_name,email,phone_number', // FIXED: Changed from 'phone' to 'phone_number'
             'items.product',
             'shippingAddress',
             'billingAddress',
