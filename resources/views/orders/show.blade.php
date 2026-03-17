@@ -20,10 +20,10 @@
                             <button onclick="emailInvoice('{{ $order->id }}')" class="btn btn-info">
                                 Email Invoice
                             </button>
-                            <a href="{{ route('orders.invoice', $order->id) }}" target="_blank" class="btn btn-primary">
+                            <a href="{{ route('adminorders.invoice', $order->id) }}" target="_blank" class="btn btn-primary">
                                 PDF Invoice
                             </a>
-                            <a href="{{ route('orders.packing-slip', $order->id) }}" target="_blank" class="btn btn-secondary">
+                            <a href="{{ route('adminorders.packing-slip', $order->id) }}" target="_blank" class="btn btn-secondary">
                                 Print Packing Slip
                             </a>
                         </div>
@@ -48,7 +48,12 @@
                                 </div>
                                 <div>
                                     <h5>{{ $order->user->first_name }} {{ $order->user->last_name }}</h5>
-                                    <p class="text-muted mb-0">{{ $order->user->email }}</p>
+                                    <p class="text-muted mb-1">{{ $order->user->email }}</p>
+                                    @if($order->user->phone_number)
+                                        <p class="text-muted mb-0">
+                                            <i class="bi bi-telephone"></i> {{ $order->user->phone_number }}
+                                        </p>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -61,7 +66,7 @@
                             <h5 class="text-danger mb-0">Request Refund</h5>
                         </div>
                         <div class="card-body">
-                            <form action="{{ route('orders.refund', $order->id) }}" method="POST">
+                            <form action="{{ route('adminorders.refund', $order->id) }}" method="POST">
                                 @csrf
                                 <div class="mb-3">
                                     <label>Amount (Max: ${{ number_format($order->refundableAmount(), 2) }})</label>
@@ -108,7 +113,7 @@
                     <div class="card mb-3">
                         <div class="card-body d-flex justify-content-between align-items-center">
                             <div>
-                                <h5>Current Status: 
+                                <h5>Current Status:
                                     <span class="badge bg-primary-subtle text-primary fs-6">
                                         {{ ucfirst($order->status) }}
                                     </span>
@@ -219,7 +224,7 @@
             <!-- Add Note Modal -->
             <div class="modal fade" id="addNoteModal" tabindex="-1">
                 <div class="modal-dialog">
-                    <form action="{{ route('orders.note', $order->id) }}" method="POST">
+                    <form action="{{ route('adminorders.note', $order->id) }}" method="POST">
                         @csrf
                         <div class="modal-content">
                             <div class="modal-header">
@@ -246,4 +251,12 @@
         </div>
     </div>
 </div>
+
+<script>
+function emailInvoice(id) {
+    axios.post('{{ route("adminorders.emailInvoice", ":id") }}'.replace(':id', id))
+        .then(() => Swal.fire('Success', 'Invoice sent to customer', 'success'))
+        .catch(() => Swal.fire('Error', 'Failed to send invoice', 'error'));
+}
+</script>
 @endsection
