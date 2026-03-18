@@ -207,4 +207,6 @@ public function setBarcodeDataAttribute($value)
         $this->attributes['barcode_data'] = $value;
     }
 }
+
+
 }

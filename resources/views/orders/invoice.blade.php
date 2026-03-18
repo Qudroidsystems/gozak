@@ -267,6 +267,10 @@
             margin-right: 4px;
         }
 
+        .text-right {
+            text-align: right;
+        }
+
         .totals-section {
             padding: 0 40px 40px 40px;
             display: flex;
@@ -345,6 +349,7 @@
     @php
         $settings = \App\Models\StoreSetting::getSettings();
         $currency = $settings->currency_symbol ?? '$';
+        $totalRefunded = $order->totalRefunded(); // Call the method directly
     @endphp
 
     <div class="invoice-container">
@@ -392,11 +397,11 @@
         <div class="dates-section">
             <div class="date-item">
                 <span class="date-label">Order Date:</span>
-                <span class="date-value">{{ $order->created_at->format('F d, Y') }}</span>
+                <span class="date-value">{{ $order->order_date?->format('F d, Y') ?? $order->created_at->format('F d, Y') }}</span>
             </div>
             <div class="date-item">
                 <span class="date-label">Due Date:</span>
-                <span class="date-value">{{ $order->created_at->addDays(30)->format('F d, Y') }}</span>
+                <span class="date-value">{{ $order->order_date?->addDays(30)->format('F d, Y') ?? $order->created_at->addDays(30)->format('F d, Y') }}</span>
             </div>
         </div>
 
@@ -408,14 +413,14 @@
                 @if($order->billingAddress)
                     <p><strong>{{ $order->billingAddress->name ?? $order->user->first_name . ' ' . $order->user->last_name }}</strong></p>
                     <p>{{ $order->billingAddress->street ?? 'N/A' }}</p>
-                    <p>{{ $order->billingAddress->city ?? 'N/A' }}, {{ $order->billingAddress->country ?? 'N/A' }}</p>
+                    <p>{{ $order->billingAddress->city ?? 'N/A' }}, {{ $order->billingAddress->country ?? 'N/A' }} {{ $order->billingAddress->postal_code ?? '' }}</p>
                     @if($order->billingAddress->phone_number)
                         <p class="phone">📞 {{ $order->billingAddress->phone_number }}</p>
                     @endif
                 @elseif($order->shippingAddress)
                     <p><strong>{{ $order->shippingAddress->name ?? $order->user->first_name . ' ' . $order->user->last_name }}</strong></p>
                     <p>{{ $order->shippingAddress->street ?? 'N/A' }}</p>
-                    <p>{{ $order->shippingAddress->city ?? 'N/A' }}, {{ $order->shippingAddress->country ?? 'N/A' }}</p>
+                    <p>{{ $order->shippingAddress->city ?? 'N/A' }}, {{ $order->shippingAddress->country ?? 'N/A' }} {{ $order->shippingAddress->postal_code ?? '' }}</p>
                     @if($order->shippingAddress->phone_number)
                         <p class="phone">📞 {{ $order->shippingAddress->phone_number }}</p>
                     @endif
@@ -434,7 +439,7 @@
                 @if($order->shippingAddress)
                     <p><strong>{{ $order->shippingAddress->name ?? $order->user->first_name . ' ' . $order->user->last_name }}</strong></p>
                     <p>{{ $order->shippingAddress->street ?? 'N/A' }}</p>
-                    <p>{{ $order->shippingAddress->city ?? 'N/A' }}, {{ $order->shippingAddress->country ?? 'N/A' }}</p>
+                    <p>{{ $order->shippingAddress->city ?? 'N/A' }}, {{ $order->shippingAddress->country ?? 'N/A' }} {{ $order->shippingAddress->postal_code ?? '' }}</p>
                     @if($order->shippingAddress->phone_number)
                         <p class="phone">📞 {{ $order->shippingAddress->phone_number }}</p>
                     @endif
@@ -461,7 +466,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($order->items as $item)
+                    @forelse($order->items as $index => $item)
                     <tr>
                         <td>
                             <span class="product-title">{{ $item->title ?? 'Product' }}</span>
@@ -500,7 +505,7 @@
             <div class="totals-card">
                 <div class="total-row">
                     <span>Subtotal:</span>
-                    <span class="amount">{{ $currency }} {{ number_format($order->total ?? 0, 2) }}</span>
+                    <span class="amount">{{ $currency }} {{ number_format($order->total_amount - ($order->shipping_cost ?? 0) - ($order->tax_cost ?? 0), 2) }}</span>
                 </div>
                 <div class="total-row">
                     <span>Shipping:</span>
@@ -510,10 +515,10 @@
                     <span>Tax:</span>
                     <span>{{ $currency }} {{ number_format($order->tax_cost ?? 0, 2) }}</span>
                 </div>
-                @if($order->totalRefunded && $order->totalRefunded() > 0)
+                @if($totalRefunded > 0)
                 <div class="total-row" style="color: #dc2626;">
                     <span>Refunded:</span>
-                    <span>-{{ $currency }} {{ number_format($order->totalRefunded(), 2) }}</span>
+                    <span>-{{ $currency }} {{ number_format($totalRefunded, 2) }}</span>
                 </div>
                 @endif
                 <div class="total-row grand-total">
