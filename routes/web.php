@@ -104,6 +104,8 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{product}/reviews', [ProductReviewController::class, 'store'])->name('reviews.store');
             // NEW: Update product flags (is_new, is_trending, is_top_rated)
            Route::patch('/{product}/flags', [ProductController::class, 'updateFlags']) ->name('flags.update');
+           // NEW: Bulk flag update
+           Route::post('/bulk-flags', [ProductController::class, 'bulkUpdateFlags']) ->name('bulk-flags.update');
         });
 
         // Product Reviews Management

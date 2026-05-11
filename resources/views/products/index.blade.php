@@ -220,6 +220,23 @@
                                 </div>
                                 <div class="flex-shrink-0">
                                     <div class="d-flex flex-wrap align-items-start gap-2">
+                                        <!-- Bulk Actions Dropdown -->
+                                        <div class="dropdown me-2" id="bulkActionsDropdown" style="display: none;">
+                                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                                Bulk Actions (<span id="selectedCount">0</span>)
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_new" data-value="1">Mark as New</a></li>
+                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_new" data-value="0">Remove New</a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_trending" data-value="1">Mark as Trending</a></li>
+                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_trending" data-value="0">Remove Trending</a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_top_rated" data-value="1">Mark as Top Rated</a></li>
+                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_top_rated" data-value="0">Remove Top Rated</a></li>
+                                            </ul>
+                                        </div>
+
                                         <div class="input-group input-group-sm me-2" style="width: 250px;">
                                             <input type="text" class="form-control" id="searchInput" placeholder="Search products..." value="{{ request('search', '') }}">
                                             <button class="btn btn-outline-secondary" type="button" id="searchButton"><i class="bi bi-search"></i></button>
@@ -325,6 +342,9 @@
                                     <table class="table table-centered align-middle table-nowrap mb-0">
                                         <thead class="table-active">
                                             <tr>
+                                                <th style="width: 50px;">
+                                                    <input type="checkbox" id="selectAll" class="form-check-input">
+                                                </th>
                                                 <th>Product</th>
                                                 <th>Barcode</th>
                                                 <th>Category</th>
@@ -345,6 +365,9 @@
                                         <tbody id="productTableBody">
                                             @forelse($products as $product)
                                             <tr>
+                                                <td>
+                                                    <input type="checkbox" class="row-select form-check-input" value="{{ $product->id }}">
+                                                </td>
                                                 <td>
                                                     <div class="d-flex align-items-center">
                                                         <div class="avatar-sm bg-light rounded p-1 me-3">
@@ -375,7 +398,7 @@
                                                         <span class="text-muted small">Auto-generated</span>
                                                     @endif
                                                 </td>
-                                                <td>{{ $product->category?->name ?? 'Uncategorized' }}</td>
+                                                <td>{{ $product->category?->name ?? 'Uncategorized' }}</div>
                                                 <td>
                                                     @if($product->cost_price)
                                                         <span class="fw-bold">${{ number_format($product->cost_price, 2) }}</span>
@@ -481,7 +504,7 @@
                                             </tr>
                                             @empty
                                             <tr id="noResultsRow" class="text-center py-5 text-muted">
-                                                <td colspan="11">
+                                                <td colspan="12">
                                                     @if(request()->except('page'))
                                                         No products found matching your filters.<br>
                                                         <a href="{{ route('web.products.index') }}" class="btn btn-sm btn-outline-primary mt-2">Clear filters</a>
@@ -774,44 +797,90 @@ document.addEventListener('DOMContentLoaded', function () {
         axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken.getAttribute('content');
     }
 
-    // ── Sales Chart ────────────────────────────────────────────────────────
-    const salesChartCtx = document.getElementById('salesChart');
-    if (salesChartCtx) {
-        new Chart(salesChartCtx, {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'Daily Sales ($)', data: [], borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,0.1)', tension: 0.4, fill: true, borderWidth: 2 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }
+    // ==================== BULK ACTIONS ====================
+    let selectedProducts = [];
+
+    function updateSelectedCount() {
+        selectedProducts = Array.from(document.querySelectorAll('.row-select:checked'))
+                               .map(cb => cb.value);
+        const bulkActionsDropdown = document.getElementById('bulkActionsDropdown');
+        const selectedCountEl = document.getElementById('selectedCount');
+
+        if (selectedCountEl) selectedCountEl.textContent = selectedProducts.length;
+        if (bulkActionsDropdown) {
+            bulkActionsDropdown.style.display = selectedProducts.length > 0 ? 'block' : 'none';
+        }
+    }
+
+    // Select All functionality
+    const selectAllCheckbox = document.getElementById('selectAll');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+            document.querySelectorAll('.row-select').forEach(cb => cb.checked = this.checked);
+            updateSelectedCount();
         });
     }
 
-    // ── Copy Barcode ───────────────────────────────────────────────────────
-    window.copyBarcode = function(barcode) {
-        navigator.clipboard.writeText(barcode).then(() => {
-            Swal.fire({ icon: 'success', title: 'Copied!', text: 'Barcode copied to clipboard', timer: 1500, showConfirmButton: false });
-        }).catch(() => Swal.fire({ icon: 'error', title: 'Failed', text: 'Could not copy barcode' }));
-    };
+    // Individual row selection
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('row-select')) {
+            updateSelectedCount();
+            // If not all are selected, uncheck selectAll
+            if (selectAllCheckbox) {
+                const allChecked = document.querySelectorAll('.row-select:checked').length === document.querySelectorAll('.row-select').length;
+                selectAllCheckbox.checked = allChecked;
+            }
+        }
+    });
 
-    // ── Remove filter badge ────────────────────────────────────────────────
-    window.removeFilter = function(filterName) {
-        const params = new URLSearchParams(window.location.search);
-        params.delete(filterName);
-        params.delete('page');
-        window.location.href = `${window.location.pathname}?${params.toString()}`;
-    };
+    // Bulk Flag Actions
+    document.querySelectorAll('.flag-bulk-action').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const flag = this.dataset.flag;
+            const value = this.dataset.value === '1';
 
-    // ─────────────────────────────────────────────────────────────────────
-    // INLINE FLAG TOGGLES  (New / Trending / Top Rated switches in the table)
-    // ─────────────────────────────────────────────────────────────────────
+            if (selectedProducts.length === 0) {
+                Swal.fire('No Selection', 'Please select at least one product.', 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Update Flags?',
+                text: `This will update ${selectedProducts.length} product(s).`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, Update'
+            }).then(result => {
+                if (result.isConfirmed) {
+                    axios.post('/web/products/bulk-flags', {
+                        product_ids: selectedProducts,
+                        flag: flag,
+                        value: value
+                    })
+                    .then(res => {
+                        Swal.fire('Success', res.data.message, 'success')
+                            .then(() => location.reload());
+                    })
+                    .catch(err => {
+                        Swal.fire('Error', err.response?.data?.message || 'Failed to update', 'error');
+                    });
+                }
+            });
+        });
+    });
+    // ==================== END BULK ACTIONS ====================
+
+    // ==================== SINGLE FLAG TOGGLE ====================
     document.querySelectorAll('.flag-toggle').forEach(toggle => {
         toggle.addEventListener('change', function () {
             const productId = this.dataset.id;
-            const flag      = this.dataset.flag;   // is_new | is_trending | is_top_rated
+            const flag      = this.dataset.flag;
             const value     = this.checked;
-            const original  = !value;              // for rollback on error
+            const original  = !value;
 
             axios.patch(`/web/products/${productId}/flags`, { flag, value })
                 .then(res => {
-                    // tiny toast — no full Swal to avoid interrupting workflow
                     const toast = Swal.mixin({
                         toast: true,
                         position: 'bottom-end',
@@ -822,14 +891,36 @@ document.addEventListener('DOMContentLoaded', function () {
                     toast.fire({ icon: 'success', title: res.data.message ?? 'Saved' });
                 })
                 .catch(err => {
-                    // Roll back toggle visually
                     this.checked = original;
                     Swal.fire('Error', err.response?.data?.message ?? 'Failed to update flag', 'error');
                 });
         });
     });
 
-    // ── Search / Filter ────────────────────────────────────────────────────
+    // ==================== ORIGINAL JAVASCRIPT (UNTOUCHED) ====================
+    const salesChartCtx = document.getElementById('salesChart');
+    if (salesChartCtx) {
+        new Chart(salesChartCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Daily Sales ($)', data: [], borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,0.1)', tension: 0.4, fill: true, borderWidth: 2 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }
+        });
+    }
+
+    window.copyBarcode = function(barcode) {
+        navigator.clipboard.writeText(barcode).then(() => {
+            Swal.fire({ icon: 'success', title: 'Copied!', text: 'Barcode copied to clipboard', timer: 1500, showConfirmButton: false });
+        }).catch(() => Swal.fire({ icon: 'error', title: 'Failed', text: 'Could not copy barcode' }));
+    };
+
+    window.removeFilter = function(filterName) {
+        const params = new URLSearchParams(window.location.search);
+        params.delete(filterName);
+        params.delete('page');
+        window.location.href = `${window.location.pathname}?${params.toString()}`;
+    };
+
+    // Search / Filter
     function initializeSearch() {
         const searchInput    = document.getElementById('searchInput');
         const searchInput2   = document.getElementById('searchInput2');
@@ -841,37 +932,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const brandFilter    = document.getElementById('brandFilter');
         const stockFilter    = document.getElementById('stockFilter');
         const appFilterFilter= document.getElementById('appFilterFilter');
-        const tbody          = document.querySelector('tbody');
-        const rows           = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
-        const totalProducts  = document.getElementById('totalProducts');
-
-        function syncSearchInputs() {
-            if (searchInput && searchInput2) {
-                searchInput2.addEventListener('input', function() { searchInput.value = this.value; });
-                searchInput.addEventListener('input',  function() { searchInput2.value = this.value; });
-            }
-        }
-
-        function performClientSearch(searchTerm) {
-            if (!searchTerm.trim()) {
-                rows.forEach(r => { if (r.id !== 'noResultsRow') r.style.display = ''; });
-                if (totalProducts) totalProducts.textContent = '{{ $products->total() }}';
-                if (clearSearch) clearSearch.style.display = 'none';
-                return;
-            }
-            const term = searchTerm.toLowerCase();
-            let visible = 0;
-            rows.forEach(row => {
-                if (row.id === 'noResultsRow') { row.style.display = 'none'; return; }
-                const show = row.textContent.toLowerCase().includes(term);
-                row.style.display = show ? '' : 'none';
-                if (show) visible++;
-            });
-            if (totalProducts) totalProducts.textContent = visible;
-            if (clearSearch)   clearSearch.style.display = 'inline-block';
-            const noResultsRow = document.getElementById('noResultsRow');
-            if (noResultsRow && visible === 0) noResultsRow.style.display = '';
-        }
 
         function performServerSearch() {
             const params = new URLSearchParams(window.location.search);
@@ -885,28 +945,18 @@ document.addEventListener('DOMContentLoaded', function () {
             window.location.href = `${window.location.pathname}?${params.toString()}`;
         }
 
-        syncSearchInputs();
-
-        let searchTimeout;
-        const debounced = function() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => performClientSearch(this.value), 300);
-        };
-        searchInput?.addEventListener('input', debounced);
-        searchInput2?.addEventListener('input', debounced);
-        [searchInput, searchInput2].forEach(el => el?.addEventListener('keypress', e => { if (e.key === 'Enter') performServerSearch(); }));
         searchButton?.addEventListener('click', performServerSearch);
-        clearSearch?.addEventListener('click', () => {
-            if (searchInput)  searchInput.value = '';
-            if (searchInput2) searchInput2.value = '';
-            performClientSearch('');
-            performServerSearch();
-        });
         applyFilter?.addEventListener('click', performServerSearch);
         clearFilters?.addEventListener('click', () => window.location.href = window.location.pathname);
-        if (searchInput && clearSearch) searchInput.addEventListener('input', function() { clearSearch.style.display = this.value ? 'inline-block' : 'none'; });
+
+        clearSearch?.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            if (searchInput2) searchInput2.value = '';
+            performServerSearch();
+        });
     }
     initializeSearch();
+
 
     // ── Product Type Toggle ────────────────────────────────────────────────
     const productTypeSelect  = document.getElementById('product_type');

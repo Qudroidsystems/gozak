@@ -729,4 +729,26 @@ public function updateFlags(Request $request, Product $product)
         'message' => ucfirst(str_replace('_', ' ', $validated['flag'])) . ' flag updated successfully'
     ]);
 }
+
+/**
+ * Bulk Update Flags
+ */
+public function bulkUpdateFlags(Request $request)
+{
+    $validated = $request->validate([
+        'product_ids' => 'required|array|min:1',
+        'product_ids.*' => 'exists:products,id',
+        'flag'        => 'required|in:is_new,is_trending,is_top_rated',
+        'value'       => 'required|boolean',
+    ]);
+
+    $updated = Product::whereIn('id', $validated['product_ids'])
+                      ->update([$validated['flag'] => $validated['value']]);
+
+    return response()->json([
+        'success' => true,
+        'message' => "{$updated} products updated successfully",
+        'updated_count' => $updated
+    ]);
+}
 }
