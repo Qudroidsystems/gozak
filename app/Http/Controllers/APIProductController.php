@@ -480,67 +480,90 @@ class APIProductController extends Controller
 
         $now = now();
 
-        $deals = LightningDeal::with(['product' => function ($query) {
-                $query->select('id', 'title', 'price', 'thumbnail');
-            }])
-            ->where('is_active', 1)
+        \Log::info('🔥 Lightning Deals Request Started', [
+            'time_now' => $now,
+        ]);
+
+        // STEP 1: base query count (NO FILTERS)
+        $baseQuery = LightningDeal::query();
+
+        \Log::info('📊 Total deals in DB', [
+            'total_deals' => $baseQuery->count(),
+        ]);
+
+        // STEP 2: check active only
+        $activeQuery = LightningDeal::where('is_active', 1);
+
+        \Log::info('🟢 Active deals count', [
+            'active_deals' => $activeQuery->count(),
+        ]);
+
+        // STEP 3: check time window
+        $timeQuery = LightningDeal::where('is_active', 1)
             ->where('starts_at', '<=', $now)
-            ->where('ends_at', '>=', $now)
+            ->where('ends_at', '>=', $now);
+
+        \Log::info('⏰ Time-valid deals count', [
+            'time_valid_deals' => $timeQuery->count(),
+        ]);
+
+        // STEP 4: fetch final deals with product
+        $deals = $timeQuery
+            ->with('product')
             ->orderBy('sort_order', 'asc')
-            ->get()
-            ->map(function ($deal) {
+            ->get();
 
-                // prevent null product crash
-                if (!$deal->product) {
-                    return null;
-                }
+        \Log::info('📦 Final fetched deals BEFORE mapping', [
+            'count' => $deals->count(),
+        ]);
 
-                $originalPrice = (float) $deal->product->price;
+        // STEP 5: map response
+        $mapped = $deals->map(function ($deal) {
 
-                $discountedPrice = $originalPrice;
+            if (!$deal->product) {
+                \Log::warning('⚠️ Missing product for deal', [
+                    'deal_id' => $deal->id,
+                    'product_id' => $deal->product_id,
+                ]);
+                return null;
+            }
 
-                if ($deal->discount_percentage > 0) {
-                    $discountedPrice =
-                        $originalPrice -
-                        (($deal->discount_percentage / 100) * $originalPrice);
-                }
+            $originalPrice = (float) $deal->product->price;
 
-                return [
-                    'id' => (int) $deal->id,
-                    'product_id' => (int) $deal->product_id,
+            $discountedPrice =
+                $originalPrice -
+                (($deal->discount_percentage / 100) * $originalPrice);
 
-                    'title' => $deal->product->title ?? '',
+            return [
+                'id' => $deal->id,
+                'product_id' => $deal->product_id,
+                'title' => $deal->product->title ?? '',
+                'thumbnail' => $deal->product->thumbnail ?? null,
+                'original_price' => $originalPrice,
+                'discounted_price' => round($discountedPrice, 2),
+                'discount_percentage' => $deal->discount_percentage,
+                'stock_left' => $deal->stock_limit,
+            ];
+        })
+        ->filter()
+        ->values();
 
-                    'thumbnail' => $deal->product->thumbnail
-                        ? url(\Storage::url(
-                            preg_replace('/^storage\//', '', $deal->product->thumbnail)
-                        ))
-                        : null,
-
-                    'original_price' => round($originalPrice, 2),
-
-                    'discounted_price' => round($discountedPrice, 2),
-
-                    'discount_percentage' => (int) $deal->discount_percentage,
-
-                    'stock_left' => (int) ($deal->stock_limit ?? 0),
-
-                    'starts_at' => $deal->starts_at,
-                    'ends_at' => $deal->ends_at,
-                ];
-            })
-            ->filter() // remove null products
-            ->values();
+        \Log::info('✅ Final mapped deals', [
+            'count' => $mapped->count(),
+        ]);
 
         return response()->json([
             'success' => true,
-            'data' => $deals,
-            'count' => $deals->count(),
+            'data' => $mapped,
+            'count' => $mapped->count(),
         ]);
 
     } catch (\Exception $e) {
 
-        \Log::error('Lightning Deals Error: ' . $e->getMessage());
+        \Log::error('❌ Lightning Deals Error', [
+            'message' => $e->getMessage(),
+            'line' => $e->getLine(),
+        ]);
 
         return response()->json([
             'success' => false,
