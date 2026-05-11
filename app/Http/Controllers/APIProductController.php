@@ -273,6 +273,9 @@ class APIProductController extends Controller
      * @response 200 paginated or limited products with formatted data
      * @response 500 fetch error
      */
+     /**
+     * PRODUCTS INDEX
+     */
     public function index(Request $request)
     {
         $query = Product::query()
@@ -281,80 +284,172 @@ class APIProductController extends Controller
                 'brand:id,name,logo',
                 'attributes:id,product_id,name,values',
                 'variations:id,product_id,sku,barcode,price,sale_price,attributes,image',
-                'images:id,product_id,image_path'
+                'images:id,product_id,image_path',
             ]);
 
-        if ($request->has('featured') && $request->featured === 'true') {
+        // FEATURED
+        if (
+            $request->has('featured') &&
+            $request->featured === 'true'
+        ) {
             $query->where('is_featured', true);
         }
 
+        // CATEGORY
         if ($request->has('category_id')) {
-            $query->where('category_id', $request->category_id);
+            $query->where(
+                'category_id',
+                $request->category_id
+            );
         }
 
+        // BRAND
         if ($request->has('brand_id')) {
-            $query->where('brand_id', $request->brand_id);
+            $query->where(
+                'brand_id',
+                $request->brand_id
+            );
         }
 
+        // IDS
         if ($request->has('ids')) {
+
             $ids = explode(',', $request->ids);
+
             $query->whereIn('id', $ids);
         }
 
+        // SEARCH
         if ($request->has('search')) {
+
             $search = $request->search;
+
             $query->where(function ($q) use ($search) {
+
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere(
+                        'description',
+                        'like',
+                        "%{$search}%"
+                    );
             });
         }
 
+        // MIN PRICE
         if ($request->has('min_price')) {
-            $query->where('price', '>=', $request->min_price);
+            $query->where(
+                'price',
+                '>=',
+                $request->min_price
+            );
         }
 
+        // MAX PRICE
         if ($request->has('max_price')) {
-            $query->where('price', '<=', $request->max_price);
+            $query->where(
+                'price',
+                '<=',
+                $request->max_price
+            );
+        }
+
+        // FILTER PRODUCTS
+        if ($request->has('filter')) {
+
+            switch ($request->filter) {
+
+                case 'new':
+                    $query->new();
+                    break;
+
+                case 'trending':
+                    $query->trending();
+                    break;
+
+                case 'top_rated':
+                    $query->topRated();
+                    break;
+
+                case 'on_sale':
+                    $query->onSale();
+                    break;
+
+                case 'all':
+                default:
+                    break;
+            }
         }
 
         try {
-            if ($request->has('limit') && $request->limit != -1) {
-                $limit = min(max((int) $request->limit, 1), 100);
-                $products = $query->take($limit)->get();
 
-                $formatted = $products->map(fn($p) => $this->formatProductData($p))->values();
+            // LIMITED RESPONSE
+            if (
+                $request->has('limit') &&
+                $request->limit != -1
+            ) {
+
+                $limit = min(
+                    max((int) $request->limit, 1),
+                    100
+                );
+
+                $products = $query
+                    ->latest()
+                    ->take($limit)
+                    ->get();
+
+                $formatted = $products
+                    ->map(fn($p) => $this->formatProductData($p))
+                    ->values();
 
                 return response()->json([
                     'success' => true,
-                    'data' => $formatted,
+                    'data'    => $formatted,
+
                     'pagination' => [
                         'current_page' => 1,
-                        'last_page' => 1,
-                        'total' => $formatted->count(),
+                        'last_page'    => 1,
+                        'total'        => $formatted->count(),
                     ],
                 ]);
             }
 
-            $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
-            $products = $query->paginate($perPage);
+            // PAGINATION
+            $perPage = min(
+                max((int) $request->input('per_page', 20), 1),
+                100
+            );
 
-            $formatted = collect($products->items())->map(fn($p) => $this->formatProductData($p))->values();
+            $products = $query
+                ->latest()
+                ->paginate($perPage);
+
+            $formatted = collect($products->items())
+                ->map(fn($p) => $this->formatProductData($p))
+                ->values();
 
             return response()->json([
                 'success' => true,
-                'data' => $formatted,
+                'data'    => $formatted,
+
                 'pagination' => [
                     'current_page' => $products->currentPage(),
-                    'last_page' => $products->lastPage(),
-                    'total' => $products->total(),
-                    'per_page' => $products->perPage(),
+                    'last_page'    => $products->lastPage(),
+                    'total'        => $products->total(),
+                    'per_page'     => $products->perPage(),
                 ],
             ]);
+
         } catch (\Exception $e) {
-            Log::error('Failed to fetch products: ' . $e->getMessage());
+
+            Log::error(
+                'Failed to fetch products: ' .
+                $e->getMessage()
+            );
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch products: ' . $e->getMessage(),
+                'message' => 'Failed to fetch products',
             ], 500);
         }
     }
