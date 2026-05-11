@@ -94,7 +94,7 @@
                 </div>
             </div>
 
-            {{-- ─── Filter Flag Summary Cards (NEW) ───────────────────────────────── --}}
+            {{-- ─── Filter Flag Summary Cards ───────────────────────────────── --}}
             <div class="row mt-3">
                 <div class="col-xl-3 col-md-6">
                     <div class="card card-animate bg-success-subtle border-0">
@@ -152,55 +152,6 @@
                                     <p class="text-uppercase fw-medium text-primary mb-0" style="font-size:11px;">On Sale</p>
                                     <h5 class="fw-semibold mb-0">{{ \App\Models\Product::whereNotNull('sale_price')->where('sale_price', '>', 0)->whereColumn('sale_price', '<', 'price')->count() }}</h5>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- ─── Charts ─────────────────────────────────────────────────────────── --}}
-            <div class="row mt-4">
-                <div class="col-xl-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Sales Overview (Last 30 Days)</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="salesChart" height="300"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Top Selling Products</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-borderless align-middle mb-0">
-                                    <tbody>
-                                        @forelse($analytics['top_products'] ?? [] as $item)
-                                            <tr>
-                                                <td>
-                                                    <div class="d-flex align-items-center">
-                                                        <div class="avatar-xs me-3">
-                                                            <img src="{{ $item->thumbnail ? asset('storage/'.$item->thumbnail) : asset('img/no-image.png') }}" class="rounded-circle avatar-xs">
-                                                        </div>
-                                                        <div>
-                                                            <h6 class="mb-0">{{ Str::limit($item->title, 30) }}</h6>
-                                                            <small class="text-muted">{{ $item->sold_quantity }} sold</small>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td class="text-end">
-                                                    <span class="badge bg-success-subtle text-success">${{ number_format($item->total_sales ?? 0, 2) }}</span>
-                                                </td>
-                                            </tr>
-                                        @empty
-                                            <tr><td colspan="2" class="text-center text-muted py-4">No sales yet</td></tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
                             </div>
                         </div>
                     </div>
@@ -288,15 +239,14 @@
                                             <option value="out_of_stock"  {{ request('stock') == 'out_of_stock' ? 'selected' : '' }}>Out of Stock</option>
                                         </select>
                                     </div>
-                                    {{-- NEW: filter-flag quick-filter --}}
                                     <div class="col-md-2">
                                         <label class="form-label">App Filter</label>
                                         <select class="form-control" id="appFilterFilter">
                                             <option value="">All</option>
-                                            <option value="new"       {{ request('app_filter') == 'new'       ? 'selected' : '' }}>New</option>
-                                            <option value="trending"  {{ request('app_filter') == 'trending'  ? 'selected' : '' }}>Trending</option>
+                                            <option value="new"       {{ request('app_filter') == 'new' ? 'selected' : '' }}>New</option>
+                                            <option value="trending"  {{ request('app_filter') == 'trending' ? 'selected' : '' }}>Trending</option>
                                             <option value="top_rated" {{ request('app_filter') == 'top_rated' ? 'selected' : '' }}>Top Rated</option>
-                                            <option value="on_sale"   {{ request('app_filter') == 'on_sale'   ? 'selected' : '' }}>On Sale</option>
+                                            <option value="on_sale"   {{ request('app_filter') == 'on_sale' ? 'selected' : '' }}>On Sale</option>
                                         </select>
                                     </div>
                                     <div class="col-md-1 d-flex align-items-end gap-2">
@@ -353,7 +303,6 @@
                                                 <th>Margin</th>
                                                 <th>Stock</th>
                                                 <th>Sold</th>
-                                                {{-- ── NEW: combined flag column ── --}}
                                                 <th class="text-center" style="min-width:180px;">
                                                     App Flags
                                                     <i class="bi bi-phone ms-1 text-muted" title="Controls which filter chips this product appears under in the mobile app"></i>
@@ -365,7 +314,7 @@
                                         <tbody id="productTableBody">
                                             @forelse($products as $product)
                                             <tr>
-                                                <td>
+                                                <td class="text-center">
                                                     <input type="checkbox" class="row-select form-check-input" value="{{ $product->id }}">
                                                 </td>
                                                 <td>
@@ -433,23 +382,21 @@
                                                 <td>
                                                     @php
                                                         $currentStock = $product->current_stock;
-                                                        $primaryUnit  = $product->units->first();
-                                                        $primaryShort = $primaryUnit ? $primaryUnit->short_name : '';
                                                     @endphp
                                                     @if($currentStock > 10)
-                                                        <span class="badge bg-success-subtle text-success">{{ $currentStock }} {{ $primaryShort }}</span>
+                                                        <span class="badge bg-success-subtle text-success">{{ $currentStock }} units</span>
                                                     @elseif($currentStock > 0)
-                                                        <span class="badge bg-warning-subtle text-warning">{{ $currentStock }} {{ $primaryShort }} low</span>
+                                                        <span class="badge bg-warning-subtle text-warning">{{ $currentStock }} units (low)</span>
                                                     @else
                                                         <span class="badge bg-danger-subtle text-danger">Out of stock</span>
                                                     @endif
                                                 </td>
-                                                <td class="text-center"><span class="fw-semibold">{{ $product->sold_quantity ?? 0 }}</span></td>
+                                                <td class="text-center"><span class="fw-semibold">{{ $product->total_sold ?? 0 }}</span></td>
 
-                                                {{-- ── App Flags column ───────────────────────────────────────── --}}
+                                                {{-- App Flags column with working toggles --}}
                                                 <td>
                                                     <div class="d-flex flex-wrap gap-2 align-items-center justify-content-center">
-                                                        {{-- NEW --}}
+                                                        {{-- NEW Flag --}}
                                                         <div class="form-check form-switch mb-0" title="Show in 'New' filter">
                                                             <input class="form-check-input flag-toggle" type="checkbox"
                                                                    data-id="{{ $product->id }}"
@@ -458,7 +405,7 @@
                                                                    {{ $product->is_new ? 'checked' : '' }}>
                                                             <label class="form-check-label small text-success fw-semibold" for="isNew_{{ $product->id }}">New</label>
                                                         </div>
-                                                        {{-- TRENDING --}}
+                                                        {{-- TRENDING Flag --}}
                                                         <div class="form-check form-switch mb-0" title="Show in 'Trending' filter">
                                                             <input class="form-check-input flag-toggle" type="checkbox"
                                                                    data-id="{{ $product->id }}"
@@ -467,7 +414,7 @@
                                                                    {{ $product->is_trending ? 'checked' : '' }}>
                                                             <label class="form-check-label small text-danger fw-semibold" for="isTrending_{{ $product->id }}">🔥 Hot</label>
                                                         </div>
-                                                        {{-- TOP RATED --}}
+                                                        {{-- TOP RATED Flag --}}
                                                         <div class="form-check form-switch mb-0" title="Show in 'Top Rated' filter">
                                                             <input class="form-check-input flag-toggle" type="checkbox"
                                                                    data-id="{{ $product->id }}"
@@ -477,16 +424,14 @@
                                                             <label class="form-check-label small text-warning fw-semibold" for="isTopRated_{{ $product->id }}">⭐ Top</label>
                                                         </div>
                                                     </div>
-                                                </td>
-                                                {{-- ── End App Flags ─────────────────────────────────────────── --}}
-
+                                                </div>
                                                 <td>
                                                     @if($product->is_featured)
                                                         <span class="badge bg-primary-subtle text-primary"><i class="bi bi-star-fill text-warning me-1"></i> Featured</span>
                                                     @else
                                                         <span class="badge bg-secondary-subtle text-secondary">Regular</span>
                                                     @endif
-                                                </td>
+                                                </div>
                                                 <td>
                                                     <div class="dropdown">
                                                         <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
@@ -500,11 +445,11 @@
                                                             @endcan
                                                         </ul>
                                                     </div>
-                                                </td>
+                                                </div>
                                             </tr>
                                             @empty
-                                            <tr id="noResultsRow" class="text-center py-5 text-muted">
-                                                <td colspan="12">
+                                            <tr id="noResultsRow">
+                                                <td colspan="12" class="text-center py-5 text-muted">
                                                     @if(request()->except('page'))
                                                         No products found matching your filters.<br>
                                                         <a href="{{ route('web.products.index') }}" class="btn btn-sm btn-outline-primary mt-2">Clear filters</a>
@@ -702,14 +647,13 @@
                                                     </select>
                                                 </div>
                                                 <div class="mb-3">
-                                                    <label class="form-label">Primary Unit *</label>
-                                                    <select name="primary_unit_id" id="primary_unit_id" class="form-control" required>
+                                                    <label class="form-label">Primary Unit</label>
+                                                    <select name="primary_unit_id" id="primary_unit_id" class="form-control">
                                                         <option value="">Select Unit</option>
                                                         @foreach($units as $unit)
                                                             <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->short_name }})</option>
                                                         @endforeach
                                                     </select>
-                                                    <small class="text-muted">Default unit for selling this product</small>
                                                 </div>
                                             </div>
                                         </div>
@@ -721,7 +665,7 @@
                                             </div>
                                         </div>
 
-                                        {{-- ── Product Flags card (NEW) ───────────────── --}}
+                                        {{-- Product Flags card --}}
                                         <div class="card mb-3 border-primary border-opacity-25">
                                             <div class="card-header bg-primary bg-opacity-10">
                                                 <h6 class="card-title mb-0 text-primary">
@@ -764,8 +708,6 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        {{-- ── End App Flags card ─────────────────────── --}}
-
                                     </div>
                                 </div>
                             </div>
@@ -780,22 +722,97 @@
                     </div>
                 </div>
             </div>
-            {{-- ─── End Modals ─────────────────────────────────────────────────────── --}}
-
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
+    // Get CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
     if (csrfToken) {
         axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken.getAttribute('content');
     }
+
+    // ==================== SINGLE FLAG TOGGLE ====================
+    function initializeFlagToggles() {
+        const flagToggles = document.querySelectorAll('.flag-toggle');
+
+        flagToggles.forEach(toggle => {
+            // Remove existing listeners to prevent duplicates
+            toggle.removeEventListener('change', handleFlagChange);
+            toggle.addEventListener('change', handleFlagChange);
+        });
+    }
+
+    async function handleFlagChange(event) {
+        const toggle = event.target;
+        const productId = toggle.dataset.id;
+        const flag = toggle.dataset.flag;
+        const value = toggle.checked;
+        const originalState = !value;
+
+        // Disable toggle to prevent multiple requests
+        toggle.disabled = true;
+
+        try {
+            const response = await axios.patch(`/web/products/${productId}/flags`, {
+                flag: flag,
+                value: value
+            });
+
+            // Show success toast
+            Swal.fire({
+                icon: 'success',
+                title: 'Updated!',
+                text: response.data.message || 'Flag updated successfully',
+                timer: 1500,
+                showConfirmButton: false,
+                toast: true,
+                position: 'bottom-end'
+            });
+
+        } catch (error) {
+            // Revert the toggle state
+            toggle.checked = originalState;
+
+            let errorMessage = 'Failed to update flag';
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.response?.data?.errors) {
+                errorMessage = Object.values(error.response.data.errors).flat().join(', ');
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: errorMessage,
+                confirmButtonText: 'OK'
+            });
+        } finally {
+            // Re-enable toggle
+            toggle.disabled = false;
+        }
+    }
+
+    // Initialize flag toggles
+    initializeFlagToggles();
+
+    // Watch for dynamically added content
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length) {
+                initializeFlagToggles();
+            }
+        });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
 
     // ==================== BULK ACTIONS ====================
     let selectedProducts = [];
@@ -825,7 +842,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('row-select')) {
             updateSelectedCount();
-            // If not all are selected, uncheck selectAll
             if (selectAllCheckbox) {
                 const allChecked = document.querySelectorAll('.row-select:checked').length === document.querySelectorAll('.row-select').length;
                 selectAllCheckbox.checked = allChecked;
@@ -869,44 +885,8 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     });
-    // ==================== END BULK ACTIONS ====================
 
-    // ==================== SINGLE FLAG TOGGLE ====================
-    document.querySelectorAll('.flag-toggle').forEach(toggle => {
-        toggle.addEventListener('change', function () {
-            const productId = this.dataset.id;
-            const flag      = this.dataset.flag;
-            const value     = this.checked;
-            const original  = !value;
-
-            axios.patch(`/web/products/${productId}/flags`, { flag, value })
-                .then(res => {
-                    const toast = Swal.mixin({
-                        toast: true,
-                        position: 'bottom-end',
-                        showConfirmButton: false,
-                        timer: 2000,
-                        timerProgressBar: true,
-                    });
-                    toast.fire({ icon: 'success', title: res.data.message ?? 'Saved' });
-                })
-                .catch(err => {
-                    this.checked = original;
-                    Swal.fire('Error', err.response?.data?.message ?? 'Failed to update flag', 'error');
-                });
-        });
-    });
-
-    // ==================== ORIGINAL JAVASCRIPT (UNTOUCHED) ====================
-    const salesChartCtx = document.getElementById('salesChart');
-    if (salesChartCtx) {
-        new Chart(salesChartCtx, {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'Daily Sales ($)', data: [], borderColor: '#0d6efd', backgroundColor: 'rgba(13,110,253,0.1)', tension: 0.4, fill: true, borderWidth: 2 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }
-        });
-    }
-
+    // ==================== UTILITY FUNCTIONS ====================
     window.copyBarcode = function(barcode) {
         navigator.clipboard.writeText(barcode).then(() => {
             Swal.fire({ icon: 'success', title: 'Copied!', text: 'Barcode copied to clipboard', timer: 1500, showConfirmButton: false });
@@ -920,211 +900,44 @@ document.addEventListener('DOMContentLoaded', function () {
         window.location.href = `${window.location.pathname}?${params.toString()}`;
     };
 
-    // Search / Filter
+    // Search / Filter initialization
     function initializeSearch() {
-        const searchInput    = document.getElementById('searchInput');
-        const searchInput2   = document.getElementById('searchInput2');
-        const searchButton   = document.getElementById('searchButton');
-        const clearSearch    = document.getElementById('clearSearch');
-        const applyFilter    = document.getElementById('applyFilter');
-        const clearFilters   = document.getElementById('clearFilters');
+        const searchInput = document.getElementById('searchInput');
+        const searchButton = document.getElementById('searchButton');
+        const clearSearch = document.getElementById('clearSearch');
+        const applyFilter = document.getElementById('applyFilter');
+        const clearFilters = document.getElementById('clearFilters');
         const categoryFilter = document.getElementById('categoryFilter');
-        const brandFilter    = document.getElementById('brandFilter');
-        const stockFilter    = document.getElementById('stockFilter');
-        const appFilterFilter= document.getElementById('appFilterFilter');
+        const brandFilter = document.getElementById('brandFilter');
+        const stockFilter = document.getElementById('stockFilter');
+        const appFilterFilter = document.getElementById('appFilterFilter');
 
         function performServerSearch() {
             const params = new URLSearchParams(window.location.search);
             const s = searchInput?.value.trim();
             s ? params.set('search', s) : params.delete('search');
-            categoryFilter?.value    ? params.set('category_id', categoryFilter.value) : params.delete('category_id');
-            brandFilter?.value       ? params.set('brand_id', brandFilter.value)       : params.delete('brand_id');
-            stockFilter?.value       ? params.set('stock', stockFilter.value)           : params.delete('stock');
-            appFilterFilter?.value   ? params.set('app_filter', appFilterFilter.value) : params.delete('app_filter');
+            categoryFilter?.value ? params.set('category_id', categoryFilter.value) : params.delete('category_id');
+            brandFilter?.value ? params.set('brand_id', brandFilter.value) : params.delete('brand_id');
+            stockFilter?.value ? params.set('stock', stockFilter.value) : params.delete('stock');
+            appFilterFilter?.value ? params.set('app_filter', appFilterFilter.value) : params.delete('app_filter');
             params.delete('page');
             window.location.href = `${window.location.pathname}?${params.toString()}`;
         }
 
-        searchButton?.addEventListener('click', performServerSearch);
-        applyFilter?.addEventListener('click', performServerSearch);
-        clearFilters?.addEventListener('click', () => window.location.href = window.location.pathname);
-
-        clearSearch?.addEventListener('click', () => {
-            if (searchInput) searchInput.value = '';
-            if (searchInput2) searchInput2.value = '';
-            performServerSearch();
-        });
+        if (searchButton) searchButton.addEventListener('click', performServerSearch);
+        if (applyFilter) applyFilter.addEventListener('click', performServerSearch);
+        if (clearFilters) clearFilters.addEventListener('click', () => window.location.href = window.location.pathname);
+        if (clearSearch) {
+            clearSearch.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                performServerSearch();
+            });
+        }
     }
     initializeSearch();
 
-
-    // ── Product Type Toggle ────────────────────────────────────────────────
-    const productTypeSelect  = document.getElementById('product_type');
-    const variationsSection  = document.getElementById('variationsSection');
-    function toggleVariationsSection() { variationsSection.style.display = productTypeSelect.value === 'variable' ? 'block' : 'none'; }
-    productTypeSelect?.addEventListener('change', toggleVariationsSection);
-    toggleVariationsSection();
-
-    // ── Price Calculations ─────────────────────────────────────────────────
-    const priceInput    = document.getElementById('price');
-    const discountInput = document.getElementById('discount_percent');
-    const salePriceInput= document.getElementById('sale_price');
-    function calculateSalePrice() {
-        const price = parseFloat(priceInput?.value) || 0;
-        const disc  = parseFloat(discountInput?.value) || 0;
-        if (price > 0 && disc > 0 && disc <= 100) salePriceInput.value = (price * (1 - disc / 100)).toFixed(2);
-    }
-    priceInput?.addEventListener('input', calculateSalePrice);
-    discountInput?.addEventListener('input', calculateSalePrice);
-
-    // ── Bulk Discount ──────────────────────────────────────────────────────
-    document.getElementById('applyBulkDiscount')?.addEventListener('click', function () {
-        const bulk = parseFloat(document.getElementById('bulk_discount').value) || 0;
-        if (bulk < 0 || bulk > 100) return Swal.fire('Invalid', 'Discount must be 0–100%', 'warning');
-        document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
-            const p = row.querySelector('input[name*="price"]');
-            const s = row.querySelector('input[name*="sale_price"]');
-            const price = parseFloat(p?.value) || 0;
-            if (price > 0) s.value = (price * (1 - bulk / 100)).toFixed(2);
-        });
-        Swal.fire('Applied', `${bulk}% discount applied to all variations`, 'success');
-    });
-
-    // ── Dynamic Attributes ─────────────────────────────────────────────────
-    let attrIndex = 1;
-    document.getElementById('addAttribute')?.addEventListener('click', () => {
-        document.getElementById('attributesContainer').insertAdjacentHTML('beforeend', `
-            <div class="row g-3 align-items-end attribute-row mt-3">
-                <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
-                <div class="col-md-6"><input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]"></div>
-                <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
-            </div>`);
-        attrIndex++;
-    });
-
-    // ── Dynamic Units ──────────────────────────────────────────────────────
-    let unitIndex = 0;
-    document.getElementById('addUnit')?.addEventListener('click', () => {
-        document.getElementById('unitsContainer').insertAdjacentHTML('beforeend', `
-            <div class="row g-3 align-items-end unit-row mt-3">
-                <div class="col-md-5">
-                    <select name="units[${unitIndex}][unit_id]" class="form-control">
-                        <option value="">Select Unit</option>
-                        @foreach($units as $unit)
-                            <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->short_name }})</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-5"><input type="number" step="0.01" name="units[${unitIndex}][quantity_per_unit]" class="form-control" placeholder="Qty per primary unit"></div>
-                <div class="col-md-2"><button type="button" class="btn btn-danger btn-sm remove-unit">Remove</button></div>
-            </div>`);
-        unitIndex++;
-    });
-
-    // ── Remove Rows ────────────────────────────────────────────────────────
-    document.addEventListener('click', e => {
-        if (e.target.classList.contains('remove-attribute')) e.target.closest('.attribute-row').remove();
-        if (e.target.classList.contains('remove-unit'))      e.target.closest('.unit-row').remove();
-        if (e.target.classList.contains('remove-variation')) e.target.closest('tr').remove();
-    });
-
-    // ── Generate Barcode ───────────────────────────────────────────────────
-    function generateVariationBarcode(baseSku, attributes) {
-        const s = Object.values(attributes || {}).join('-').toUpperCase().replace(/\s+/g, '');
-        const r = Math.random().toString(36).substring(2, 8).toUpperCase();
-        return `${baseSku}-${s}-${r}`.substring(0, 20);
-    }
-    document.getElementById('generateBarcodeBtn')?.addEventListener('click', () => {
-        const sku = document.getElementById('sku').value || 'PROD';
-        const r   = Math.random().toString(36).substring(2, 10).toUpperCase();
-        document.getElementById('barcode').value = `${sku}-${r}`.substring(0, 20);
-    });
-
-    // ── Generate Variations ────────────────────────────────────────────────
-    document.getElementById('generateVariations')?.addEventListener('click', () => {
-        const attrs = [];
-        document.querySelectorAll('.attribute-row').forEach(row => {
-            const name   = row.querySelector('input[name$="[name]"]')?.value.trim();
-            const values = row.querySelector('input[name$="[values]"]')?.value.split(',').map(v => v.trim()).filter(v => v);
-            if (name && values.length) attrs.push({ name, values });
-        });
-        if (!attrs.length) { document.getElementById('variationsTable').innerHTML = '<p class="text-muted">Add at least one attribute</p>'; return; }
-
-        const combos  = attrs.reduce((acc, attr) => acc.flatMap(obj => attr.values.map(val => ({ ...obj, [attr.name]: val }))), [{}]);
-        const baseSku = document.getElementById('sku').value || 'PROD';
-
-        let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr>
-            <th>Variant</th><th>SKU</th><th>Barcode</th><th>Cost Price</th><th>Price</th><th>Sale Price</th><th>Image</th><th>Action</th>
-        </tr></thead><tbody>`;
-
-        combos.forEach((combo, i) => {
-            const badges = Object.entries(combo).map(([k, v]) => `<span class="badge bg-primary me-1">${k}: ${v}</span>`).join(' ');
-            const hiddens= Object.entries(combo).map(([k, v]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('');
-            const bc     = generateVariationBarcode(baseSku, combo);
-            html += `<tr>
-                <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}</td>
-                <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" value="${baseSku}-VAR${i+1}"></td>
-                <td><input type="text" name="variations[${i}][barcode]" class="form-control form-control-sm" value="${bc}"><small class="text-muted">Auto-generated</small></td>
-                <td><input type="number" step="0.01" name="variations[${i}][cost_price]" class="form-control form-control-sm" placeholder="0.00"></td>
-                <td><input type="number" step="0.01" name="variations[${i}][price]"      class="form-control form-control-sm" required placeholder="0.00"></td>
-                <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm" placeholder="0.00"></td>
-                <td>
-                    <div class="d-flex flex-column align-items-center">
-                        <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
-                        <img class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;display:none;">
-                    </div>
-                </td>
-                <td><button type="button" class="btn btn-danger btn-sm remove-variation"><i class="bi bi-trash"></i></button></td>
-            </tr>`;
-        });
-
-        html += '</tbody></table></div>';
-        document.getElementById('variationsTable').innerHTML = html;
-    });
-
-    // ── Thumbnail Preview ──────────────────────────────────────────────────
-    document.getElementById('thumbnail_input')?.addEventListener('change', function(e) {
-        if (e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = ev => {
-                document.getElementById('thumbnail_preview').src = ev.target.result;
-                document.getElementById('thumbnail_preview').style.display = 'block';
-                document.getElementById('thumbnail_placeholder').style.display = 'none';
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-    });
-
-    // ── Gallery Preview ────────────────────────────────────────────────────
-    document.getElementById('gallery_input')?.addEventListener('change', function(e) {
-        const container = document.getElementById('imageGallery');
-        container.innerHTML = '';
-        Array.from(e.target.files).forEach(file => {
-            const reader = new FileReader();
-            reader.onload = ev => {
-                container.innerHTML += `<div class="col-4 position-relative">
-                    <img src="${ev.target.result}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
-                    <button type="button" class="btn-close position-absolute top-0 end-0 bg-white" onclick="this.parentElement.remove()"></button>
-                </div>`;
-            };
-            reader.readAsDataURL(file);
-        });
-    });
-
-    // ── Variation Image Preview ────────────────────────────────────────────
-    document.addEventListener('change', e => {
-        if (e.target.classList.contains('variation-image') && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = ev => {
-                const preview = e.target.closest('td').querySelector('.variation-preview');
-                if (preview) { preview.src = ev.target.result; preview.style.display = 'block'; }
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-    });
-
-    // ── Form Reset ─────────────────────────────────────────────────────────
-    window.resetForm = function () {
+    // ==================== FORM HANDLING ====================
+    window.resetForm = function() {
         document.getElementById('productForm').reset();
         document.getElementById('product_id').value = '';
         document.getElementById('modalTitle').textContent = 'Add Product';
@@ -1133,22 +946,96 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('imageGallery').innerHTML = '';
         document.getElementById('variationsTable').innerHTML = '';
         document.getElementById('unitsContainer').innerHTML = '';
-        document.getElementById('attributesContainer').innerHTML = `
-            <div class="row g-3 align-items-end attribute-row">
-                <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
-                <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
-                <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
-            </div>`;
-        toggleVariationsSection();
-        attrIndex = 1;
-        unitIndex = 0;
     };
 
-    // ── Edit Product ───────────────────────────────────────────────────────
+    // Product type toggle
+    const productTypeSelect = document.getElementById('product_type');
+    const variationsSection = document.getElementById('variationsSection');
+    function toggleVariationsSection() {
+        if (variationsSection) {
+            variationsSection.style.display = productTypeSelect?.value === 'variable' ? 'block' : 'none';
+        }
+    }
+    if (productTypeSelect) productTypeSelect.addEventListener('change', toggleVariationsSection);
+    toggleVariationsSection();
+
+    // Price calculations
+    const priceInput = document.getElementById('price');
+    const discountInput = document.getElementById('discount_percent');
+    const salePriceInput = document.getElementById('sale_price');
+
+    function calculateSalePrice() {
+        const price = parseFloat(priceInput?.value) || 0;
+        const disc = parseFloat(discountInput?.value) || 0;
+        if (price > 0 && disc > 0 && disc <= 100 && salePriceInput) {
+            salePriceInput.value = (price * (1 - disc / 100)).toFixed(2);
+        }
+    }
+    if (priceInput) priceInput.addEventListener('input', calculateSalePrice);
+    if (discountInput) discountInput.addEventListener('input', calculateSalePrice);
+
+    // Thumbnail preview
+    const thumbnailInput = document.getElementById('thumbnail_input');
+    if (thumbnailInput) {
+        thumbnailInput.addEventListener('change', function(e) {
+            if (e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    const preview = document.getElementById('thumbnail_preview');
+                    const placeholder = document.getElementById('thumbnail_placeholder');
+                    if (preview) preview.src = ev.target.result;
+                    if (preview) preview.style.display = 'block';
+                    if (placeholder) placeholder.style.display = 'none';
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+    }
+
+    // Form submission
+    const productForm = document.getElementById('productForm');
+    if (productForm) {
+        productForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const id = document.getElementById('product_id')?.value;
+            if (id) formData.append('_method', 'PUT');
+
+            const btn = document.getElementById('submitBtn');
+            const spinner = document.getElementById('submitSpinner');
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('d-none');
+
+            const url = id ? `/web/products/${id}` : '/web/products';
+
+            axios.post(url, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            })
+            .then(res => {
+                Swal.fire({ icon: 'success', title: 'Success!', text: res.data.message || 'Product saved', showConfirmButton: false, timer: 1500 })
+                    .then(() => location.reload());
+            })
+            .catch(err => {
+                let msg = 'An error occurred';
+                if (err.response?.data?.errors) {
+                    msg = Object.entries(err.response.data.errors).map(([k, v]) => `${k}: ${v.join(', ')}`).join('<br>');
+                } else if (err.response?.data?.message) {
+                    msg = err.response.data.message;
+                }
+                Swal.fire({ icon: 'error', title: 'Error', html: msg });
+            })
+            .finally(() => {
+                if (btn) btn.disabled = false;
+                if (spinner) spinner.classList.add('d-none');
+            });
+        });
+    }
+
+    // Edit product
     document.addEventListener('click', function(e) {
         if (e.target.matches('.edit-item-btn') || e.target.closest('.edit-item-btn')) {
             const btn = e.target.matches('.edit-item-btn') ? e.target : e.target.closest('.edit-item-btn');
-            const id  = btn.dataset.id;
+            const id = btn.dataset.id;
             if (!id) return;
 
             Swal.fire({ title: 'Loading...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -1158,110 +1045,39 @@ document.addEventListener('DOMContentLoaded', function () {
                     const p = response.data;
                     resetForm();
 
-                    document.getElementById('product_id').value   = p.id;
-                    document.getElementById('title').value        = p.title || '';
-                    document.getElementById('sku').value          = p.sku || '';
-                    document.getElementById('barcode').value      = p.barcode || '';
-                    document.getElementById('price').value        = p.price || '';
-                    document.getElementById('cost_price').value   = p.cost_price || '';
-                    document.getElementById('sale_price').value   = p.sale_price || '';
-                    document.getElementById('description').value  = p.description || '';
+                    document.getElementById('product_id').value = p.id;
+                    document.getElementById('title').value = p.title || '';
+                    document.getElementById('sku').value = p.sku || '';
+                    document.getElementById('barcode').value = p.barcode || '';
+                    document.getElementById('price').value = p.price || '';
+                    document.getElementById('cost_price').value = p.cost_price || 0;
+                    document.getElementById('sale_price').value = p.sale_price || '';
+                    document.getElementById('description').value = p.description || '';
                     document.getElementById('product_type').value = p.product_type || 'simple';
-                    document.getElementById('brand_id').value     = p.brand_id || '';
-                    document.getElementById('category_id').value  = p.category_id || '';
-                    document.getElementById('primary_unit_id').value = p.primary_unit_id || '';
+                    document.getElementById('brand_id').value = p.brand_id || '';
+                    document.getElementById('category_id').value = p.category_id || '';
 
-                    // Booleans / flags
-                    document.getElementById('is_featured').checked  = !!p.is_featured;
-                    document.getElementById('is_new').checked       = !!p.is_new;
-                    document.getElementById('is_trending').checked  = !!p.is_trending;
-                    document.getElementById('is_top_rated').checked = !!p.is_top_rated;
+                    if (document.getElementById('is_featured')) document.getElementById('is_featured').checked = !!p.is_featured;
+                    if (document.getElementById('is_new')) document.getElementById('is_new').checked = !!p.is_new;
+                    if (document.getElementById('is_trending')) document.getElementById('is_trending').checked = !!p.is_trending;
+                    if (document.getElementById('is_top_rated')) document.getElementById('is_top_rated').checked = !!p.is_top_rated;
 
-                    // Thumbnail
                     if (p.thumbnail) {
-                        document.getElementById('thumbnail_preview').src          = p.thumbnail;
-                        document.getElementById('thumbnail_preview').style.display = 'block';
-                        document.getElementById('thumbnail_placeholder').style.display = 'none';
+                        const preview = document.getElementById('thumbnail_preview');
+                        const placeholder = document.getElementById('thumbnail_placeholder');
+                        if (preview) preview.src = p.thumbnail;
+                        if (preview) preview.style.display = 'block';
+                        if (placeholder) placeholder.style.display = 'none';
                     }
-
-                    // Gallery
-                    const gallery = document.getElementById('imageGallery');
-                    gallery.innerHTML = '';
-                    (p.gallery || []).forEach(img => {
-                        gallery.innerHTML += `<div class="col-4 position-relative">
-                            <img src="${img.url}" class="img-fluid rounded" style="height:100px;object-fit:cover;">
-                            <button type="button" class="btn-close position-absolute top-0 end-0 bg-white" onclick="this.parentElement.remove()"></button>
-                        </div>`;
-                    });
-
-                    // Additional Units
-                    document.getElementById('unitsContainer').innerHTML = '';
-                    (p.additional_units || []).forEach(() => {
-                        document.getElementById('addUnit').click();
-                    });
-                    document.querySelectorAll('.unit-row').forEach((row, i) => {
-                        const u = (p.additional_units || [])[i];
-                        if (!u) return;
-                        row.querySelector('select[name*="unit_id"]').value = u.unit_id;
-                        row.querySelector('input[name*="quantity_per_unit"]').value = u.quantity_per_unit;
-                    });
 
                     toggleVariationsSection();
-
-                    if (p.product_type === 'variable') {
-                        document.getElementById('attributesContainer').innerHTML = '';
-                        (p.attributes || []).forEach((attr, i) => {
-                            if (i > 0) document.getElementById('addAttribute').click();
-                            const rows = document.querySelectorAll('.attribute-row');
-                            const row  = rows[i];
-                            if (row) {
-                                row.querySelector('input[name$="[name]"]').value   = attr.name || '';
-                                row.querySelector('input[name$="[values]"]').value = Array.isArray(attr.values) ? attr.values.join(', ') : (attr.values || '');
-                            }
-                        });
-
-                        setTimeout(() => {
-                            if (p.variations && p.variations.length > 0) {
-                                let tbl = `<div class="table-responsive"><table class="table table-bordered table-hover">
-                                <thead class="table-light"><tr>
-                                    <th>Variant</th><th>SKU</th><th>Barcode</th><th>Cost Price</th><th>Price</th><th>Sale Price</th><th>Image</th><th>Action</th>
-                                </tr></thead><tbody>`;
-                                p.variations.forEach((v, i) => {
-                                    const badges = Object.entries(v.attributes || {}).map(([k, v]) => `<span class="badge bg-primary me-1">${k}: ${v}</span>`).join(' ');
-                                    const hiddens= Object.entries(v.attributes || {}).map(([k, v]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('');
-                                    tbl += `<tr>
-                                        <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}</td>
-                                        <td><input type="text"   name="variations[${i}][sku]"        class="form-control form-control-sm" value="${v.sku || ''}"></td>
-                                        <td><input type="text"   name="variations[${i}][barcode]"    class="form-control form-control-sm" value="${v.barcode || ''}"></td>
-                                        <td><input type="number" name="variations[${i}][cost_price]" class="form-control form-control-sm" value="${v.cost_price || ''}" step="0.01"></td>
-                                        <td><input type="number" name="variations[${i}][price]"      class="form-control form-control-sm" value="${v.price || ''}"      step="0.01" required></td>
-                                        <td><input type="number" name="variations[${i}][sale_price]" class="form-control form-control-sm" value="${v.sale_price || ''}" step="0.01"></td>
-                                        <td><div class="d-flex flex-column align-items-center">
-                                            <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
-                                            ${v.image ? `<img src="${v.image}" class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;">` : '<img class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;display:none;">'}
-                                        </div></td>
-                                        <td><button type="button" class="btn btn-danger btn-sm remove-variation"><i class="bi bi-trash"></i></button></td>
-                                    </tr>`;
-                                });
-                                tbl += '</tbody></table></div>';
-                                document.getElementById('variationsTable').innerHTML = tbl;
-                            } else {
-                                document.getElementById('generateVariations').click();
-                            }
-                        }, 100);
-                    }
-
                     document.getElementById('modalTitle').textContent = 'Edit Product';
 
-                    // Clean up any stale backdrop
                     const modalEl = document.getElementById('showModal');
-                    const modal   = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
                     document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
                     document.body.classList.remove('modal-open');
-                    document.body.style.overflow     = '';
-                    document.body.style.paddingRight = '';
                     modal.show();
-
                     Swal.close();
                 })
                 .catch(err => {
@@ -1270,11 +1086,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // ── Delete Product ─────────────────────────────────────────────────────
+    // Delete product
     document.addEventListener('click', function(e) {
         if (e.target.matches('.remove-item-btn') || e.target.closest('.remove-item-btn')) {
             const btn = e.target.matches('.remove-item-btn') ? e.target : e.target.closest('.remove-item-btn');
-            const id  = btn.dataset.id;
+            const id = btn.dataset.id;
             Swal.fire({ title: 'Delete Product?', text: 'This action cannot be undone!', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, delete!' })
                 .then(result => {
                     if (result.isConfirmed) {
@@ -1286,41 +1102,182 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // ── Form Submission ────────────────────────────────────────────────────
-    document.getElementById('productForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const formData = new FormData(this);
-        const id       = document.getElementById('product_id').value;
-        if (id) formData.append('_method', 'PUT');
+    // Generate barcode
+    const generateBarcodeBtn = document.getElementById('generateBarcodeBtn');
+    if (generateBarcodeBtn) {
+        generateBarcodeBtn.addEventListener('click', () => {
+            const sku = document.getElementById('sku')?.value || 'PROD';
+            const random = Math.random().toString(36).substring(2, 10).toUpperCase();
+            const barcodeInput = document.getElementById('barcode');
+            if (barcodeInput) barcodeInput.value = `${sku}-${random}`.substring(0, 20);
+        });
+    }
 
-        const btn     = document.getElementById('submitBtn');
-        const spinner = document.getElementById('submitSpinner');
-        btn.disabled  = true;
-        spinner.classList.remove('d-none');
+    // Add unit
+    let unitIndex = 0;
+    const addUnitBtn = document.getElementById('addUnit');
+    if (addUnitBtn) {
+        addUnitBtn.addEventListener('click', () => {
+            const unitsContainer = document.getElementById('unitsContainer');
+            if (unitsContainer) {
+                unitsContainer.insertAdjacentHTML('beforeend', `
+                    <div class="row g-3 align-items-end unit-row mt-3">
+                        <div class="col-md-5">
+                            <select name="units[${unitIndex}][unit_id]" class="form-control">
+                                <option value="">Select Unit</option>
+                                @foreach($units as $unit)
+                                    <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->short_name }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <input type="number" step="0.01" name="units[${unitIndex}][quantity_per_unit]" class="form-control" placeholder="Qty per primary unit">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-danger btn-sm remove-unit">Remove</button>
+                        </div>
+                    </div>
+                `);
+                unitIndex++;
+            }
+        });
+    }
 
-        axios.post(id ? `/web/products/${id}` : '/web/products', formData, {
-            headers: { 'Content-Type': 'multipart/form-data', 'X-CSRF-TOKEN': csrfToken?.getAttribute('content') ?? '' }
-        })
-            .then(res => Swal.fire({ icon: 'success', title: 'Success!', text: res.data.message || 'Product saved', showConfirmButton: false, timer: 1500 }).then(() => location.reload()))
-            .catch(err => {
-                let msg = 'An error occurred';
-                if (err.response?.data?.errors) {
-                    msg = Object.entries(err.response.data.errors).map(([k, v]) => `${k}: ${v.join(', ')}`).join('<br>');
-                } else if (err.response?.data?.message) {
-                    msg = err.response.data.message;
+    // Remove unit
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-unit')) {
+            e.target.closest('.unit-row')?.remove();
+        }
+        if (e.target.classList.contains('remove-attribute')) {
+            e.target.closest('.attribute-row')?.remove();
+        }
+    });
+
+    // Add attribute
+    let attrIndex = 1;
+    const addAttributeBtn = document.getElementById('addAttribute');
+    if (addAttributeBtn) {
+        addAttributeBtn.addEventListener('click', () => {
+            const attributesContainer = document.getElementById('attributesContainer');
+            if (attributesContainer) {
+                attributesContainer.insertAdjacentHTML('beforeend', `
+                    <div class="row g-3 align-items-end attribute-row mt-3">
+                        <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
+                        <div class="col-md-6"><input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]"></div>
+                        <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
+                    </div>
+                `);
+                attrIndex++;
+            }
+        });
+    }
+
+    // Generate variations
+    const generateVariationsBtn = document.getElementById('generateVariations');
+    if (generateVariationsBtn) {
+        generateVariationsBtn.addEventListener('click', () => {
+            const attrs = [];
+            document.querySelectorAll('.attribute-row').forEach(row => {
+                const name = row.querySelector('input[name$="[name]"]')?.value.trim();
+                const values = row.querySelector('input[name$="[values]"]')?.value.split(',').map(v => v.trim()).filter(v => v);
+                if (name && values.length) attrs.push({ name, values });
+            });
+
+            if (!attrs.length) {
+                const variationsTable = document.getElementById('variationsTable');
+                if (variationsTable) variationsTable.innerHTML = '<p class="text-muted">Add at least one attribute</p>';
+                return;
+            }
+
+            const combos = attrs.reduce((acc, attr) => acc.flatMap(obj => attr.values.map(val => ({ ...obj, [attr.name]: val }))), [{}]);
+            const baseSku = document.getElementById('sku')?.value || 'PROD';
+
+            let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr>
+                <th>Variant</th><th>SKU</th><th>Barcode</th><th>Cost Price</th><th>Price</th><th>Sale Price</th><th>Image</th><th>Action</th>
+            </tr></thead><tbody>`;
+
+            combos.forEach((combo, i) => {
+                const badges = Object.entries(combo).map(([k, v]) => `<span class="badge bg-primary me-1">${k}: ${v}</span>`).join(' ');
+                const hiddens = Object.entries(combo).map(([k, v]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('');
+                const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const bc = `${baseSku}-${Object.values(combo).join('-')}-${random}`.substring(0, 20);
+
+                html += `<tr>
+                    <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}</td>
+                    <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" value="${baseSku}-VAR${i+1}"></td>
+                    <td><input type="text" name="variations[${i}][barcode]" class="form-control form-control-sm" value="${bc}"></td>
+                    <td><input type="number" step="0.01" name="variations[${i}][cost_price]" class="form-control form-control-sm" placeholder="0.00"></td>
+                    <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm" required placeholder="0.00"></td>
+                    <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm" placeholder="0.00"></td>
+                    <td>
+                        <div class="d-flex flex-column align-items-center">
+                            <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
+                            <img class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;display:none;">
+                        </div>
+                    </div>
+                    <td><button type="button" class="btn btn-danger btn-sm remove-variation"><i class="bi bi-trash"></i></button></div>
+                </tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            const variationsTable = document.getElementById('variationsTable');
+            if (variationsTable) variationsTable.innerHTML = html;
+        });
+    }
+
+    // Variation image preview
+    document.addEventListener('change', e => {
+        if (e.target.classList.contains('variation-image') && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const preview = e.target.closest('td')?.querySelector('.variation-preview');
+                if (preview) {
+                    preview.src = ev.target.result;
+                    preview.style.display = 'block';
                 }
-                Swal.fire({ icon: 'error', title: 'Error', html: msg });
-            })
-            .finally(() => { btn.disabled = false; spinner.classList.add('d-none'); });
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
     });
 
-    // ── Modal backdrop cleanup ─────────────────────────────────────────────
-    document.getElementById('showModal')?.addEventListener('hidden.bs.modal', function () {
-        document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow     = '';
-        document.body.style.paddingRight = '';
+    // Remove variation
+    document.addEventListener('click', e => {
+        if (e.target.classList.contains('remove-variation')) {
+            e.target.closest('tr')?.remove();
+        }
     });
+
+    // Bulk discount
+    const applyBulkDiscount = document.getElementById('applyBulkDiscount');
+    if (applyBulkDiscount) {
+        applyBulkDiscount.addEventListener('click', function() {
+            const bulk = parseFloat(document.getElementById('bulk_discount')?.value) || 0;
+            if (bulk < 0 || bulk > 100) {
+                Swal.fire('Invalid', 'Discount must be 0–100%', 'warning');
+                return;
+            }
+            document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
+                const priceInput = row.querySelector('input[name*="price"]');
+                const saleInput = row.querySelector('input[name*="sale_price"]');
+                const price = parseFloat(priceInput?.value) || 0;
+                if (price > 0 && saleInput) {
+                    saleInput.value = (price * (1 - bulk / 100)).toFixed(2);
+                }
+            });
+            Swal.fire('Applied', `${bulk}% discount applied to all variations`, 'success');
+        });
+    }
+
+    // Modal backdrop cleanup
+    const showModal = document.getElementById('showModal');
+    if (showModal) {
+        showModal.addEventListener('hidden.bs.modal', function() {
+            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        });
+    }
 });
 </script>
 @endsection

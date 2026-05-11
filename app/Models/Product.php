@@ -30,6 +30,9 @@ class Product extends Model
         'stock',
         'sold_quantity',
         'is_featured',
+        'is_new',           // ADD THIS
+        'is_trending',      // ADD THIS
+        'is_top_rated',     // ADD THIS
         'category_id',
         'brand_id',
         'is_nsfw',
@@ -41,6 +44,9 @@ class Product extends Model
         'cost_price' => 'decimal:2',
         'sale_price' => 'decimal:2',
         'is_featured' => 'boolean',
+        'is_new' => 'boolean',        // ADD THIS
+        'is_trending' => 'boolean',   // ADD THIS
+        'is_top_rated' => 'boolean',  // ADD THIS
         'is_nsfw' => 'boolean',
         'is_active' => 'boolean',
     ];
@@ -263,6 +269,44 @@ class Product extends Model
         return $query->where('stock', '>', 10);
     }
 
+    // ============ NEW SCOPES FOR APP FLAGS ============
+
+    /**
+     * Scope for new products
+     */
+    public function scopeNew($query)
+    {
+        return $query->where('is_new', true);
+    }
+
+    /**
+     * Scope for trending products
+     */
+    public function scopeTrending($query)
+    {
+        return $query->where('is_trending', true);
+    }
+
+    /**
+     * Scope for top rated products
+     */
+    public function scopeTopRated($query)
+    {
+        return $query->where('is_top_rated', true);
+    }
+
+    /**
+     * Scope for products on sale
+     */
+    public function scopeOnSale($query)
+    {
+        return $query->whereNotNull('sale_price')
+                     ->where('sale_price', '>', 0)
+                     ->whereColumn('sale_price', '<', 'price');
+    }
+
+    // ============ END NEW SCOPES ============
+
     public function units()
     {
         return $this->belongsToMany(Unit::class, 'product_unit')
@@ -278,7 +322,7 @@ class Product extends Model
                     ->limit(1);
     }
 
-     /**
+    /**
      * Calculate current stock from inventory transactions
      */
     public function calculateCurrentStock()
@@ -356,7 +400,6 @@ class Product extends Model
     {
         return $query->where('barcode', $barcode);
     }
-
 
     public function lightningDeal(): \Illuminate\Database\Eloquent\Relations\HasOne
     {

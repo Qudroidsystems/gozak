@@ -24,7 +24,7 @@ class ProductController extends Controller
     {
         $this->middleware('permission:View product|Create product|Update product|Delete product', ['only' => ['index', 'show']]);
         $this->middleware('permission:Create product', ['only' => ['store']]);
-        $this->middleware('permission:Update product', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:Update product', ['only' => ['edit', 'update', 'updateFlags', 'bulkUpdateFlags']]);
         $this->middleware('permission:Delete product', ['only' => ['destroy']]);
     }
 
@@ -48,13 +48,12 @@ class ProductController extends Controller
             });
         }
 
-        if ($request->filled('brands')) {
-            $brandIds = is_array($request->brands) ? $request->brands : explode(',', $request->brands);
-            $query->whereIn('brand_id', $brandIds);
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
         }
 
-        if ($request->filled('category')) {
-            $query->where('category_id', $request->category);
+        if ($request->filled('brand_id')) {
+            $query->where('brand_id', $request->brand_id);
         }
 
         if ($request->filled('stock')) {
@@ -65,8 +64,13 @@ class ProductController extends Controller
             }
         }
 
-        if ($request->filled('featured')) {
-            $query->where('is_featured', $request->featured === 'yes' ? 1 : 0);
+        if ($request->filled('app_filter')) {
+            switch ($request->app_filter) {
+                case 'new':       $query->where('is_new', true); break;
+                case 'trending':  $query->where('is_trending', true); break;
+                case 'top_rated': $query->where('is_top_rated', true); break;
+                case 'on_sale':   $query->whereNotNull('sale_price')->where('sale_price', '>', 0)->whereColumn('sale_price', '<', 'price'); break;
+            }
         }
 
         $products  = $query->paginate(12)->appends($request->all());
@@ -140,6 +144,9 @@ class ProductController extends Controller
             'description'      => $product->description ?? '',
             'product_type'     => $product->product_type ?? 'simple',
             'is_featured'      => (bool) $product->is_featured,
+            'is_new'           => (bool) $product->is_new,
+            'is_trending'      => (bool) $product->is_trending,
+            'is_top_rated'     => (bool) $product->is_top_rated,
             'brand_id'         => $product->brand_id,
             'category_id'      => $product->category_id,
             'primary_unit_id'  => $product->units->first()?->id,
@@ -161,7 +168,12 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        $request->merge(['is_featured' => $request->has('is_featured')]);
+        $request->merge([
+            'is_featured'  => $request->has('is_featured'),
+            'is_new'       => $request->has('is_new'),
+            'is_trending'  => $request->has('is_trending'),
+            'is_top_rated' => $request->has('is_top_rated'),
+        ]);
 
         $rules = [
             'title'                      => 'required|string|max:255',
@@ -178,6 +190,9 @@ class ProductController extends Controller
             'description'                => 'nullable|string',
             'product_type'               => 'required|in:simple,variable',
             'is_featured'                => 'boolean',
+            'is_new'                     => 'boolean',
+            'is_trending'                => 'boolean',
+            'is_top_rated'               => 'boolean',
             'units.*.unit_id'            => 'nullable|exists:units,id|distinct',
             'units.*.quantity_per_unit'  => 'nullable|numeric|min:0.01',
             'variations.*.sku'           => 'nullable|string',
@@ -211,6 +226,9 @@ class ProductController extends Controller
                 'description'  => $request->description,
                 'product_type' => $request->product_type,
                 'is_featured'  => $request->boolean('is_featured'),
+                'is_new'       => $request->boolean('is_new'),
+                'is_trending'  => $request->boolean('is_trending'),
+                'is_top_rated' => $request->boolean('is_top_rated'),
                 'brand_id'     => $request->brand_id,
                 'category_id'  => $request->category_id,
             ]);
@@ -228,7 +246,13 @@ class ProductController extends Controller
     public function update(Request $request, $id)
     {
         $product = Product::findOrFail($id);
-        $request->merge(['is_featured' => $request->has('is_featured')]);
+
+        $request->merge([
+            'is_featured'  => $request->has('is_featured'),
+            'is_new'       => $request->has('is_new'),
+            'is_trending'  => $request->has('is_trending'),
+            'is_top_rated' => $request->has('is_top_rated'),
+        ]);
 
         $rules = [
             'title'                      => 'required|string|max:255',
@@ -245,6 +269,9 @@ class ProductController extends Controller
             'description'                => 'nullable|string',
             'product_type'               => 'required|in:simple,variable',
             'is_featured'                => 'boolean',
+            'is_new'                     => 'boolean',
+            'is_trending'                => 'boolean',
+            'is_top_rated'               => 'boolean',
             'units.*.unit_id'            => 'nullable|exists:units,id|distinct',
             'units.*.quantity_per_unit'  => 'nullable|numeric|min:0.01',
             'variations.*.sku'           => 'nullable|string',
@@ -262,8 +289,11 @@ class ProductController extends Controller
 
         try {
             $data = $request->only(['title', 'sku', 'barcode', 'price', 'cost_price', 'sale_price', 'description', 'product_type', 'brand_id', 'category_id']);
-            $data['is_featured'] = $request->boolean('is_featured');
-            $data['barcode']     = $data['barcode'] ?? $this->generateMainBarcode($data['sku']);
+            $data['is_featured']  = $request->boolean('is_featured');
+            $data['is_new']       = $request->boolean('is_new');
+            $data['is_trending']  = $request->boolean('is_trending');
+            $data['is_top_rated'] = $request->boolean('is_top_rated');
+            $data['barcode']      = $data['barcode'] ?? $this->generateMainBarcode($data['sku']);
 
             if ($request->hasFile('thumbnail')) {
                 if ($product->thumbnail) Storage::disk('public')->delete($product->thumbnail);
@@ -278,6 +308,94 @@ class ProductController extends Controller
             return response()->json(['success' => true, 'message' => 'Product updated successfully']);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => 'Failed to update product: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Update single flag via AJAX (is_new, is_trending, is_top_rated)
+     * PATCH /web/products/{product}/flags
+     */
+    public function updateFlags(Request $request, Product $product)
+    {
+        try {
+            $validated = $request->validate([
+                'flag'  => 'required|string|in:is_new,is_trending,is_top_rated',
+                'value' => 'required|boolean',
+            ]);
+
+            // Update the flag
+            $product->update([
+                $validated['flag'] => $validated['value']
+            ]);
+
+            $flagName = str_replace('_', ' ', $validated['flag']);
+            $status = $validated['value'] ? 'enabled' : 'disabled';
+
+            return response()->json([
+                'success' => true,
+                'message' => ucfirst($flagName) . ' flag ' . $status . ' successfully',
+                'data' => [
+                    'flag' => $validated['flag'],
+                    'value' => $validated['value']
+                ]
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Flag update error: ' . $e->getMessage(), [
+                'product_id' => $product->id,
+                'request' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update flag: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk Update Flags
+     * POST /web/products/bulk-flags
+     */
+    public function bulkUpdateFlags(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'product_ids' => 'required|array|min:1',
+                'product_ids.*' => 'exists:products,id',
+                'flag'        => 'required|string|in:is_new,is_trending,is_top_rated',
+                'value'       => 'required|boolean',
+            ]);
+
+            $updated = Product::whereIn('id', $validated['product_ids'])
+                              ->update([$validated['flag'] => $validated['value']]);
+
+            $flagName = str_replace('_', ' ', $validated['flag']);
+            $status = $validated['value'] ? 'enabled' : 'disabled';
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$updated} product(s) updated: " . ucfirst($flagName) . " flag {$status}",
+                'updated_count' => $updated
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Bulk flag update error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update flags: ' . $e->getMessage()
+            ], 500);
         }
     }
 
@@ -512,7 +630,7 @@ class ProductController extends Controller
 
     public function template()
     {
-        $headers  = ['title','sku','barcode','price','cost_price','sale_price','description','brand_id','category_id','is_featured','primary_unit_id'];
+        $headers  = ['title','sku','barcode','price','cost_price','sale_price','description','brand_id','category_id','is_featured','is_new','is_trending','is_top_rated','primary_unit_id'];
         $callback = function () use ($headers) {
             $file = fopen('php://output', 'w');
             fputcsv($file, $headers);
@@ -573,10 +691,6 @@ class ProductController extends Controller
         return view('products.lightning-deals', compact('deals', 'availableProducts', 'pagetitle'));
     }
 
-    /**
-     * Create or update a lightning deal AND send push notification to all users.
-     * Route: POST /admin/lightning-deals
-     */
     public function lightningDealStore(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -598,7 +712,6 @@ class ProductController extends Controller
         }
 
         try {
-            // Check if this is a brand-new deal (not an update)
             $isNewDeal = !LightningDeal::where('product_id', $request->product_id)->exists();
 
             $deal = LightningDeal::updateOrCreate(
@@ -613,7 +726,6 @@ class ProductController extends Controller
                 ]
             );
 
-            // ── Send push notification only for NEW active deals ──────────
             $notifyResult = ['sent' => 0, 'failed' => 0, 'skipped' => true];
 
             if ($isNewDeal && $deal->is_active) {
@@ -627,7 +739,6 @@ class ProductController extends Controller
                         : null;
 
                     try {
-                        /** @var LightningDealNotificationService $notifier */
                         $notifier     = app(LightningDealNotificationService::class);
                         $notifyResult = $notifier->notifyNewDeals([[
                             'deal_id'             => $deal->id,
@@ -645,7 +756,6 @@ class ProductController extends Controller
                             'failed'     => $notifyResult['failed'],
                         ]);
                     } catch (\Exception $notifEx) {
-                        // Notification failure must NOT fail the deal creation
                         Log::error('Lightning deal notification failed', [
                             'deal_id' => $deal->id,
                             'error'   => $notifEx->getMessage(),
@@ -669,10 +779,6 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * Toggle active state.
-     * Route: PATCH /admin/lightning-deals/{id}/toggle
-     */
     public function lightningDealToggle($id)
     {
         try {
@@ -689,10 +795,6 @@ class ProductController extends Controller
         }
     }
 
-    /**
-     * Delete a deal.
-     * Route: DELETE /admin/lightning-deals/{id}
-     */
     public function lightningDealDestroy($id)
     {
         try {
@@ -702,53 +804,4 @@ class ProductController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
-
-    /**
- * Update single flag via AJAX (is_new, is_trending, is_top_rated)
- */
-public function updateFlags(Request $request, Product $product)
-{
-    $validated = $request->validate([
-        'flag'  => 'required|in:is_new,is_trending,is_top_rated',
-        'value' => 'required|boolean',
-    ]);
-
-    // Security: Only allow updating these specific columns
-    $allowedFlags = ['is_new', 'is_trending', 'is_top_rated'];
-
-    if (!in_array($validated['flag'], $allowedFlags)) {
-        return response()->json(['message' => 'Invalid flag'], 422);
-    }
-
-    $product->update([
-        $validated['flag'] => $validated['value']
-    ]);
-
-    return response()->json([
-        'success' => true,
-        'message' => ucfirst(str_replace('_', ' ', $validated['flag'])) . ' flag updated successfully'
-    ]);
-}
-
-/**
- * Bulk Update Flags
- */
-public function bulkUpdateFlags(Request $request)
-{
-    $validated = $request->validate([
-        'product_ids' => 'required|array|min:1',
-        'product_ids.*' => 'exists:products,id',
-        'flag'        => 'required|in:is_new,is_trending,is_top_rated',
-        'value'       => 'required|boolean',
-    ]);
-
-    $updated = Product::whereIn('id', $validated['product_ids'])
-                      ->update([$validated['flag'] => $validated['value']]);
-
-    return response()->json([
-        'success' => true,
-        'message' => "{$updated} products updated successfully",
-        'updated_count' => $updated
-    ]);
-}
 }
