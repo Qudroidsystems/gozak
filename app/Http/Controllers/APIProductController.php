@@ -478,77 +478,104 @@ class APIProductController extends Controller
 {
     try {
 
-        $now = now();
+        // FORCE LAGOS TIME (VERY IMPORTANT FOR YOUR CASE)
+        $now = now()->timezone('Africa/Lagos');
 
         \Log::info('🔥 Lightning Deals Request Started', [
-            'time_now' => $now,
+            'now' => $now->toDateTimeString(),
         ]);
 
-        // STEP 1: base query count (NO FILTERS)
-        $baseQuery = LightningDeal::query();
+        // STEP 1: TOTAL DEALS (NO FILTER)
+        $total = LightningDeal::count();
 
         \Log::info('📊 Total deals in DB', [
-            'total_deals' => $baseQuery->count(),
+            'total' => $total,
         ]);
 
-        // STEP 2: check active only
-        $activeQuery = LightningDeal::where('is_active', 1);
+        // STEP 2: ACTIVE DEALS ONLY
+        $active = LightningDeal::where('is_active', 1)->count();
 
         \Log::info('🟢 Active deals count', [
-            'active_deals' => $activeQuery->count(),
+            'active' => $active,
         ]);
 
-        // STEP 3: check time window
-        $timeQuery = LightningDeal::where('is_active', 1)
+        // STEP 3: TIME DEBUG (IMPORTANT)
+        $timeQueryCheck = LightningDeal::where('is_active', 1)->get();
+
+        foreach ($timeQueryCheck as $deal) {
+            \Log::info('⏰ Deal Time Check', [
+                'deal_id' => $deal->id,
+                'starts_at' => $deal->starts_at,
+                'ends_at' => $deal->ends_at,
+                'now' => $now,
+                'is_valid' =>
+                    ($deal->starts_at <= $now && $deal->ends_at >= $now)
+                        ? 'YES'
+                        : 'NO',
+            ]);
+        }
+
+        // STEP 4: APPLY REAL FILTER
+        $deals = LightningDeal::with(['product' => function ($q) {
+                $q->select('id', 'title', 'price', 'thumbnail');
+            }])
+            ->where('is_active', 1)
             ->where('starts_at', '<=', $now)
-            ->where('ends_at', '>=', $now);
-
-        \Log::info('⏰ Time-valid deals count', [
-            'time_valid_deals' => $timeQuery->count(),
-        ]);
-
-        // STEP 4: fetch final deals with product
-        $deals = $timeQuery
-            ->with('product')
+            ->where('ends_at', '>=', $now)
             ->orderBy('sort_order', 'asc')
             ->get();
 
-        \Log::info('📦 Final fetched deals BEFORE mapping', [
+        \Log::info('📦 Filtered deals count', [
             'count' => $deals->count(),
         ]);
 
-        // STEP 5: map response
+        // STEP 5: MAP RESPONSE
         $mapped = $deals->map(function ($deal) {
 
             if (!$deal->product) {
-                \Log::warning('⚠️ Missing product for deal', [
+                \Log::warning('⚠️ Missing product', [
                     'deal_id' => $deal->id,
                     'product_id' => $deal->product_id,
                 ]);
                 return null;
             }
 
-            $originalPrice = (float) $deal->product->price;
+            $price = (float) $deal->product->price;
 
-            $discountedPrice =
-                $originalPrice -
-                (($deal->discount_percentage / 100) * $originalPrice);
+            $discounted = $price;
+
+            if ($deal->discount_percentage > 0) {
+                $discounted =
+                    $price - (($deal->discount_percentage / 100) * $price);
+            }
 
             return [
                 'id' => $deal->id,
                 'product_id' => $deal->product_id,
+
                 'title' => $deal->product->title ?? '',
-                'thumbnail' => $deal->product->thumbnail ?? null,
-                'original_price' => $originalPrice,
-                'discounted_price' => round($discountedPrice, 2),
-                'discount_percentage' => $deal->discount_percentage,
-                'stock_left' => $deal->stock_limit,
+
+                'thumbnail' => $deal->product->thumbnail
+                    ? url(\Storage::url(
+                        preg_replace('/^storage\//', '', $deal->product->thumbnail)
+                    ))
+                    : null,
+
+                'original_price' => round($price, 2),
+                'discounted_price' => round($discounted, 2),
+
+                'discount_percentage' => (int) $deal->discount_percentage,
+
+                'stock_left' => (int) $deal->stock_limit,
+
+                'starts_at' => $deal->starts_at,
+                'ends_at' => $deal->ends_at,
             ];
         })
         ->filter()
         ->values();
 
-        \Log::info('✅ Final mapped deals', [
+        \Log::info('✅ Final response count', [
             'count' => $mapped->count(),
         ]);
 
@@ -567,9 +594,9 @@ class APIProductController extends Controller
 
         return response()->json([
             'success' => false,
-            'message' => 'Failed to fetch lightning deals',
             'data' => [],
             'count' => 0,
+            'message' => 'Error fetching lightning deals',
         ], 500);
     }
 }
