@@ -87,9 +87,7 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('categories', CategoryController::class)->except(['show']);
         Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
 
-        // Product Management
-        Route::resource('products', ProductController::class);
-        Route::prefix('products')->name('products.')->group(function () {
+       Route::prefix('products')->name('products.')->group(function () {
             Route::delete('/{id}/images/{imageId}', [ProductController::class, 'deleteImage'])->name('images.destroy');
             Route::get('/{product}/edit', [ProductController::class, 'edit'])->name('edit');
             Route::get('/{product}/inventory', [ProductController::class, 'inventoryLog'])->name('inventory');
@@ -100,8 +98,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/export', [ProductController::class, 'export'])->name('export');
             Route::post('/bulk-update', [ProductController::class, 'bulkUpdate'])->name('bulkUpdate');
 
-            // Product Reviews
-            Route::post('/{product}/reviews', [ProductReviewController::class, 'store'])->name('reviews.store');
+            // NEW FLAG ROUTE
+            Route::patch('/{product}/flags', [ProductController::class, 'updateFlags'])
+                ->name('flags.update');
         });
 
         // Product Reviews Management

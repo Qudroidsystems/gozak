@@ -702,4 +702,31 @@ class ProductController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+
+    /**
+ * Update single flag via AJAX (is_new, is_trending, is_top_rated)
+ */
+public function updateFlags(Request $request, Product $product)
+{
+    $validated = $request->validate([
+        'flag'  => 'required|in:is_new,is_trending,is_top_rated',
+        'value' => 'required|boolean',
+    ]);
+
+    // Security: Only allow updating these specific columns
+    $allowedFlags = ['is_new', 'is_trending', 'is_top_rated'];
+
+    if (!in_array($validated['flag'], $allowedFlags)) {
+        return response()->json(['message' => 'Invalid flag'], 422);
+    }
+
+    $product->update([
+        $validated['flag'] => $validated['value']
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => ucfirst(str_replace('_', ' ', $validated['flag'])) . ' flag updated successfully'
+    ]);
+}
 }
