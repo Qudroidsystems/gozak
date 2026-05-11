@@ -3,7 +3,6 @@
 
 @section('title', $product->title . ' - Product Details')
 
-
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"/>
 <style>
     .sticky-side-div {
@@ -140,8 +139,24 @@
         border-radius: 8px;
         font-weight: 500;
     }
-</style>
 
+    /* Flag switch styling */
+    .flag-switch-card .form-check-input {
+        cursor: pointer;
+        width: 40px;
+        height: 20px;
+    }
+
+    .flag-switch-card .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    .flag-label {
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+</style>
 
 @section('content')
 <div class="main-content">
@@ -224,11 +239,28 @@
                                 <div class="card-body p-4">
                                     <div class="d-flex justify-content-between align-items-start mb-3">
                                         <h4 class="text-capitalize mb-3">{{ $product->title }}</h4>
-                                        @if($product->is_featured)
-                                            <span class="badge bg-warning-subtle text-warning fs-6">
-                                                <i class="bi bi-star-fill me-1"></i> Featured
-                                            </span>
-                                        @endif
+                                        <div class="d-flex gap-2">
+                                            @if($product->is_featured)
+                                                <span class="badge bg-warning-subtle text-warning fs-6">
+                                                    <i class="bi bi-star-fill me-1"></i> Featured
+                                                </span>
+                                            @endif
+                                            @if($product->is_new)
+                                                <span class="badge bg-success-subtle text-success fs-6">
+                                                    <i class="bi bi-stars me-1"></i> New
+                                                </span>
+                                            @endif
+                                            @if($product->is_trending)
+                                                <span class="badge bg-danger-subtle text-danger fs-6">
+                                                    <i class="bi bi-fire me-1"></i> Trending
+                                                </span>
+                                            @endif
+                                            @if($product->is_top_rated)
+                                                <span class="badge bg-warning-subtle text-warning fs-6">
+                                                    <i class="bi bi-star-fill me-1"></i> Top Rated
+                                                </span>
+                                            @endif
+                                        </div>
                                     </div>
 
                                     <div class="hstack gap-3 flex-wrap mb-4">
@@ -254,13 +286,14 @@
 
                                     <!-- Stock Status -->
                                     <div class="mb-4">
-                                        @if($product->stock > 10)
+                                        @php $currentStock = $product->current_stock ?? $product->stock; @endphp
+                                        @if($currentStock > 10)
                                             <span class="badge bg-success text-white">
-                                                <i class="bi bi-check-circle me-1"></i> In Stock ({{ $product->stock }} left)
+                                                <i class="bi bi-check-circle me-1"></i> In Stock ({{ $currentStock }} left)
                                             </span>
-                                        @elseif($product->stock > 0)
+                                        @elseif($currentStock > 0)
                                             <span class="badge bg-warning text-white">
-                                                <i class="bi bi-exclamation-triangle me-1"></i> Low Stock (Only {{ $product->stock }} left!)
+                                                <i class="bi bi-exclamation-triangle me-1"></i> Low Stock (Only {{ $currentStock }} left!)
                                             </span>
                                         @else
                                             <span class="badge bg-danger text-white">
@@ -413,6 +446,91 @@
                                         </div>
                                     </div>
 
+                                    <!-- App Flags Section - NEW -->
+                                    <div class="mt-4 border-top pt-4">
+                                        <h6 class="mb-3">
+                                            <i class="bi bi-phone me-1"></i> App Display Flags
+                                            <small class="text-muted d-block">Controls which filter chips this product appears under</small>
+                                        </h6>
+                                        <div class="d-flex flex-column gap-3">
+                                            <!-- New Flag Toggle -->
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="bi bi-stars text-success fs-5"></i>
+                                                    <div>
+                                                        <span class="fw-semibold text-success">New</span>
+                                                        <br>
+                                                        <small class="text-muted">Shows under "New" filter</small>
+                                                    </div>
+                                                </div>
+                                                <div class="form-check form-switch flag-switch-card">
+                                                    <input class="form-check-input flag-toggle" type="checkbox"
+                                                           data-id="{{ $product->id }}"
+                                                           data-flag="is_new"
+                                                           id="showIsNew"
+                                                           {{ $product->is_new ? 'checked' : '' }}>
+                                                </div>
+                                            </div>
+
+                                            <!-- Trending Flag Toggle -->
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="bi bi-fire text-danger fs-5"></i>
+                                                    <div>
+                                                        <span class="fw-semibold text-danger">Trending</span>
+                                                        <br>
+                                                        <small class="text-muted">Shows under "Trending" filter</small>
+                                                    </div>
+                                                </div>
+                                                <div class="form-check form-switch flag-switch-card">
+                                                    <input class="form-check-input flag-toggle" type="checkbox"
+                                                           data-id="{{ $product->id }}"
+                                                           data-flag="is_trending"
+                                                           id="showIsTrending"
+                                                           {{ $product->is_trending ? 'checked' : '' }}>
+                                                </div>
+                                            </div>
+
+                                            <!-- Top Rated Flag Toggle -->
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="bi bi-star-fill text-warning fs-5"></i>
+                                                    <div>
+                                                        <span class="fw-semibold text-warning">Top Rated</span>
+                                                        <br>
+                                                        <small class="text-muted">Shows under "Top Rated" filter</small>
+                                                    </div>
+                                                </div>
+                                                <div class="form-check form-switch flag-switch-card">
+                                                    <input class="form-check-input flag-toggle" type="checkbox"
+                                                           data-id="{{ $product->id }}"
+                                                           data-flag="is_top_rated"
+                                                           id="showIsTopRated"
+                                                           {{ $product->is_top_rated ? 'checked' : '' }}>
+                                                </div>
+                                            </div>
+
+                                            <!-- Featured Flag Toggle -->
+                                            <div class="d-flex align-items-center justify-content-between border-top pt-3 mt-2">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="bi bi-star text-primary fs-5"></i>
+                                                    <div>
+                                                        <span class="fw-semibold">Featured</span>
+                                                        <br>
+                                                        <small class="text-muted">Shows on Store front page</small>
+                                                    </div>
+                                                </div>
+                                                <div class="form-check form-switch flag-switch-card">
+                                                    <input class="form-check-input flag-toggle" type="checkbox"
+                                                           data-id="{{ $product->id }}"
+                                                           data-flag="is_featured"
+                                                           id="showIsFeatured"
+                                                           {{ $product->is_featured ? 'checked' : '' }}>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="mt-4 d-grid gap-2">
                                         @can('Update product')
                                             <a href="{{ route('web.products.index') }}#showModal"
@@ -454,24 +572,24 @@
                                         </tr>
                                         <tr>
                                             <th>Category</th>
-                                            <td>{{ $product->category?->name ?? 'Uncategorized' }}</td>
+                                            <td>{{ $product->category?->name ?? 'Uncategorized' }}</div>
                                         </tr>
                                         <tr>
                                             <th>SKU</th>
-                                            <td>{{ $product->sku }}</td>
+                                            <td>{{ $product->sku }}</div>
                                         </tr>
                                         <tr>
                                             <th>Stock</th>
-                                            <td>{{ $product->stock }}</td>
+                                            <td>{{ $product->stock }}</div>
                                         </tr>
                                         <tr>
                                             <th>Price</th>
-                                            <td>${{ number_format($product->price, 2) }}</td>
+                                            <td>${{ number_format($product->price, 2) }}</div>
                                         </tr>
                                         @if($product->sale_price)
                                         <tr>
                                             <th>Sale Price</th>
-                                            <td class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</td>
+                                            <td class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</div>
                                         </tr>
                                         @endif
                                         <tr>
@@ -489,15 +607,15 @@
                                                 @else
                                                     <span class="text-muted">Not assigned</span>
                                                 @endif
-                                            </td>
+                                            </div>
                                         </tr>
                                         <tr>
                                             <th>Created Date</th>
-                                            <td>{{ $product->created_at->format('d M, Y') }}</td>
+                                            <td>{{ $product->created_at->format('d M, Y') }}</div>
                                         </tr>
                                         <tr>
                                             <th>Last Updated</th>
-                                            <td>{{ $product->updated_at->format('d M, Y') }}</td>
+                                            <td>{{ $product->updated_at->format('d M, Y') }}</div>
                                         </tr>
                                         <tr>
                                             <th>Featured</th>
@@ -507,9 +625,39 @@
                                                 @else
                                                     <span class="badge bg-secondary">No</span>
                                                 @endif
+                                            </div>
+                                        </tr>
+                                        <tr>
+                                            <th>New Flag</th>
+                                            <td>
+                                                @if($product->is_new)
+                                                    <span class="badge bg-success">Enabled</span>
+                                                @else
+                                                    <span class="badge bg-secondary">Disabled</span>
+                                                @endif
                                             </td>
                                         </tr>
                                         <tr>
+                                            <th>Trending Flag</th>
+                                            <td>
+                                                @if($product->is_trending)
+                                                    <span class="badge bg-danger">Enabled</span>
+                                                @else
+                                                    <span class="badge bg-secondary">Disabled</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th>Top Rated Flag</th>
+                                            <td>
+                                                @if($product->is_top_rated)
+                                                    <span class="badge bg-warning">Enabled</span>
+                                                @else
+                                                    <span class="badge bg-secondary">Disabled</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <td>
                                             <th>Active Status</th>
                                             <td>
                                                 @if($product->is_active)
@@ -517,7 +665,7 @@
                                                 @else
                                                     <span class="badge bg-danger">Inactive</span>
                                                 @endif
-                                            </td>
+                                            </div>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -553,7 +701,7 @@
                                                 $quantityPerUnit = $unit->pivot->quantity_per_unit ?? 1;
                                             @endphp
                                             <tr>
-                                                <td>{{ $index + 1 }}</td>
+                                                <td>{{ $index + 1 }}</div>
                                                 <td>
                                                     <div class="d-flex align-items-center">
                                                         <div class="avatar-sm bg-light-info rounded-circle d-flex align-items-center justify-content-center me-3">
@@ -564,15 +712,15 @@
                                                             <small class="text-muted">{{ $unit->description ?? 'No description' }}</small>
                                                         </div>
                                                     </div>
-                                                </td>
+                                                </div>
                                                 <td>
                                                     <code class="text-dark">{{ $unit->short_name }}</code>
-                                                </td>
+                                                </div>
                                                 <td>
                                                     <span class="badge bg-primary-subtle text-primary">
                                                         {{ $quantityPerUnit }} piece{{ $quantityPerUnit > 1 ? 's' : '' }}
                                                     </span>
-                                                </td>
+                                                </div>
                                                 <td>
                                                     @if($unit->is_default)
                                                         <span class="badge bg-success-subtle text-success">
@@ -583,7 +731,7 @@
                                                             <i class="bi bi-circle me-1"></i>Alternative
                                                         </span>
                                                     @endif
-                                                </td>
+                                                </div>
                                                 <td>
                                                     @if($quantityPerUnit > 1)
                                                         <small class="text-muted">
@@ -592,7 +740,7 @@
                                                     @else
                                                         <small class="text-muted">1:1 ratio</small>
                                                     @endif
-                                                </td>
+                                                </div>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -661,7 +809,7 @@
                                                         <i class="bi bi-image text-muted"></i>
                                                     </div>
                                                 @endif
-                                            </td>
+                                            </div>
                                             <td>
                                                 @if($variation->attributes && is_array($variation->attributes))
                                                     @foreach($variation->attributes as $key => $value)
@@ -672,13 +820,13 @@
                                                 @else
                                                     <span class="text-muted">N/A</span>
                                                 @endif
-                                            </td>
+                                            </div>
                                             <td>
                                                 <code class="text-dark">{{ $variation->sku ?? 'N/A' }}</code>
-                                            </td>
+                                            </div>
                                             <td>
                                                 <strong>${{ number_format($variation->price, 2) }}</strong>
-                                            </td>
+                                            </div>
                                             <td>
                                                 @if($variation->sale_price)
                                                     <span class="text-danger fw-bold">
@@ -691,12 +839,12 @@
                                                 @else
                                                     <span class="text-muted">—</span>
                                                 @endif
-                                            </td>
+                                            </div>
                                             <td>
                                                 <span class="badge {{ $variation->stock > 10 ? 'bg-success' : ($variation->stock > 0 ? 'bg-warning' : 'bg-danger') }}">
                                                     {{ $variation->stock }} units
                                                 </span>
-                                            </td>
+                                            </div>
                                             <td>
                                                 @if($variation->stock > 10)
                                                     <span class="badge bg-success-subtle text-success">
@@ -711,7 +859,7 @@
                                                         <i class="bi bi-x-circle me-1"></i>Out of Stock
                                                     </span>
                                                 @endif
-                                            </td>
+                                            </div>
                                         </tr>
                                         @endforeach
                                     </tbody>
@@ -786,7 +934,7 @@
                                                 @else
                                                     <span class="badge bg-secondary-subtle text-secondary">{{ $attribute->values }}</span>
                                                 @endif
-                                            </td>
+                                            </div>
                                         </tr>
                                         @endforeach
                                     </tbody>
@@ -1002,76 +1150,100 @@
     </div>
 </div>
 
-<!-- Add Company Comment Modal -->
-<div class="modal fade" id="companyCommentModal" tabindex="-1" aria-labelledby="companyCommentModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Add Company Response</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="companyCommentForm">
-                @csrf
-                <input type="hidden" name="review_id" id="company_review_id">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="company_comment" class="form-label">Company Comment <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="company_comment" name="company_comment" rows="4" placeholder="Enter company response..." required></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit Response</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+    if (csrfToken) {
+        axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken.getAttribute('content');
+    }
+
+    // ==================== SINGLE FLAG TOGGLE ====================
+    function initializeFlagToggles() {
+        const flagToggles = document.querySelectorAll('.flag-toggle');
+
+        flagToggles.forEach(toggle => {
+            toggle.removeEventListener('change', handleFlagChange);
+            toggle.addEventListener('change', handleFlagChange);
+        });
+    }
+
+    async function handleFlagChange(event) {
+        const toggle = event.target;
+        const productId = toggle.dataset.id;
+        const flag = toggle.dataset.flag;
+        const value = toggle.checked;
+        const originalState = !value;
+
+        toggle.disabled = true;
+
+        try {
+            const response = await axios.patch(`/web/products/${productId}/flags`, {
+                flag: flag,
+                value: value
+            });
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Updated!',
+                text: response.data.message || 'Flag updated successfully',
+                timer: 1500,
+                showConfirmButton: false,
+                toast: true,
+                position: 'bottom-end'
+            });
+
+        } catch (error) {
+            toggle.checked = originalState;
+
+            let errorMessage = 'Failed to update flag';
+            if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            }
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: errorMessage,
+                confirmButtonText: 'OK'
+            });
+        } finally {
+            toggle.disabled = false;
+        }
+    }
+
+    initializeFlagToggles();
+
     // Initialize Swiper Sliders
     let thumbnailSlider, navSlider;
 
     function initSwiper() {
-        // Thumbnail navigation slider
         navSlider = new Swiper('.product-nav-slider', {
             slidesPerView: 4,
             spaceBetween: 10,
             freeMode: true,
             watchSlidesProgress: true,
             breakpoints: {
-                320: {
-                    slidesPerView: 3,
-                },
-                640: {
-                    slidesPerView: 4,
-                },
-                1024: {
-                    slidesPerView: 4,
-                }
+                320: { slidesPerView: 3 },
+                640: { slidesPerView: 4 },
+                1024: { slidesPerView: 4 }
             }
         });
 
-        // Main image slider
         thumbnailSlider = new Swiper('.product-thumbnail-slider', {
             spaceBetween: 10,
             navigation: {
                 nextEl: '.swiper-button-next',
                 prevEl: '.swiper-button-prev',
             },
-            thumbs: {
-                swiper: navSlider
-            }
+            thumbs: { swiper: navSlider }
         });
-
-        console.log('Swiper initialized successfully');
     }
 
-    // Initialize swiper when DOM is loaded
     initSwiper();
 
     // Rating stars functionality
@@ -1085,7 +1257,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 const rating = parseInt(this.dataset.rating);
                 ratingInput.value = rating;
 
-                // Update stars display
                 stars.forEach((s, index) => {
                     if (index < rating) {
                         s.querySelector('i').className = 'bi bi-star-fill fs-2xl text-warning';
@@ -1098,23 +1269,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 });
 
-                // Update rating text
                 const ratingTexts = ['Select a rating', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
                 ratingText.textContent = ratingTexts[rating];
             });
         });
     }
 
-    // Setup rating stars for add review
     setupRatingStars('rating-star', 'rating', 'rating-text');
-
-    // Setup rating stars for edit review
     setupRatingStars('edit-rating-star', 'edit_rating', 'edit-rating-text');
 
     // Add review form submission
-    document.getElementById('addReviewForm').addEventListener('submit', function(e) {
+    document.getElementById('addReviewForm')?.addEventListener('submit', function(e) {
         e.preventDefault();
-
         const formData = new FormData(this);
         const submitBtn = this.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
@@ -1134,15 +1300,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: data.message,
-                    timer: 2000,
-                    showConfirmButton: false
-                }).then(() => {
-                    location.reload();
-                });
+                Swal.fire({ icon: 'success', title: 'Success!', text: data.message, timer: 2000, showConfirmButton: false })
+                    .then(() => location.reload());
             } else {
                 throw new Error(data.message || 'Failed to submit review');
             }
@@ -1160,7 +1319,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.edit-review-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const reviewId = this.dataset.id;
-
             fetch(`/web/reviews/${reviewId}/edit`)
                 .then(response => response.json())
                 .then(data => {
@@ -1168,7 +1326,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     document.getElementById('edit_comment').value = data.comment;
                     document.getElementById('edit_rating').value = data.rating;
 
-                    // Update stars
                     const stars = document.querySelectorAll('.edit-rating-star');
                     stars.forEach((star, index) => {
                         if (index < data.rating) {
@@ -1182,21 +1339,18 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                     });
 
-                    // Update rating text
                     const ratingTexts = ['Select a rating', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
                     document.getElementById('edit-rating-text').textContent = ratingTexts[data.rating];
                 })
                 .catch(error => {
-                    console.error('Error loading review:', error);
                     Swal.fire('Error!', 'Failed to load review data', 'error');
                 });
         });
     });
 
     // Edit review form submission
-    document.getElementById('editReviewForm').addEventListener('submit', function(e) {
+    document.getElementById('editReviewForm')?.addEventListener('submit', function(e) {
         e.preventDefault();
-
         const reviewId = document.getElementById('edit_review_id').value;
         const formData = new FormData(this);
         const submitBtn = this.querySelector('button[type="submit"]');
@@ -1217,15 +1371,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: data.message,
-                    timer: 2000,
-                    showConfirmButton: false
-                }).then(() => {
-                    location.reload();
-                });
+                Swal.fire({ icon: 'success', title: 'Success!', text: data.message, timer: 2000, showConfirmButton: false })
+                    .then(() => location.reload());
             } else {
                 throw new Error(data.message || 'Failed to update review');
             }
@@ -1243,7 +1390,6 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.delete-review-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const reviewId = this.dataset.id;
-
             Swal.fire({
                 title: 'Delete Review?',
                 text: "This action cannot be undone!",
@@ -1265,8 +1411,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            Swal.fire('Deleted!', data.message, 'success')
-                                .then(() => location.reload());
+                            Swal.fire('Deleted!', data.message, 'success').then(() => location.reload());
                         } else {
                             throw new Error(data.message || 'Failed to delete review');
                         }
@@ -1320,13 +1465,11 @@ document.addEventListener('DOMContentLoaded', function () {
         localStorage.setItem('editProductId', id);
     };
 
-    // Reset add review form when modal is closed
+    // Reset modals when closed
     document.getElementById('addReviewModal')?.addEventListener('hidden.bs.modal', function() {
         document.getElementById('addReviewForm').reset();
         document.getElementById('rating').value = 0;
         document.getElementById('rating-text').textContent = 'Select a rating';
-
-        // Reset stars
         document.querySelectorAll('.rating-star').forEach(star => {
             star.querySelector('i').className = 'bi bi-star fs-2xl';
             star.classList.remove('btn-warning');
@@ -1334,13 +1477,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Reset edit review form when modal is closed
     document.getElementById('editReviewModal')?.addEventListener('hidden.bs.modal', function() {
         document.getElementById('editReviewForm').reset();
         document.getElementById('edit_rating').value = 0;
         document.getElementById('edit-rating-text').textContent = 'Select a rating';
-
-        // Reset stars
         document.querySelectorAll('.edit-rating-star').forEach(star => {
             star.querySelector('i').className = 'bi bi-star fs-2xl';
             star.classList.remove('btn-warning');
@@ -1348,16 +1488,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Update swiper when images load (if any images are loaded async)
+    // Update swiper when images load
     window.addEventListener('load', function() {
-        if (thumbnailSlider) {
-            thumbnailSlider.update();
-        }
-        if (navSlider) {
-            navSlider.update();
-        }
+        if (thumbnailSlider) thumbnailSlider.update();
+        if (navSlider) navSlider.update();
     });
 });
 </script>
-
 @endsection
