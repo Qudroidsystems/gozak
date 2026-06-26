@@ -13,9 +13,16 @@ class Order extends Model
 {
     use HasFactory;
 
+     
+
+
     protected $fillable = [
+          // ─── Fix: cast user_id to integer so strict === comparison works ───
+        // Without this, user_id comes back as a string from the DB, and
+        // auth()->id() (integer) !== "12" (string) even when they are the same.
+        'user_id'                          => 'integer',
         'id',
-        'user_id',
+
         'status',
         'total_amount',
         'shipping_cost',

@@ -23,9 +23,9 @@ class PaymentController extends Controller
         NotificationService $notificationService,
         BarcodeService $barcodeService
     ) {
-        $this->paystackService    = $paystackService;
+        $this->paystackService     = $paystackService;
         $this->notificationService = $notificationService;
-        $this->barcodeService     = $barcodeService;
+        $this->barcodeService      = $barcodeService;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -33,32 +33,25 @@ class PaymentController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     public function initializePayment(Request $request)
     {
-        // ── Step 1: Log every incoming request so we can see what the server sees ──
         Log::info('PaymentController@initializePayment: REQUEST RECEIVED', [
             'timestamp'              => now()->toIso8601String(),
             'request_order_id'       => $request->order_id,
             'request_email'          => $request->email,
-            // If auth() is null here, the middleware isn't running or the token is missing
             'auth_check'             => auth()->check(),
             'auth_id'                => auth()->id(),
             'auth_user_email'        => auth()->check() ? auth()->user()->email : 'UNAUTHENTICATED',
-            // Inspect the raw Authorization header — if this is null the token never arrived
             'authorization_header'   => $request->header('Authorization')
                                             ? substr($request->header('Authorization'), 0, 30) . '...'
-                                            : 'MISSING — this will cause 403',
+                                            : 'MISSING',
             'bearer_token_from_auth' => $request->bearerToken()
                                             ? substr($request->bearerToken(), 0, 20) . '...'
                                             : 'NULL',
         ]);
 
-        // ── Step 2: Auth guard — explicit 401 before anything else ───────────
         if (! auth()->check()) {
-            Log::warning('PaymentController@initializePayment: UNAUTHENTICATED REQUEST', [
+            Log::warning('PaymentController@initializePayment: UNAUTHENTICATED', [
                 'order_id'             => $request->order_id,
                 'authorization_header' => $request->header('Authorization') ?? 'ABSENT',
-                'bearer_token'         => $request->bearerToken() ?? 'NULL',
-                'diagnosis'            => 'Flutter sent no/invalid Bearer token. '
-                                        . 'Check THttpHelper::getHeaders() — auth_token may be null in GetStorage.',
             ]);
             return response()->json([
                 'success' => false,
@@ -66,7 +59,6 @@ class PaymentController extends Controller
             ], 401);
         }
 
-        // ── Step 3: Validate ─────────────────────────────────────────────────
         $validator = Validator::make($request->all(), [
             'order_id' => 'required|exists:orders,id',
             'email'    => 'required|email',
@@ -87,31 +79,23 @@ class PaymentController extends Controller
         try {
             $order = Order::with(['user', 'items.product'])->findOrFail($request->order_id);
 
-            // ── Step 4: Ownership check — log both sides so we can compare ──
             Log::info('PaymentController@initializePayment: OWNERSHIP CHECK', [
-                'order_id'              => $order->id,
-                'order_user_id'         => $order->user_id,
-                'order_user_id_type'    => gettype($order->user_id),
-                'auth_id'               => auth()->id(),
-                'auth_id_type'          => gettype(auth()->id()),
-                'strict_match'          => ($order->user_id === auth()->id()),
-                'loose_match'           => ($order->user_id == auth()->id()),
-                'diagnosis'             => ($order->user_id !== auth()->id())
-                    ? 'MISMATCH — if auth_id is null, Bearer token was missing. '
-                    . 'If both have values but differ, wrong user is authenticated.'
-                    : 'OK — ownership confirmed',
+                'order_id'           => $order->id,
+                'order_user_id'      => $order->user_id,
+                'order_user_id_type' => gettype($order->user_id),
+                'auth_id'            => auth()->id(),
+                'auth_id_type'       => gettype(auth()->id()),
+                'strict_match'       => ($order->user_id === auth()->id()),
+                'loose_match'        => ($order->user_id == auth()->id()),
+                'string_match'       => ((string) $order->user_id === (string) auth()->id()),
             ]);
 
-            if ($order->user_id !== auth()->id()) {
+            // ── FIX: cast both sides to string so "12" === 12 passes ─────────
+            if ((string) $order->user_id !== (string) auth()->id()) {
                 Log::error('PaymentController@initializePayment: OWNERSHIP MISMATCH — returning 403', [
                     'order_user_id' => $order->user_id,
                     'auth_id'       => auth()->id(),
                     'order_id'      => $order->id,
-                    // If auth_id is null here, the problem is a missing/invalid token
-                    'root_cause'    => auth()->id() === null
-                        ? 'auth()->id() is NULL — token was not sent or is invalid. '
-                        . 'This is the 403 you are seeing. Fix: ensure auth_token is in GetStorage before this call.'
-                        : 'Different user authenticated than the order owner.',
                 ]);
                 return response()->json([
                     'success' => false,
@@ -119,7 +103,6 @@ class PaymentController extends Controller
                 ], 403);
             }
 
-            // ── Step 5: Already paid? ────────────────────────────────────────
             if ($order->isPaid()) {
                 Log::info('PaymentController@initializePayment: ORDER ALREADY PAID', [
                     'order_id'       => $order->id,
@@ -131,11 +114,11 @@ class PaymentController extends Controller
                 ], 400);
             }
 
-            // ── Step 6: Build metadata ────────────────────────────────────────
             $metadata = [
                 'order_id'      => $order->id,
                 'user_id'       => auth()->id(),
-                'customer_name' => auth()->user()->full_name ?? auth()->user()->first_name . ' ' . auth()->user()->last_name,
+                'customer_name' => auth()->user()->full_name
+                                    ?? trim(auth()->user()->first_name . ' ' . auth()->user()->last_name),
                 'order_items'   => $order->items->map(function ($item) {
                     return [
                         'product'  => $item->title,
@@ -157,7 +140,6 @@ class PaymentController extends Controller
                 ],
             ];
 
-            // ── Step 7: Call Paystack ─────────────────────────────────────────
             Log::info('PaymentController@initializePayment: CALLING PAYSTACK', [
                 'email'    => $request->email,
                 'amount'   => $order->total_amount,
@@ -172,12 +154,11 @@ class PaymentController extends Controller
             );
 
             Log::info('PaymentController@initializePayment: PAYSTACK RESPONSE', [
-                'response_status'        => $response['status'] ?? 'unknown',
-                'has_authorization_url'  => isset($response['data']['authorization_url']),
-                'has_reference'          => isset($response['data']['reference']),
+                'response_status'       => $response['status'] ?? 'unknown',
+                'has_authorization_url' => isset($response['data']['authorization_url']),
+                'has_reference'         => isset($response['data']['reference']),
             ]);
 
-            // ── Step 8: Create transaction record ─────────────────────────────
             $transaction = Transaction::create([
                 'order_id'       => $order->id,
                 'user_id'        => auth()->id(),
@@ -212,10 +193,8 @@ class PaymentController extends Controller
                 'error'    => $e->getMessage(),
                 'trace'    => $e->getTraceAsString(),
                 'order_id' => $request->order_id ?? null,
-                'email'    => $request->email ?? null,
                 'auth_id'  => auth()->id(),
             ]);
-
             return response()->json([
                 'success' => false,
                 'message' => 'Payment initialization failed',
@@ -264,7 +243,7 @@ class PaymentController extends Controller
             $response = $this->paystackService->verifyPayment($request->reference);
 
             Log::info('PaymentController@verifyPayment: PAYSTACK RESPONSE', [
-                'reference'     => $request->reference,
+                'reference'       => $request->reference,
                 'paystack_status' => $response['data']['status'] ?? 'unknown',
             ]);
 
@@ -279,14 +258,17 @@ class PaymentController extends Controller
                         throw new \Exception('Transaction not found');
                     }
 
-                    // Ownership check on verify too
                     Log::info('PaymentController@verifyPayment: TRANSACTION OWNERSHIP CHECK', [
-                        'transaction_user_id' => $transaction->user_id,
-                        'auth_id'             => auth()->id(),
-                        'match'               => $transaction->user_id === auth()->id(),
+                        'transaction_user_id'      => $transaction->user_id,
+                        'transaction_user_id_type' => gettype($transaction->user_id),
+                        'auth_id'                  => auth()->id(),
+                        'auth_id_type'             => gettype(auth()->id()),
+                        'strict_match'             => ($transaction->user_id === auth()->id()),
+                        'string_match'             => ((string) $transaction->user_id === (string) auth()->id()),
                     ]);
 
-                    if ($transaction->user_id !== auth()->id()) {
+                    // ── FIX: same string-cast comparison ─────────────────────
+                    if ((string) $transaction->user_id !== (string) auth()->id()) {
                         Log::error('PaymentController@verifyPayment: OWNERSHIP MISMATCH', [
                             'transaction_user_id' => $transaction->user_id,
                             'auth_id'             => auth()->id(),
@@ -313,7 +295,7 @@ class PaymentController extends Controller
                         'payment_data' => $response['data'],
                     ]);
 
-                    $order = Order::find($transaction->order_id);
+                    $order                 = Order::find($transaction->order_id);
                     $order->payment_status = 'paid';
                     $order->paid_at        = now();
                     $order->status         = 'processing';
@@ -329,8 +311,8 @@ class PaymentController extends Controller
                     $notificationResult = $this->notificationService->sendOrderConfirmation($order);
 
                     Log::info('PaymentController@verifyPayment: SUCCESS', [
-                        'reference'        => $request->reference,
-                        'order_id'         => $order->id,
+                        'reference'         => $request->reference,
+                        'order_id'          => $order->id,
                         'barcode_generated' => $barcodeResult['success'],
                     ]);
 
@@ -338,9 +320,9 @@ class PaymentController extends Controller
                         'success' => true,
                         'message' => 'Payment verified successfully',
                         'data'    => [
-                            'transaction'  => $transaction->fresh(),
-                            'order'        => $order->fresh(['items.product', 'shippingAddress', 'billingAddress']),
-                            'barcode_url'  => $barcodeResult['barcode_url'] ?? null,
+                            'transaction'   => $transaction->fresh(),
+                            'order'         => $order->fresh(['items.product', 'shippingAddress', 'billingAddress']),
+                            'barcode_url'   => $barcodeResult['barcode_url'] ?? null,
                             'notifications' => $notificationResult,
                         ],
                     ], 200);
@@ -373,15 +355,15 @@ class PaymentController extends Controller
     public function chargeCard(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'reference'          => 'required|string',
-            'email'              => 'required|email',
-            'amount'             => 'required|numeric|min:0',
-            'card'               => 'required|array',
-            'card.number'        => 'required|string|min:13|max:19',
-            'card.cvv'           => 'required|string|min:3|max:4',
-            'card.expiry_month'  => 'required|string|size:2',
-            'card.expiry_year'   => 'required|string',
-            'card.pin'           => 'required|string|size:4',
+            'reference'         => 'required|string',
+            'email'             => 'required|email',
+            'amount'            => 'required|numeric|min:0',
+            'card'              => 'required|array',
+            'card.number'       => 'required|string|min:13|max:19',
+            'card.cvv'          => 'required|string|min:3|max:4',
+            'card.expiry_month' => 'required|string|size:2',
+            'card.expiry_year'  => 'required|string',
+            'card.pin'          => 'required|string|size:4',
         ]);
 
         if ($validator->fails()) {
@@ -543,7 +525,7 @@ class PaymentController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // OTP / PIN SUBMISSION
+    // OTP / PIN
     // ─────────────────────────────────────────────────────────────────────────
     public function submitOtp(Request $request)
     {
@@ -727,6 +709,7 @@ class PaymentController extends Controller
             }
 
             DB::commit();
+
             Log::info('PaymentController@handleChargeSuccess: SUCCESS', [
                 'reference' => $data['reference'],
             ]);
