@@ -33,6 +33,12 @@
     .status-inactive { background: #f8d7da; color: #721c24; }
     .status-scheduled { background: #cce5ff; color: #004085; }
     .status-expired { background: #e2e3e5; color: #383d41; }
+    .banner-thumb {
+        width: 160px;
+        height: 90px;
+        object-fit: cover;
+        border-radius: 8px;
+    }
 </style>
 
 @section('content')
@@ -40,6 +46,7 @@
     <div class="page-content">
         <div class="container-fluid">
 
+            {{-- Page title --}}
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -52,6 +59,21 @@
                 </div>
             </div>
 
+            {{-- Success/Error Messages --}}
+            @if(session('success'))
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="ri-check-line me-1"></i> {{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="ri-error-warning-line me-1"></i> {{ session('error') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            @endif
+
+            {{-- Table card --}}
             <div class="row">
                 <div class="col-lg-12">
                     <div class="card">
@@ -74,32 +96,34 @@
                                 <table class="table table-hover align-middle mb-0" id="promo-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th width="40"><input class="form-check-input" type="checkbox" id="checkAll"></th>
+                                            <th width="40">
+                                                <input class="form-check-input" type="checkbox" id="checkAll">
+                                            </th>
                                             <th width="30">#</th>
                                             <th>Preview</th>
                                             <th>Badge / Title</th>
                                             <th>Screen</th>
                                             <th>Schedule</th>
                                             <th>Status</th>
-                                            <th>Action</th>
+                                            <th width="120">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="sortable-body">
                                         @forelse($banners as $banner)
-                                        <tr class="sortable-row border-bottom border-light-subtle" data-id="{{ $banner->id }}">
-                                            <td><input class="form-check-input" type="checkbox" name="chk_child" value="{{ $banner->id }}"></td>
+                                        <tr class="sortable-row" data-id="{{ $banner->id }}">
+                                            <td>
+                                                <input class="form-check-input" type="checkbox" name="chk_child" value="{{ $banner->id }}">
+                                            </td>
                                             <td class="fw-medium text-muted">{{ $loop->iteration }}</td>
                                             <td>
-                                                <div class="banner-card-preview"
-                                                     style="background: linear-gradient(135deg, {{ $banner->gradient_start }}, {{ $banner->gradient_end }}); width: 180px;">
-                                                    <span class="badge bg-white bg-opacity-25 text-white" style="font-size:10px;">
-                                                        {{ $banner->badge_text }}
-                                                    </span>
-                                                    <div>
-                                                        <div style="font-size:12px;font-weight:700;line-height:1.2;">{{ Str::limit($banner->title, 35) }}</div>
-                                                        <div style="font-size:10px;opacity:.8;margin-top:3px;">{{ $banner->cta_text }}</div>
+                                                @if($banner->image_url)
+                                                    <img src="{{ $banner->full_image_url }}" alt="{{ $banner->title }}" class="banner-thumb">
+                                                @else
+                                                    <div class="banner-card-preview"
+                                                         style="background: linear-gradient(135deg, {{ $banner->gradient_start }}, {{ $banner->gradient_end }}); width: 160px; height: 90px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; padding: 8px; text-align: center;">
+                                                        <span>{{ Str::limit($banner->badge_text, 15) }}</span>
                                                     </div>
-                                                </div>
+                                                @endif
                                             </td>
                                             <td>
                                                 <div class="fw-semibold">{{ $banner->badge_text }}</div>
@@ -142,7 +166,7 @@
                                                 </span>
                                             </td>
                                             <td>
-                                                <div class="hstack gap-2">
+                                                <div class="d-flex gap-1">
                                                     @can('Update promo_banner')
                                                         <button class="btn btn-subtle-secondary btn-icon btn-sm edit-btn"
                                                             data-id="{{ $banner->id }}"
@@ -159,14 +183,16 @@
                                                             data-starts="{{ $banner->starts_at?->format('Y-m-d\TH:i') }}"
                                                             data-ends="{{ $banner->ends_at?->format('Y-m-d\TH:i') }}"
                                                             data-image="{{ $banner->full_image_url }}"
-                                                            data-show-once="{{ $banner->show_once_daily ? '1' : '0' }}">
-                                                            <i class="ph-pencil"></i>
+                                                            data-lottie="{{ $banner->lottie_asset }}"
+                                                            data-show-once="{{ $banner->show_once_daily ? '1' : '0' }}"
+                                                            data-sort="{{ $banner->sort_order }}">
+                                                            <i class="ri-pencil-line"></i>
                                                         </button>
                                                     @endcan
                                                     @can('Delete promo_banner')
                                                         <button class="btn btn-subtle-danger btn-icon btn-sm delete-btn"
                                                                 data-id="{{ $banner->id }}">
-                                                            <i class="ph-trash"></i>
+                                                            <i class="ri-delete-bin-line"></i>
                                                         </button>
                                                     @endcan
                                                 </div>
@@ -174,40 +200,37 @@
                                         </tr>
                                         @empty
                                         <tr>
-                                            <td colspan="8" class="text-center py-5 text-muted">No promo banners yet</td>
+                                            <td colspan="8" class="text-center py-5 text-muted">
+                                                <i class="ri-image-line fs-1 d-block mb-2"></i>
+                                                No promo banners yet. Click "Add Banner" to create one.
+                                            </td>
                                         </tr>
                                         @endforelse
                                     </tbody>
                                 </table>
                             </div>
 
+                            {{-- Pagination --}}
                             <div class="d-flex justify-content-end mt-4">
-                                <div class="pagination-wrap hstack gap-2">
-                                    <a class="page-item pagination-prev {{ $banners->onFirstPage() ? 'disabled' : '' }}"
-                                       href="{{ $banners->previousPageUrl() }}">Previous</a>
-                                    <span class="px-3 py-2 bg-light rounded">
-                                        {{ $banners->currentPage() }} / {{ $banners->lastPage() }}
-                                    </span>
-                                    <a class="page-item pagination-next {{ $banners->hasMorePages() ? '' : 'disabled' }}"
-                                       href="{{ $banners->nextPageUrl() }}">Next</a>
-                                </div>
+                                {{ $banners->links() }}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-        </div>
-    </div>
-</div>
+        </div><!-- end container -->
+    </div><!-- end page-content -->
+</div><!-- end main-content -->
 
-{{-- Modal --}}
-<div class="modal fade" id="showModal" tabindex="-1">
+{{-- ─── Add / Edit Modal ─────────────────────────────────────────────────── --}}
+<div class="modal fade" id="showModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
             <form id="bannerForm" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" name="id" id="banner_id">
+                <input type="hidden" name="_method" id="form_method" value="POST">
 
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalTitle">Add Promo Banner</h5>
@@ -216,7 +239,7 @@
 
                 <div class="modal-body">
                     <div class="row g-4">
-                        {{-- Left column: content --}}
+                        {{-- ── Left column: content ── --}}
                         <div class="col-lg-7">
                             <div class="row g-3">
                                 <div class="col-12">
@@ -265,7 +288,7 @@
                             </div>
                         </div>
 
-                        {{-- Right column: visual & scheduling --}}
+                        {{-- ── Right column: visual & scheduling ── --}}
                         <div class="col-lg-5">
                             <div class="row g-3">
                                 {{-- Live card preview --}}
@@ -368,6 +391,9 @@
     </div>
 </div>
 
+@endsection
+
+@push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
@@ -426,6 +452,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelector('.add-btn')?.addEventListener('click', () => {
         form.reset();
         document.getElementById('banner_id').value = '';
+        document.getElementById('form_method').value = 'POST';
         document.getElementById('modalTitle').textContent = 'Add Promo Banner';
         document.getElementById('img_preview').style.display = 'none';
         document.getElementById('f_grad_start').value = '#FF4E50';
@@ -433,6 +460,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('f_accent').value = '#FFD700';
         document.getElementById('f_active').checked = true;
         document.getElementById('f_show_once').checked = true;
+        document.getElementById('f_sort').value = '0';
         updatePreview();
         modal.show();
     });
@@ -442,26 +470,32 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', function () {
             const d = this.dataset;
             document.getElementById('banner_id').value = d.id;
-            document.getElementById('f_badge').value = d.badge;
-            document.getElementById('f_title').value = d.title;
-            document.getElementById('f_subtitle').value = d.subtitle;
-            document.getElementById('f_cta_text').value = d.ctaText;
+            document.getElementById('form_method').value = 'PUT';
+            document.getElementById('modalTitle').textContent = 'Edit Promo Banner';
+            document.getElementById('f_badge').value = d.badge || '';
+            document.getElementById('f_title').value = d.title || '';
+            document.getElementById('f_subtitle').value = d.subtitle || '';
+            document.getElementById('f_cta_text').value = d.ctaText || '';
             document.getElementById('f_cta_route').value = d.ctaRoute || '';
-            document.getElementById('f_grad_start').value = d.gradientStart;
-            document.getElementById('f_grad_end').value = d.gradientEnd;
-            document.getElementById('f_accent').value = d.accent;
-            document.getElementById('f_screen').value = d.screen;
+            document.getElementById('f_grad_start').value = d.gradientStart || '#FF4E50';
+            document.getElementById('f_grad_end').value = d.gradientEnd || '#F9A720';
+            document.getElementById('f_accent').value = d.accent || '#FFD700';
+            document.getElementById('f_screen').value = d.screen || 'all';
             document.getElementById('f_active').checked = d.active === '1';
             document.getElementById('f_show_once').checked = d.showOnce === '1';
             document.getElementById('f_starts').value = d.starts || '';
             document.getElementById('f_ends').value = d.ends || '';
             document.getElementById('f_lottie').value = d.lottie || '';
+            document.getElementById('f_sort').value = d.sort || '0';
 
             const prev = document.getElementById('img_preview');
-            if (d.image) { prev.src = d.image; prev.style.display = 'block'; }
-            else { prev.style.display = 'none'; }
+            if (d.image && d.image !== 'null') {
+                prev.src = d.image;
+                prev.style.display = 'block';
+            } else {
+                prev.style.display = 'none';
+            }
 
-            document.getElementById('modalTitle').textContent = 'Edit Promo Banner';
             updatePreview();
             modal.show();
         });
@@ -473,20 +507,33 @@ document.addEventListener('DOMContentLoaded', function () {
         spinner.classList.remove('d-none');
 
         const id = document.getElementById('banner_id').value;
-        const url = id ? `/promo-banners/${id}` : '/promo-banners';
+        const method = document.getElementById('form_method').value;
+        const url = id ? `/web/promo-banners/${id}` : '/web/promo-banners';
         const data = new FormData(form);
-        if (id) data.append('_method', 'PUT');
-        if (!document.getElementById('f_active').checked) data.set('active', '0');
-        else data.set('active', '1');
-        if (!document.getElementById('f_show_once').checked) data.set('show_once_daily', '0');
-        else data.set('show_once_daily', '1');
+
+        if (method === 'PUT') {
+            data.append('_method', 'PUT');
+        }
+
+        // Fix checkbox values
+        data.set('active', document.getElementById('f_active').checked ? '1' : '0');
+        data.set('show_once_daily', document.getElementById('f_show_once').checked ? '1' : '0');
 
         try {
-            await axios.post(url, data);
-            location.reload();
+            const response = await axios.post(url, data, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (response.data.success) {
+                Swal.fire('Success', response.data.message, 'success').then(() => {
+                    location.reload();
+                });
+            } else {
+                throw new Error(response.data.message || 'Something went wrong');
+            }
         } catch (err) {
             spinner.classList.add('d-none');
-            const msg = err.response?.data?.message || 'Something went wrong';
+            const msg = err.response?.data?.message || err.message || 'Something went wrong';
             Swal.fire('Error', msg, 'error');
         }
     });
@@ -500,9 +547,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
             }).then(r => {
                 if (r.isConfirmed) {
-                    axios.delete(`/promo-banners/${btn.dataset.id}`)
+                    axios.delete(`/web/promo-banners/${btn.dataset.id}`)
                          .then(() => location.reload())
                          .catch(() => Swal.fire('Error', 'Failed to delete', 'error'));
                 }
@@ -520,10 +568,12 @@ document.addEventListener('DOMContentLoaded', function () {
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete all!'
         }).then(r => {
             if (r.isConfirmed) {
-                Promise.all(ids.map(id => axios.delete(`/promo-banners/${id}`)))
-                       .then(() => location.reload());
+                Promise.all(ids.map(id => axios.delete(`/web/promo-banners/${id}`)))
+                       .then(() => location.reload())
+                       .catch(() => Swal.fire('Error', 'Failed to delete some banners', 'error'));
             }
         });
     };
@@ -537,13 +587,32 @@ document.addEventListener('DOMContentLoaded', function () {
             onEnd() {
                 const ids = Array.from(tbody.querySelectorAll('tr[data-id]'))
                                  .map(tr => tr.dataset.id);
-                axios.post('/promo-banners/reorder', { ids })
-                     .catch(() => console.warn('Reorder save failed'));
+                axios.post('/web/promo-banners/reorder', { ids })
+                     .then(() => {
+                         // Show a subtle success indicator
+                         const toast = document.createElement('div');
+                         toast.className = 'position-fixed bottom-0 end-0 p-3';
+                         toast.style.zIndex = '9999';
+                         toast.innerHTML = `
+                             <div class="toast show" role="alert">
+                                 <div class="toast-body bg-success text-white rounded">
+                                     <i class="ri-check-line me-2"></i> Banners reordered successfully
+                                 </div>
+                             </div>
+                         `;
+                         document.body.appendChild(toast);
+                         setTimeout(() => toast.remove(), 3000);
+                     })
+                     .catch(() => {
+                         Swal.fire('Error', 'Failed to save reorder', 'error');
+                         location.reload();
+                     });
             },
         });
     }
 
+    // Initial preview render
     updatePreview();
 });
 </script>
-@endsection
+@endpush

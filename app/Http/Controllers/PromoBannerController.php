@@ -45,6 +45,12 @@ class PromoBannerController extends Controller
                 'message' => 'Promo banner created successfully',
                 'data' => $banner
             ], 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Failed to create promo banner: ' . $e->getMessage());
             return response()->json([
@@ -76,6 +82,12 @@ class PromoBannerController extends Controller
                 'message' => 'Promo banner updated successfully',
                 'data' => $banner
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Failed to update promo banner: ' . $e->getMessage());
             return response()->json([
@@ -133,13 +145,13 @@ class PromoBannerController extends Controller
 
     private function validated(Request $request, $ignoreId = null): array
     {
-        return $request->validate([
+        $rules = [
             'badge_text' => 'required|string|max:80',
             'title' => 'required|string|max:120',
             'subtitle' => 'required|string|max:300',
             'cta_text' => 'required|string|max:60',
             'cta_route' => 'nullable|string|max:120',
-            'image' => ($ignoreId ? 'nullable' : 'nullable') . '|image|mimes:jpeg,png,jpg,gif,webp|max:3072',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:3072',
             'lottie_asset' => 'nullable|string|max:255',
             'gradient_start' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'gradient_end' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -150,6 +162,8 @@ class PromoBannerController extends Controller
             'ends_at' => 'nullable|date|after_or_equal:starts_at',
             'sort_order' => 'nullable|integer|min:0',
             'show_once_daily' => 'boolean',
-        ]);
+        ];
+
+        return $request->validate($rules);
     }
 }
