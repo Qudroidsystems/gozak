@@ -77,7 +77,11 @@ class NotificationService
                 'barcode_generated' => $results['barcode']['success'] ?? false,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            // \Throwable (not just \Exception) so a fatal \Error -- e.g. a
+            // missing class -- gets logged and absorbed here instead of
+            // escaping into the DB::transaction() in PaymentController and
+            // rolling back the order's paid status.
             Log::error('Failed to send order confirmation: ' . $e->getMessage(), [
                 'order_id' => $order->id,
             ]);
@@ -132,7 +136,7 @@ class NotificationService
                 'email_sent' => $results['email']['success'] ?? false,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send order status update: ' . $e->getMessage(), [
                 'order_id' => $order->id,
             ]);
@@ -165,7 +169,7 @@ class NotificationService
 
             $this->createNotificationRecord($user, $title, $body, $data, 'promotional', $results);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send promotional notification: ' . $e->getMessage());
             $results['error'] = $e->getMessage();
         }
@@ -195,7 +199,7 @@ class NotificationService
 
             $this->createNotificationRecord($user, $title, $body, $data, 'security', $results);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send security alert: ' . $e->getMessage());
             $results['error'] = $e->getMessage();
         }
@@ -241,7 +245,7 @@ class NotificationService
 
             $this->createNotificationRecord($user, $title, $body, $data, $type, $results);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send notification to user: ' . $e->getMessage());
             $results['error'] = $e->getMessage();
         }
@@ -263,7 +267,7 @@ class NotificationService
                 'message' => 'Order confirmation email sent successfully',
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send order confirmation email: ' . $e->getMessage());
 
             return [
@@ -287,7 +291,7 @@ class NotificationService
                 'message' => 'Order status update email sent successfully',
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send order status update email: ' . $e->getMessage());
 
             return [
@@ -313,7 +317,7 @@ class NotificationService
                 'message' => 'Promotional email sent successfully',
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send promotional email: ' . $e->getMessage());
 
             return [
@@ -338,7 +342,7 @@ class NotificationService
                 'message' => 'Security email sent successfully',
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send security email: ' . $e->getMessage());
 
             return [
@@ -362,7 +366,7 @@ class NotificationService
                 'message' => 'Notification email sent successfully',
             ];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send generic email: ' . $e->getMessage());
 
             return [
@@ -401,7 +405,7 @@ class NotificationService
                 'fcm_response' => $sendResults,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to create notification record: ' . $e->getMessage());
         }
     }
