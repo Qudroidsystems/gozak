@@ -226,7 +226,7 @@
                         @endcan
 
 
-                         @can('View promo-banners')
+                         @can('View promo_banners')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarbanner" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarbanner">
                                     <i class="ph-user-circle"></i> <span data-key="t-authentication">Promo Banners Managements</span>
