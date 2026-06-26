@@ -1,22 +1,24 @@
 <?php
 
+use App\Http\Controllers\APIAddressController;
+use App\Http\Controllers\APIAuthController;
+use App\Http\Controllers\APIBannerController;
+use App\Http\Controllers\APIBrandController;
+use App\Http\Controllers\APICategoryController;
+use App\Http\Controllers\APIOrderController;
+use App\Http\Controllers\APIProductController;
+use App\Http\Controllers\APIProductReviewController;
+use App\Http\Controllers\APIPromoBannerController;
+use App\Http\Controllers\APISettingsController;
+use App\Http\Controllers\APIUploadController;
+use App\Http\Controllers\APIUserController;
+use App\Http\Controllers\FcmTestController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\PrivacyPolicyController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\FcmTestController;
-use App\Http\Controllers\APIAuthController;
-use App\Http\Controllers\APIUserController;
-use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\APIBrandController;
-use App\Http\Controllers\APIOrderController;
-use App\Http\Controllers\APIBannerController;
-use App\Http\Controllers\APIUploadController;
-use App\Http\Controllers\APIAddressController;
-use App\Http\Controllers\APIProductController;
-use App\Http\Controllers\APICategoryController;
-use App\Http\Controllers\APISettingsController;
-use App\Http\Controllers\PrivacyPolicyController;
-use App\Http\Controllers\APIProductReviewController;
 use Laravel\Sanctum\Http\Controllers\CsrfCookieController;
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  AUTHENTICATION ROUTES (public)
@@ -41,6 +43,7 @@ Route::get('/brands/isFeatured',                   [APIBrandController::class, '
 Route::get('/brands/category/{categoryId}',        [APIBrandController::class, 'getbrandsForCategory'])->name('brands.category');
 Route::post('/brands',                             [APIBrandController::class, 'store']);
 Route::post('/brand-categories',                   [APIBrandController::class, 'storeBrandCategory']);
+Route::get('promo-banners',                        [APIPromoBannerController::class, 'index']);
 
 // Products — IMPORTANT: specific routes BEFORE wildcard {id} route
 Route::get('/products/lightning-deals',            [APIProductController::class, 'lightningDeals']);

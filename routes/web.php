@@ -15,11 +15,13 @@ use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\PromoBannerController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StockLocationController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+
 
 // Public Routes
 Route::get('/', function () {
@@ -82,6 +84,11 @@ Route::middleware(['auth'])->group(function () {
         // Brand Management
         Route::resource('brands', BrandController::class)->except(['show']);
         Route::get('brands/{brand}/edit', [BrandController::class, 'edit'])->name('brands.edit');
+
+        Route::resource('promo-banners', PromoBannerController::class)->except(['create', 'edit', 'show']);
+
+        // Drag-and-drop reorder endpoint
+        Route::post('promo-banners/reorder', [PromoBannerController::class, 'reorder'])->name('promo-banners.reorder');
 
         // Category Management
         Route::resource('categories', CategoryController::class)->except(['show']);
