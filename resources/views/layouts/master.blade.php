@@ -55,7 +55,9 @@
         @include('layouts.pages-assets.css.users-list-css')
     @endif
 
-    @if (Route::is('web.pro-banners.*'))
+
+     {{-- ✅ ADD THIS LINE FOR PROMO BANNERS --}}
+    @if (Route::is('web.promo-banners.*'))
         @include('layouts.pages-assets.css.users-list-css')
     @endif
 
@@ -1448,8 +1450,9 @@
             @include('layouts.pages-assets.js.banner-list-js')
       @endif
 
-      @if (Route::is('web.pro-banners.*'))
-            @include('layouts.pages-assets.js.banner-list-js')
+       {{-- ✅ ADD THIS LINE FOR PROMO BANNERS --}}
+      @if (Route::is('web.promo-banners.*'))
+            @include('layouts.pages-assets.js.promobanner-list-js')
       @endif
 
       @if (Route::is('web.products.*'))
