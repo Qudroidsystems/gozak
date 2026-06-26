@@ -18,48 +18,44 @@ class APIPromoBannerController extends Controller
             $screen = $request->input('screen', 'all');
             $limit = $request->input('limit', 10);
 
+            Log::info('📢 [APIPromoBannerController] Fetching banners', [
+                'screen' => $screen,
+                'limit' => $limit,
+                'user_id' => auth()->id(),
+            ]);
+
             $banners = PromoBanner::live()
                 ->forScreen($screen)
                 ->ordered()
                 ->limit($limit)
-                ->get()
-                ->map(fn ($b) => $this->format($b));
+                ->get();
+
+            Log::info('📢 [APIPromoBannerController] Found ' . $banners->count() . ' banners');
+
+            $formattedBanners = $banners->map(fn ($b) => $this->format($b));
+
+            Log::info('📢 [APIPromoBannerController] Formatted banners', [
+                'banners' => $formattedBanners->toArray()
+            ]);
 
             return response()->json([
                 'success' => true,
-                'data' => $banners,
+                'data' => $formattedBanners,
                 'meta' => [
-                    'count' => $banners->count(),
+                    'count' => $formattedBanners->count(),
                     'screen' => $screen,
                 ]
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to fetch promo banners: ' . $e->getMessage());
+            Log::error('❌ [APIPromoBannerController] Failed to fetch promo banners: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch promo banners',
                 'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
-    }
-
-    /**
-     * Mark banners as shown for analytics.
-     */
-    public function markShown(Request $request)
-    {
-        $request->validate([
-            'banner_ids' => 'required|array',
-            'banner_ids.*' => 'exists:promo_banners,id',
-        ]);
-
-        // Client-side tracking with SharedPreferences
-        // This endpoint is for analytics tracking
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Banners marked as shown'
-        ]);
     }
 
     /**

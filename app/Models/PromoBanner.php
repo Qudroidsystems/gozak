@@ -5,7 +5,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class PromoBanner extends Model
 {
@@ -43,83 +43,18 @@ class PromoBanner extends Model
         if (!$this->image_url) {
             return null;
         }
-        return asset('storage/' . $this->image_url);
-    }
-
-    public function getIsActiveNowAttribute(): bool
-    {
-        $now = now();
-
-        if (!$this->active) {
-            return false;
-        }
-
-        if ($this->starts_at && $this->starts_at > $now) {
-            return false;
-        }
-
-        if ($this->ends_at && $this->ends_at < $now) {
-            return false;
-        }
-
-        return true;
-    }
-
-    public function getStatusAttribute(): string
-    {
-        if (!$this->active) {
-            return 'inactive';
-        }
-
-        $now = now();
-
-        if ($this->starts_at && $this->starts_at > $now) {
-            return 'scheduled';
-        }
-
-        if ($this->ends_at && $this->ends_at < $now) {
-            return 'expired';
-        }
-
-        return 'active';
-    }
-
-    public function getStatusBadgeClassAttribute(): string
-    {
-        return match($this->status) {
-            'active' => 'bg-success-subtle text-success',
-            'scheduled' => 'bg-warning-subtle text-warning',
-            'expired' => 'bg-danger-subtle text-danger',
-            default => 'bg-secondary-subtle text-secondary',
-        };
-    }
-
-    public function getStatusIconAttribute(): string
-    {
-        return match($this->status) {
-            'active' => 'bi-check-circle',
-            'scheduled' => 'bi-clock',
-            'expired' => 'bi-clock-history',
-            default => 'bi-slash-circle',
-        };
+        $url = asset('storage/' . $this->image_url);
+        Log::debug('📢 [PromoBanner] full_image_url: ' . $url);
+        return $url;
     }
 
     // ── Scopes ───────────────────────────────────────────────────────────────
 
-    /**
-     * Scope a query to only include active banners.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('active', true);
-    }
-
-    /**
-     * Scope a query to only include live banners (active and in schedule).
-     */
     public function scopeLive($query)
     {
         $now = now();
+
+        Log::debug('📢 [PromoBanner] Scope live called', ['now' => $now]);
 
         return $query->where('active', true)
             ->where(function ($q) use ($now) {
@@ -130,20 +65,16 @@ class PromoBanner extends Model
             });
     }
 
-    /**
-     * Scope a query to filter by target screen.
-     */
     public function scopeForScreen($query, string $screen)
     {
+        Log::debug('📢 [PromoBanner] Scope forScreen called', ['screen' => $screen]);
+
         return $query->where(function ($q) use ($screen) {
             $q->where('target_screen', $screen)
               ->orWhere('target_screen', 'all');
         });
     }
 
-    /**
-     * Scope a query to order by sort_order.
-     */
     public function scopeOrdered($query)
     {
         return $query->orderBy('sort_order')->orderBy('created_at', 'desc');
