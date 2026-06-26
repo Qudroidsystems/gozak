@@ -44,6 +44,8 @@ Route::get('/brands/category/{categoryId}',        [APIBrandController::class, '
 Route::post('/brands',                             [APIBrandController::class, 'store']);
 Route::post('/brand-categories',                   [APIBrandController::class, 'storeBrandCategory']);
 Route::get('promo-banners',                        [APIPromoBannerController::class, 'index']);
+Route::get('promo-banners', [APIPromoBannerController::class, 'index']);
+Route::post('promo-banners/mark-shown', [APIPromoBannerController::class, 'markShown']);
 
 // Products — IMPORTANT: specific routes BEFORE wildcard {id} route
 Route::get('/products/lightning-deals',            [APIProductController::class, 'lightningDeals']);

@@ -89,6 +89,10 @@ Route::middleware(['auth'])->group(function () {
 
         // Drag-and-drop reorder endpoint
         Route::post('promo-banners/reorder', [PromoBannerController::class, 'reorder'])->name('promo-banners.reorder');
+        // web.php
+        Route::post('web/promo-banners/bulk', [PromoBannerController::class, 'bulkAction'])->name('web.promo-banners.bulk');
+        // web.php
+        Route::patch('web/promo-banners/{id}/toggle-status', [PromoBannerController::class, 'toggleStatus'])->name('web.promo-banners.toggle-status');
 
         // Category Management
         Route::resource('categories', CategoryController::class)->except(['show']);

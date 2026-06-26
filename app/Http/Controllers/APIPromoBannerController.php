@@ -7,43 +7,10 @@ use App\Models\PromoBanner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
-/**
- * @group Promo Banners
- * Login-time promotional overlay banners for the mobile app.
- */
 class APIPromoBannerController extends Controller
 {
     /**
-     * Get live promo banners
-     *
-     * Returns all active, in-schedule promo banners for a given screen.
-     * Called once right after login. Flutter caches the "shown today" flag locally.
-     *
-     * @queryParam screen string Target screen filter. Default: all.
-     *   Example: home
-     *
-     * @response 200 {
-     *   "success": true,
-     *   "data": [
-     *     {
-     *       "id": 1,
-     *       "badge_text": "⚡ TODAY ONLY",
-     *       "title": "Flash Sale — Up to 70% Off",
-     *       "subtitle": "Grab the best deals before they're gone.",
-     *       "cta_text": "Shop Now",
-     *       "cta_route": "all_products",
-     *       "image_url": "https://example.com/storage/promo_banners/flash.png",
-     *       "lottie_asset": null,
-     *       "gradient_start": "#FF4E50",
-     *       "gradient_end": "#F9A720",
-     *       "accent_color": "#FFD700",
-     *       "target_screen": "home",
-     *       "show_once_daily": true,
-     *       "starts_at": null,
-     *       "ends_at": "2024-12-01T23:59:59.000000Z"
-     *     }
-     *   ]
-     * }
+     * Get live promo banners for the mobile app.
      */
     public function index(Request $request)
     {
@@ -53,8 +20,7 @@ class APIPromoBannerController extends Controller
 
             $banners = PromoBanner::live()
                 ->forScreen($screen)
-                ->orderBy('sort_order')
-                ->orderBy('created_at', 'desc')
+                ->ordered()
                 ->limit($limit)
                 ->get()
                 ->map(fn ($b) => $this->format($b));
@@ -78,10 +44,7 @@ class APIPromoBannerController extends Controller
     }
 
     /**
-     * Mark a banner as shown for the user today
-     *
-     * This helps track which banners have been shown to prevent
-     * showing the same ones repeatedly.
+     * Mark banners as shown for analytics.
      */
     public function markShown(Request $request)
     {
@@ -90,13 +53,18 @@ class APIPromoBannerController extends Controller
             'banner_ids.*' => 'exists:promo_banners,id',
         ]);
 
-        // The actual tracking happens on the client side with SharedPreferences
-        // This endpoint can be used for analytics tracking
-        return response()->json(['success' => true, 'message' => 'Banners marked as shown']);
+        // Client-side tracking with SharedPreferences
+        // This endpoint is for analytics tracking
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Banners marked as shown'
+        ]);
     }
 
-    // ── Private ───────────────────────────────────────────────────────────────
-
+    /**
+     * Format banner for API response.
+     */
     private function format(PromoBanner $b): array
     {
         return [
