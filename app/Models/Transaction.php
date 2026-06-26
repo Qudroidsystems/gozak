@@ -10,11 +10,8 @@ class Transaction extends Model
     use HasFactory;
 
     protected $fillable = [
-         // ─── Fix: same cast so verifyPayment ownership check works ───────────
-        'user_id'      => 'integer',
-
+        'user_id',
         'order_id',
-   
         'reference',
         'amount',
         'status',
@@ -24,6 +21,7 @@ class Transaction extends Model
     ];
 
     protected $casts = [
+        'user_id' => 'integer',
         'payment_data' => 'array',
         'paid_at' => 'datetime',
         'amount' => 'decimal:2',

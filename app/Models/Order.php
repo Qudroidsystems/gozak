@@ -13,16 +13,9 @@ class Order extends Model
 {
     use HasFactory;
 
-     
-
-
     protected $fillable = [
-          // ─── Fix: cast user_id to integer so strict === comparison works ───
-        // Without this, user_id comes back as a string from the DB, and
-        // auth()->id() (integer) !== "12" (string) even when they are the same.
-        'user_id'                          => 'integer',
         'id',
-
+        'user_id',
         'status',
         'total_amount',
         'shipping_cost',
@@ -40,6 +33,7 @@ class Order extends Model
     ];
 
     protected $casts = [
+        'user_id' => 'integer',
         'total_amount' => 'decimal:2',
         'shipping_cost' => 'decimal:2',
         'tax_cost' => 'decimal:2',
@@ -190,30 +184,27 @@ class Order extends Model
         return $this->total_amount - $this->totalRefunded();
     }
 
-    // In your Order model class
-/**
- * Get barcode data as array
- */
-public function getBarcodeDataAttribute($value)
-{
-    if (is_string($value)) {
-        return json_decode($value, true) ?? [];
+    /**
+     * Get barcode data as array
+     */
+    public function getBarcodeDataAttribute($value)
+    {
+        if (is_string($value)) {
+            return json_decode($value, true) ?? [];
+        }
+
+        return $value ?? [];
     }
 
-    return $value ?? [];
-}
-
-/**
- * Set barcode data
- */
-public function setBarcodeDataAttribute($value)
-{
-    if (is_array($value)) {
-        $this->attributes['barcode_data'] = json_encode($value);
-    } else {
-        $this->attributes['barcode_data'] = $value;
+    /**
+     * Set barcode data
+     */
+    public function setBarcodeDataAttribute($value)
+    {
+        if (is_array($value)) {
+            $this->attributes['barcode_data'] = json_encode($value);
+        } else {
+            $this->attributes['barcode_data'] = $value;
+        }
     }
-}
-
-
 }
