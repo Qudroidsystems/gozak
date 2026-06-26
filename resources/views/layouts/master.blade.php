@@ -225,6 +225,23 @@
                             </li>
                         @endcan
 
+
+                         @can('View promo-banners')
+                            <li class="nav-item">
+                                <a class="nav-link menu-link collapsed" href="#sidebarbanner" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarbanner">
+                                    <i class="ph-user-circle"></i> <span data-key="t-authentication">Promo Banners Managements</span>
+                                </a>
+                                <div class="collapse menu-dropdown" id="sidebarbanner">
+                                    <ul class="nav nav-sm flex-column">
+                                        <li class="nav-item">
+                                            <a href="{{ route('web.promo-banners.index') }}" class="nav-link" role="button" data-key="t-signin"> Pro Banners </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </li>
+                        @endcan
+
+
                         @can('View category')
                             <li class="nav-item">
                                 <a class="nav-link menu-link collapsed" href="#sidebarcategories" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebarcategories">

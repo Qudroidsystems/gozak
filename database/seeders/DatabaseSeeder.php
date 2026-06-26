@@ -47,6 +47,7 @@ class DatabaseSeeder extends Seeder
             AddressPermissionTableSeeder::class,
             OrderPermissionTableSeeder::class,
             UnitsTableSeeder::class,
+            PromoBannerPermissionTableSeeder::class,
         ]);
 
         // Disable foreign key checks to avoid constraint issues during seeding
