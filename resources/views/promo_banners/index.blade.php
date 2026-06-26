@@ -3,7 +3,6 @@
 
 @section('title', 'Promo Banners')
 
-
 <style>
     .gradient-preview {
         width: 100%;
@@ -24,15 +23,23 @@
     }
     .sortable-row { cursor: grab; }
     .sortable-row:active { cursor: grabbing; opacity: .7; }
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .status-active { background: #d4edda; color: #155724; }
+    .status-inactive { background: #f8d7da; color: #721c24; }
+    .status-scheduled { background: #cce5ff; color: #004085; }
+    .status-expired { background: #e2e3e5; color: #383d41; }
 </style>
-
 
 @section('content')
 <div class="main-content">
     <div class="page-content">
         <div class="container-fluid">
 
-            {{-- Page title --}}
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -45,7 +52,6 @@
                 </div>
             </div>
 
-            {{-- Table card --}}
             <div class="row">
                 <div class="col-lg-12">
                     <div class="card">
@@ -53,7 +59,7 @@
                             <h5 class="card-title mb-0 flex-grow-1">All Promo Banners</h5>
                             <div class="flex-shrink-0 d-flex gap-2">
                                 <button class="btn btn-danger d-none" id="remove-actions" onclick="deleteMultiple()">
-                                    Delete Selected
+                                    <i class="ri-delete-bin-line me-1"></i> Delete Selected
                                 </button>
                                 @can('Create promo_banner')
                                     <button type="button" class="btn btn-primary add-btn">
@@ -117,8 +123,22 @@
                                                 @endif
                                             </td>
                                             <td>
-                                                <span class="badge {{ $banner->active ? 'bg-success' : 'bg-secondary' }}">
-                                                    {{ $banner->active ? 'Active' : 'Inactive' }}
+                                                @php
+                                                    $statusClass = 'status-active';
+                                                    $statusText = 'Active';
+                                                    if (!$banner->active) {
+                                                        $statusClass = 'status-inactive';
+                                                        $statusText = 'Inactive';
+                                                    } elseif ($banner->starts_at && $banner->starts_at > now()) {
+                                                        $statusClass = 'status-scheduled';
+                                                        $statusText = 'Scheduled';
+                                                    } elseif ($banner->ends_at && $banner->ends_at < now()) {
+                                                        $statusClass = 'status-expired';
+                                                        $statusText = 'Expired';
+                                                    }
+                                                @endphp
+                                                <span class="status-badge {{ $statusClass }}">
+                                                    {{ $statusText }}
                                                 </span>
                                             </td>
                                             <td>
@@ -138,7 +158,8 @@
                                                             data-active="{{ $banner->active ? '1' : '0' }}"
                                                             data-starts="{{ $banner->starts_at?->format('Y-m-d\TH:i') }}"
                                                             data-ends="{{ $banner->ends_at?->format('Y-m-d\TH:i') }}"
-                                                            data-image="{{ $banner->full_image_url }}">
+                                                            data-image="{{ $banner->full_image_url }}"
+                                                            data-show-once="{{ $banner->show_once_daily ? '1' : '0' }}">
                                                             <i class="ph-pencil"></i>
                                                         </button>
                                                     @endcan
@@ -160,7 +181,6 @@
                                 </table>
                             </div>
 
-                            {{-- Pagination --}}
                             <div class="d-flex justify-content-end mt-4">
                                 <div class="pagination-wrap hstack gap-2">
                                     <a class="page-item pagination-prev {{ $banners->onFirstPage() ? 'disabled' : '' }}"
@@ -177,11 +197,11 @@
                 </div>
             </div>
 
-        </div><!-- end container -->
-    </div><!-- end page-content -->
-</div><!-- end main-content -->
+        </div>
+    </div>
+</div>
 
-{{-- ─── Add / Edit Modal ─────────────────────────────────────────────────── --}}
+{{-- Modal --}}
 <div class="modal fade" id="showModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-xl">
         <div class="modal-content">
@@ -196,8 +216,7 @@
 
                 <div class="modal-body">
                     <div class="row g-4">
-
-                        {{-- ── Left column: content ── --}}
+                        {{-- Left column: content --}}
                         <div class="col-lg-7">
                             <div class="row g-3">
                                 <div class="col-12">
@@ -226,7 +245,7 @@
                                     <label class="form-label">CTA Route <small class="text-muted">(optional)</small></label>
                                     <input type="text" class="form-control" name="cta_route" id="f_cta_route"
                                            placeholder="all_products">
-                                    <small class="text-muted">Named Flutter route/deep-link the button opens</small>
+                                    <small class="text-muted">Named Flutter route the button opens</small>
                                 </div>
                                 <div class="col-12">
                                     <label class="form-label">Banner Image <small class="text-muted">(optional)</small></label>
@@ -237,13 +256,18 @@
                                         <img id="img_preview" class="rounded shadow" style="max-width:100%;max-height:160px;display:none;" alt="Preview">
                                     </div>
                                 </div>
+                                <div class="col-12">
+                                    <label class="form-label">Lottie Animation Asset <small class="text-muted">(optional)</small></label>
+                                    <input type="text" class="form-control" name="lottie_asset" id="f_lottie"
+                                           placeholder="assets/animations/sale.json">
+                                    <small class="text-muted">Path to Lottie animation in Flutter assets</small>
+                                </div>
                             </div>
                         </div>
 
-                        {{-- ── Right column: visual & scheduling ── --}}
+                        {{-- Right column: visual & scheduling --}}
                         <div class="col-lg-5">
                             <div class="row g-3">
-
                                 {{-- Live card preview --}}
                                 <div class="col-12">
                                     <label class="form-label">Live Preview</label>
@@ -314,19 +338,23 @@
                                     <input type="number" class="form-control" name="sort_order" id="f_sort" value="0" min="0">
                                 </div>
 
-                                {{-- Active toggle --}}
-                                <div class="col-sm-6 d-flex align-items-end pb-1">
+                                {{-- Options --}}
+                                <div class="col-sm-6 d-flex flex-column justify-content-end pb-1">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" name="active"
                                                value="1" id="f_active" checked>
                                         <label class="form-check-label" for="f_active">Active</label>
                                     </div>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input" type="checkbox" name="show_once_daily"
+                                               value="1" id="f_show_once" checked>
+                                        <label class="form-check-label" for="f_show_once">Show once daily</label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-
-                    </div><!-- end row -->
-                </div><!-- end modal-body -->
+                    </div>
+                </div>
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -340,21 +368,17 @@
     </div>
 </div>
 
-
-
-
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-{{-- SortableJS for drag-and-drop reorder --}}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
 
-    const modal     = new bootstrap.Modal('#showModal');
-    const form      = document.getElementById('bannerForm');
-    const spinner   = document.getElementById('submitSpinner');
+    const modal = new bootstrap.Modal('#showModal');
+    const form = document.getElementById('bannerForm');
+    const spinner = document.getElementById('submitSpinner');
 
     // ── Checkbox select-all ──────────────────────────────────────────────────
     document.getElementById('checkAll')?.addEventListener('change', function () {
@@ -381,10 +405,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const ge = document.getElementById('f_grad_end').value;
         document.getElementById('card_preview').style.background =
             `linear-gradient(135deg, ${gs}, ${ge})`;
-        document.getElementById('prev_badge').textContent    = document.getElementById('f_badge').value    || '⚡ BADGE';
-        document.getElementById('prev_title').textContent    = document.getElementById('f_title').value    || 'Banner Title';
+        document.getElementById('prev_badge').textContent = document.getElementById('f_badge').value || '⚡ BADGE';
+        document.getElementById('prev_title').textContent = document.getElementById('f_title').value || 'Banner Title';
         document.getElementById('prev_subtitle').textContent = document.getElementById('f_subtitle').value || 'Subtitle';
-        document.getElementById('prev_cta').textContent      = document.getElementById('f_cta_text').value || 'CTA';
+        document.getElementById('prev_cta').textContent = document.getElementById('f_cta_text').value || 'CTA';
     }
     ['f_badge','f_title','f_subtitle','f_cta_text','f_grad_start','f_grad_end'].forEach(id => {
         document.getElementById(id)?.addEventListener('input', updatePreview);
@@ -395,7 +419,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const file = e.target.files[0];
         const prev = document.getElementById('img_preview');
         if (file) { prev.src = URL.createObjectURL(file); prev.style.display = 'block'; }
-        else       { prev.style.display = 'none'; }
+        else { prev.style.display = 'none'; }
     });
 
     // ── Add button ───────────────────────────────────────────────────────────
@@ -403,14 +427,12 @@ document.addEventListener('DOMContentLoaded', function () {
         form.reset();
         document.getElementById('banner_id').value = '';
         document.getElementById('modalTitle').textContent = 'Add Promo Banner';
-        document.getElementById('submitBtn').querySelector('span + *') // text node trick
-        document.getElementById('submitBtn').lastChild.textContent = ' Save Banner';
         document.getElementById('img_preview').style.display = 'none';
-        // Reset color defaults
         document.getElementById('f_grad_start').value = '#FF4E50';
-        document.getElementById('f_grad_end').value   = '#F9A720';
-        document.getElementById('f_accent').value     = '#FFD700';
-        document.getElementById('f_active').checked   = true;
+        document.getElementById('f_grad_end').value = '#F9A720';
+        document.getElementById('f_accent').value = '#FFD700';
+        document.getElementById('f_active').checked = true;
+        document.getElementById('f_show_once').checked = true;
         updatePreview();
         modal.show();
     });
@@ -419,23 +441,25 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.edit-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             const d = this.dataset;
-            document.getElementById('banner_id').value    = d.id;
-            document.getElementById('f_badge').value      = d.badge;
-            document.getElementById('f_title').value      = d.title;
-            document.getElementById('f_subtitle').value   = d.subtitle;
-            document.getElementById('f_cta_text').value   = d.ctaText;
-            document.getElementById('f_cta_route').value  = d.ctaRoute || '';
+            document.getElementById('banner_id').value = d.id;
+            document.getElementById('f_badge').value = d.badge;
+            document.getElementById('f_title').value = d.title;
+            document.getElementById('f_subtitle').value = d.subtitle;
+            document.getElementById('f_cta_text').value = d.ctaText;
+            document.getElementById('f_cta_route').value = d.ctaRoute || '';
             document.getElementById('f_grad_start').value = d.gradientStart;
-            document.getElementById('f_grad_end').value   = d.gradientEnd;
-            document.getElementById('f_accent').value     = d.accent;
-            document.getElementById('f_screen').value     = d.screen;
-            document.getElementById('f_active').checked   = d.active === '1';
-            document.getElementById('f_starts').value     = d.starts || '';
-            document.getElementById('f_ends').value       = d.ends   || '';
+            document.getElementById('f_grad_end').value = d.gradientEnd;
+            document.getElementById('f_accent').value = d.accent;
+            document.getElementById('f_screen').value = d.screen;
+            document.getElementById('f_active').checked = d.active === '1';
+            document.getElementById('f_show_once').checked = d.showOnce === '1';
+            document.getElementById('f_starts').value = d.starts || '';
+            document.getElementById('f_ends').value = d.ends || '';
+            document.getElementById('f_lottie').value = d.lottie || '';
 
             const prev = document.getElementById('img_preview');
             if (d.image) { prev.src = d.image; prev.style.display = 'block'; }
-            else          { prev.style.display = 'none'; }
+            else { prev.style.display = 'none'; }
 
             document.getElementById('modalTitle').textContent = 'Edit Promo Banner';
             updatePreview();
@@ -448,13 +472,14 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         spinner.classList.remove('d-none');
 
-        const id   = document.getElementById('banner_id').value;
-        const url  = id ? `/promo-banners/${id}` : '/promo-banners';
+        const id = document.getElementById('banner_id').value;
+        const url = id ? `/promo-banners/${id}` : '/promo-banners';
         const data = new FormData(form);
         if (id) data.append('_method', 'PUT');
-        // Checkbox sends nothing when unchecked — force 0
         if (!document.getElementById('f_active').checked) data.set('active', '0');
         else data.set('active', '1');
+        if (!document.getElementById('f_show_once').checked) data.set('show_once_daily', '0');
+        else data.set('show_once_daily', '1');
 
         try {
             await axios.post(url, data);
@@ -518,9 +543,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Initial preview render
     updatePreview();
 });
 </script>
-
 @endsection

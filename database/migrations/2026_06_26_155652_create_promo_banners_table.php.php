@@ -1,4 +1,5 @@
 <?php
+// database/migrations/2024_01_01_000000_create_promo_banners_table.php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -6,36 +7,47 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up(): void
+    public function up()
     {
         Schema::create('promo_banners', function (Blueprint $table) {
             $table->id();
 
-            // Content
-            $table->string('badge_text', 80);                        // e.g. "⚡ TODAY ONLY"
+            // Content fields
+            $table->string('badge_text', 80)->default('⚡ SPECIAL');
             $table->string('title', 120);
             $table->string('subtitle', 300);
-            $table->string('cta_text', 60)->default('Shop Now');
-            $table->string('cta_route')->nullable();                 // named Flutter route or deep-link
+            $table->string('cta_text', 60);
+            $table->string('cta_route', 120)->nullable();
 
-            // Visuals
-            $table->string('image_url')->nullable();                 // stored path
-            $table->string('gradient_start', 9)->default('#FF4E50'); // hex
-            $table->string('gradient_end', 9)->default('#F9A720');   // hex
-            $table->string('accent_color', 9)->default('#FFD700');   // hex
+            // Visual
+            $table->string('image_url')->nullable();
+            $table->string('lottie_asset')->nullable(); // optional animation
+            $table->string('gradient_start', 7)->default('#FF4E50');
+            $table->string('gradient_end', 7)->default('#F9A720');
+            $table->string('accent_color', 7)->default('#FFD700');
 
-            // Scheduling & targeting
-            $table->string('target_screen')->default('all');         // home | category | offers | all
+            // Targeting
+            $table->enum('target_screen', ['home', 'category', 'product', 'offers', 'all'])->default('all');
+
+            // Scheduling
             $table->boolean('active')->default(true);
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('ends_at')->nullable();
-            $table->unsignedSmallInteger('sort_order')->default(0);  // display order
+            $table->integer('sort_order')->default(0);
+
+            // For showing once per day
+            $table->boolean('show_once_daily')->default(true);
 
             $table->timestamps();
+
+            // Indexes for performance
+            $table->index(['active', 'starts_at', 'ends_at']);
+            $table->index('target_screen');
+            $table->index('sort_order');
         });
     }
 
-    public function down(): void
+    public function down()
     {
         Schema::dropIfExists('promo_banners');
     }

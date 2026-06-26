@@ -1,9 +1,11 @@
 <?php
+// app/Models/PromoBanner.php
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use Carbon\Carbon;
 
 class PromoBanner extends Model
 {
@@ -14,6 +16,7 @@ class PromoBanner extends Model
         'cta_text',
         'cta_route',
         'image_url',
+        'lottie_asset',
         'gradient_start',
         'gradient_end',
         'accent_color',
@@ -22,13 +25,15 @@ class PromoBanner extends Model
         'starts_at',
         'ends_at',
         'sort_order',
+        'show_once_daily',
     ];
 
     protected $casts = [
-        'active'     => 'boolean',
-        'starts_at'  => 'datetime',
-        'ends_at'    => 'datetime',
+        'active' => 'boolean',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
         'sort_order' => 'integer',
+        'show_once_daily' => 'boolean',
     ];
 
     // ── Scopes ───────────────────────────────────────────────────────────────
@@ -62,6 +67,17 @@ class PromoBanner extends Model
     public function getFullImageUrlAttribute(): ?string
     {
         if (!$this->image_url) return null;
-        return url(Storage::url($this->image_url));
+        return asset('storage/' . $this->image_url);
+    }
+
+    public function getIsActiveNowAttribute(): bool
+    {
+        $now = now();
+
+        if (!$this->active) return false;
+        if ($this->starts_at && $this->starts_at > $now) return false;
+        if ($this->ends_at && $this->ends_at < $now) return false;
+
+        return true;
     }
 }
