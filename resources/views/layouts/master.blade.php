@@ -55,7 +55,7 @@
         @include('layouts.pages-assets.css.users-list-css')
     @endif
 
-     @if (Route::is('web.pro_banners.*'))
+     @if (Route::is('web.pro-banners.*'))
         @include('layouts.pages-assets.css.users-list-css')
     @endif
 
@@ -1448,7 +1448,7 @@
             @include('layouts.pages-assets.js.banner-list-js')
       @endif
 
-       @if (Route::is('web.pro_banners.*'))
+       @if (Route::is('web.pro-banners.*'))
             @include('layouts.pages-assets.js.banner-list-js')
       @endif
 
@@ -1458,7 +1458,7 @@
 
       @if (Route::is('lightning-deals.*'))
         @include('layouts.pages-assets.js.lightning-list-js')
-    @endif
+      @endif
 
       @if (Route::is('web.reviews.*'))
             @include('layouts.pages-assets.js.review-list-js')
