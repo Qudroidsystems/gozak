@@ -55,7 +55,7 @@
         @include('layouts.pages-assets.css.users-list-css')
     @endif
 
-     @if (Route::is('web.pro_banner.*'))
+     @if (Route::is('web.pro_banners.*'))
         @include('layouts.pages-assets.css.users-list-css')
     @endif
 
@@ -1448,7 +1448,7 @@
             @include('layouts.pages-assets.js.banner-list-js')
       @endif
 
-       @if (Route::is('web.pro_banner.*'))
+       @if (Route::is('web.pro_banners.*'))
             @include('layouts.pages-assets.js.banner-list-js')
       @endif
 
