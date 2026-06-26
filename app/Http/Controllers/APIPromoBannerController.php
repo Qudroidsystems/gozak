@@ -59,6 +59,64 @@ class APIPromoBannerController extends Controller
     }
 
     /**
+     * Mark banners as shown for analytics tracking.
+     * This is called by the mobile app to track which banners were shown to users.
+     */
+
+    /**
+ * Mark banners as shown for analytics tracking.
+ */
+public function markShown(Request $request)
+{
+    try {
+        Log::info('📢 [APIPromoBannerController] markShown called', [
+            'user_id' => auth()->id(),
+            'request_data' => $request->all()
+        ]);
+
+        $request->validate([
+            'banner_ids' => 'required|array',
+            'banner_ids.*' => 'exists:promo_banners,id',
+        ]);
+
+        $bannerIds = $request->input('banner_ids', []);
+        $userId = auth()->id();
+        $screen = $request->input('screen', 'home');
+
+        foreach ($bannerIds as $bannerId) {
+            \App\Models\PromoBannerImpression::create([
+                'banner_id' => $bannerId,
+                'user_id' => $userId,
+                'shown_at' => now(),
+                'screen' => $screen,
+            ]);
+        }
+
+        Log::info('📢 [APIPromoBannerController] Banners marked as shown', [
+            'user_id' => $userId,
+            'banner_ids' => $bannerIds,
+            'count' => count($bannerIds)
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Banners marked as shown successfully',
+            'data' => [
+                'banner_ids' => $bannerIds,
+                'user_id' => $userId,
+                'count' => count($bannerIds),
+            ]
+        ]);
+    } catch (\Exception $e) {
+        Log::error('❌ [APIPromoBannerController] Failed to mark banners as shown: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to mark banners as shown: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+    /**
      * Format banner for API response.
      */
     private function format(PromoBanner $b): array
