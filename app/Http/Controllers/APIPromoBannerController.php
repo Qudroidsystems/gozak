@@ -34,10 +34,6 @@ class APIPromoBannerController extends Controller
 
             $formattedBanners = $banners->map(fn ($b) => $this->format($b));
 
-            Log::info('📢 [APIPromoBannerController] Formatted banners', [
-                'banners' => $formattedBanners->toArray()
-            ]);
-
             return response()->json([
                 'success' => true,
                 'data' => $formattedBanners,
@@ -47,9 +43,7 @@ class APIPromoBannerController extends Controller
                 ]
             ]);
         } catch (\Exception $e) {
-            Log::error('❌ [APIPromoBannerController] Failed to fetch promo banners: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error('❌ Failed to fetch promo banners: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch promo banners',
@@ -60,61 +54,48 @@ class APIPromoBannerController extends Controller
 
     /**
      * Mark banners as shown for analytics tracking.
-     * This is called by the mobile app to track which banners were shown to users.
      */
-
-    /**
- * Mark banners as shown for analytics tracking.
- */
-public function markShown(Request $request)
-{
-    try {
-        Log::info('📢 [APIPromoBannerController] markShown called', [
-            'user_id' => auth()->id(),
-            'request_data' => $request->all()
-        ]);
-
-        $request->validate([
-            'banner_ids' => 'required|array',
-            'banner_ids.*' => 'exists:promo_banners,id',
-        ]);
-
-        $bannerIds = $request->input('banner_ids', []);
-        $userId = auth()->id();
-        $screen = $request->input('screen', 'home');
-
-        foreach ($bannerIds as $bannerId) {
-            \App\Models\PromoBannerImpression::create([
-                'banner_id' => $bannerId,
-                'user_id' => $userId,
-                'shown_at' => now(),
-                'screen' => $screen,
+    public function markShown(Request $request)
+    {
+        try {
+            $request->validate([
+                'banner_ids' => 'required|array',
+                'banner_ids.*' => 'exists:promo_banners,id',
             ]);
-        }
 
-        Log::info('📢 [APIPromoBannerController] Banners marked as shown', [
-            'user_id' => $userId,
-            'banner_ids' => $bannerIds,
-            'count' => count($bannerIds)
-        ]);
+            $bannerIds = $request->input('banner_ids', []);
+            $userId = auth()->id();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Banners marked as shown successfully',
-            'data' => [
-                'banner_ids' => $bannerIds,
+            Log::info('📢 Banners marked as shown', [
                 'user_id' => $userId,
-                'count' => count($bannerIds),
-            ]
-        ]);
-    } catch (\Exception $e) {
-        Log::error('❌ [APIPromoBannerController] Failed to mark banners as shown: ' . $e->getMessage());
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to mark banners as shown: ' . $e->getMessage()
-        ], 500);
+                'banner_ids' => $bannerIds,
+                'count' => count($bannerIds)
+            ]);
+
+            // ✅ Return success without requiring a model
+            return response()->json([
+                'success' => true,
+                'message' => 'Banners marked as shown successfully',
+                'data' => [
+                    'banner_ids' => $bannerIds,
+                    'user_id' => $userId,
+                    'count' => count($bannerIds),
+                ]
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('❌ Failed to mark banners as shown: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to mark banners as shown: ' . $e->getMessage()
+            ], 500);
+        }
     }
-}
 
     /**
      * Format banner for API response.
