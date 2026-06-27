@@ -25,10 +25,6 @@ class APIProductController extends Controller
 {
     /**
      * Calculate real-time stock from inventory movements
-     *
-     * @param int $productId
-     * @param int|null $variationId
-     * @return int
      */
     private function calculateProductStock($productId, $variationId = null)
     {
@@ -49,12 +45,6 @@ class APIProductController extends Controller
         return max(0, $totalStock);
     }
 
-    /**
-     * Get human-readable stock status
-     *
-     * @param int $stock
-     * @return string
-     */
     private function getStockStatus($stock)
     {
         if ($stock > 10) return 'in_stock';
@@ -62,12 +52,6 @@ class APIProductController extends Controller
         return 'out_of_stock';
     }
 
-    /**
-     * Format product attributes for frontend
-     *
-     * @param \Illuminate\Database\Eloquent\Collection $attributes
-     * @return array
-     */
     private function formatProductAttributes($attributes)
     {
         if (!$attributes || $attributes->isEmpty()) {
@@ -76,19 +60,13 @@ class APIProductController extends Controller
 
         return $attributes->map(function ($attr) {
             return [
-                'id' => $attr->id ?? null,
-                'name' => $attr->name ?? '',
+                'id'     => $attr->id ?? null,
+                'name'   => $attr->name ?? '',
                 'values' => $this->formatAttributeValues($attr->values),
             ];
         })->toArray();
     }
 
-    /**
-     * Format attribute values (JSON or comma-separated)
-     *
-     * @param mixed $values
-     * @return array
-     */
     private function formatAttributeValues($values)
     {
         if (is_string($values)) {
@@ -98,7 +76,7 @@ class APIProductController extends Controller
                     return $decoded;
                 }
             } catch (\Exception $e) {
-                // fallback to comma-separated
+                // fallback
             }
             return array_map('trim', explode(',', $values));
         }
@@ -108,12 +86,6 @@ class APIProductController extends Controller
         return [];
     }
 
-    /**
-     * Extract attributes from variations when no product_attributes exist
-     *
-     * @param \Illuminate\Database\Eloquent\Collection $variations
-     * @return array
-     */
     private function extractAttributesFromVariations($variations)
     {
         if (!$variations || $variations->isEmpty()) {
@@ -147,20 +119,13 @@ class APIProductController extends Controller
 
         return collect($attributes)->map(function ($values, $name) {
             return [
-                'id' => null,
-                'name' => $name,
+                'id'     => null,
+                'name'   => $name,
                 'values' => $values,
             ];
         })->values()->toArray();
     }
 
-    /**
-     * Format variations with real-time stock
-     *
-     * @param \Illuminate\Database\Eloquent\Collection $variations
-     * @param int $productId
-     * @return array
-     */
     private function formatProductVariations($variations, $productId)
     {
         if (!$variations || $variations->isEmpty()) {
@@ -168,7 +133,9 @@ class APIProductController extends Controller
         }
 
         return $variations->map(function ($var) use ($productId) {
-            $cleanImagePath = $var->image ? preg_replace('/^storage\//', '', $var->image) : null;
+            $cleanImagePath = $var->image
+                ? preg_replace('/^storage\//', '', $var->image)
+                : null;
 
             $realStock = $this->calculateProductStock($productId, $var->id);
 
@@ -179,28 +146,34 @@ class APIProductController extends Controller
             $salePrice = $var->sale_price > 0 ? (float) $var->sale_price : null;
 
             return [
-                'id' => (int) $var->id,
-                'sku' => $var->sku ?? '',
-                'barcode' => $var->barcode ?? '',
-                'price' => (float) $var->price,
-                'sale_price' => $salePrice,
-                'stock' => (int) $realStock,
+                'id'              => (int) $var->id,
+                'sku'             => $var->sku ?? '',
+                'barcode'         => $var->barcode ?? '',
+                'price'           => (float) $var->price,
+                'sale_price'      => $salePrice,
+                'stock'           => (int) $realStock,
                 'real_time_stock' => (int) $realStock,
-                'stock_status' => $this->getStockStatus($realStock),
-                'attributes' => $attributes,
-                'image' => $cleanImagePath ? url(Storage::url($cleanImagePath)) : null,
-                'is_in_stock' => $realStock > 0,
-                'is_on_sale' => $salePrice !== null && $salePrice < $var->price,
+                'stock_status'    => $this->getStockStatus($realStock),
+                'attributes'      => $attributes,
+                'image'           => $cleanImagePath
+                    ? url(Storage::url($cleanImagePath))
+                    : null,
+                'is_in_stock'     => $realStock > 0,
+                'is_on_sale'      => $salePrice !== null && $salePrice < $var->price,
                 'effective_price' => $salePrice ?? (float) $var->price,
             ];
         })->toArray();
     }
 
     /**
-     * Format complete product data with real-time calculations
+     * Format complete product data with real-time calculations.
      *
-     * @param Product $product
-     * @return array
+     * Expects the product to have been loaded with:
+     *   ->withAvg('reviews', 'rating')
+     *   ->withCount('reviews')
+     *
+     * so that $product->reviews_avg_rating and $product->reviews_count
+     * are available without extra queries per product.
      */
     private function formatProductData($product)
     {
@@ -226,10 +199,20 @@ class APIProductController extends Controller
         ] : null;
 
         $images = $product->images && $product->images->isNotEmpty()
-            ? $product->images->map(fn($img) => url(Storage::url(preg_replace('/^storage\//', '', $img->image_path))))->filter()->values()->toArray()
+            ? $product->images
+                ->map(fn($img) => url(Storage::url(preg_replace('/^storage\//', '', $img->image_path))))
+                ->filter()
+                ->values()
+                ->toArray()
             : [];
 
         $variations = $this->formatProductVariations($product->variations, $product->id);
+
+        // ── Rating aggregates ─────────────────────────────────────────────
+        // withAvg / withCount append virtual attributes to the model.
+        // We round avg to 1 decimal (e.g. 4.3) and cast count to int.
+        $avgRating   = round((float) ($product->reviews_avg_rating ?? 0), 1);
+        $reviewCount = (int) ($product->reviews_count ?? 0);
 
         return [
             'id'                  => (int) $product->id,
@@ -245,10 +228,17 @@ class APIProductController extends Controller
             'product_type'        => $product->product_type ?? '',
             'sold_quantity'       => (int) ($product->sold_quantity ?? 0),
             'is_featured'         => (bool) ($product->is_featured ?? false),
+            'is_new'              => (bool) ($product->is_new ?? false),
+            'is_trending'         => (bool) ($product->is_trending ?? false),
+            'is_top_rated'        => (bool) ($product->is_top_rated ?? false),
             'category_id'         => $product->category_id ? (int) $product->category_id : null,
             'brand_id'            => $product->brand_id ? (int) $product->brand_id : null,
             'real_time_stock'     => (int) $realStock,
             'stock_status'        => $this->getStockStatus($realStock),
+            // ── Rating ───────────────────────────────────────────────────
+            'average_rating'      => $avgRating,
+            'review_count'        => $reviewCount,
+            // ─────────────────────────────────────────────────────────────
             'brand'               => $brand,
             'category'            => $category,
             'images'              => $images,
@@ -257,155 +247,90 @@ class APIProductController extends Controller
         ];
     }
 
-    /**
-     * Get paginated or limited list of products
-     *
-     * @queryParam featured boolean Only featured products. Example: true
-     * @queryParam category_id integer Filter by category. Example: 7
-     * @queryParam brand_id integer Filter by brand. Example: 3
-     * @queryParam ids string Comma-separated IDs. Example: 1,5,12
-     * @queryParam search string Search in title/description
-     * @queryParam min_price number Minimum price
-     * @queryParam max_price number Maximum price
-     * @queryParam limit integer Number of items (overrides pagination). Max 100
-     * @queryParam per_page integer Items per page when paginating. Default 20
-     *
-     * @response 200 paginated or limited products with formatted data
-     * @response 500 fetch error
-     */
-     /**
-     * PRODUCTS INDEX
-     */
-    public function index(Request $request)
+    // ─────────────────────────────────────────────────────────────────────────
+    // SHARED QUERY BUILDER
+    // Centralises the with() + withAvg() + withCount() so every action
+    // (index, show, related) automatically includes rating data.
+    // ─────────────────────────────────────────────────────────────────────────
+    private function baseQuery()
     {
-        $query = Product::query()
+        return Product::query()
             ->with([
                 'category:id,name',
                 'brand:id,name,logo',
                 'attributes:id,product_id,name,values',
                 'variations:id,product_id,sku,barcode,price,sale_price,attributes,image',
                 'images:id,product_id,image_path',
-            ]);
+            ])
+            ->withAvg('reviews', 'rating')   // → reviews_avg_rating
+            ->withCount('reviews');           // → reviews_count
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // INDEX
+    // ─────────────────────────────────────────────────────────────────────────
+    public function index(Request $request)
+    {
+        $query = $this->baseQuery();
 
         // FEATURED
-        if (
-            $request->has('featured') &&
-            $request->featured === 'true'
-        ) {
+        if ($request->has('featured') && $request->featured === 'true') {
             $query->where('is_featured', true);
         }
 
         // CATEGORY
         if ($request->has('category_id')) {
-            $query->where(
-                'category_id',
-                $request->category_id
-            );
+            $query->where('category_id', $request->category_id);
         }
 
         // BRAND
         if ($request->has('brand_id')) {
-            $query->where(
-                'brand_id',
-                $request->brand_id
-            );
+            $query->where('brand_id', $request->brand_id);
         }
 
         // IDS
         if ($request->has('ids')) {
-
-            $ids = explode(',', $request->ids);
-
-            $query->whereIn('id', $ids);
+            $query->whereIn('id', explode(',', $request->ids));
         }
 
         // SEARCH
         if ($request->has('search')) {
-
             $search = $request->search;
-
             $query->where(function ($q) use ($search) {
-
                 $q->where('title', 'like', "%{$search}%")
-                    ->orWhere(
-                        'description',
-                        'like',
-                        "%{$search}%"
-                    );
+                  ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
-        // MIN PRICE
+        // PRICE RANGE
         if ($request->has('min_price')) {
-            $query->where(
-                'price',
-                '>=',
-                $request->min_price
-            );
+            $query->where('price', '>=', $request->min_price);
         }
-
-        // MAX PRICE
         if ($request->has('max_price')) {
-            $query->where(
-                'price',
-                '<=',
-                $request->max_price
-            );
+            $query->where('price', '<=', $request->max_price);
         }
 
-        // FILTER PRODUCTS
+        // FILTER FLAG
         if ($request->has('filter')) {
-
             switch ($request->filter) {
-
-                case 'new':
-                    $query->new();
-                    break;
-
-                case 'trending':
-                    $query->trending();
-                    break;
-
-                case 'top_rated':
-                    $query->topRated();
-                    break;
-
-                case 'on_sale':
-                    $query->onSale();
-                    break;
-
-                case 'all':
-                default:
-                    break;
+                case 'new':      $query->new();      break;
+                case 'trending': $query->trending(); break;
+                case 'top_rated':$query->topRated(); break;
+                case 'on_sale':  $query->onSale();   break;
+                default: break;
             }
         }
 
         try {
-
             // LIMITED RESPONSE
-            if (
-                $request->has('limit') &&
-                $request->limit != -1
-            ) {
-
-                $limit = min(
-                    max((int) $request->limit, 1),
-                    100
-                );
-
-                $products = $query
-                    ->latest()
-                    ->take($limit)
-                    ->get();
-
-                $formatted = $products
-                    ->map(fn($p) => $this->formatProductData($p))
-                    ->values();
+            if ($request->has('limit') && $request->limit != -1) {
+                $limit    = min(max((int) $request->limit, 1), 100);
+                $products = $query->latest()->take($limit)->get();
+                $formatted = $products->map(fn($p) => $this->formatProductData($p))->values();
 
                 return response()->json([
-                    'success' => true,
-                    'data'    => $formatted,
-
+                    'success'    => true,
+                    'data'       => $formatted,
                     'pagination' => [
                         'current_page' => 1,
                         'last_page'    => 1,
@@ -414,24 +339,16 @@ class APIProductController extends Controller
                 ]);
             }
 
-            // PAGINATION
-            $perPage = min(
-                max((int) $request->input('per_page', 20), 1),
-                100
-            );
-
-            $products = $query
-                ->latest()
-                ->paginate($perPage);
-
+            // PAGINATED RESPONSE
+            $perPage  = min(max((int) $request->input('per_page', 20), 1), 100);
+            $products = $query->latest()->paginate($perPage);
             $formatted = collect($products->items())
                 ->map(fn($p) => $this->formatProductData($p))
                 ->values();
 
             return response()->json([
-                'success' => true,
-                'data'    => $formatted,
-
+                'success'    => true,
+                'data'       => $formatted,
                 'pagination' => [
                     'current_page' => $products->currentPage(),
                     'last_page'    => $products->lastPage(),
@@ -441,12 +358,7 @@ class APIProductController extends Controller
             ]);
 
         } catch (\Exception $e) {
-
-            Log::error(
-                'Failed to fetch products: ' .
-                $e->getMessage()
-            );
-
+            Log::error('Failed to fetch products: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch products',
@@ -454,32 +366,18 @@ class APIProductController extends Controller
         }
     }
 
-    /**
-     * Get single product with real-time stock & full relations
-     *
-     * @urlParam id integer required Product ID
-     *
-     * @response 200 detailed product object
-     * @response 404 product not found
-     */
+    // ─────────────────────────────────────────────────────────────────────────
+    // SHOW
+    // ─────────────────────────────────────────────────────────────────────────
     public function show($id)
     {
         try {
-            $product = Product::query()
-                ->with([
-                    'category:id,name',
-                    'brand:id,name,logo',
-                    'attributes:id,product_id,name,values',
-                    'variations:id,product_id,sku,barcode,price,sale_price,attributes,image',
-                    'images:id,product_id,image_path'
-                ])
-                ->findOrFail($id);
-
+            $product   = $this->baseQuery()->findOrFail($id);
             $formatted = $this->formatProductData($product);
 
             return response()->json([
                 'success' => true,
-                'data' => $formatted,
+                'data'    => $formatted,
             ]);
         } catch (\Exception $e) {
             Log::error('Product not found: ' . $e->getMessage());
@@ -490,35 +388,23 @@ class APIProductController extends Controller
         }
     }
 
-    /**
-     * Get related / similar products
-     *
-     * @urlParam id integer required Base product ID
-     *
-     * @queryParam limit integer Number of related items (default 6, max 12). Example: 8
-     *
-     * @response 200 array of related products
-     * @response 404 base product not found
-     * @response 500 error
-     */
+    // ─────────────────────────────────────────────────────────────────────────
+    // RELATED
+    // ─────────────────────────────────────────────────────────────────────────
     public function related(Request $request, $id)
     {
         try {
             $product = Product::findOrFail($id);
+            $limit   = min(max((int) $request->input('limit', 6), 1), 12);
 
-            $limit = min(max((int) $request->input('limit', 6), 1), 12);
-
-            $query = Product::query()
+            // Base query for related — reuse baseQuery() for consistent rating data
+            $base = $this->baseQuery()
                 ->where('id', '!=', $id)
                 ->where('product_type', '!=', 'variation')
-                ->with([
-                    'category:id,name',
-                    'brand:id,name,logo',
-                    'images:id,product_id,image_path'
-                ])
                 ->select('products.*');
 
-            $related = (clone $query)
+            // Priority 1: same category + same brand
+            $related = (clone $base)
                 ->where('category_id', $product->category_id)
                 ->where('brand_id', $product->brand_id)
                 ->whereNotNull('brand_id')
@@ -526,10 +412,10 @@ class APIProductController extends Controller
                 ->take($limit)
                 ->get();
 
+            // Priority 2: same category
             if ($related->count() < $limit / 2) {
-                $more = (clone $query)
+                $more = (clone $base)
                     ->where('category_id', $product->category_id)
-                    ->where('id', '!=', $id)
                     ->orderByDesc('sold_quantity')
                     ->take($limit - $related->count())
                     ->get();
@@ -537,8 +423,9 @@ class APIProductController extends Controller
                 $related = $related->merge($more);
             }
 
+            // Priority 3: global fallback
             if ($related->count() < 3) {
-                $fallback = (clone $query)
+                $fallback = (clone $base)
                     ->orderByDesc('sold_quantity')
                     ->take($limit - $related->count())
                     ->get();
@@ -546,14 +433,17 @@ class APIProductController extends Controller
                 $related = $related->merge($fallback);
             }
 
-            $formatted = $related->map(fn($p) => $this->formatProductData($p))->values();
+            $formatted = $related
+                ->map(fn($p) => $this->formatProductData($p))
+                ->values();
 
             return response()->json([
-                'success' => true,
-                'data'    => $formatted,
-                'count'   => $formatted->count(),
+                'success'    => true,
+                'data'       => $formatted,
+                'count'      => $formatted->count(),
                 'product_id' => (int) $id,
             ]);
+
         } catch (\Exception $e) {
             Log::error('Failed to get related products: ' . $e->getMessage());
             return response()->json([
@@ -563,139 +453,95 @@ class APIProductController extends Controller
         }
     }
 
-    /**
-     * Get active lightning deals with product data for Flutter app.
-     *
-     * @queryParam limit integer Max deals to return (default 6, max 20). Example: 4
-     *
-     * @response 200 array of active deals with embedded product + deal metadata
-     *
-     * Route: GET /api/products/lightning-deals
-     */
-       public function lightningDeals()
-{
-    try {
+    // ─────────────────────────────────────────────────────────────────────────
+    // LIGHTNING DEALS
+    // ─────────────────────────────────────────────────────────────────────────
+    public function lightningDeals()
+    {
+        try {
+            $now = now()->timezone('Africa/Lagos');
 
-        // FORCE LAGOS TIME (VERY IMPORTANT FOR YOUR CASE)
-        $now = now()->timezone('Africa/Lagos');
-
-        \Log::info('🔥 Lightning Deals Request Started', [
-            'now' => $now->toDateTimeString(),
-        ]);
-
-        // STEP 1: TOTAL DEALS (NO FILTER)
-        $total = LightningDeal::count();
-
-        \Log::info('📊 Total deals in DB', [
-            'total' => $total,
-        ]);
-
-        // STEP 2: ACTIVE DEALS ONLY
-        $active = LightningDeal::where('is_active', 1)->count();
-
-        \Log::info('🟢 Active deals count', [
-            'active' => $active,
-        ]);
-
-        // STEP 3: TIME DEBUG (IMPORTANT)
-        $timeQueryCheck = LightningDeal::where('is_active', 1)->get();
-
-        foreach ($timeQueryCheck as $deal) {
-            \Log::info('⏰ Deal Time Check', [
-                'deal_id' => $deal->id,
-                'starts_at' => $deal->starts_at,
-                'ends_at' => $deal->ends_at,
-                'now' => $now,
-                'is_valid' =>
-                    ($deal->starts_at <= $now && $deal->ends_at >= $now)
-                        ? 'YES'
-                        : 'NO',
+            Log::info('🔥 Lightning Deals Request Started', [
+                'now' => $now->toDateTimeString(),
             ]);
-        }
 
-        // STEP 4: APPLY REAL FILTER
-        $deals = LightningDeal::with(['product' => function ($q) {
-                $q->select('id', 'title', 'price', 'thumbnail');
-            }])
-            ->where('is_active', 1)
-            ->where('starts_at', '<=', $now)
-            ->where('ends_at', '>=', $now)
-            ->orderBy('sort_order', 'asc')
-            ->get();
+            $total  = LightningDeal::count();
+            $active = LightningDeal::where('is_active', 1)->count();
 
-        \Log::info('📦 Filtered deals count', [
-            'count' => $deals->count(),
-        ]);
+            Log::info('📊 Deals in DB', ['total' => $total, 'active' => $active]);
 
-        // STEP 5: MAP RESPONSE
-        $mapped = $deals->map(function ($deal) {
-
-            if (!$deal->product) {
-                \Log::warning('⚠️ Missing product', [
-                    'deal_id' => $deal->id,
-                    'product_id' => $deal->product_id,
+            // Debug individual deal time windows
+            LightningDeal::where('is_active', 1)->get()->each(function ($deal) use ($now) {
+                Log::info('⏰ Deal Time Check', [
+                    'deal_id'  => $deal->id,
+                    'starts_at'=> $deal->starts_at,
+                    'ends_at'  => $deal->ends_at,
+                    'now'      => $now,
+                    'is_valid' => ($deal->starts_at <= $now && $deal->ends_at >= $now) ? 'YES' : 'NO',
                 ]);
-                return null;
-            }
+            });
 
-            $price = (float) $deal->product->price;
+            $deals = LightningDeal::with(['product' => function ($q) {
+                    $q->select('id', 'title', 'price', 'thumbnail');
+                }])
+                ->where('is_active', 1)
+                ->where('starts_at', '<=', $now)
+                ->where('ends_at', '>=', $now)
+                ->orderBy('sort_order', 'asc')
+                ->get();
 
-            $discounted = $price;
+            Log::info('📦 Filtered deals count', ['count' => $deals->count()]);
 
-            if ($deal->discount_percentage > 0) {
-                $discounted =
-                    $price - (($deal->discount_percentage / 100) * $price);
-            }
+            $mapped = $deals->map(function ($deal) {
+                if (!$deal->product) {
+                    Log::warning('⚠️ Missing product', [
+                        'deal_id'    => $deal->id,
+                        'product_id' => $deal->product_id,
+                    ]);
+                    return null;
+                }
 
-            return [
-                'id' => $deal->id,
-                'product_id' => $deal->product_id,
+                $price      = (float) $deal->product->price;
+                $discounted = $deal->discount_percentage > 0
+                    ? $price - (($deal->discount_percentage / 100) * $price)
+                    : $price;
 
-                'title' => $deal->product->title ?? '',
+                return [
+                    'id'                  => $deal->id,
+                    'product_id'          => $deal->product_id,
+                    'title'               => $deal->product->title ?? '',
+                    'thumbnail'           => $deal->product->thumbnail
+                        ? url(Storage::url(preg_replace('/^storage\//', '', $deal->product->thumbnail)))
+                        : null,
+                    'original_price'      => round($price, 2),
+                    'discounted_price'    => round($discounted, 2),
+                    'discount_percentage' => (int) $deal->discount_percentage,
+                    'stock_left'          => (int) $deal->stock_limit,
+                    'starts_at'           => $deal->starts_at,
+                    'ends_at'             => $deal->ends_at,
+                ];
+            })->filter()->values();
 
-                'thumbnail' => $deal->product->thumbnail
-                    ? url(\Storage::url(
-                        preg_replace('/^storage\//', '', $deal->product->thumbnail)
-                    ))
-                    : null,
+            Log::info('✅ Final response count', ['count' => $mapped->count()]);
 
-                'original_price' => round($price, 2),
-                'discounted_price' => round($discounted, 2),
+            return response()->json([
+                'success' => true,
+                'data'    => $mapped,
+                'count'   => $mapped->count(),
+            ]);
 
-                'discount_percentage' => (int) $deal->discount_percentage,
+        } catch (\Exception $e) {
+            Log::error('❌ Lightning Deals Error', [
+                'message' => $e->getMessage(),
+                'line'    => $e->getLine(),
+            ]);
 
-                'stock_left' => (int) $deal->stock_limit,
-
-                'starts_at' => $deal->starts_at,
-                'ends_at' => $deal->ends_at,
-            ];
-        })
-        ->filter()
-        ->values();
-
-        \Log::info('✅ Final response count', [
-            'count' => $mapped->count(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'data' => $mapped,
-            'count' => $mapped->count(),
-        ]);
-
-    } catch (\Exception $e) {
-
-        \Log::error('❌ Lightning Deals Error', [
-            'message' => $e->getMessage(),
-            'line' => $e->getLine(),
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'data' => [],
-            'count' => 0,
-            'message' => 'Error fetching lightning deals',
-        ], 500);
+            return response()->json([
+                'success' => false,
+                'data'    => [],
+                'count'   => 0,
+                'message' => 'Error fetching lightning deals',
+            ], 500);
+        }
     }
-}
 }

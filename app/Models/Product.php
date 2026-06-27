@@ -30,9 +30,9 @@ class Product extends Model
         'stock',
         'sold_quantity',
         'is_featured',
-        'is_new',           // ADD THIS
-        'is_trending',      // ADD THIS
-        'is_top_rated',     // ADD THIS
+        'is_new',
+        'is_trending',
+        'is_top_rated',
         'category_id',
         'brand_id',
         'is_nsfw',
@@ -40,42 +40,51 @@ class Product extends Model
     ];
 
     protected $casts = [
-        'price' => 'decimal:2',
-        'cost_price' => 'decimal:2',
-        'sale_price' => 'decimal:2',
+        'price'       => 'decimal:2',
+        'cost_price'  => 'decimal:2',
+        'sale_price'  => 'decimal:2',
         'is_featured' => 'boolean',
-        'is_new' => 'boolean',        // ADD THIS
-        'is_trending' => 'boolean',   // ADD THIS
-        'is_top_rated' => 'boolean',  // ADD THIS
-        'is_nsfw' => 'boolean',
-        'is_active' => 'boolean',
+        'is_new'      => 'boolean',
+        'is_trending' => 'boolean',
+        'is_top_rated'=> 'boolean',
+        'is_nsfw'     => 'boolean',
+        'is_active'   => 'boolean',
     ];
 
+    // ── $appends ──────────────────────────────────────────────────────────────
+    // 'reviews_count' and 'average_rating' are intentionally EXCLUDED here.
+    //
+    // When the API controller calls ->withCount('reviews')->withAvg('reviews','rating'),
+    // Eloquent populates $product->reviews_count and $product->reviews_avg_rating
+    // on the model directly as aggregated attributes from a single JOIN — zero
+    // extra queries.
+    //
+    // If we listed them in $appends, the accessor methods below would OVERRIDE
+    // those aggregated values with individual COUNT/AVG queries per product,
+    // causing N+1 on every product listing. So we keep them out of $appends
+    // but still expose the accessor methods so admin panels / non-API code
+    // that accesses these properties directly still works correctly.
+    // ─────────────────────────────────────────────────────────────────────────
     protected $appends = [
         'current_stock',
         'total_sold',
-        'reviews_count',
-        'average_rating',
         'revenue',
         'margin',
         'margin_percent',
     ];
 
-    /**
-     * Boot the model
-     */
+    // ── Boot ──────────────────────────────────────────────────────────────────
+
     protected static function boot()
     {
         parent::boot();
 
-        // Generate barcode if not provided
         static::creating(function ($product) {
             if (empty($product->barcode)) {
                 $product->barcode = 'PROD' . strtoupper(uniqid());
             }
         });
 
-        // Calculate stock from inventory when accessing stock attribute
         static::retrieved(function ($product) {
             if (isset($product->stock)) {
                 $product->stock = $product->calculateStockFromInventory();
@@ -83,12 +92,16 @@ class Product extends Model
         });
     }
 
-    /**
-     * Calculate stock from inventory (for verification/display)
-     */
+    // ── Stock helpers ─────────────────────────────────────────────────────────
+
     public function calculateStockFromInventory()
     {
-        $totalStock = Stock::where('product_id', $this->id)
+        return $this->calculateCurrentStock();
+    }
+
+    public function calculateCurrentStock()
+    {
+        $total = Stock::where('product_id', $this->id)
             ->selectRaw('
                 SUM(CASE
                     WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
@@ -98,47 +111,114 @@ class Product extends Model
             ')
             ->value('total') ?? 0;
 
-        return max(0, $totalStock);
+        return max(0, $total);
     }
 
-    /**
-     * Get current stock from inventory (always fresh calculation)
-     */
     public function getCurrentStockAttribute()
     {
-        return $this->calculateStockFromInventory();
+        return $this->calculateCurrentStock();
     }
 
-    /**
-     * Get margin (selling price - cost price)
-     */
+    public function isLowStock($threshold = 10)
+    {
+        $stock = $this->calculateCurrentStock();
+        return $stock > 0 && $stock <= $threshold;
+    }
+
+    public function getStockByLocation($locationId)
+    {
+        $total = Stock::where('product_id', $this->id)
+            ->where('stock_location_id', $locationId)
+            ->selectRaw('
+                SUM(CASE
+                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
+                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                    ELSE 0
+                END) as total
+            ')
+            ->value('total') ?? 0;
+
+        return max(0, $total);
+    }
+
+    public function syncStock()
+    {
+        $calculated = $this->calculateCurrentStock();
+
+        if ($this->stock != $calculated) {
+            $old         = $this->stock;
+            $this->stock = $calculated;
+            $this->save();
+
+            Log::info('Product stock synced', [
+                'product_id'   => $this->id,
+                'product_name' => $this->title,
+                'old_stock'    => $old,
+                'new_stock'    => $calculated,
+            ]);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    // ── Rating accessors ──────────────────────────────────────────────────────
+    //
+    // These are NOT in $appends so they do not fire automatically on every
+    // model serialisation. They are available for direct property access in
+    // admin/blade code (e.g. $product->reviews_count) but the API controller
+    // deliberately loads the aggregate via withCount/withAvg, which Eloquent
+    // stores under the same attribute name and takes precedence over the
+    // accessor when already set on the model.
+    //
+    // Rule of thumb:
+    //   API listing / detail  → always use ->withCount() / ->withAvg()
+    //   Admin panel / one-off → accessor fires a single query, which is fine
+
+    public function getReviewsCountAttribute()
+    {
+        // If withCount('reviews') already populated this, Eloquent returns
+        // that cached value before calling this accessor — no extra query.
+        return $this->reviews()->count();
+    }
+
+    public function getAverageRatingAttribute()
+    {
+        // Same as above: withAvg stores as 'reviews_avg_rating', not
+        // 'average_rating', so this accessor is only reached in non-API code.
+        return round((float) ($this->reviews()->avg('rating') ?? 0), 1);
+    }
+
+    // ── Financial accessors ───────────────────────────────────────────────────
+
+    public function getTotalSoldAttribute()
+    {
+        return $this->orderItems()->sum('quantity');
+    }
+
+    public function getRevenueAttribute()
+    {
+        $price = $this->sale_price ?? $this->price;
+        return $this->getTotalSoldAttribute() * $price;
+    }
+
     public function getMarginAttribute()
     {
-        if (!$this->cost_price) {
-            return 0;
-        }
-
-        $sellingPrice = $this->sale_price ?? $this->price;
-        return $sellingPrice - $this->cost_price;
+        if (!$this->cost_price) return 0;
+        $selling = $this->sale_price ?? $this->price;
+        return $selling - $this->cost_price;
     }
 
-    /**
-     * Get margin percentage
-     */
     public function getMarginPercentAttribute()
     {
-        if (!$this->cost_price || $this->cost_price <= 0) {
-            return 0;
-        }
-
-        $sellingPrice = $this->sale_price ?? $this->price;
-        $margin = $sellingPrice - $this->cost_price;
-        return ($margin / $this->cost_price) * 100;
+        if (!$this->cost_price || $this->cost_price <= 0) return 0;
+        $selling = $this->sale_price ?? $this->price;
+        return (($selling - $this->cost_price) / $this->cost_price) * 100;
     }
 
-    /**
-     * Stock relationship
-     */
+    // ── Relationships ─────────────────────────────────────────────────────────
+
     public function stocks()
     {
         return $this->hasMany(Stock::class);
@@ -184,128 +264,20 @@ class Product extends Model
         return $this->hasMany(ProductReview::class);
     }
 
-    // Add the missing relationship for order items
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }
 
-    // Add total sold calculation
-    public function getTotalSoldAttribute()
-    {
-        return $this->orderItems()->sum('quantity');
-    }
-
-    // Add reviews count accessor
-    public function getReviewsCountAttribute()
-    {
-        return $this->reviews()->count();
-    }
-
-    // Add average rating accessor
-    public function getAverageRatingAttribute()
-    {
-        return $this->reviews()->avg('rating') ?? 0;
-    }
-
-    // Add revenue calculation
-    public function getRevenueAttribute()
-    {
-        $totalSold = $this->getTotalSoldAttribute();
-        $price = $this->sale_price ?? $this->price;
-        return $totalSold * $price;
-    }
-
-    // Inventory logs relationship
     public function inventoryLogs()
     {
         return $this->hasMany(StockMovement::class, 'product_id');
     }
 
-    /**
-     * Scope for active products.
-     */
-    public function scopeActive($query)
+    public function lightningDeal(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        if (\Schema::hasColumn($this->getTable(), 'is_active')) {
-            return $query->where('is_active', true);
-        }
-
-        // If no is_active column, just return all products
-        return $query;
+        return $this->hasOne(\App\Models\LightningDeal::class);
     }
-
-    /**
-     * Scope for inactive products.
-     */
-    public function scopeInactive($query)
-    {
-        return $query->where('status', 'inactive')
-                     ->orWhere('is_active', false);
-    }
-
-    /**
-     * Scope for low stock products
-     */
-    public function scopeLowStock($query)
-    {
-        return $query->where('stock', '>', 0)
-                     ->where('stock', '<=', 10);
-    }
-
-    /**
-     * Scope for out of stock products
-     */
-    public function scopeOutOfStock($query)
-    {
-        return $query->where('stock', '<=', 0);
-    }
-
-    /**
-     * Scope for in stock products
-     */
-    public function scopeInStock($query)
-    {
-        return $query->where('stock', '>', 10);
-    }
-
-    // ============ NEW SCOPES FOR APP FLAGS ============
-
-    /**
-     * Scope for new products
-     */
-    public function scopeNew($query)
-    {
-        return $query->where('is_new', true);
-    }
-
-    /**
-     * Scope for trending products
-     */
-    public function scopeTrending($query)
-    {
-        return $query->where('is_trending', true);
-    }
-
-    /**
-     * Scope for top rated products
-     */
-    public function scopeTopRated($query)
-    {
-        return $query->where('is_top_rated', true);
-    }
-
-    /**
-     * Scope for products on sale
-     */
-    public function scopeOnSale($query)
-    {
-        return $query->whereNotNull('sale_price')
-                     ->where('sale_price', '>', 0)
-                     ->whereColumn('sale_price', '<', 'price');
-    }
-
-    // ============ END NEW SCOPES ============
 
     public function units()
     {
@@ -322,87 +294,62 @@ class Product extends Model
                     ->limit(1);
     }
 
-    /**
-     * Calculate current stock from inventory transactions
-     */
-    public function calculateCurrentStock()
+    // ── Scopes ────────────────────────────────────────────────────────────────
+
+    public function scopeActive($query)
     {
-        $totalStock = Stock::where('product_id', $this->id)
-            ->selectRaw('
-                SUM(CASE
-                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
-                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
-                    ELSE 0
-                END) as total
-            ')
-            ->value('total') ?? 0;
-
-        return max(0, $totalStock);
-    }
-
-    /**
-     * Check if product is low stock
-     */
-    public function isLowStock($threshold = 10)
-    {
-        $currentStock = $this->calculateCurrentStock();
-        return $currentStock > 0 && $currentStock <= $threshold;
-    }
-
-    /**
-     * Get stock by location
-     */
-    public function getStockByLocation($locationId)
-    {
-        $totalStock = Stock::where('product_id', $this->id)
-            ->where('stock_location_id', $locationId)
-            ->selectRaw('
-                SUM(CASE
-                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
-                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
-                    ELSE 0
-                END) as total
-            ')
-            ->value('total') ?? 0;
-
-        return max(0, $totalStock);
-    }
-
-    /**
-     * Sync this product's stock with inventory transactions
-     */
-    public function syncStock()
-    {
-        $calculatedStock = $this->calculateCurrentStock();
-
-        if ($this->stock != $calculatedStock) {
-            $oldStock = $this->stock;
-            $this->stock = $calculatedStock;
-            $this->save();
-
-            Log::info("Product stock synced", [
-                'product_id' => $this->id,
-                'product_name' => $this->title,
-                'old_stock' => $oldStock,
-                'new_stock' => $calculatedStock
-            ]);
-
-            return true;
+        if (\Schema::hasColumn($this->getTable(), 'is_active')) {
+            return $query->where('is_active', true);
         }
-
-        return false;
+        return $query;
     }
 
-    /**
-     * Scope for searching by barcode
-     */
+    public function scopeInactive($query)
+    {
+        return $query->where('status', 'inactive')
+                     ->orWhere('is_active', false);
+    }
+
+    public function scopeLowStock($query)
+    {
+        return $query->where('stock', '>', 0)
+                     ->where('stock', '<=', 10);
+    }
+
+    public function scopeOutOfStock($query)
+    {
+        return $query->where('stock', '<=', 0);
+    }
+
+    public function scopeInStock($query)
+    {
+        return $query->where('stock', '>', 10);
+    }
+
+    public function scopeNew($query)
+    {
+        return $query->where('is_new', true);
+    }
+
+    public function scopeTrending($query)
+    {
+        return $query->where('is_trending', true);
+    }
+
+    public function scopeTopRated($query)
+    {
+        return $query->where('is_top_rated', true);
+    }
+
+    public function scopeOnSale($query)
+    {
+        return $query->whereNotNull('sale_price')
+                     ->where('sale_price', '>', 0)
+                     ->whereColumn('sale_price', '<', 'price');
+    }
+
     public function scopeByBarcode($query, $barcode)
     {
         return $query->where('barcode', $barcode);
-    }
-
-    public function lightningDeal(): \Illuminate\Database\Eloquent\Relations\HasOne
-    {
-        return $this->hasOne(\App\Models\LightningDeal::class);
     }
 }
