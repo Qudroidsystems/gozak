@@ -251,9 +251,21 @@ class ProductController extends Controller
     }
 
 
+
+
+
     public function update(Request $request, $id)
 {
     $product = Product::findOrFail($id);
+
+    // Log the request for debugging
+    \Log::info('Update Product - Request Data', [
+        'product_id' => $id,
+        'sku' => $request->sku,
+        'current_sku' => $product->sku,
+        'barcode' => $request->barcode,
+        'current_barcode' => $product->barcode
+    ]);
 
     $request->merge([
         'is_featured'  => $request->has('is_featured'),
@@ -262,7 +274,7 @@ class ProductController extends Controller
         'is_top_rated' => $request->has('is_top_rated'),
     ]);
 
-    // Build validation rules
+    // Standard validation rules (without SKU and Barcode unique)
     $rules = [
         'title'                      => 'required|string|max:255',
         'price'                      => 'required|numeric|min:0',
@@ -289,22 +301,33 @@ class ProductController extends Controller
         'variations.*.image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
     ];
 
-    // SKU and Barcode validation with ignore
-    $rules['sku'] = [
-        'required',
-        'string',
-        Rule::unique('products')->ignore($product->id)
-    ];
-
-    $rules['barcode'] = [
-        'nullable',
-        'string',
-        Rule::unique('products')->ignore($product->id)
-    ];
-
     $validator = Validator::make($request->all(), $rules);
 
-    // Additional check to ensure validation is working
+    // Add custom validation for SKU and Barcode
+    $validator->after(function ($validator) use ($request, $product) {
+        // Check SKU uniqueness (ignore current product)
+        if ($request->filled('sku')) {
+            $skuExists = Product::where('sku', $request->sku)
+                ->where('id', '!=', $product->id)
+                ->exists();
+
+            if ($skuExists) {
+                $validator->errors()->add('sku', 'The SKU has already been taken.');
+            }
+        }
+
+        // Check Barcode uniqueness (ignore current product)
+        if ($request->filled('barcode')) {
+            $barcodeExists = Product::where('barcode', $request->barcode)
+                ->where('id', '!=', $product->id)
+                ->exists();
+
+            if ($barcodeExists) {
+                $validator->errors()->add('barcode', 'The barcode has already been taken.');
+            }
+        }
+    });
+
     if ($validator->fails()) {
         \Log::error('Validation failed:', $validator->errors()->toArray());
         return response()->json([
@@ -315,13 +338,17 @@ class ProductController extends Controller
     }
 
     try {
-        $data = $request->only(['title', 'sku', 'barcode', 'price', 'cost_price', 'sale_price', 'description', 'product_type', 'brand_id', 'category_id']);
+        $data = $request->only([
+            'title', 'sku', 'barcode', 'price', 'cost_price',
+            'sale_price', 'description', 'product_type', 'brand_id', 'category_id'
+        ]);
+
         $data['is_featured']  = $request->boolean('is_featured');
         $data['is_new']       = $request->boolean('is_new');
         $data['is_trending']  = $request->boolean('is_trending');
         $data['is_top_rated'] = $request->boolean('is_top_rated');
 
-        // If barcode is empty, generate one
+        // Generate barcode if empty
         if (empty($data['barcode'])) {
             $data['barcode'] = $this->generateMainBarcode($data['sku']);
         }
@@ -342,19 +369,26 @@ class ProductController extends Controller
         $this->syncImages($product, $request);
         $this->syncAttributesAndVariations($product, $request);
 
+        \Log::info('Product updated successfully', ['product_id' => $product->id]);
+
         return response()->json([
             'success' => true,
             'message' => 'Product updated successfully'
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('Product update error: ' . $e->getMessage());
+        \Log::error('Product update error: ' . $e->getMessage(), [
+            'product_id' => $product->id,
+            'trace' => $e->getTraceAsString()
+        ]);
+
         return response()->json([
             'success' => false,
             'message' => 'Failed to update product: ' . $e->getMessage()
         ], 500);
     }
 }
+
     /**
      * Update single flag via AJAX (is_new, is_trending, is_top_rated)
      * PATCH /web/products/{product}/flags
