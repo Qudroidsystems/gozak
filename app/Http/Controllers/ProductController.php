@@ -17,6 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -160,7 +161,7 @@ class ProductController extends Controller
             'is_top_rated'     => (bool) $product->is_top_rated,
             'brand_id'         => $product->brand_id,
             'category_id'      => $product->category_id,
-            'primary_unit_id'  => $primaryUnit?->id, // This is now properly set
+            'primary_unit_id'  => $primaryUnit?->id,
             'additional_units' => $additionalUnits,
             'thumbnail'  => $product->thumbnail ? asset('storage/' . $product->thumbnail) : null,
             'gallery'    => $product->images->map(function ($img) {
@@ -202,7 +203,7 @@ class ProductController extends Controller
             'units.*.unit_id'            => 'nullable|exists:units,id|distinct',
             'units.*.quantity_per_unit'  => 'nullable|numeric|min:0.01',
             'variations.*.sku'           => 'nullable|string',
-            'variations.*.barcode'       => 'nullable|string|max:50|unique:product_variations,barcode',
+            'variations.*.barcode'       => 'nullable|string|max:50',
             'variations.*.price'         => 'required|numeric|min:0',
             'variations.*.cost_price'    => 'nullable|numeric|min:0',
             'variations.*.sale_price'    => 'nullable|numeric|min:0',
@@ -262,8 +263,9 @@ class ProductController extends Controller
 
         $rules = [
             'title'                      => 'required|string|max:255',
-            'sku'                        => 'required|string|unique:products,sku,' . $id,
-            'barcode'                    => 'nullable|string|unique:products,barcode,' . $id,
+            // Fix: Ignore current product ID for uniqueness check
+            'sku'                        => ['required', 'string', Rule::unique('products')->ignore($id)],
+            'barcode'                    => ['nullable', 'string', Rule::unique('products')->ignore($id)],
             'price'                      => 'required|numeric|min:0',
             'cost_price'                 => 'nullable|numeric|min:0',
             'sale_price'                 => 'nullable|numeric|min:0|lt:price',
@@ -281,7 +283,7 @@ class ProductController extends Controller
             'units.*.unit_id'            => 'nullable|exists:units,id|distinct',
             'units.*.quantity_per_unit'  => 'nullable|numeric|min:0.01',
             'variations.*.sku'           => 'nullable|string',
-            'variations.*.barcode'       => 'nullable|string|max:50|unique:product_variations,barcode,' . ($request->variations ? $request->variations[0]['id'] ?? null : null),
+            'variations.*.barcode'       => 'nullable|string|max:50',
             'variations.*.price'         => 'required|numeric|min:0',
             'variations.*.cost_price'    => 'nullable|numeric|min:0',
             'variations.*.sale_price'    => 'nullable|numeric|min:0',
