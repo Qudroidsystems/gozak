@@ -15,6 +15,7 @@ class ProductReview extends Model
         'user_image_url',
         'company_comment',
         'company_timestamp',
+        'location', // Add this field
     ];
 
     protected $casts = [

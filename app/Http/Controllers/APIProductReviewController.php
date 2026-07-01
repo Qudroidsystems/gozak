@@ -13,9 +13,6 @@ class APIProductReviewController extends Controller
 {
     /**
      * Display a listing of the product reviews.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
     {
@@ -28,26 +25,22 @@ class APIProductReviewController extends Controller
                     $q->select('id', 'first_name', 'last_name', 'profile_image');
                 }
             ])
-            ->select('id', 'product_id', 'user_id', 'rating', 'comment', 'user_name', 'user_image_url', 'company_comment', 'company_timestamp', 'created_at');
+            ->select('id', 'product_id', 'user_id', 'rating', 'comment', 'user_name', 'user_image_url', 'location', 'company_comment', 'company_timestamp', 'created_at');
 
-            // Filter by product_id if provided
             if ($request->has('product_id')) {
                 $query->where('product_id', $request->input('product_id'));
             }
 
-            // Add pagination
             $perPage = min(max((int) $request->input('per_page', 10), 1), 100);
             $reviews = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
             $formattedReviews = $reviews->map(function ($review) {
-                // Compute user_name from existing fields (fallback to stored or username if needed)
                 $userName = $review->user_name ??
                     ($review->user && $review->user->first_name && $review->user->last_name
                         ? $review->user->first_name . ' ' . $review->user->last_name
                         : ($review->user->username ?? 'Anonymous'))
                     ?? null;
 
-                // Map profile_image to user_image_url
                 $userImageUrl = $review->user_image_url ?? ($review->user->profile_image ?? null);
 
                 return [
@@ -58,6 +51,7 @@ class APIProductReviewController extends Controller
                     'user_name' => $userName,
                     'timestamp' => $review->created_at->toIso8601String(),
                     'user_image_url' => $userImageUrl,
+                    'location' => $review->location,
                     'company_comment' => $review->company_comment,
                     'company_timestamp' => $review->company_timestamp?->toIso8601String(),
                 ];
@@ -72,11 +66,6 @@ class APIProductReviewController extends Controller
                     'total' => $reviews->total(),
                 ],
             ]);
-        } catch (\Illuminate\Database\QueryException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Database error: ' . $e->getMessage(),
-            ], 500);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -86,20 +75,18 @@ class APIProductReviewController extends Controller
     }
 
     /**
-     * Store a newly created product review in storage.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * Store a newly created product review.
+     * FIXED: Now works with user_name and user_image_url from frontend
      */
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
-            'user_id' => 'required|exists:users,id',
             'rating' => 'required|numeric|min:0|max:5',
             'comment' => 'nullable|string|max:1000',
             'user_name' => 'nullable|string|max:255',
             'user_image_url' => 'nullable|url|max:255',
+            'location' => 'nullable|string|max:255', // Add location validation
         ]);
 
         if ($validator->fails()) {
@@ -113,13 +100,43 @@ class APIProductReviewController extends Controller
         try {
             DB::beginTransaction();
 
+            // Get the authenticated user
+            $user = auth()->user();
+
+            // If user is authenticated, use their ID, otherwise try to find by name
+            $userId = $user?->id;
+
+            // If no authenticated user, try to find by name or create a guest user
+            if (!$userId) {
+                $userName = $request->user_name ?? 'Guest User';
+                // Check if user exists by name
+                $existingUser = User::where('first_name', $userName)->first();
+                if ($existingUser) {
+                    $userId = $existingUser->id;
+                } else {
+                    // Create a guest user if needed, or use a default guest ID
+                    $guestUser = User::firstOrCreate(
+                        ['email' => 'guest@example.com'],
+                        [
+                            'first_name' => 'Guest',
+                            'last_name' => 'User',
+                            'username' => 'guest_user',
+                            'password' => bcrypt('password'),
+                        ]
+                    );
+                    $userId = $guestUser->id;
+                }
+            }
+
+            // Create the review
             $review = ProductReview::create([
                 'product_id' => $request->product_id,
-                'user_id' => $request->user_id,
+                'user_id' => $userId,
                 'rating' => $request->rating,
                 'comment' => $request->comment,
-                'user_name' => $request->user_name,
-                'user_image_url' => $request->user_image_url,
+                'user_name' => $request->user_name ?? ($user?->first_name . ' ' . $user?->last_name ?? 'Guest User'),
+                'user_image_url' => $request->user_image_url ?? ($user?->profile_image ?? null),
+                'location' => $request->location, // Save location
             ]);
 
             DB::commit();
@@ -134,24 +151,15 @@ class APIProductReviewController extends Controller
                 }
             ]);
 
-            // Compute user_name from existing fields (fallback to stored or username if needed)
-            $userName = $review->user_name ??
-                ($review->user && $review->user->first_name && $review->user->last_name
-                    ? $review->user->first_name . ' ' . $review->user->last_name
-                    : ($review->user->username ?? 'Anonymous'))
-                ?? null;
-
-            // Map profile_image to user_image_url
-            $userImageUrl = $review->user_image_url ?? ($review->user->profile_image ?? null);
-
             $reviewData = [
                 'id' => $review->id,
                 'user_id' => $review->user_id,
                 'rating' => $review->rating,
                 'comment' => $review->comment,
-                'user_name' => $userName,
+                'user_name' => $review->user_name,
                 'timestamp' => $review->created_at->toIso8601String(),
-                'user_image_url' => $userImageUrl,
+                'user_image_url' => $review->user_image_url,
+                'location' => $review->location,
                 'company_comment' => $review->company_comment,
                 'company_timestamp' => $review->company_timestamp?->toIso8601String(),
             ];
@@ -172,10 +180,6 @@ class APIProductReviewController extends Controller
 
     /**
      * Add or update a company comment on a review.
-     *
-     * @param Request $request
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
      */
     public function addCompanyComment(Request $request, $id)
     {
@@ -210,41 +214,9 @@ class APIProductReviewController extends Controller
 
             DB::commit();
 
-            // Load relationships for response
-            $review->load([
-                'product' => function ($q) {
-                    $q->select('id', 'title', 'thumbnail');
-                },
-                'user' => function ($q) {
-                    $q->select('id', 'first_name', 'last_name', 'profile_image');
-                }
-            ]);
-
-            // Compute user_name from existing fields (fallback to stored or username if needed)
-            $userName = $review->user_name ??
-                ($review->user && $review->user->first_name && $review->user->last_name
-                    ? $review->user->first_name . ' ' . $review->user->last_name
-                    : ($review->user->username ?? 'Anonymous'))
-                ?? null;
-
-            // Map profile_image to user_image_url
-            $userImageUrl = $review->user_image_url ?? ($review->user->profile_image ?? null);
-
-            $reviewData = [
-                'id' => $review->id,
-                'user_id' => $review->user_id,
-                'rating' => $review->rating,
-                'comment' => $review->comment,
-                'user_name' => $userName,
-                'timestamp' => $review->created_at->toIso8601String(),
-                'user_image_url' => $userImageUrl,
-                'company_comment' => $review->company_comment,
-                'company_timestamp' => $review->company_timestamp?->toIso8601String(),
-            ];
-
             return response()->json([
                 'success' => true,
-                'data' => $reviewData,
+                'data' => $review,
                 'message' => 'Company comment added successfully',
             ]);
         } catch (\Exception $e) {
@@ -258,10 +230,6 @@ class APIProductReviewController extends Controller
 
     /**
      * Update the specified product review.
-     *
-     * @param Request $request
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
      */
     public function update(Request $request, $id)
     {
@@ -279,6 +247,7 @@ class APIProductReviewController extends Controller
             'comment' => 'nullable|string|max:1000',
             'user_name' => 'nullable|string|max:255',
             'user_image_url' => 'nullable|url|max:255',
+            'location' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -297,47 +266,16 @@ class APIProductReviewController extends Controller
                 'comment' => $request->comment ?? $review->comment,
                 'user_name' => $request->user_name ?? $review->user_name,
                 'user_image_url' => $request->user_image_url ?? $review->user_image_url,
+                'location' => $request->location ?? $review->location,
             ];
 
             $review->update($data);
 
             DB::commit();
 
-            // Load relationships for response
-            $review->load([
-                'product' => function ($q) {
-                    $q->select('id', 'title', 'thumbnail');
-                },
-                'user' => function ($q) {
-                    $q->select('id', 'first_name', 'last_name', 'profile_image');
-                }
-            ]);
-
-            // Compute user_name from existing fields (fallback to stored or username if needed)
-            $userName = $review->user_name ??
-                ($review->user && $review->user->first_name && $review->user->last_name
-                    ? $review->user->first_name . ' ' . $review->user->last_name
-                    : ($review->user->username ?? 'Anonymous'))
-                ?? null;
-
-            // Map profile_image to user_image_url
-            $userImageUrl = $review->user_image_url ?? ($review->user->profile_image ?? null);
-
-            $reviewData = [
-                'id' => $review->id,
-                'user_id' => $review->user_id,
-                'rating' => $review->rating,
-                'comment' => $review->comment,
-                'user_name' => $userName,
-                'timestamp' => $review->created_at->toIso8601String(),
-                'user_image_url' => $userImageUrl,
-                'company_comment' => $review->company_comment,
-                'company_timestamp' => $review->company_timestamp?->toIso8601String(),
-            ];
-
             return response()->json([
                 'success' => true,
-                'data' => $reviewData,
+                'data' => $review->fresh(),
                 'message' => 'Review updated successfully',
             ]);
         } catch (\Exception $e) {
@@ -351,9 +289,6 @@ class APIProductReviewController extends Controller
 
     /**
      * Remove the specified product review.
-     *
-     * @param string $id
-     * @return \Illuminate\Http\JsonResponse
      */
     public function destroy($id)
     {
@@ -368,9 +303,7 @@ class APIProductReviewController extends Controller
 
         try {
             DB::beginTransaction();
-
             $review->delete();
-
             DB::commit();
 
             return response()->json([
