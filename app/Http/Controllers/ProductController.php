@@ -250,75 +250,111 @@ class ProductController extends Controller
         }
     }
 
+
     public function update(Request $request, $id)
-    {
-        $product = Product::findOrFail($id);
+{
+    $product = Product::findOrFail($id);
 
-        $request->merge([
-            'is_featured'  => $request->has('is_featured'),
-            'is_new'       => $request->has('is_new'),
-            'is_trending'  => $request->has('is_trending'),
-            'is_top_rated' => $request->has('is_top_rated'),
-        ]);
+    $request->merge([
+        'is_featured'  => $request->has('is_featured'),
+        'is_new'       => $request->has('is_new'),
+        'is_trending'  => $request->has('is_trending'),
+        'is_top_rated' => $request->has('is_top_rated'),
+    ]);
 
-        $rules = [
-            'title'                      => 'required|string|max:255',
-            // Fix: Ignore current product ID for uniqueness check
-            'sku'                        => ['required', 'string', Rule::unique('products')->ignore($id)],
-            'barcode'                    => ['nullable', 'string', Rule::unique('products')->ignore($id)],
-            'price'                      => 'required|numeric|min:0',
-            'cost_price'                 => 'nullable|numeric|min:0',
-            'sale_price'                 => 'nullable|numeric|min:0|lt:price',
-            'thumbnail'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-            'images.*'                   => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-            'brand_id'                   => 'nullable|exists:brands,id',
-            'category_id'                => 'nullable|exists:categories,id',
-            'primary_unit_id'            => 'required|exists:units,id',
-            'description'                => 'nullable|string',
-            'product_type'               => 'required|in:simple,variable',
-            'is_featured'                => 'boolean',
-            'is_new'                     => 'boolean',
-            'is_trending'                => 'boolean',
-            'is_top_rated'               => 'boolean',
-            'units.*.unit_id'            => 'nullable|exists:units,id|distinct',
-            'units.*.quantity_per_unit'  => 'nullable|numeric|min:0.01',
-            'variations.*.sku'           => 'nullable|string',
-            'variations.*.barcode'       => 'nullable|string|max:50',
-            'variations.*.price'         => 'required|numeric|min:0',
-            'variations.*.cost_price'    => 'nullable|numeric|min:0',
-            'variations.*.sale_price'    => 'nullable|numeric|min:0',
-            'variations.*.image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-        ];
+    // Build validation rules
+    $rules = [
+        'title'                      => 'required|string|max:255',
+        'price'                      => 'required|numeric|min:0',
+        'cost_price'                 => 'nullable|numeric|min:0',
+        'sale_price'                 => 'nullable|numeric|min:0|lt:price',
+        'thumbnail'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+        'images.*'                   => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+        'brand_id'                   => 'nullable|exists:brands,id',
+        'category_id'                => 'nullable|exists:categories,id',
+        'primary_unit_id'            => 'required|exists:units,id',
+        'description'                => 'nullable|string',
+        'product_type'               => 'required|in:simple,variable',
+        'is_featured'                => 'boolean',
+        'is_new'                     => 'boolean',
+        'is_trending'                => 'boolean',
+        'is_top_rated'               => 'boolean',
+        'units.*.unit_id'            => 'nullable|exists:units,id|distinct',
+        'units.*.quantity_per_unit'  => 'nullable|numeric|min:0.01',
+        'variations.*.sku'           => 'nullable|string',
+        'variations.*.barcode'       => 'nullable|string|max:50',
+        'variations.*.price'         => 'required|numeric|min:0',
+        'variations.*.cost_price'    => 'nullable|numeric|min:0',
+        'variations.*.sale_price'    => 'nullable|numeric|min:0',
+        'variations.*.image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+    ];
 
-        $validator = Validator::make($request->all(), $rules);
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
-        }
+    // SKU and Barcode validation with ignore
+    $rules['sku'] = [
+        'required',
+        'string',
+        Rule::unique('products')->ignore($product->id)
+    ];
 
-        try {
-            $data = $request->only(['title', 'sku', 'barcode', 'price', 'cost_price', 'sale_price', 'description', 'product_type', 'brand_id', 'category_id']);
-            $data['is_featured']  = $request->boolean('is_featured');
-            $data['is_new']       = $request->boolean('is_new');
-            $data['is_trending']  = $request->boolean('is_trending');
-            $data['is_top_rated'] = $request->boolean('is_top_rated');
-            $data['barcode']      = $data['barcode'] ?? $this->generateMainBarcode($data['sku']);
+    $rules['barcode'] = [
+        'nullable',
+        'string',
+        Rule::unique('products')->ignore($product->id)
+    ];
 
-            if ($request->hasFile('thumbnail')) {
-                if ($product->thumbnail) Storage::disk('public')->delete($product->thumbnail);
-                $data['thumbnail'] = $request->file('thumbnail')->store('product', 'public');
-            }
+    $validator = Validator::make($request->all(), $rules);
 
-            $product->update($data);
-            $this->syncUnits($product, $request);
-            $this->syncImages($product, $request);
-            $this->syncAttributesAndVariations($product, $request);
-
-            return response()->json(['success' => true, 'message' => 'Product updated successfully']);
-        } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => 'Failed to update product: ' . $e->getMessage()], 500);
-        }
+    // Additional check to ensure validation is working
+    if ($validator->fails()) {
+        \Log::error('Validation failed:', $validator->errors()->toArray());
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors' => $validator->errors()
+        ], 422);
     }
 
+    try {
+        $data = $request->only(['title', 'sku', 'barcode', 'price', 'cost_price', 'sale_price', 'description', 'product_type', 'brand_id', 'category_id']);
+        $data['is_featured']  = $request->boolean('is_featured');
+        $data['is_new']       = $request->boolean('is_new');
+        $data['is_trending']  = $request->boolean('is_trending');
+        $data['is_top_rated'] = $request->boolean('is_top_rated');
+
+        // If barcode is empty, generate one
+        if (empty($data['barcode'])) {
+            $data['barcode'] = $this->generateMainBarcode($data['sku']);
+        }
+
+        // Handle thumbnail
+        if ($request->hasFile('thumbnail')) {
+            if ($product->thumbnail) {
+                Storage::disk('public')->delete($product->thumbnail);
+            }
+            $data['thumbnail'] = $request->file('thumbnail')->store('product', 'public');
+        }
+
+        // Update product
+        $product->update($data);
+
+        // Sync relationships
+        $this->syncUnits($product, $request);
+        $this->syncImages($product, $request);
+        $this->syncAttributesAndVariations($product, $request);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product updated successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        \Log::error('Product update error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to update product: ' . $e->getMessage()
+        ], 500);
+    }
+}
     /**
      * Update single flag via AJAX (is_new, is_trending, is_top_rated)
      * PATCH /web/products/{product}/flags
