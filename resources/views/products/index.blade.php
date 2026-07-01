@@ -347,7 +347,7 @@
                                                         <span class="text-muted small">Auto-generated</span>
                                                     @endif
                                                 </td>
-                                                <td>{{ $product->category?->name ?? 'Uncategorized' }}</div>
+                                                <td>{{ $product->category?->name ?? 'Uncategorized' }}</td>
                                                 <td>
                                                     @if($product->cost_price)
                                                         <span class="fw-bold">${{ number_format($product->cost_price, 2) }}</span>
@@ -424,14 +424,14 @@
                                                             <label class="form-check-label small text-warning fw-semibold" for="isTopRated_{{ $product->id }}">⭐ Top</label>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </td>
                                                 <td>
                                                     @if($product->is_featured)
                                                         <span class="badge bg-primary-subtle text-primary"><i class="bi bi-star-fill text-warning me-1"></i> Featured</span>
                                                     @else
                                                         <span class="badge bg-secondary-subtle text-secondary">Regular</span>
                                                     @endif
-                                                </div>
+                                                </td>
                                                 <td>
                                                     <div class="dropdown">
                                                         <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
@@ -445,7 +445,7 @@
                                                             @endcan
                                                         </ul>
                                                     </div>
-                                                </div>
+                                                </td>
                                             </tr>
                                             @empty
                                             <tr id="noResultsRow">
@@ -647,8 +647,8 @@
                                                     </select>
                                                 </div>
                                                 <div class="mb-3">
-                                                    <label class="form-label">Primary Unit</label>
-                                                    <select name="primary_unit_id" id="primary_unit_id" class="form-control">
+                                                    <label class="form-label">Primary Unit *</label>
+                                                    <select name="primary_unit_id" id="primary_unit_id" class="form-control" required>
                                                         <option value="">Select Unit</option>
                                                         @foreach($units as $unit)
                                                             <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->short_name }})</option>
@@ -936,30 +936,262 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     initializeSearch();
 
-    // ==================== FORM HANDLING ====================
+    // ==================== RESET FORM ====================
     window.resetForm = function() {
         document.getElementById('productForm').reset();
         document.getElementById('product_id').value = '';
         document.getElementById('modalTitle').textContent = 'Add Product';
         document.getElementById('thumbnail_preview').style.display = 'none';
+        document.getElementById('thumbnail_preview').src = '';
         document.getElementById('thumbnail_placeholder').style.display = 'block';
         document.getElementById('imageGallery').innerHTML = '';
         document.getElementById('variationsTable').innerHTML = '';
         document.getElementById('unitsContainer').innerHTML = '';
+        document.getElementById('primary_unit_id').value = '';
+        // Reset attribute container to default one row
+        const attributesContainer = document.getElementById('attributesContainer');
+        if (attributesContainer) {
+            attributesContainer.innerHTML = `
+                <div class="row g-3 align-items-end attribute-row">
+                    <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
+                    <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
+                    <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
+                </div>
+            `;
+        }
+        // Reset unit index
+        unitIndex = 1;
+        // Reset attribute index
+        attrIndex = 1;
     };
 
-    // Product type toggle
+    // ==================== EDIT PRODUCT ====================
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('.edit-item-btn') || e.target.closest('.edit-item-btn')) {
+            const btn = e.target.matches('.edit-item-btn') ? e.target : e.target.closest('.edit-item-btn');
+            const id = btn.dataset.id;
+            if (!id) return;
+
+            Swal.fire({
+                title: 'Loading...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            axios.get(`/web/products/${id}/edit`)
+                .then(response => {
+                    const p = response.data;
+                    resetForm();
+
+                    // Basic Info
+                    document.getElementById('product_id').value = p.id;
+                    document.getElementById('title').value = p.title || '';
+                    document.getElementById('sku').value = p.sku || '';
+                    document.getElementById('barcode').value = p.barcode || '';
+                    document.getElementById('price').value = p.price || '';
+                    document.getElementById('cost_price').value = p.cost_price || 0;
+                    document.getElementById('sale_price').value = p.sale_price || '';
+                    document.getElementById('description').value = p.description || '';
+                    document.getElementById('product_type').value = p.product_type || 'simple';
+                    document.getElementById('brand_id').value = p.brand_id || '';
+                    document.getElementById('category_id').value = p.category_id || '';
+
+                    // IMPORTANT: Set the primary_unit_id
+                    document.getElementById('primary_unit_id').value = p.primary_unit_id || '';
+
+                    // Flags
+                    if (document.getElementById('is_featured')) {
+                        document.getElementById('is_featured').checked = !!p.is_featured;
+                    }
+                    if (document.getElementById('is_new')) {
+                        document.getElementById('is_new').checked = !!p.is_new;
+                    }
+                    if (document.getElementById('is_trending')) {
+                        document.getElementById('is_trending').checked = !!p.is_trending;
+                    }
+                    if (document.getElementById('is_top_rated')) {
+                        document.getElementById('is_top_rated').checked = !!p.is_top_rated;
+                    }
+
+                    // Thumbnail
+                    if (p.thumbnail) {
+                        const preview = document.getElementById('thumbnail_preview');
+                        const placeholder = document.getElementById('thumbnail_placeholder');
+                        if (preview) {
+                            preview.src = p.thumbnail;
+                            preview.style.display = 'block';
+                        }
+                        if (placeholder) placeholder.style.display = 'none';
+                    }
+
+                    // Additional Units
+                    const unitsContainer = document.getElementById('unitsContainer');
+                    if (unitsContainer && p.additional_units && p.additional_units.length > 0) {
+                        unitsContainer.innerHTML = '';
+                        p.additional_units.forEach((unit, index) => {
+                            // Get all units from the page for the dropdown
+                            const unitOptions = document.querySelector('#primary_unit_id')?.innerHTML || '';
+                            unitsContainer.insertAdjacentHTML('beforeend', `
+                                <div class="row g-3 align-items-end unit-row mt-3">
+                                    <div class="col-md-5">
+                                        <select name="units[${index}][unit_id]" class="form-control">
+                                            <option value="">Select Unit</option>
+                                            @foreach($units as $unit)
+                                                <option value="{{ $unit->id }}" ${unit.unit_id == {{ $unit->id }} ? 'selected' : ''}>
+                                                    {{ $unit->name }} ({{ $unit->short_name }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <input type="number" step="0.01" name="units[${index}][quantity_per_unit]"
+                                               class="form-control" placeholder="Qty per primary unit"
+                                               value="${unit.quantity_per_unit}">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-danger btn-sm remove-unit">Remove</button>
+                                    </div>
+                                </div>
+                            `);
+                        });
+                    }
+
+                    // Load gallery images
+                    const gallery = document.getElementById('imageGallery');
+                    if (gallery && p.gallery && p.gallery.length > 0) {
+                        gallery.innerHTML = '';
+                        p.gallery.forEach(img => {
+                            gallery.insertAdjacentHTML('beforeend', `
+                                <div class="col-4 gallery-item">
+                                    <div class="position-relative">
+                                        <img src="${img.url}" class="img-fluid rounded" style="max-height:80px;width:100%;object-fit:cover;">
+                                        <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 remove-gallery-img" data-image-id="${img.id}">×</button>
+                                    </div>
+                                </div>
+                            `);
+                        });
+                    }
+
+                    // Load attributes
+                    const attributesContainer = document.getElementById('attributesContainer');
+                    if (attributesContainer && p.attributes && p.attributes.length > 0) {
+                        attributesContainer.innerHTML = '';
+                        p.attributes.forEach((attr, index) => {
+                            attributesContainer.insertAdjacentHTML('beforeend', `
+                                <div class="row g-3 align-items-end attribute-row mt-3">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control" placeholder="e.g. Color"
+                                               name="attributes[${index}][name]" value="${attr.name}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="text" class="form-control" placeholder="Red, Blue, Green"
+                                               name="attributes[${index}][values]" value="${attr.values}">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
+                                    </div>
+                                </div>
+                            `);
+                        });
+                    }
+
+                    // Load variations
+                    if (p.variations && p.variations.length > 0) {
+                        const variationsTable = document.getElementById('variationsTable');
+                        if (variationsTable) {
+                            let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr>
+                                <th>Variant</th><th>SKU</th><th>Barcode</th><th>Cost Price</th><th>Price</th><th>Sale Price</th><th>Image</th><th>Action</th>
+                            </tr></thead><tbody>`;
+
+                            p.variations.forEach((varItem, index) => {
+                                const badges = Object.entries(varItem.attributes || {})
+                                    .map(([k, v]) => `<span class="badge bg-primary me-1">${k}: ${v}</span>`).join(' ');
+
+                                const hiddens = Object.entries(varItem.attributes || {})
+                                    .map(([k, v]) => `<input type="hidden" name="variations[${index}][attributes][${k}]" value="${v}">`).join('');
+
+                                html += `<tr>
+                                    <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}</td>
+                                    <td><input type="text" name="variations[${index}][sku]" class="form-control form-control-sm" value="${varItem.sku || ''}"></td>
+                                    <td><input type="text" name="variations[${index}][barcode]" class="form-control form-control-sm" value="${varItem.barcode || ''}"></td>
+                                    <td><input type="number" step="0.01" name="variations[${index}][cost_price]" class="form-control form-control-sm" value="${varItem.cost_price || ''}"></td>
+                                    <td><input type="number" step="0.01" name="variations[${index}][price]" class="form-control form-control-sm" required value="${varItem.price || 0}"></td>
+                                    <td><input type="number" step="0.01" name="variations[${index}][sale_price]" class="form-control form-control-sm" value="${varItem.sale_price || ''}"></td>
+                                    <td>
+                                        <div class="d-flex flex-column align-items-center">
+                                            ${varItem.image ? `<img src="${varItem.image}" class="img-fluid rounded mb-2" style="max-height:60px;width:60px;object-fit:cover;">` : ''}
+                                            <input type="file" name="variations[${index}][image]" class="form-control form-control-sm variation-image" accept="image/*">
+                                        </div>
+                                    </td>
+                                    <td><button type="button" class="btn btn-danger btn-sm remove-variation"><i class="bi bi-trash"></i></button></td>
+                                </tr>`;
+                            });
+
+                            html += '</tbody></table></div>';
+                            variationsTable.innerHTML = html;
+                        }
+                    }
+
+                    // Show the variations section if product is variable
+                    toggleVariationsSection();
+
+                    // Update modal title
+                    document.getElementById('modalTitle').textContent = 'Edit Product';
+
+                    // Show the modal
+                    const modalEl = document.getElementById('showModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.overflow = '';
+                    document.body.style.paddingRight = '';
+                    modal.show();
+                    Swal.close();
+                })
+                .catch(err => {
+                    Swal.fire('Error', 'Failed to load product: ' + (err.response?.data?.message || err.message), 'error');
+                });
+        }
+    });
+
+    // ==================== DELETE PRODUCT ====================
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('.remove-item-btn') || e.target.closest('.remove-item-btn')) {
+            const btn = e.target.matches('.remove-item-btn') ? e.target : e.target.closest('.remove-item-btn');
+            const id = btn.dataset.id;
+            Swal.fire({
+                title: 'Delete Product?',
+                text: 'This action cannot be undone!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, delete!'
+            })
+            .then(result => {
+                if (result.isConfirmed) {
+                    axios.delete(`/web/products/${id}`)
+                        .then(() => Swal.fire('Deleted!', 'Product has been deleted', 'success').then(() => location.reload()))
+                        .catch(() => Swal.fire('Error', 'Failed to delete', 'error'));
+                }
+            });
+        }
+    });
+
+    // ==================== PRODUCT TYPE TOGGLE ====================
     const productTypeSelect = document.getElementById('product_type');
     const variationsSection = document.getElementById('variationsSection');
+
     function toggleVariationsSection() {
         if (variationsSection) {
             variationsSection.style.display = productTypeSelect?.value === 'variable' ? 'block' : 'none';
         }
     }
-    if (productTypeSelect) productTypeSelect.addEventListener('change', toggleVariationsSection);
+
+    if (productTypeSelect) {
+        productTypeSelect.addEventListener('change', toggleVariationsSection);
+    }
     toggleVariationsSection();
 
-    // Price calculations
+    // ==================== PRICE CALCULATIONS ====================
     const priceInput = document.getElementById('price');
     const discountInput = document.getElementById('discount_percent');
     const salePriceInput = document.getElementById('sale_price');
@@ -974,7 +1206,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (priceInput) priceInput.addEventListener('input', calculateSalePrice);
     if (discountInput) discountInput.addEventListener('input', calculateSalePrice);
 
-    // Thumbnail preview
+    // ==================== THUMBNAIL PREVIEW ====================
     const thumbnailInput = document.getElementById('thumbnail_input');
     if (thumbnailInput) {
         thumbnailInput.addEventListener('change', function(e) {
@@ -983,8 +1215,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 reader.onload = ev => {
                     const preview = document.getElementById('thumbnail_preview');
                     const placeholder = document.getElementById('thumbnail_placeholder');
-                    if (preview) preview.src = ev.target.result;
-                    if (preview) preview.style.display = 'block';
+                    if (preview) {
+                        preview.src = ev.target.result;
+                        preview.style.display = 'block';
+                    }
                     if (placeholder) placeholder.style.display = 'none';
                 };
                 reader.readAsDataURL(e.target.files[0]);
@@ -992,7 +1226,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Form submission
+    // ==================== FORM SUBMISSION ====================
     const productForm = document.getElementById('productForm');
     if (productForm) {
         productForm.addEventListener('submit', function(e) {
@@ -1012,8 +1246,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
             .then(res => {
-                Swal.fire({ icon: 'success', title: 'Success!', text: res.data.message || 'Product saved', showConfirmButton: false, timer: 1500 })
-                    .then(() => location.reload());
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: res.data.message || 'Product saved',
+                    showConfirmButton: false,
+                    timer: 1500
+                })
+                .then(() => location.reload());
             })
             .catch(err => {
                 let msg = 'An error occurred';
@@ -1031,78 +1271,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Edit product
-    document.addEventListener('click', function(e) {
-        if (e.target.matches('.edit-item-btn') || e.target.closest('.edit-item-btn')) {
-            const btn = e.target.matches('.edit-item-btn') ? e.target : e.target.closest('.edit-item-btn');
-            const id = btn.dataset.id;
-            if (!id) return;
-
-            Swal.fire({ title: 'Loading...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-            axios.get(`/web/products/${id}/edit`)
-                .then(response => {
-                    const p = response.data;
-                    resetForm();
-
-                    document.getElementById('product_id').value = p.id;
-                    document.getElementById('title').value = p.title || '';
-                    document.getElementById('sku').value = p.sku || '';
-                    document.getElementById('barcode').value = p.barcode || '';
-                    document.getElementById('price').value = p.price || '';
-                    document.getElementById('cost_price').value = p.cost_price || 0;
-                    document.getElementById('sale_price').value = p.sale_price || '';
-                    document.getElementById('description').value = p.description || '';
-                    document.getElementById('product_type').value = p.product_type || 'simple';
-                    document.getElementById('brand_id').value = p.brand_id || '';
-                    document.getElementById('category_id').value = p.category_id || '';
-
-                    if (document.getElementById('is_featured')) document.getElementById('is_featured').checked = !!p.is_featured;
-                    if (document.getElementById('is_new')) document.getElementById('is_new').checked = !!p.is_new;
-                    if (document.getElementById('is_trending')) document.getElementById('is_trending').checked = !!p.is_trending;
-                    if (document.getElementById('is_top_rated')) document.getElementById('is_top_rated').checked = !!p.is_top_rated;
-
-                    if (p.thumbnail) {
-                        const preview = document.getElementById('thumbnail_preview');
-                        const placeholder = document.getElementById('thumbnail_placeholder');
-                        if (preview) preview.src = p.thumbnail;
-                        if (preview) preview.style.display = 'block';
-                        if (placeholder) placeholder.style.display = 'none';
-                    }
-
-                    toggleVariationsSection();
-                    document.getElementById('modalTitle').textContent = 'Edit Product';
-
-                    const modalEl = document.getElementById('showModal');
-                    const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-                    document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-                    document.body.classList.remove('modal-open');
-                    modal.show();
-                    Swal.close();
-                })
-                .catch(err => {
-                    Swal.fire('Error', 'Failed to load product: ' + (err.response?.data?.message || err.message), 'error');
-                });
-        }
-    });
-
-    // Delete product
-    document.addEventListener('click', function(e) {
-        if (e.target.matches('.remove-item-btn') || e.target.closest('.remove-item-btn')) {
-            const btn = e.target.matches('.remove-item-btn') ? e.target : e.target.closest('.remove-item-btn');
-            const id = btn.dataset.id;
-            Swal.fire({ title: 'Delete Product?', text: 'This action cannot be undone!', icon: 'warning', showCancelButton: true, confirmButtonText: 'Yes, delete!' })
-                .then(result => {
-                    if (result.isConfirmed) {
-                        axios.delete(`/web/products/${id}`)
-                            .then(() => Swal.fire('Deleted!', 'Product has been deleted', 'success').then(() => location.reload()))
-                            .catch(() => Swal.fire('Error', 'Failed to delete', 'error'));
-                    }
-                });
-        }
-    });
-
-    // Generate barcode
+    // ==================== GENERATE BARCODE ====================
     const generateBarcodeBtn = document.getElementById('generateBarcodeBtn');
     if (generateBarcodeBtn) {
         generateBarcodeBtn.addEventListener('click', () => {
@@ -1113,8 +1282,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Add unit
-    let unitIndex = 0;
+    // ==================== ADD UNIT ====================
+    let unitIndex = 1;
     const addUnitBtn = document.getElementById('addUnit');
     if (addUnitBtn) {
         addUnitBtn.addEventListener('click', () => {
@@ -1143,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Remove unit
+    // ==================== REMOVE UNIT / ATTRIBUTE ====================
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('remove-unit')) {
             e.target.closest('.unit-row')?.remove();
@@ -1151,9 +1320,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.classList.contains('remove-attribute')) {
             e.target.closest('.attribute-row')?.remove();
         }
+        if (e.target.classList.contains('remove-gallery-img')) {
+            const imageId = e.target.dataset.imageId;
+            const productId = document.getElementById('product_id')?.value;
+            if (productId && imageId) {
+                Swal.fire({
+                    title: 'Delete Image?',
+                    text: 'This action cannot be undone!',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, delete!'
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        axios.delete(`/web/products/${productId}/images/${imageId}`)
+                            .then(() => {
+                                e.target.closest('.gallery-item')?.remove();
+                                Swal.fire('Deleted!', 'Image has been deleted', 'success');
+                            })
+                            .catch(() => Swal.fire('Error', 'Failed to delete image', 'error'));
+                    }
+                });
+            }
+        }
     });
 
-    // Add attribute
+    // ==================== ADD ATTRIBUTE ====================
     let attrIndex = 1;
     const addAttributeBtn = document.getElementById('addAttribute');
     if (addAttributeBtn) {
@@ -1172,7 +1363,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Generate variations
+    // ==================== GENERATE VARIATIONS ====================
     const generateVariationsBtn = document.getElementById('generateVariations');
     if (generateVariationsBtn) {
         generateVariationsBtn.addEventListener('click', () => {
@@ -1214,8 +1405,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
                             <img class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;display:none;">
                         </div>
-                    </div>
-                    <td><button type="button" class="btn btn-danger btn-sm remove-variation"><i class="bi bi-trash"></i></button></div>
+                    </td>
+                    <td><button type="button" class="btn btn-danger btn-sm remove-variation"><i class="bi bi-trash"></i></button></td>
                 </tr>`;
             });
 
@@ -1225,7 +1416,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Variation image preview
+    // ==================== VARIATION IMAGE PREVIEW ====================
     document.addEventListener('change', e => {
         if (e.target.classList.contains('variation-image') && e.target.files[0]) {
             const reader = new FileReader();
@@ -1240,14 +1431,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Remove variation
+    // ==================== REMOVE VARIATION ====================
     document.addEventListener('click', e => {
-        if (e.target.classList.contains('remove-variation')) {
-            e.target.closest('tr')?.remove();
+        if (e.target.classList.contains('remove-variation') || e.target.closest('.remove-variation')) {
+            const btn = e.target.classList.contains('remove-variation') ? e.target : e.target.closest('.remove-variation');
+            btn.closest('tr')?.remove();
         }
     });
 
-    // Bulk discount
+    // ==================== BULK DISCOUNT ====================
     const applyBulkDiscount = document.getElementById('applyBulkDiscount');
     if (applyBulkDiscount) {
         applyBulkDiscount.addEventListener('click', function() {
@@ -1268,7 +1460,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Modal backdrop cleanup
+    // ==================== MODAL BACKDROP CLEANUP ====================
     const showModal = document.getElementById('showModal');
     if (showModal) {
         showModal.addEventListener('hidden.bs.modal', function() {
@@ -1276,6 +1468,30 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.classList.remove('modal-open');
             document.body.style.overflow = '';
             document.body.style.paddingRight = '';
+        });
+    }
+
+    // ==================== GALLERY IMAGE PREVIEW ====================
+    const galleryInput = document.getElementById('gallery_input');
+    if (galleryInput) {
+        galleryInput.addEventListener('change', function(e) {
+            const gallery = document.getElementById('imageGallery');
+            if (gallery && e.target.files) {
+                Array.from(e.target.files).forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                        gallery.insertAdjacentHTML('beforeend', `
+                            <div class="col-4 gallery-item">
+                                <div class="position-relative">
+                                    <img src="${ev.target.result}" class="img-fluid rounded" style="max-height:80px;width:100%;object-fit:cover;">
+                                    <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 remove-gallery-img">×</button>
+                                </div>
+                            </div>
+                        `);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
         });
     }
 });

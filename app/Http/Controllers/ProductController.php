@@ -110,6 +110,9 @@ class ProductController extends Controller
 
         $units = Unit::orderBy('name')->get();
 
+        // Get the primary unit (first unit with quantity_per_unit = 1 or simply the first one)
+        $primaryUnit = $product->units->first();
+
         $attributes = $product->attributes->map(function ($attr) {
             $values = is_array($attr->values)
                 ? implode(', ', $attr->values)
@@ -133,6 +136,14 @@ class ProductController extends Controller
             ];
         })->toArray();
 
+        // Get additional units (excluding primary)
+        $additionalUnits = $product->units->skip(1)->map(function ($unit) {
+            return [
+                'unit_id'           => $unit->id,
+                'quantity_per_unit' => $unit->pivot->quantity_per_unit,
+            ];
+        })->toArray();
+
         return response()->json([
             'id'               => $product->id,
             'title'            => $product->title,
@@ -149,13 +160,8 @@ class ProductController extends Controller
             'is_top_rated'     => (bool) $product->is_top_rated,
             'brand_id'         => $product->brand_id,
             'category_id'      => $product->category_id,
-            'primary_unit_id'  => $product->units->first()?->id,
-            'additional_units' => $product->units->skip(1)->map(function ($unit) {
-                return [
-                    'unit_id'           => $unit->id,
-                    'quantity_per_unit' => $unit->pivot->quantity_per_unit,
-                ];
-            })->toArray(),
+            'primary_unit_id'  => $primaryUnit?->id, // This is now properly set
+            'additional_units' => $additionalUnits,
             'thumbnail'  => $product->thumbnail ? asset('storage/' . $product->thumbnail) : null,
             'gallery'    => $product->images->map(function ($img) {
                 return ['id' => $img->id, 'url' => asset('storage/' . $img->image_path)];
@@ -275,7 +281,7 @@ class ProductController extends Controller
             'units.*.unit_id'            => 'nullable|exists:units,id|distinct',
             'units.*.quantity_per_unit'  => 'nullable|numeric|min:0.01',
             'variations.*.sku'           => 'nullable|string',
-            'variations.*.barcode'       => 'nullable|string|max:50|unique:product_variations,barcode',
+            'variations.*.barcode'       => 'nullable|string|max:50|unique:product_variations,barcode,' . ($request->variations ? $request->variations[0]['id'] ?? null : null),
             'variations.*.price'         => 'required|numeric|min:0',
             'variations.*.cost_price'    => 'nullable|numeric|min:0',
             'variations.*.sale_price'    => 'nullable|numeric|min:0',
@@ -408,9 +414,13 @@ class ProductController extends Controller
     private function syncUnits($product, $request)
     {
         $product->units()->detach();
+
+        // Always attach primary unit
         if ($request->primary_unit_id) {
             $product->units()->attach($request->primary_unit_id, ['quantity_per_unit' => 1]);
         }
+
+        // Attach additional units
         if ($request->has('units') && is_array($request->units)) {
             foreach ($request->units as $u) {
                 if (!empty($u['unit_id']) && !empty($u['quantity_per_unit']) && $u['unit_id'] != $request->primary_unit_id) {
