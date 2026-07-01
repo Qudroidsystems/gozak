@@ -17,7 +17,6 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -250,144 +249,150 @@ class ProductController extends Controller
         }
     }
 
-
-
-
-
     public function update(Request $request, $id)
-{
-    $product = Product::findOrFail($id);
+    {
+        $product = Product::findOrFail($id);
 
-    // Log the request for debugging
-    \Log::info('Update Product - Request Data', [
-        'product_id' => $id,
-        'sku' => $request->sku,
-        'current_sku' => $product->sku,
-        'barcode' => $request->barcode,
-        'current_barcode' => $product->barcode
-    ]);
+        // Log the request for debugging
+        \Log::info('Update Product - Request Data', [
+            'product_id' => $id,
+            'sku' => $request->sku,
+            'current_sku' => $product->sku,
+            'barcode' => $request->barcode,
+            'current_barcode' => $product->barcode
+        ]);
 
-    $request->merge([
-        'is_featured'  => $request->has('is_featured'),
-        'is_new'       => $request->has('is_new'),
-        'is_trending'  => $request->has('is_trending'),
-        'is_top_rated' => $request->has('is_top_rated'),
-    ]);
+        $request->merge([
+            'is_featured'  => $request->has('is_featured'),
+            'is_new'       => $request->has('is_new'),
+            'is_trending'  => $request->has('is_trending'),
+            'is_top_rated' => $request->has('is_top_rated'),
+        ]);
 
-    // Standard validation rules (without SKU and Barcode unique)
-    $rules = [
-        'title'                      => 'required|string|max:255',
-        'price'                      => 'required|numeric|min:0',
-        'cost_price'                 => 'nullable|numeric|min:0',
-        'sale_price'                 => 'nullable|numeric|min:0|lt:price',
-        'thumbnail'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-        'images.*'                   => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-        'brand_id'                   => 'nullable|exists:brands,id',
-        'category_id'                => 'nullable|exists:categories,id',
-        'primary_unit_id'            => 'required|exists:units,id',
-        'description'                => 'nullable|string',
-        'product_type'               => 'required|in:simple,variable',
-        'is_featured'                => 'boolean',
-        'is_new'                     => 'boolean',
-        'is_trending'                => 'boolean',
-        'is_top_rated'               => 'boolean',
-        'units.*.unit_id'            => 'nullable|exists:units,id|distinct',
-        'units.*.quantity_per_unit'  => 'nullable|numeric|min:0.01',
-        'variations.*.sku'           => 'nullable|string',
-        'variations.*.barcode'       => 'nullable|string|max:50',
-        'variations.*.price'         => 'required|numeric|min:0',
-        'variations.*.cost_price'    => 'nullable|numeric|min:0',
-        'variations.*.sale_price'    => 'nullable|numeric|min:0',
-        'variations.*.image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-    ];
+        // Validation rules without SKU and Barcode unique constraints
+        $rules = [
+            'title'                      => 'required|string|max:255',
+            'price'                      => 'required|numeric|min:0',
+            'cost_price'                 => 'nullable|numeric|min:0',
+            'sale_price'                 => 'nullable|numeric|min:0|lt:price',
+            'thumbnail'                  => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'images.*'                   => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'brand_id'                   => 'nullable|exists:brands,id',
+            'category_id'                => 'nullable|exists:categories,id',
+            'primary_unit_id'            => 'required|exists:units,id',
+            'description'                => 'nullable|string',
+            'product_type'               => 'required|in:simple,variable',
+            'is_featured'                => 'boolean',
+            'is_new'                     => 'boolean',
+            'is_trending'                => 'boolean',
+            'is_top_rated'               => 'boolean',
+            'units.*.unit_id'            => 'nullable|exists:units,id|distinct',
+            'units.*.quantity_per_unit'  => 'nullable|numeric|min:0.01',
+            'variations.*.sku'           => 'nullable|string',
+            'variations.*.barcode'       => 'nullable|string|max:50',
+            'variations.*.price'         => 'required|numeric|min:0',
+            'variations.*.cost_price'    => 'nullable|numeric|min:0',
+            'variations.*.sale_price'    => 'nullable|numeric|min:0',
+            'variations.*.image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+        ];
 
-    $validator = Validator::make($request->all(), $rules);
+        $validator = Validator::make($request->all(), $rules);
 
-    // Add custom validation for SKU and Barcode
-    $validator->after(function ($validator) use ($request, $product) {
-        // Check SKU uniqueness (ignore current product)
-        if ($request->filled('sku')) {
-            $skuExists = Product::where('sku', $request->sku)
-                ->where('id', '!=', $product->id)
-                ->exists();
-
-            if ($skuExists) {
-                $validator->errors()->add('sku', 'The SKU has already been taken.');
+        // Add custom validation for SKU and Barcode
+        $validator->after(function ($validator) use ($request, $product) {
+            // Check SKU uniqueness - ONLY if SKU is being changed
+            if ($request->filled('sku')) {
+                // If SKU is different from current, check uniqueness
+                if ($request->sku !== $product->sku) {
+                    $exists = Product::where('sku', $request->sku)->exists();
+                    if ($exists) {
+                        $validator->errors()->add('sku', 'The SKU has already been taken.');
+                    }
+                }
             }
+
+            // Check Barcode uniqueness - ONLY if Barcode is being changed and is not null
+            if ($request->filled('barcode')) {
+                // If Barcode is different from current, check uniqueness
+                if ($request->barcode !== $product->barcode) {
+                    $exists = Product::where('barcode', $request->barcode)->exists();
+                    if ($exists) {
+                        $validator->errors()->add('barcode', 'The barcode has already been taken.');
+                    }
+                }
+            }
+        });
+
+        if ($validator->fails()) {
+            \Log::error('Validation failed:', $validator->errors()->toArray());
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
         }
 
-        // Check Barcode uniqueness (ignore current product)
-        if ($request->filled('barcode')) {
-            $barcodeExists = Product::where('barcode', $request->barcode)
-                ->where('id', '!=', $product->id)
-                ->exists();
+        try {
+            $data = [
+                'title'        => $request->title,
+                'sku'          => $request->sku,
+                'price'        => $request->price,
+                'cost_price'   => $request->cost_price,
+                'sale_price'   => $request->sale_price,
+                'description'  => $request->description,
+                'product_type' => $request->product_type,
+                'brand_id'     => $request->brand_id,
+                'category_id'  => $request->category_id,
+                'is_featured'  => $request->boolean('is_featured'),
+                'is_new'       => $request->boolean('is_new'),
+                'is_trending'  => $request->boolean('is_trending'),
+                'is_top_rated' => $request->boolean('is_top_rated'),
+            ];
 
-            if ($barcodeExists) {
-                $validator->errors()->add('barcode', 'The barcode has already been taken.');
+            // Handle barcode
+            if ($request->filled('barcode')) {
+                $data['barcode'] = $request->barcode;
+            } else {
+                $data['barcode'] = $this->generateMainBarcode($request->sku);
             }
-        }
-    });
 
-    if ($validator->fails()) {
-        \Log::error('Validation failed:', $validator->errors()->toArray());
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed',
-            'errors' => $validator->errors()
-        ], 422);
+            // Handle thumbnail
+            if ($request->hasFile('thumbnail')) {
+                if ($product->thumbnail) {
+                    Storage::disk('public')->delete($product->thumbnail);
+                }
+                $data['thumbnail'] = $request->file('thumbnail')->store('product', 'public');
+            }
+
+            \Log::info('Updating product with data:', $data);
+
+            // Update product
+            $product->update($data);
+
+            // Sync relationships
+            $this->syncUnits($product, $request);
+            $this->syncImages($product, $request);
+            $this->syncAttributesAndVariations($product, $request);
+
+            \Log::info('Product updated successfully', ['product_id' => $product->id]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Product updated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Product update error: ' . $e->getMessage(), [
+                'product_id' => $product->id,
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update product: ' . $e->getMessage()
+            ], 500);
+        }
     }
-
-    try {
-        $data = $request->only([
-            'title', 'sku', 'barcode', 'price', 'cost_price',
-            'sale_price', 'description', 'product_type', 'brand_id', 'category_id'
-        ]);
-
-        $data['is_featured']  = $request->boolean('is_featured');
-        $data['is_new']       = $request->boolean('is_new');
-        $data['is_trending']  = $request->boolean('is_trending');
-        $data['is_top_rated'] = $request->boolean('is_top_rated');
-
-        // Generate barcode if empty
-        if (empty($data['barcode'])) {
-            $data['barcode'] = $this->generateMainBarcode($data['sku']);
-        }
-
-        // Handle thumbnail
-        if ($request->hasFile('thumbnail')) {
-            if ($product->thumbnail) {
-                Storage::disk('public')->delete($product->thumbnail);
-            }
-            $data['thumbnail'] = $request->file('thumbnail')->store('product', 'public');
-        }
-
-        // Update product
-        $product->update($data);
-
-        // Sync relationships
-        $this->syncUnits($product, $request);
-        $this->syncImages($product, $request);
-        $this->syncAttributesAndVariations($product, $request);
-
-        \Log::info('Product updated successfully', ['product_id' => $product->id]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Product updated successfully'
-        ]);
-
-    } catch (\Exception $e) {
-        \Log::error('Product update error: ' . $e->getMessage(), [
-            'product_id' => $product->id,
-            'trace' => $e->getTraceAsString()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to update product: ' . $e->getMessage()
-        ], 500);
-    }
-}
 
     /**
      * Update single flag via AJAX (is_new, is_trending, is_top_rated)
