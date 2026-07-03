@@ -17,6 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
@@ -547,11 +548,15 @@ class ProductController extends Controller
                     }
                 }
 
+                // Generate barcode if not provided
                 $barcode = $var['barcode'] ?? null;
                 if (!$barcode) {
                     $baseSku     = $product->sku ?? 'PROD';
-                    $attrString  = collect($attributes)->values()->join('-')->strtoupper()->replace(' ', '');
-                    $random      = strtoupper(substr(md5(microtime()), 0, 6));
+                    // FIXED: Properly handle string operations
+                    $attrString  = collect($attributes)->values()->join('-');
+                    $attrString  = Str::upper($attrString);
+                    $attrString  = Str::replace(' ', '', $attrString);
+                    $random      = Str::upper(substr(md5(microtime()), 0, 6));
                     $barcode     = substr("{$baseSku}-{$attrString}-{$random}", 0, 20);
                 }
 
