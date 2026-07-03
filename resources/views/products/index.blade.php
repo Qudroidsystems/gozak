@@ -489,7 +489,7 @@
 
             {{-- ─── Add / Edit Product Modal ───────────────────────────────────────── --}}
             <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static">
-                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width: 95%;">
                     <div class="modal-content">
                         <form id="productForm" enctype="multipart/form-data">
                             @csrf
@@ -498,7 +498,7 @@
                                 <h5 class="modal-title" id="modalTitle">Add Product</h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
-                            <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+                            <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
                                 <div class="row g-4">
 
                                     {{-- Left column --}}
@@ -562,19 +562,19 @@
 
                                         <div id="variationsSection" style="display:none;">
                                             <div class="card mt-4">
-                                                <div class="card-header d-flex justify-content-between align-items-center">
+                                                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                                                     <h6 class="mb-0">Product Variations</h6>
-                                                    <div>
-                                                        <input type="number" min="0" max="100" id="bulk_discount" class="form-control form-control-sm d-inline w-auto me-2" placeholder="Bulk %">
+                                                    <div class="d-flex gap-2">
+                                                        <input type="number" min="0" max="100" id="bulk_discount" class="form-control form-control-sm d-inline w-auto" placeholder="Bulk %" style="width: 100px;">
                                                         <button type="button" class="btn btn-success btn-sm" id="applyBulkDiscount">Apply</button>
                                                     </div>
                                                 </div>
                                                 <div class="card-body">
                                                     <div id="attributesContainer" class="mb-4">
                                                         <div class="row g-3 align-items-end attribute-row">
-                                                            <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
+                                                            <div class="col-md-4"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
                                                             <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
-                                                            <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
+                                                            <div class="col-md-2"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
                                                         </div>
                                                     </div>
                                                     <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="addAttribute">+ Add Attribute</button>
@@ -943,9 +943,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (attributesContainer) {
             attributesContainer.innerHTML = `
                 <div class="row g-3 align-items-end attribute-row">
-                    <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
+                    <div class="col-md-4"><input type="text" class="form-control" placeholder="e.g. Color" name="attributes[0][name]"></div>
                     <div class="col-md-6"><input type="text" class="form-control" placeholder="Red, Blue, Green" name="attributes[0][values]"></div>
-                    <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
+                    <div class="col-md-2"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
                 </div>
             `;
         }
@@ -1053,7 +1053,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         p.attributes.forEach((attr, index) => {
                             attributesContainer.insertAdjacentHTML('beforeend', `
                                 <div class="row g-3 align-items-end attribute-row mt-3">
-                                    <div class="col-md-5">
+                                    <div class="col-md-4">
                                         <input type="text" class="form-control" placeholder="e.g. Color"
                                                name="attributes[${index}][name]" value="${attr.name}">
                                     </div>
@@ -1061,7 +1061,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <input type="text" class="form-control" placeholder="Red, Blue, Green"
                                                name="attributes[${index}][values]" value="${attr.values}">
                                     </div>
-                                    <div class="col-md-1">
+                                    <div class="col-md-2">
                                         <button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button>
                                     </div>
                                 </div>
@@ -1069,12 +1069,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
 
-                    // Variations with existing images
+                    // Variations with existing images - FIXED to show SKU, Barcode, Cost Price
                     if (p.variations && p.variations.length > 0) {
                         const variationsTable = document.getElementById('variationsTable');
                         if (variationsTable) {
                             let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr>
-                                <th>Variant</th><th>SKU</th><th>Barcode</th><th>Cost Price</th><th>Price</th><th>Sale Price</th><th>Image</th><th>Action</th>
+                                <th>Variant</th>
+                                <th>SKU</th>
+                                <th>Barcode</th>
+                                <th>Cost Price</th>
+                                <th>Price</th>
+                                <th>Sale Price</th>
+                                <th>Image</th>
+                                <th>Action</th>
                             </tr></thead><tbody>`;
 
                             p.variations.forEach((varItem, index) => {
@@ -1313,9 +1320,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (attributesContainer) {
             attributesContainer.insertAdjacentHTML('beforeend', `
                 <div class="row g-3 align-items-end attribute-row mt-3">
-                    <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
+                    <div class="col-md-4"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
                     <div class="col-md-6"><input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]"></div>
-                    <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
+                    <div class="col-md-2"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
                 </div>
             `);
             attrIndex++;
@@ -1341,7 +1348,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const discount = parseFloat(document.getElementById('discount_percent')?.value) || 0;
 
         let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr>
-            <th>Variant</th><th>SKU</th><th>Barcode</th><th>Cost Price</th><th>Price</th><th>Sale Price</th><th>Image</th><th>Action</th>
+            <th>Variant</th>
+            <th>SKU</th>
+            <th>Barcode</th>
+            <th>Cost Price</th>
+            <th>Price</th>
+            <th>Sale Price</th>
+            <th>Image</th>
+            <th>Action</th>
         </tr></thead><tbody>`;
 
         combos.forEach((combo, i) => {
