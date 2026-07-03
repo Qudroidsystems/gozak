@@ -565,7 +565,7 @@
                                                     </div>
                                                     <div class="col-md-4">
                                                         <label class="form-label">Discount %</label>
-                                                        <input type="number" min="0" max="100" id="discount_percent" class="form-control">
+                                                        <input type="number" min="0" max="100" id="discount_percent" class="form-control" placeholder="0">
                                                     </div>
                                                     <div class="col-md-4">
                                                         <label class="form-label">Sale Price</label>
@@ -742,7 +742,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const flagToggles = document.querySelectorAll('.flag-toggle');
 
         flagToggles.forEach(toggle => {
-            // Remove existing listeners to prevent duplicates
             toggle.removeEventListener('change', handleFlagChange);
             toggle.addEventListener('change', handleFlagChange);
         });
@@ -755,7 +754,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const value = toggle.checked;
         const originalState = !value;
 
-        // Disable toggle to prevent multiple requests
         toggle.disabled = true;
 
         try {
@@ -764,7 +762,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 value: value
             });
 
-            // Show success toast
             Swal.fire({
                 icon: 'success',
                 title: 'Updated!',
@@ -776,7 +773,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
         } catch (error) {
-            // Revert the toggle state
             toggle.checked = originalState;
 
             let errorMessage = 'Failed to update flag';
@@ -795,15 +791,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmButtonText: 'OK'
             });
         } finally {
-            // Re-enable toggle
             toggle.disabled = false;
         }
     }
 
-    // Initialize flag toggles
     initializeFlagToggles();
 
-    // Watch for dynamically added content
     const observer = new MutationObserver(function(mutations) {
         mutations.forEach(function(mutation) {
             if (mutation.addedNodes.length) {
@@ -829,7 +822,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Select All functionality
     const selectAllCheckbox = document.getElementById('selectAll');
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
@@ -838,7 +830,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Individual row selection
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('row-select')) {
             updateSelectedCount();
@@ -849,7 +840,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Bulk Flag Actions
     document.querySelectorAll('.flag-bulk-action').forEach(item => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
@@ -900,7 +890,6 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = `${window.location.pathname}?${params.toString()}`;
     };
 
-    // Search / Filter initialization
     function initializeSearch() {
         const searchInput = document.getElementById('searchInput');
         const searchButton = document.getElementById('searchButton');
@@ -948,7 +937,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('variationsTable').innerHTML = '';
         document.getElementById('unitsContainer').innerHTML = '';
         document.getElementById('primary_unit_id').value = '';
-        // Reset attribute container to default one row
+        document.getElementById('discount_percent').value = '';
+        document.getElementById('sale_price').value = '';
+
         const attributesContainer = document.getElementById('attributesContainer');
         if (attributesContainer) {
             attributesContainer.innerHTML = `
@@ -959,11 +950,48 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         }
-        // Reset unit index
         unitIndex = 1;
-        // Reset attribute index
         attrIndex = 1;
     };
+
+    // ==================== DISCOUNT % AFFECTS VARIATIONS ====================
+    const discountPercentInput = document.getElementById('discount_percent');
+    const priceInput = document.getElementById('price');
+
+    function applyDiscountToVariations() {
+        const discount = parseFloat(discountPercentInput?.value) || 0;
+
+        const variationPriceInputs = document.querySelectorAll('#variationsTable tbody tr input[name*="price"]');
+        const variationSaleInputs = document.querySelectorAll('#variationsTable tbody tr input[name*="sale_price"]');
+
+        variationPriceInputs.forEach((priceInput, index) => {
+            const price = parseFloat(priceInput.value) || 0;
+            const saleInput = variationSaleInputs[index];
+            if (saleInput && price > 0 && discount > 0 && discount <= 100) {
+                saleInput.value = (price * (1 - discount / 100)).toFixed(2);
+            } else if (saleInput && discount === 0) {
+                saleInput.value = '';
+            }
+        });
+    }
+
+    if (discountPercentInput) {
+        discountPercentInput.addEventListener('input', applyDiscountToVariations);
+    }
+
+    if (priceInput) {
+        priceInput.addEventListener('input', function() {
+            const discount = parseFloat(discountPercentInput?.value) || 0;
+            const price = parseFloat(this.value) || 0;
+            const salePriceInput = document.getElementById('sale_price');
+            if (salePriceInput && price > 0 && discount > 0 && discount <= 100) {
+                salePriceInput.value = (price * (1 - discount / 100)).toFixed(2);
+            } else if (salePriceInput && discount === 0) {
+                salePriceInput.value = '';
+            }
+            applyDiscountToVariations();
+        });
+    }
 
     // ==================== EDIT PRODUCT ====================
     document.addEventListener('click', function(e) {
@@ -983,7 +1011,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     const p = response.data;
                     resetForm();
 
-                    // Basic Info
                     document.getElementById('product_id').value = p.id;
                     document.getElementById('title').value = p.title || '';
                     document.getElementById('sku').value = p.sku || '';
@@ -995,11 +1022,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('product_type').value = p.product_type || 'simple';
                     document.getElementById('brand_id').value = p.brand_id || '';
                     document.getElementById('category_id').value = p.category_id || '';
-
-                    // IMPORTANT: Set the primary_unit_id
                     document.getElementById('primary_unit_id').value = p.primary_unit_id || '';
 
-                    // Flags
                     if (document.getElementById('is_featured')) {
                         document.getElementById('is_featured').checked = !!p.is_featured;
                     }
@@ -1013,7 +1037,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         document.getElementById('is_top_rated').checked = !!p.is_top_rated;
                     }
 
-                    // Thumbnail
                     if (p.thumbnail) {
                         const preview = document.getElementById('thumbnail_preview');
                         const placeholder = document.getElementById('thumbnail_placeholder');
@@ -1024,13 +1047,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (placeholder) placeholder.style.display = 'none';
                     }
 
-                    // Additional Units
                     const unitsContainer = document.getElementById('unitsContainer');
                     if (unitsContainer && p.additional_units && p.additional_units.length > 0) {
                         unitsContainer.innerHTML = '';
                         p.additional_units.forEach((unit, index) => {
-                            // Get all units from the page for the dropdown
-                            const unitOptions = document.querySelector('#primary_unit_id')?.innerHTML || '';
                             unitsContainer.insertAdjacentHTML('beforeend', `
                                 <div class="row g-3 align-items-end unit-row mt-3">
                                     <div class="col-md-5">
@@ -1056,7 +1076,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
 
-                    // Load gallery images
                     const gallery = document.getElementById('imageGallery');
                     if (gallery && p.gallery && p.gallery.length > 0) {
                         gallery.innerHTML = '';
@@ -1072,7 +1091,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
 
-                    // Load attributes
                     const attributesContainer = document.getElementById('attributesContainer');
                     if (attributesContainer && p.attributes && p.attributes.length > 0) {
                         attributesContainer.innerHTML = '';
@@ -1095,7 +1113,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
 
-                    // Load variations
+                    // Load variations with existing_image and id
                     if (p.variations && p.variations.length > 0) {
                         const variationsTable = document.getElementById('variationsTable');
                         if (variationsTable) {
@@ -1110,17 +1128,24 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const hiddens = Object.entries(varItem.attributes || {})
                                     .map(([k, v]) => `<input type="hidden" name="variations[${index}][attributes][${k}]" value="${v}">`).join('');
 
+                                const existingImageHidden = varItem.image_path ? `<input type="hidden" name="variations[${index}][existing_image]" value="${varItem.image_path}">` : '';
+                                const idHidden = varItem.id ? `<input type="hidden" name="variations[${index}][id]" value="${varItem.id}">` : '';
+
+                                const imageHtml = varItem.image ?
+                                    `<img src="${varItem.image}" class="img-fluid rounded mb-2" style="max-height:60px;width:60px;object-fit:cover;">` : '';
+
                                 html += `<tr>
-                                    <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}</td>
+                                    <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}${idHidden}${existingImageHidden}</td>
                                     <td><input type="text" name="variations[${index}][sku]" class="form-control form-control-sm" value="${varItem.sku || ''}"></td>
                                     <td><input type="text" name="variations[${index}][barcode]" class="form-control form-control-sm" value="${varItem.barcode || ''}"></td>
                                     <td><input type="number" step="0.01" name="variations[${index}][cost_price]" class="form-control form-control-sm" value="${varItem.cost_price || ''}"></td>
-                                    <td><input type="number" step="0.01" name="variations[${index}][price]" class="form-control form-control-sm" required value="${varItem.price || 0}"></td>
-                                    <td><input type="number" step="0.01" name="variations[${index}][sale_price]" class="form-control form-control-sm" value="${varItem.sale_price || ''}"></td>
+                                    <td><input type="number" step="0.01" name="variations[${index}][price]" class="form-control form-control-sm variation-price" required value="${varItem.price || 0}"></td>
+                                    <td><input type="number" step="0.01" name="variations[${index}][sale_price]" class="form-control form-control-sm variation-sale-price" value="${varItem.sale_price || ''}"></td>
                                     <td>
                                         <div class="d-flex flex-column align-items-center">
-                                            ${varItem.image ? `<img src="${varItem.image}" class="img-fluid rounded mb-2" style="max-height:60px;width:60px;object-fit:cover;">` : ''}
+                                            ${imageHtml}
                                             <input type="file" name="variations[${index}][image]" class="form-control form-control-sm variation-image" accept="image/*">
+                                            <img class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;display:none;">
                                         </div>
                                     </td>
                                     <td><button type="button" class="btn btn-danger btn-sm remove-variation"><i class="bi bi-trash"></i></button></td>
@@ -1132,13 +1157,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
 
-                    // Show the variations section if product is variable
                     toggleVariationsSection();
-
-                    // Update modal title
                     document.getElementById('modalTitle').textContent = 'Edit Product';
 
-                    // Show the modal
                     const modalEl = document.getElementById('showModal');
                     const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
                     document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
@@ -1190,21 +1211,6 @@ document.addEventListener('DOMContentLoaded', function() {
         productTypeSelect.addEventListener('change', toggleVariationsSection);
     }
     toggleVariationsSection();
-
-    // ==================== PRICE CALCULATIONS ====================
-    const priceInput = document.getElementById('price');
-    const discountInput = document.getElementById('discount_percent');
-    const salePriceInput = document.getElementById('sale_price');
-
-    function calculateSalePrice() {
-        const price = parseFloat(priceInput?.value) || 0;
-        const disc = parseFloat(discountInput?.value) || 0;
-        if (price > 0 && disc > 0 && disc <= 100 && salePriceInput) {
-            salePriceInput.value = (price * (1 - disc / 100)).toFixed(2);
-        }
-    }
-    if (priceInput) priceInput.addEventListener('input', calculateSalePrice);
-    if (discountInput) discountInput.addEventListener('input', calculateSalePrice);
 
     // ==================== THUMBNAIL PREVIEW ====================
     const thumbnailInput = document.getElementById('thumbnail_input');
@@ -1366,7 +1372,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==================== GENERATE VARIATIONS ====================
     const generateVariationsBtn = document.getElementById('generateVariations');
     if (generateVariationsBtn) {
-        generateVariationsBtn.addEventListener('click', () => {
+        generateVariationsBtn.addEventListener('click', function() {
             const attrs = [];
             document.querySelectorAll('.attribute-row').forEach(row => {
                 const name = row.querySelector('input[name$="[name]"]')?.value.trim();
@@ -1382,6 +1388,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const combos = attrs.reduce((acc, attr) => acc.flatMap(obj => attr.values.map(val => ({ ...obj, [attr.name]: val }))), [{}]);
             const baseSku = document.getElementById('sku')?.value || 'PROD';
+            const discount = parseFloat(document.getElementById('discount_percent')?.value) || 0;
 
             let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr>
                 <th>Variant</th><th>SKU</th><th>Barcode</th><th>Cost Price</th><th>Price</th><th>Sale Price</th><th>Image</th><th>Action</th>
@@ -1393,16 +1400,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 const random = Math.random().toString(36).substring(2, 8).toUpperCase();
                 const bc = `${baseSku}-${Object.values(combo).join('-')}-${random}`.substring(0, 20);
 
+                const salePrice = discount > 0 ? (parseFloat(100) * (1 - discount / 100)).toFixed(2) : '';
+
                 html += `<tr>
                     <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}</td>
                     <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" value="${baseSku}-VAR${i+1}"></td>
                     <td><input type="text" name="variations[${i}][barcode]" class="form-control form-control-sm" value="${bc}"></td>
                     <td><input type="number" step="0.01" name="variations[${i}][cost_price]" class="form-control form-control-sm" placeholder="0.00"></td>
-                    <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm" required placeholder="0.00"></td>
-                    <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm" placeholder="0.00"></td>
+                    <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm variation-price" required placeholder="0.00"></td>
+                    <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm variation-sale-price" placeholder="0.00" value="${salePrice}"></td>
                     <td>
                         <div class="d-flex flex-column align-items-center">
                             <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
+                            <input type="hidden" name="variations[${i}][existing_image]" value="">
                             <img class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;display:none;">
                         </div>
                     </td>
@@ -1413,6 +1423,9 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '</tbody></table></div>';
             const variationsTable = document.getElementById('variationsTable');
             if (variationsTable) variationsTable.innerHTML = html;
+
+            // Apply discount to newly generated variations
+            applyDiscountToVariations();
         });
     }
 

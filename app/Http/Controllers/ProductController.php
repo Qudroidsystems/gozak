@@ -133,6 +133,7 @@ class ProductController extends Controller
                 'cost_price' => $var->cost_price ?? 0,
                 'sale_price' => $var->sale_price ?? null,
                 'image'      => $var->image ? asset('storage/' . $var->image) : null,
+                'image_path' => $var->image, // Store the actual path for update
                 'attributes' => $attributes,
             ];
         })->toArray();
@@ -242,7 +243,7 @@ class ProductController extends Controller
 
             $this->syncUnits($product, $request);
             $this->syncImages($product, $request);
-            $this->syncAttributesAndVariations($product, $request);
+            $this->syncAttributesAndVariations($product, $request, false);
 
             return response()->json(['success' => true, 'message' => 'Product created successfully'], 201);
         } catch (\Exception $e) {
@@ -295,6 +296,7 @@ class ProductController extends Controller
             'variations.*.cost_price'    => 'nullable|numeric|min:0',
             'variations.*.sale_price'    => 'nullable|numeric|min:0',
             'variations.*.image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'variations.*.existing_image' => 'nullable|string', // For keeping existing images
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -373,7 +375,7 @@ class ProductController extends Controller
             // Sync relationships
             $this->syncUnits($product, $request);
             $this->syncImages($product, $request);
-            $this->syncAttributesAndVariations($product, $request);
+            $this->syncAttributesAndVariations($product, $request, true);
 
             \Log::info('Product updated successfully', ['product_id' => $product->id]);
 
@@ -518,10 +520,15 @@ class ProductController extends Controller
         }
     }
 
-    private function syncAttributesAndVariations($product, $request)
+    private function syncAttributesAndVariations($product, $request, $isUpdate = false)
     {
         $product->attributes()->delete();
-        $product->variations()->delete();
+
+        // Only delete variations if we're not updating or if we want to refresh them
+        // For update, we'll handle variations differently to keep existing images
+        if (!$isUpdate) {
+            $product->variations()->delete();
+        }
 
         if ($request->has('attributes') && is_array($request->attributes)) {
             foreach ($request->attributes as $attr) {
@@ -535,10 +542,23 @@ class ProductController extends Controller
         }
 
         if ($request->product_type === 'variable' && $request->has('variations') && is_array($request->variations)) {
-            foreach ($request->variations as $var) {
+            // For update, we need to handle existing variations
+            if ($isUpdate) {
+                // Get existing variation IDs to keep track
+                $existingVariationIds = $product->variations()->pluck('id')->toArray();
+                $updatedVariationIds = [];
+            }
+
+            foreach ($request->variations as $index => $var) {
                 $imagePath = null;
+
+                // Check if there's a new image uploaded
                 if (isset($var['image']) && $var['image'] instanceof \Illuminate\Http\UploadedFile) {
                     $imagePath = $var['image']->store('product/variations', 'public');
+                }
+                // For updates, keep existing image if no new one is uploaded
+                elseif ($isUpdate && isset($var['existing_image']) && !empty($var['existing_image'])) {
+                    $imagePath = $var['existing_image'];
                 }
 
                 $attributes = [];
@@ -552,7 +572,6 @@ class ProductController extends Controller
                 $barcode = $var['barcode'] ?? null;
                 if (!$barcode) {
                     $baseSku     = $product->sku ?? 'PROD';
-                    // FIXED: Properly handle string operations
                     $attrString  = collect($attributes)->values()->join('-');
                     $attrString  = Str::upper($attrString);
                     $attrString  = Str::replace(' ', '', $attrString);
@@ -560,15 +579,56 @@ class ProductController extends Controller
                     $barcode     = substr("{$baseSku}-{$attrString}-{$random}", 0, 20);
                 }
 
-                $product->variations()->create([
-                    'sku'        => $var['sku'] ?? null,
-                    'barcode'    => $barcode,
-                    'price'      => $var['price'] ?? 0,
-                    'cost_price' => $var['cost_price'] ?? null,
-                    'sale_price' => $var['sale_price'] ?? null,
-                    'image'      => $imagePath,
-                    'attributes' => $attributes,
-                ]);
+                // For update, check if this variation has an ID (existing)
+                if ($isUpdate && isset($var['id']) && !empty($var['id'])) {
+                    // Update existing variation
+                    $variation = $product->variations()->find($var['id']);
+                    if ($variation) {
+                        // Delete old image if new one is uploaded
+                        if (isset($var['image']) && $var['image'] instanceof \Illuminate\Http\UploadedFile && $variation->image) {
+                            Storage::disk('public')->delete($variation->image);
+                        }
+
+                        $variation->update([
+                            'sku'        => $var['sku'] ?? null,
+                            'barcode'    => $barcode,
+                            'price'      => $var['price'] ?? 0,
+                            'cost_price' => $var['cost_price'] ?? null,
+                            'sale_price' => $var['sale_price'] ?? null,
+                            'image'      => $imagePath,
+                            'attributes' => $attributes,
+                        ]);
+                        $updatedVariationIds[] = $variation->id;
+                    }
+                } else {
+                    // Create new variation
+                    $variation = $product->variations()->create([
+                        'sku'        => $var['sku'] ?? null,
+                        'barcode'    => $barcode,
+                        'price'      => $var['price'] ?? 0,
+                        'cost_price' => $var['cost_price'] ?? null,
+                        'sale_price' => $var['sale_price'] ?? null,
+                        'image'      => $imagePath,
+                        'attributes' => $attributes,
+                    ]);
+                    if ($isUpdate) {
+                        $updatedVariationIds[] = $variation->id;
+                    }
+                }
+            }
+
+            // For update, delete variations that were removed
+            if ($isUpdate) {
+                $variationsToDelete = array_diff($existingVariationIds, $updatedVariationIds);
+                if (!empty($variationsToDelete)) {
+                    $variationsToDeleteModels = $product->variations()->whereIn('id', $variationsToDelete)->get();
+                    foreach ($variationsToDeleteModels as $var) {
+                        if ($var->image) {
+                            Storage::disk('public')->delete($var->image);
+                        }
+                        $var->delete();
+                    }
+                }
             }
         }
     }
