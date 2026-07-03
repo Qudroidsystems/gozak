@@ -714,6 +714,12 @@ document.addEventListener('DOMContentLoaded', function() {
         return (price * (1 - discount / 100)).toFixed(2);
     }
 
+    // Calculate discount percentage from price and sale price
+    function calculateDiscountPercentage(price, salePrice) {
+        if (!price || price <= 0 || !salePrice || salePrice <= 0 || salePrice >= price) return 0;
+        return Math.round(((price - salePrice) / price) * 100);
+    }
+
     function updateMainSalePrice() {
         const price = parseFloat(document.getElementById('price')?.value) || 0;
         const discount = parseFloat(document.getElementById('discount_percent')?.value) || 0;
@@ -730,11 +736,40 @@ document.addEventListener('DOMContentLoaded', function() {
         variationRows.forEach(row => {
             const priceInput = row.querySelector('input[name*="[price]"]');
             const saleInput = row.querySelector('input[name*="[sale_price]"]');
+            const badge = row.querySelector('.variation-discount-badge');
             if (priceInput && saleInput) {
                 const price = parseFloat(priceInput.value) || 0;
-                saleInput.value = calculateSalePrice(price, discount);
+                const salePrice = calculateSalePrice(price, discount);
+                saleInput.value = salePrice;
+                if (badge) {
+                    badge.textContent = discount > 0 ? discount + '%' : '';
+                }
             }
         });
+    }
+
+    // Update discount percentage when price or sale price changes
+    function updateDiscountFromPrices() {
+        const price = parseFloat(document.getElementById('price')?.value) || 0;
+        const salePrice = parseFloat(document.getElementById('sale_price')?.value) || 0;
+        const discountInput = document.getElementById('discount_percent');
+        if (discountInput) {
+            discountInput.value = calculateDiscountPercentage(price, salePrice);
+        }
+    }
+
+    // Update variation discount badge when individual variation price/sale changes
+    function updateVariationDiscountBadge(row) {
+        const priceInput = row.querySelector('input[name*="[price]"]');
+        const saleInput = row.querySelector('input[name*="[sale_price]"]');
+        const badge = row.querySelector('.variation-discount-badge');
+
+        if (priceInput && saleInput && badge) {
+            const price = parseFloat(priceInput.value) || 0;
+            const salePrice = parseFloat(saleInput.value) || 0;
+            const discount = calculateDiscountPercentage(price, salePrice);
+            badge.textContent = discount > 0 ? discount + '%' : '';
+        }
     }
 
     function updateAllPrices() {
@@ -742,9 +777,15 @@ document.addEventListener('DOMContentLoaded', function() {
         updateVariationSalePrices();
     }
 
-    // Price and discount listeners
+    // Price and discount listeners with keyup support
     document.getElementById('price')?.addEventListener('input', updateAllPrices);
+    document.getElementById('price')?.addEventListener('keyup', updateAllPrices);
     document.getElementById('discount_percent')?.addEventListener('input', updateAllPrices);
+    document.getElementById('discount_percent')?.addEventListener('keyup', updateAllPrices);
+
+    // When sale price is manually changed, calculate discount percentage
+    document.getElementById('sale_price')?.addEventListener('input', updateDiscountFromPrices);
+    document.getElementById('sale_price')?.addEventListener('keyup', updateDiscountFromPrices);
 
     // ==================== TOGGLE FLAGS ====================
     function initializeFlagToggles() {
@@ -940,6 +981,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('category_id').value = p.category_id || '';
                     document.getElementById('primary_unit_id').value = p.primary_unit_id || '';
 
+                    // Calculate and set discount percentage
+                    const price = parseFloat(p.price) || 0;
+                    const salePrice = parseFloat(p.sale_price) || 0;
+                    const discountPercent = calculateDiscountPercentage(price, salePrice);
+                    document.getElementById('discount_percent').value = discountPercent;
+
                     // Flags
                     document.getElementById('is_featured').checked = !!p.is_featured;
                     document.getElementById('is_new').checked = !!p.is_new;
@@ -1043,13 +1090,23 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const imageHtml = varItem.image ?
                                     `<img src="${varItem.image}" class="img-fluid rounded mb-2" style="max-height:60px;width:60px;object-fit:cover;">` : '';
 
+                                // Calculate discount for this variation
+                                const varPrice = parseFloat(varItem.price) || 0;
+                                const varSalePrice = parseFloat(varItem.sale_price) || 0;
+                                const varDiscount = calculateDiscountPercentage(varPrice, varSalePrice);
+
                                 html += `<tr>
                                     <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}${idHidden}${existingImageHidden}</td>
                                     <td><input type="text" name="variations[${index}][sku]" class="form-control form-control-sm" value="${varItem.sku || ''}"></td>
                                     <td><input type="text" name="variations[${index}][barcode]" class="form-control form-control-sm" value="${varItem.barcode || ''}"></td>
                                     <td><input type="number" step="0.01" name="variations[${index}][cost_price]" class="form-control form-control-sm" value="${varItem.cost_price || ''}"></td>
                                     <td><input type="number" step="0.01" name="variations[${index}][price]" class="form-control form-control-sm variation-price" required value="${varItem.price || 0}"></td>
-                                    <td><input type="number" step="0.01" name="variations[${index}][sale_price]" class="form-control form-control-sm variation-sale-price" value="${varItem.sale_price || ''}"></td>
+                                    <td>
+                                        <div class="input-group input-group-sm">
+                                            <input type="number" step="0.01" name="variations[${index}][sale_price]" class="form-control form-control-sm variation-sale-price" value="${varItem.sale_price || ''}">
+                                            <span class="input-group-text variation-discount-badge" style="font-size:0.7rem;padding:0 5px;">${varDiscount > 0 ? varDiscount + '%' : ''}</span>
+                                        </div>
+                                    </td>
                                     <td>
                                         <div class="d-flex flex-column align-items-center">
                                             ${imageHtml}
@@ -1138,7 +1195,19 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         const formData = new FormData(this);
         const id = document.getElementById('product_id')?.value;
-        if (id) formData.append('_method', 'PUT');
+
+        // Handle file uploads - ensure we're sending files correctly
+        const variationImageInputs = document.querySelectorAll('.variation-image');
+        variationImageInputs.forEach((input, index) => {
+            if (input.files && input.files.length > 0) {
+                // New file uploaded - will be sent in FormData
+                formData.append(`variations[${index}][image]`, input.files[0]);
+            }
+        });
+
+        if (id) {
+            formData.append('_method', 'PUT');
+        }
 
         const btn = document.getElementById('submitBtn');
         const spinner = document.getElementById('submitSpinner');
@@ -1147,24 +1216,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const url = id ? `/web/products/${id}` : '/web/products';
 
-        axios.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-            .then(res => {
-                Swal.fire({ icon: 'success', title: 'Success!', text: res.data.message || 'Product saved', showConfirmButton: false, timer: 1500 })
-                    .then(() => location.reload());
-            })
-            .catch(err => {
-                let msg = 'An error occurred';
-                if (err.response?.data?.errors) {
-                    msg = Object.entries(err.response.data.errors).map(([k, v]) => `${k}: ${v.join(', ')}`).join('<br>');
-                } else if (err.response?.data?.message) {
-                    msg = err.response.data.message;
-                }
-                Swal.fire({ icon: 'error', title: 'Error', html: msg });
-            })
-            .finally(() => {
-                if (btn) btn.disabled = false;
-                if (spinner) spinner.classList.add('d-none');
-            });
+        axios.post(url, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        })
+        .then(res => {
+            Swal.fire({ icon: 'success', title: 'Success!', text: res.data.message || 'Product saved', showConfirmButton: false, timer: 1500 })
+                .then(() => location.reload());
+        })
+        .catch(err => {
+            let msg = 'An error occurred';
+            if (err.response?.data?.errors) {
+                msg = Object.entries(err.response.data.errors).map(([k, v]) => `${k}: ${v.join(', ')}`).join('<br>');
+            } else if (err.response?.data?.message) {
+                msg = err.response.data.message;
+            }
+            Swal.fire({ icon: 'error', title: 'Error', html: msg });
+        })
+        .finally(() => {
+            if (btn) btn.disabled = false;
+            if (spinner) spinner.classList.add('d-none');
+        });
     });
 
     // ==================== GENERATE BARCODE ====================
@@ -1284,7 +1357,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td><input type="text" name="variations[${i}][barcode]" class="form-control form-control-sm" value="${bc}"></td>
                 <td><input type="number" step="0.01" name="variations[${i}][cost_price]" class="form-control form-control-sm" placeholder="0.00"></td>
                 <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm variation-price" required placeholder="0.00"></td>
-                <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm variation-sale-price" placeholder="0.00" value="${salePrice}"></td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm variation-sale-price" placeholder="0.00" value="${salePrice}">
+                        <span class="input-group-text variation-discount-badge" style="font-size:0.7rem;padding:0 5px;">${discount > 0 ? discount + '%' : ''}</span>
+                    </div>
+                </td>
                 <td>
                     <div class="d-flex flex-column align-items-center">
                         <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
@@ -1318,6 +1396,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Update variation discount badge when price or sale price changes
+    document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('variation-price') || e.target.classList.contains('variation-sale-price')) {
+            const row = e.target.closest('tr');
+            if (row) {
+                updateVariationDiscountBadge(row);
+            }
+        }
+    });
+
     // ==================== REMOVE VARIATION ====================
     document.addEventListener('click', e => {
         if (e.target.classList.contains('remove-variation') || e.target.closest('.remove-variation')) {
@@ -1336,9 +1424,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
             const priceInput = row.querySelector('input[name*="price"]');
             const saleInput = row.querySelector('input[name*="sale_price"]');
+            const badge = row.querySelector('.variation-discount-badge');
             const price = parseFloat(priceInput?.value) || 0;
             if (price > 0 && saleInput) {
-                saleInput.value = (price * (1 - bulk / 100)).toFixed(2);
+                const salePrice = (price * (1 - bulk / 100)).toFixed(2);
+                saleInput.value = salePrice;
+                if (badge) {
+                    badge.textContent = bulk > 0 ? bulk + '%' : '';
+                }
             }
         });
         Swal.fire('Applied', `${bulk}% discount applied to all variations`, 'success');

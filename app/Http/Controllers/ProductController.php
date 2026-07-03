@@ -552,14 +552,21 @@ class ProductController extends Controller
             foreach ($request->variations as $index => $var) {
                 $imagePath = null;
 
-                // Check if there's a new image uploaded
-                if (isset($var['image']) && $var['image'] instanceof \Illuminate\Http\UploadedFile) {
-                    $imagePath = $var['image']->store('product/variations', 'public');
+                // ── FIX ─────────────────────────────────────────────────────────
+                // Use $request->hasFile() instead of a manual "instanceof UploadedFile"
+                // check. An empty <input type="file"> still submits as an UploadedFile
+                // instance (just an invalid one with UPLOAD_ERR_NO_FILE), so the old
+                // "instanceof" check was true even when no image was actually chosen —
+                // wiping out the existing image on every update. hasFile() correctly
+                // validates the file before treating it as "a new image was uploaded".
+                if ($request->hasFile("variations.{$index}.image")) {
+                    $imagePath = $request->file("variations.{$index}.image")->store('product/variations', 'public');
                 }
-                // For updates, keep existing image if no new one is uploaded
+                // For updates, keep existing image if no new (valid) one was uploaded
                 elseif ($isUpdate && isset($var['existing_image']) && !empty($var['existing_image'])) {
                     $imagePath = $var['existing_image'];
                 }
+                // ── END FIX ─────────────────────────────────────────────────────
 
                 $attributes = [];
                 if (isset($var['attributes']) && is_array($var['attributes'])) {
@@ -584,8 +591,8 @@ class ProductController extends Controller
                     // Update existing variation
                     $variation = $product->variations()->find($var['id']);
                     if ($variation) {
-                        // Delete old image if new one is uploaded
-                        if (isset($var['image']) && $var['image'] instanceof \Illuminate\Http\UploadedFile && $variation->image) {
+                        // Delete old image only if a genuinely new, valid image was uploaded
+                        if ($request->hasFile("variations.{$index}.image") && $variation->image) {
                             Storage::disk('public')->delete($variation->image);
                         }
 
@@ -599,6 +606,25 @@ class ProductController extends Controller
                             'attributes' => $attributes,
                         ]);
                         $updatedVariationIds[] = $variation->id;
+                    } else {
+                        // ── FIX ─────────────────────────────────────────────────
+                        // An id was submitted (the row was rendered from an existing
+                        // variation, e.g. re-generated via "Generate Variations")
+                        // but that variation no longer exists in the DB. Previously
+                        // this silently did nothing, which meant the row (and its
+                        // existing_image reference) was just dropped on the floor.
+                        // Create it fresh instead so nothing is lost.
+                        $variation = $product->variations()->create([
+                            'sku'        => $var['sku'] ?? null,
+                            'barcode'    => $barcode,
+                            'price'      => $var['price'] ?? 0,
+                            'cost_price' => $var['cost_price'] ?? null,
+                            'sale_price' => $var['sale_price'] ?? null,
+                            'image'      => $imagePath,
+                            'attributes' => $attributes,
+                        ]);
+                        $updatedVariationIds[] = $variation->id;
+                        // ── END FIX ─────────────────────────────────────────────
                     }
                 } else {
                     // Create new variation
