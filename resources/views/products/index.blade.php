@@ -171,7 +171,6 @@
                                 </div>
                                 <div class="flex-shrink-0">
                                     <div class="d-flex flex-wrap align-items-start gap-2">
-                                        <!-- Bulk Actions Dropdown -->
                                         <div class="dropdown me-2" id="bulkActionsDropdown" style="display: none;">
                                             <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                                 Bulk Actions (<span id="selectedCount">0</span>)
@@ -303,10 +302,7 @@
                                                 <th>Margin</th>
                                                 <th>Stock</th>
                                                 <th>Sold</th>
-                                                <th class="text-center" style="min-width:180px;">
-                                                    App Flags
-                                                    <i class="bi bi-phone ms-1 text-muted" title="Controls which filter chips this product appears under in the mobile app"></i>
-                                                </th>
+                                                <th class="text-center" style="min-width:180px;">App Flags</th>
                                                 <th>Featured</th>
                                                 <th>Action</th>
                                             </tr>
@@ -392,35 +388,18 @@
                                                     @endif
                                                 </td>
                                                 <td class="text-center"><span class="fw-semibold">{{ $product->total_sold ?? 0 }}</span></td>
-
-                                                {{-- App Flags column with working toggles --}}
                                                 <td>
                                                     <div class="d-flex flex-wrap gap-2 align-items-center justify-content-center">
-                                                        {{-- NEW Flag --}}
-                                                        <div class="form-check form-switch mb-0" title="Show in 'New' filter">
-                                                            <input class="form-check-input flag-toggle" type="checkbox"
-                                                                   data-id="{{ $product->id }}"
-                                                                   data-flag="is_new"
-                                                                   id="isNew_{{ $product->id }}"
-                                                                   {{ $product->is_new ? 'checked' : '' }}>
+                                                        <div class="form-check form-switch mb-0">
+                                                            <input class="form-check-input flag-toggle" type="checkbox" data-id="{{ $product->id }}" data-flag="is_new" id="isNew_{{ $product->id }}" {{ $product->is_new ? 'checked' : '' }}>
                                                             <label class="form-check-label small text-success fw-semibold" for="isNew_{{ $product->id }}">New</label>
                                                         </div>
-                                                        {{-- TRENDING Flag --}}
-                                                        <div class="form-check form-switch mb-0" title="Show in 'Trending' filter">
-                                                            <input class="form-check-input flag-toggle" type="checkbox"
-                                                                   data-id="{{ $product->id }}"
-                                                                   data-flag="is_trending"
-                                                                   id="isTrending_{{ $product->id }}"
-                                                                   {{ $product->is_trending ? 'checked' : '' }}>
+                                                        <div class="form-check form-switch mb-0">
+                                                            <input class="form-check-input flag-toggle" type="checkbox" data-id="{{ $product->id }}" data-flag="is_trending" id="isTrending_{{ $product->id }}" {{ $product->is_trending ? 'checked' : '' }}>
                                                             <label class="form-check-label small text-danger fw-semibold" for="isTrending_{{ $product->id }}">🔥 Hot</label>
                                                         </div>
-                                                        {{-- TOP RATED Flag --}}
-                                                        <div class="form-check form-switch mb-0" title="Show in 'Top Rated' filter">
-                                                            <input class="form-check-input flag-toggle" type="checkbox"
-                                                                   data-id="{{ $product->id }}"
-                                                                   data-flag="is_top_rated"
-                                                                   id="isTopRated_{{ $product->id }}"
-                                                                   {{ $product->is_top_rated ? 'checked' : '' }}>
+                                                        <div class="form-check form-switch mb-0">
+                                                            <input class="form-check-input flag-toggle" type="checkbox" data-id="{{ $product->id }}" data-flag="is_top_rated" id="isTopRated_{{ $product->id }}" {{ $product->is_top_rated ? 'checked' : '' }}>
                                                             <label class="form-check-label small text-warning fw-semibold" for="isTopRated_{{ $product->id }}">⭐ Top</label>
                                                         </div>
                                                     </div>
@@ -665,7 +644,6 @@
                                             </div>
                                         </div>
 
-                                        {{-- Product Flags card --}}
                                         <div class="card mb-3 border-primary border-opacity-25">
                                             <div class="card-header bg-primary bg-opacity-10">
                                                 <h6 class="card-title mb-0 text-primary">
@@ -684,23 +662,17 @@
                                                 <hr class="my-2">
                                                 <div class="form-check form-switch mb-3">
                                                     <input class="form-check-input" type="checkbox" name="is_new" id="is_new">
-                                                    <label class="form-check-label fw-semibold text-success" for="is_new">
-                                                        ✨ New
-                                                    </label>
+                                                    <label class="form-check-label fw-semibold text-success" for="is_new">✨ New</label>
                                                     <div class="text-muted small">Shows under the "New" filter chip</div>
                                                 </div>
                                                 <div class="form-check form-switch mb-3">
                                                     <input class="form-check-input" type="checkbox" name="is_trending" id="is_trending">
-                                                    <label class="form-check-label fw-semibold text-danger" for="is_trending">
-                                                        🔥 Trending
-                                                    </label>
+                                                    <label class="form-check-label fw-semibold text-danger" for="is_trending">🔥 Trending</label>
                                                     <div class="text-muted small">Shows under the "Trending" filter chip</div>
                                                 </div>
                                                 <div class="form-check form-switch mb-0">
                                                     <input class="form-check-input" type="checkbox" name="is_top_rated" id="is_top_rated">
-                                                    <label class="form-check-label fw-semibold text-warning" for="is_top_rated">
-                                                        ⭐ Top Rated
-                                                    </label>
+                                                    <label class="form-check-label fw-semibold text-warning" for="is_top_rated">⭐ Top Rated</label>
                                                     <div class="text-muted small">Shows under the "Top Rated" filter chip</div>
                                                 </div>
                                                 <div class="alert alert-info py-2 mt-3 mb-0" style="font-size:12px;">
@@ -731,17 +703,52 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Get CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
     if (csrfToken) {
         axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken.getAttribute('content');
     }
 
-    // ==================== SINGLE FLAG TOGGLE ====================
-    function initializeFlagToggles() {
-        const flagToggles = document.querySelectorAll('.flag-toggle');
+    // ==================== DISCOUNT FUNCTION ====================
+    function calculateSalePrice(price, discount) {
+        if (!price || price <= 0 || !discount || discount <= 0) return '';
+        return (price * (1 - discount / 100)).toFixed(2);
+    }
 
-        flagToggles.forEach(toggle => {
+    function updateMainSalePrice() {
+        const price = parseFloat(document.getElementById('price')?.value) || 0;
+        const discount = parseFloat(document.getElementById('discount_percent')?.value) || 0;
+        const salePriceInput = document.getElementById('sale_price');
+        if (salePriceInput) {
+            salePriceInput.value = calculateSalePrice(price, discount);
+        }
+    }
+
+    function updateVariationSalePrices() {
+        const discount = parseFloat(document.getElementById('discount_percent')?.value) || 0;
+        const variationRows = document.querySelectorAll('#variationsTable tbody tr');
+
+        variationRows.forEach(row => {
+            const priceInput = row.querySelector('input[name*="[price]"]');
+            const saleInput = row.querySelector('input[name*="[sale_price]"]');
+            if (priceInput && saleInput) {
+                const price = parseFloat(priceInput.value) || 0;
+                saleInput.value = calculateSalePrice(price, discount);
+            }
+        });
+    }
+
+    function updateAllPrices() {
+        updateMainSalePrice();
+        updateVariationSalePrices();
+    }
+
+    // Price and discount listeners
+    document.getElementById('price')?.addEventListener('input', updateAllPrices);
+    document.getElementById('discount_percent')?.addEventListener('input', updateAllPrices);
+
+    // ==================== TOGGLE FLAGS ====================
+    function initializeFlagToggles() {
+        document.querySelectorAll('.flag-toggle').forEach(toggle => {
             toggle.removeEventListener('change', handleFlagChange);
             toggle.addEventListener('change', handleFlagChange);
         });
@@ -753,43 +760,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const flag = toggle.dataset.flag;
         const value = toggle.checked;
         const originalState = !value;
-
         toggle.disabled = true;
 
         try {
-            const response = await axios.patch(`/web/products/${productId}/flags`, {
-                flag: flag,
-                value: value
-            });
-
-            Swal.fire({
-                icon: 'success',
-                title: 'Updated!',
-                text: response.data.message || 'Flag updated successfully',
-                timer: 1500,
-                showConfirmButton: false,
-                toast: true,
-                position: 'bottom-end'
-            });
-
+            await axios.patch(`/web/products/${productId}/flags`, { flag, value });
+            Swal.fire({ icon: 'success', title: 'Updated!', timer: 1500, showConfirmButton: false, toast: true, position: 'bottom-end' });
         } catch (error) {
             toggle.checked = originalState;
-
-            let errorMessage = 'Failed to update flag';
-            if (error.response?.data?.message) {
-                errorMessage = error.response.data.message;
-            } else if (error.response?.data?.errors) {
-                errorMessage = Object.values(error.response.data.errors).flat().join(', ');
-            } else if (error.message) {
-                errorMessage = error.message;
-            }
-
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: errorMessage,
-                confirmButtonText: 'OK'
-            });
+            Swal.fire({ icon: 'error', title: 'Error', text: error.response?.data?.message || 'Failed to update flag' });
         } finally {
             toggle.disabled = false;
         }
@@ -797,45 +775,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     initializeFlagToggles();
 
-    const observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.addedNodes.length) {
-                initializeFlagToggles();
-            }
-        });
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-
     // ==================== BULK ACTIONS ====================
     let selectedProducts = [];
 
     function updateSelectedCount() {
-        selectedProducts = Array.from(document.querySelectorAll('.row-select:checked'))
-                               .map(cb => cb.value);
-        const bulkActionsDropdown = document.getElementById('bulkActionsDropdown');
-        const selectedCountEl = document.getElementById('selectedCount');
-
-        if (selectedCountEl) selectedCountEl.textContent = selectedProducts.length;
-        if (bulkActionsDropdown) {
-            bulkActionsDropdown.style.display = selectedProducts.length > 0 ? 'block' : 'none';
-        }
+        selectedProducts = Array.from(document.querySelectorAll('.row-select:checked')).map(cb => cb.value);
+        const dropdown = document.getElementById('bulkActionsDropdown');
+        const countEl = document.getElementById('selectedCount');
+        if (countEl) countEl.textContent = selectedProducts.length;
+        if (dropdown) dropdown.style.display = selectedProducts.length > 0 ? 'block' : 'none';
     }
 
-    const selectAllCheckbox = document.getElementById('selectAll');
-    if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-            document.querySelectorAll('.row-select').forEach(cb => cb.checked = this.checked);
-            updateSelectedCount();
-        });
-    }
+    document.getElementById('selectAll')?.addEventListener('change', function() {
+        document.querySelectorAll('.row-select').forEach(cb => cb.checked = this.checked);
+        updateSelectedCount();
+    });
 
     document.addEventListener('change', function(e) {
         if (e.target.classList.contains('row-select')) {
             updateSelectedCount();
-            if (selectAllCheckbox) {
-                const allChecked = document.querySelectorAll('.row-select:checked').length === document.querySelectorAll('.row-select').length;
-                selectAllCheckbox.checked = allChecked;
+            const allChecked = document.querySelectorAll('.row-select:checked').length === document.querySelectorAll('.row-select').length;
+            if (document.getElementById('selectAll')) {
+                document.getElementById('selectAll').checked = allChecked;
             }
         }
     });
@@ -863,12 +824,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         product_ids: selectedProducts,
                         flag: flag,
                         value: value
-                    })
-                    .then(res => {
-                        Swal.fire('Success', res.data.message, 'success')
-                            .then(() => location.reload());
-                    })
-                    .catch(err => {
+                    }).then(res => {
+                        Swal.fire('Success', res.data.message, 'success').then(() => location.reload());
+                    }).catch(err => {
                         Swal.fire('Error', err.response?.data?.message || 'Failed to update', 'error');
                     });
                 }
@@ -879,8 +837,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==================== UTILITY FUNCTIONS ====================
     window.copyBarcode = function(barcode) {
         navigator.clipboard.writeText(barcode).then(() => {
-            Swal.fire({ icon: 'success', title: 'Copied!', text: 'Barcode copied to clipboard', timer: 1500, showConfirmButton: false });
-        }).catch(() => Swal.fire({ icon: 'error', title: 'Failed', text: 'Could not copy barcode' }));
+            Swal.fire({ icon: 'success', title: 'Copied!', timer: 1500, showConfirmButton: false });
+        });
     };
 
     window.removeFilter = function(filterName) {
@@ -954,45 +912,6 @@ document.addEventListener('DOMContentLoaded', function() {
         attrIndex = 1;
     };
 
-    // ==================== DISCOUNT % AFFECTS VARIATIONS ====================
-    const discountPercentInput = document.getElementById('discount_percent');
-    const priceInput = document.getElementById('price');
-
-    function applyDiscountToVariations() {
-        const discount = parseFloat(discountPercentInput?.value) || 0;
-
-        const variationPriceInputs = document.querySelectorAll('#variationsTable tbody tr input[name*="price"]');
-        const variationSaleInputs = document.querySelectorAll('#variationsTable tbody tr input[name*="sale_price"]');
-
-        variationPriceInputs.forEach((priceInput, index) => {
-            const price = parseFloat(priceInput.value) || 0;
-            const saleInput = variationSaleInputs[index];
-            if (saleInput && price > 0 && discount > 0 && discount <= 100) {
-                saleInput.value = (price * (1 - discount / 100)).toFixed(2);
-            } else if (saleInput && discount === 0) {
-                saleInput.value = '';
-            }
-        });
-    }
-
-    if (discountPercentInput) {
-        discountPercentInput.addEventListener('input', applyDiscountToVariations);
-    }
-
-    if (priceInput) {
-        priceInput.addEventListener('input', function() {
-            const discount = parseFloat(discountPercentInput?.value) || 0;
-            const price = parseFloat(this.value) || 0;
-            const salePriceInput = document.getElementById('sale_price');
-            if (salePriceInput && price > 0 && discount > 0 && discount <= 100) {
-                salePriceInput.value = (price * (1 - discount / 100)).toFixed(2);
-            } else if (salePriceInput && discount === 0) {
-                salePriceInput.value = '';
-            }
-            applyDiscountToVariations();
-        });
-    }
-
     // ==================== EDIT PRODUCT ====================
     document.addEventListener('click', function(e) {
         if (e.target.matches('.edit-item-btn') || e.target.closest('.edit-item-btn')) {
@@ -1000,17 +919,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const id = btn.dataset.id;
             if (!id) return;
 
-            Swal.fire({
-                title: 'Loading...',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
+            Swal.fire({ title: 'Loading...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
             axios.get(`/web/products/${id}/edit`)
                 .then(response => {
                     const p = response.data;
                     resetForm();
 
+                    // Basic Info
                     document.getElementById('product_id').value = p.id;
                     document.getElementById('title').value = p.title || '';
                     document.getElementById('sku').value = p.sku || '';
@@ -1024,29 +940,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.getElementById('category_id').value = p.category_id || '';
                     document.getElementById('primary_unit_id').value = p.primary_unit_id || '';
 
-                    if (document.getElementById('is_featured')) {
-                        document.getElementById('is_featured').checked = !!p.is_featured;
-                    }
-                    if (document.getElementById('is_new')) {
-                        document.getElementById('is_new').checked = !!p.is_new;
-                    }
-                    if (document.getElementById('is_trending')) {
-                        document.getElementById('is_trending').checked = !!p.is_trending;
-                    }
-                    if (document.getElementById('is_top_rated')) {
-                        document.getElementById('is_top_rated').checked = !!p.is_top_rated;
-                    }
+                    // Flags
+                    document.getElementById('is_featured').checked = !!p.is_featured;
+                    document.getElementById('is_new').checked = !!p.is_new;
+                    document.getElementById('is_trending').checked = !!p.is_trending;
+                    document.getElementById('is_top_rated').checked = !!p.is_top_rated;
 
+                    // Thumbnail
                     if (p.thumbnail) {
-                        const preview = document.getElementById('thumbnail_preview');
-                        const placeholder = document.getElementById('thumbnail_placeholder');
-                        if (preview) {
-                            preview.src = p.thumbnail;
-                            preview.style.display = 'block';
-                        }
-                        if (placeholder) placeholder.style.display = 'none';
+                        document.getElementById('thumbnail_preview').src = p.thumbnail;
+                        document.getElementById('thumbnail_preview').style.display = 'block';
+                        document.getElementById('thumbnail_placeholder').style.display = 'none';
                     }
 
+                    // Additional Units
                     const unitsContainer = document.getElementById('unitsContainer');
                     if (unitsContainer && p.additional_units && p.additional_units.length > 0) {
                         unitsContainer.innerHTML = '';
@@ -1076,6 +983,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
 
+                    // Gallery
                     const gallery = document.getElementById('imageGallery');
                     if (gallery && p.gallery && p.gallery.length > 0) {
                         gallery.innerHTML = '';
@@ -1091,6 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
 
+                    // Attributes
                     const attributesContainer = document.getElementById('attributesContainer');
                     if (attributesContainer && p.attributes && p.attributes.length > 0) {
                         attributesContainer.innerHTML = '';
@@ -1113,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
 
-                    // Load variations with existing_image and id
+                    // Variations with existing images
                     if (p.variations && p.variations.length > 0) {
                         const variationsTable = document.getElementById('variationsTable');
                         if (variationsTable) {
@@ -1128,8 +1037,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const hiddens = Object.entries(varItem.attributes || {})
                                     .map(([k, v]) => `<input type="hidden" name="variations[${index}][attributes][${k}]" value="${v}">`).join('');
 
-                                const existingImageHidden = varItem.image_path ? `<input type="hidden" name="variations[${index}][existing_image]" value="${varItem.image_path}">` : '';
                                 const idHidden = varItem.id ? `<input type="hidden" name="variations[${index}][id]" value="${varItem.id}">` : '';
+                                const existingImageHidden = varItem.image_path ? `<input type="hidden" name="variations[${index}][existing_image]" value="${varItem.image_path}">` : '';
 
                                 const imageHtml = varItem.image ?
                                     `<img src="${varItem.image}" class="img-fluid rounded mb-2" style="max-height:60px;width:60px;object-fit:cover;">` : '';
@@ -1186,8 +1095,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonText: 'Yes, delete!'
-            })
-            .then(result => {
+            }).then(result => {
                 if (result.isConfirmed) {
                     axios.delete(`/web/products/${id}`)
                         .then(() => Swal.fire('Deleted!', 'Product has been deleted', 'success').then(() => location.reload()))
@@ -1213,53 +1121,36 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleVariationsSection();
 
     // ==================== THUMBNAIL PREVIEW ====================
-    const thumbnailInput = document.getElementById('thumbnail_input');
-    if (thumbnailInput) {
-        thumbnailInput.addEventListener('change', function(e) {
-            if (e.target.files[0]) {
-                const reader = new FileReader();
-                reader.onload = ev => {
-                    const preview = document.getElementById('thumbnail_preview');
-                    const placeholder = document.getElementById('thumbnail_placeholder');
-                    if (preview) {
-                        preview.src = ev.target.result;
-                        preview.style.display = 'block';
-                    }
-                    if (placeholder) placeholder.style.display = 'none';
-                };
-                reader.readAsDataURL(e.target.files[0]);
-            }
-        });
-    }
+    document.getElementById('thumbnail_input')?.addEventListener('change', function(e) {
+        if (e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                document.getElementById('thumbnail_preview').src = ev.target.result;
+                document.getElementById('thumbnail_preview').style.display = 'block';
+                document.getElementById('thumbnail_placeholder').style.display = 'none';
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    });
 
     // ==================== FORM SUBMISSION ====================
-    const productForm = document.getElementById('productForm');
-    if (productForm) {
-        productForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            const id = document.getElementById('product_id')?.value;
-            if (id) formData.append('_method', 'PUT');
+    document.getElementById('productForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const id = document.getElementById('product_id')?.value;
+        if (id) formData.append('_method', 'PUT');
 
-            const btn = document.getElementById('submitBtn');
-            const spinner = document.getElementById('submitSpinner');
-            if (btn) btn.disabled = true;
-            if (spinner) spinner.classList.remove('d-none');
+        const btn = document.getElementById('submitBtn');
+        const spinner = document.getElementById('submitSpinner');
+        if (btn) btn.disabled = true;
+        if (spinner) spinner.classList.remove('d-none');
 
-            const url = id ? `/web/products/${id}` : '/web/products';
+        const url = id ? `/web/products/${id}` : '/web/products';
 
-            axios.post(url, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            })
+        axios.post(url, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
             .then(res => {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: res.data.message || 'Product saved',
-                    showConfirmButton: false,
-                    timer: 1500
-                })
-                .then(() => location.reload());
+                Swal.fire({ icon: 'success', title: 'Success!', text: res.data.message || 'Product saved', showConfirmButton: false, timer: 1500 })
+                    .then(() => location.reload());
             })
             .catch(err => {
                 let msg = 'An error occurred';
@@ -1274,51 +1165,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (btn) btn.disabled = false;
                 if (spinner) spinner.classList.add('d-none');
             });
-        });
-    }
+    });
 
     // ==================== GENERATE BARCODE ====================
-    const generateBarcodeBtn = document.getElementById('generateBarcodeBtn');
-    if (generateBarcodeBtn) {
-        generateBarcodeBtn.addEventListener('click', () => {
-            const sku = document.getElementById('sku')?.value || 'PROD';
-            const random = Math.random().toString(36).substring(2, 10).toUpperCase();
-            const barcodeInput = document.getElementById('barcode');
-            if (barcodeInput) barcodeInput.value = `${sku}-${random}`.substring(0, 20);
-        });
-    }
+    document.getElementById('generateBarcodeBtn')?.addEventListener('click', () => {
+        const sku = document.getElementById('sku')?.value || 'PROD';
+        const random = Math.random().toString(36).substring(2, 10).toUpperCase();
+        document.getElementById('barcode').value = `${sku}-${random}`.substring(0, 20);
+    });
 
     // ==================== ADD UNIT ====================
     let unitIndex = 1;
-    const addUnitBtn = document.getElementById('addUnit');
-    if (addUnitBtn) {
-        addUnitBtn.addEventListener('click', () => {
-            const unitsContainer = document.getElementById('unitsContainer');
-            if (unitsContainer) {
-                unitsContainer.insertAdjacentHTML('beforeend', `
-                    <div class="row g-3 align-items-end unit-row mt-3">
-                        <div class="col-md-5">
-                            <select name="units[${unitIndex}][unit_id]" class="form-control">
-                                <option value="">Select Unit</option>
-                                @foreach($units as $unit)
-                                    <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->short_name }})</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-5">
-                            <input type="number" step="0.01" name="units[${unitIndex}][quantity_per_unit]" class="form-control" placeholder="Qty per primary unit">
-                        </div>
-                        <div class="col-md-2">
-                            <button type="button" class="btn btn-danger btn-sm remove-unit">Remove</button>
-                        </div>
+    document.getElementById('addUnit')?.addEventListener('click', () => {
+        const unitsContainer = document.getElementById('unitsContainer');
+        if (unitsContainer) {
+            unitsContainer.insertAdjacentHTML('beforeend', `
+                <div class="row g-3 align-items-end unit-row mt-3">
+                    <div class="col-md-5">
+                        <select name="units[${unitIndex}][unit_id]" class="form-control">
+                            <option value="">Select Unit</option>
+                            @foreach($units as $unit)
+                                <option value="{{ $unit->id }}">{{ $unit->name }} ({{ $unit->short_name }})</option>
+                            @endforeach
+                        </select>
                     </div>
-                `);
-                unitIndex++;
-            }
-        });
-    }
+                    <div class="col-md-5">
+                        <input type="number" step="0.01" name="units[${unitIndex}][quantity_per_unit]" class="form-control" placeholder="Qty per primary unit">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-danger btn-sm remove-unit">Remove</button>
+                    </div>
+                </div>
+            `);
+            unitIndex++;
+        }
+    });
 
-    // ==================== REMOVE UNIT / ATTRIBUTE ====================
+    // ==================== REMOVE HANDLERS ====================
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('remove-unit')) {
             e.target.closest('.unit-row')?.remove();
@@ -1352,82 +1235,73 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ==================== ADD ATTRIBUTE ====================
     let attrIndex = 1;
-    const addAttributeBtn = document.getElementById('addAttribute');
-    if (addAttributeBtn) {
-        addAttributeBtn.addEventListener('click', () => {
-            const attributesContainer = document.getElementById('attributesContainer');
-            if (attributesContainer) {
-                attributesContainer.insertAdjacentHTML('beforeend', `
-                    <div class="row g-3 align-items-end attribute-row mt-3">
-                        <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
-                        <div class="col-md-6"><input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]"></div>
-                        <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
-                    </div>
-                `);
-                attrIndex++;
-            }
-        });
-    }
+    document.getElementById('addAttribute')?.addEventListener('click', () => {
+        const attributesContainer = document.getElementById('attributesContainer');
+        if (attributesContainer) {
+            attributesContainer.insertAdjacentHTML('beforeend', `
+                <div class="row g-3 align-items-end attribute-row mt-3">
+                    <div class="col-md-5"><input type="text" class="form-control" placeholder="e.g. Size" name="attributes[${attrIndex}][name]"></div>
+                    <div class="col-md-6"><input type="text" class="form-control" placeholder="S, M, L" name="attributes[${attrIndex}][values]"></div>
+                    <div class="col-md-1"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
+                </div>
+            `);
+            attrIndex++;
+        }
+    });
 
     // ==================== GENERATE VARIATIONS ====================
-    const generateVariationsBtn = document.getElementById('generateVariations');
-    if (generateVariationsBtn) {
-        generateVariationsBtn.addEventListener('click', function() {
-            const attrs = [];
-            document.querySelectorAll('.attribute-row').forEach(row => {
-                const name = row.querySelector('input[name$="[name]"]')?.value.trim();
-                const values = row.querySelector('input[name$="[values]"]')?.value.split(',').map(v => v.trim()).filter(v => v);
-                if (name && values.length) attrs.push({ name, values });
-            });
-
-            if (!attrs.length) {
-                const variationsTable = document.getElementById('variationsTable');
-                if (variationsTable) variationsTable.innerHTML = '<p class="text-muted">Add at least one attribute</p>';
-                return;
-            }
-
-            const combos = attrs.reduce((acc, attr) => acc.flatMap(obj => attr.values.map(val => ({ ...obj, [attr.name]: val }))), [{}]);
-            const baseSku = document.getElementById('sku')?.value || 'PROD';
-            const discount = parseFloat(document.getElementById('discount_percent')?.value) || 0;
-
-            let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr>
-                <th>Variant</th><th>SKU</th><th>Barcode</th><th>Cost Price</th><th>Price</th><th>Sale Price</th><th>Image</th><th>Action</th>
-            </tr></thead><tbody>`;
-
-            combos.forEach((combo, i) => {
-                const badges = Object.entries(combo).map(([k, v]) => `<span class="badge bg-primary me-1">${k}: ${v}</span>`).join(' ');
-                const hiddens = Object.entries(combo).map(([k, v]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('');
-                const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-                const bc = `${baseSku}-${Object.values(combo).join('-')}-${random}`.substring(0, 20);
-
-                const salePrice = discount > 0 ? (parseFloat(100) * (1 - discount / 100)).toFixed(2) : '';
-
-                html += `<tr>
-                    <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}</td>
-                    <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" value="${baseSku}-VAR${i+1}"></td>
-                    <td><input type="text" name="variations[${i}][barcode]" class="form-control form-control-sm" value="${bc}"></td>
-                    <td><input type="number" step="0.01" name="variations[${i}][cost_price]" class="form-control form-control-sm" placeholder="0.00"></td>
-                    <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm variation-price" required placeholder="0.00"></td>
-                    <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm variation-sale-price" placeholder="0.00" value="${salePrice}"></td>
-                    <td>
-                        <div class="d-flex flex-column align-items-center">
-                            <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
-                            <input type="hidden" name="variations[${i}][existing_image]" value="">
-                            <img class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;display:none;">
-                        </div>
-                    </td>
-                    <td><button type="button" class="btn btn-danger btn-sm remove-variation"><i class="bi bi-trash"></i></button></td>
-                </tr>`;
-            });
-
-            html += '</tbody></table></div>';
-            const variationsTable = document.getElementById('variationsTable');
-            if (variationsTable) variationsTable.innerHTML = html;
-
-            // Apply discount to newly generated variations
-            applyDiscountToVariations();
+    document.getElementById('generateVariations')?.addEventListener('click', function() {
+        const attrs = [];
+        document.querySelectorAll('.attribute-row').forEach(row => {
+            const name = row.querySelector('input[name$="[name]"]')?.value.trim();
+            const values = row.querySelector('input[name$="[values]"]')?.value.split(',').map(v => v.trim()).filter(v => v);
+            if (name && values.length) attrs.push({ name, values });
         });
-    }
+
+        if (!attrs.length) {
+            document.getElementById('variationsTable').innerHTML = '<p class="text-muted">Add at least one attribute</p>';
+            return;
+        }
+
+        const combos = attrs.reduce((acc, attr) => acc.flatMap(obj => attr.values.map(val => ({ ...obj, [attr.name]: val }))), [{}]);
+        const baseSku = document.getElementById('sku')?.value || 'PROD';
+        const discount = parseFloat(document.getElementById('discount_percent')?.value) || 0;
+
+        let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr>
+            <th>Variant</th><th>SKU</th><th>Barcode</th><th>Cost Price</th><th>Price</th><th>Sale Price</th><th>Image</th><th>Action</th>
+        </tr></thead><tbody>`;
+
+        combos.forEach((combo, i) => {
+            const badges = Object.entries(combo).map(([k, v]) => `<span class="badge bg-primary me-1">${k}: ${v}</span>`).join(' ');
+            const hiddens = Object.entries(combo).map(([k, v]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('');
+            const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const bc = `${baseSku}-${Object.values(combo).join('-')}-${random}`.substring(0, 20);
+            const salePrice = calculateSalePrice(100, discount);
+
+            html += `<tr>
+                <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}</td>
+                <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" value="${baseSku}-VAR${i+1}"></td>
+                <td><input type="text" name="variations[${i}][barcode]" class="form-control form-control-sm" value="${bc}"></td>
+                <td><input type="number" step="0.01" name="variations[${i}][cost_price]" class="form-control form-control-sm" placeholder="0.00"></td>
+                <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm variation-price" required placeholder="0.00"></td>
+                <td><input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm variation-sale-price" placeholder="0.00" value="${salePrice}"></td>
+                <td>
+                    <div class="d-flex flex-column align-items-center">
+                        <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
+                        <input type="hidden" name="variations[${i}][existing_image]" value="">
+                        <img class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;display:none;">
+                    </div>
+                </td>
+                <td><button type="button" class="btn btn-danger btn-sm remove-variation"><i class="bi bi-trash"></i></button></td>
+            </tr>`;
+        });
+
+        html += '</tbody></table></div>';
+        document.getElementById('variationsTable').innerHTML = html;
+
+        // Apply current discount to all variations
+        updateVariationSalePrices();
+    });
 
     // ==================== VARIATION IMAGE PREVIEW ====================
     document.addEventListener('change', e => {
@@ -1453,60 +1327,57 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // ==================== BULK DISCOUNT ====================
-    const applyBulkDiscount = document.getElementById('applyBulkDiscount');
-    if (applyBulkDiscount) {
-        applyBulkDiscount.addEventListener('click', function() {
-            const bulk = parseFloat(document.getElementById('bulk_discount')?.value) || 0;
-            if (bulk < 0 || bulk > 100) {
-                Swal.fire('Invalid', 'Discount must be 0–100%', 'warning');
-                return;
+    document.getElementById('applyBulkDiscount')?.addEventListener('click', function() {
+        const bulk = parseFloat(document.getElementById('bulk_discount')?.value) || 0;
+        if (bulk < 0 || bulk > 100) {
+            Swal.fire('Invalid', 'Discount must be 0–100%', 'warning');
+            return;
+        }
+        document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
+            const priceInput = row.querySelector('input[name*="price"]');
+            const saleInput = row.querySelector('input[name*="sale_price"]');
+            const price = parseFloat(priceInput?.value) || 0;
+            if (price > 0 && saleInput) {
+                saleInput.value = (price * (1 - bulk / 100)).toFixed(2);
             }
-            document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
-                const priceInput = row.querySelector('input[name*="price"]');
-                const saleInput = row.querySelector('input[name*="sale_price"]');
-                const price = parseFloat(priceInput?.value) || 0;
-                if (price > 0 && saleInput) {
-                    saleInput.value = (price * (1 - bulk / 100)).toFixed(2);
-                }
-            });
-            Swal.fire('Applied', `${bulk}% discount applied to all variations`, 'success');
         });
-    }
+        Swal.fire('Applied', `${bulk}% discount applied to all variations`, 'success');
+    });
 
     // ==================== MODAL BACKDROP CLEANUP ====================
-    const showModal = document.getElementById('showModal');
-    if (showModal) {
-        showModal.addEventListener('hidden.bs.modal', function() {
-            document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-            document.body.classList.remove('modal-open');
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-        });
-    }
+    document.getElementById('showModal')?.addEventListener('hidden.bs.modal', function() {
+        document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    });
 
     // ==================== GALLERY IMAGE PREVIEW ====================
-    const galleryInput = document.getElementById('gallery_input');
-    if (galleryInput) {
-        galleryInput.addEventListener('change', function(e) {
-            const gallery = document.getElementById('imageGallery');
-            if (gallery && e.target.files) {
-                Array.from(e.target.files).forEach(file => {
-                    const reader = new FileReader();
-                    reader.onload = ev => {
-                        gallery.insertAdjacentHTML('beforeend', `
-                            <div class="col-4 gallery-item">
-                                <div class="position-relative">
-                                    <img src="${ev.target.result}" class="img-fluid rounded" style="max-height:80px;width:100%;object-fit:cover;">
-                                    <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 remove-gallery-img">×</button>
-                                </div>
+    document.getElementById('gallery_input')?.addEventListener('change', function(e) {
+        const gallery = document.getElementById('imageGallery');
+        if (gallery && e.target.files) {
+            Array.from(e.target.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    gallery.insertAdjacentHTML('beforeend', `
+                        <div class="col-4 gallery-item">
+                            <div class="position-relative">
+                                <img src="${ev.target.result}" class="img-fluid rounded" style="max-height:80px;width:100%;object-fit:cover;">
+                                <button type="button" class="btn btn-danger btn-sm position-absolute top-0 end-0 remove-gallery-img">×</button>
                             </div>
-                        `);
-                    };
-                    reader.readAsDataURL(file);
-                });
-            }
-        });
-    }
+                        </div>
+                    `);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+    });
+
+    // ==================== INITIAL DISCOUNT APPLICATION ====================
+    // Apply discount on page load if values exist
+    setTimeout(() => {
+        updateAllPrices();
+    }, 100);
 });
 </script>
 @endsection
