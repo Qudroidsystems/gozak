@@ -440,6 +440,21 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // Generated server-side with route() so this works no matter what
+    // prefix/group these routes actually live under (e.g. /admin/categories
+    // vs /categories). Hardcoding "/categories/..." in JS breaks the moment
+    // the routes file changes; this doesn't.
+    const categoryRoutes = {
+        store:   @json(route('categories.store')),
+        edit:    @json(route('categories.edit', ['category' => '__ID__'])),
+        update:  @json(route('categories.update', ['category' => '__ID__'])),
+        destroy: @json(route('categories.destroy', ['category' => '__ID__'])),
+    };
+
+    function categoryUrl(action, id) {
+        return categoryRoutes[action].replace('__ID__', id);
+    }
+
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
     if (csrfToken) {
         axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken.getAttribute('content');
@@ -548,7 +563,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }).then(r => {
             if (!r.isConfirmed) return;
 
-            Promise.allSettled(selectedCategories.map(id => axios.delete(`/categories/${id}`)))
+            Promise.allSettled(selectedCategories.map(id => axios.delete(categoryUrl('destroy', id))))
                 .then(results => {
                     const failed = results.filter(r => r.status === 'rejected');
                     if (failed.length === 0) {
@@ -594,7 +609,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const id = btn.dataset.id;
         Swal.fire({ title: 'Loading...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        axios.get(`/categories/${id}/edit`)
+        axios.get(categoryUrl('edit', id))
             .then(res => {
                 const c = res.data;
                 resetForm();
@@ -638,7 +653,7 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         const id = document.getElementById('category_id').value;
-        const url = id ? `/categories/${id}` : '/categories';
+        const url = id ? categoryUrl('update', id) : categoryRoutes.store;
         const data = new FormData(form);
         if (id) data.append('_method', 'PUT');
 
@@ -717,7 +732,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('delete-record')?.addEventListener('click', function () {
         if (!deleteId) return;
-        axios.delete(`/categories/${deleteId}`)
+        axios.delete(categoryUrl('destroy', deleteId))
             .then(() => {
                 deleteModal.hide();
                 Swal.fire('Deleted!', 'Category has been deleted', 'success').then(() => location.reload());
