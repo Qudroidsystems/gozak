@@ -104,7 +104,9 @@
                         </div>
                         <div class="card-body">
                             @if(count($chart_labels ?? []) > 0)
-                                <canvas id="categoryChart" height="90"></canvas>
+                                <div style="max-width: 320px; height: 260px; margin: 0 auto;">
+                                    <canvas id="categoryChart"></canvas>
+                                </div>
                             @else
                                 <p class="text-muted text-center mb-0 py-4">No product data yet to chart.</p>
                             @endif
@@ -467,7 +469,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     backgroundColor: ['#405189', '#f1b44c', '#34c38f', '#556ee6', '#f46a6a', '#50a5f1', '#0ab39c', '#6f42c1']
                 }]
             },
-            options: { plugins: { legend: { position: 'right' } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
         });
     }
 

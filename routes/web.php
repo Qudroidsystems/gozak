@@ -95,9 +95,9 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('web/promo-banners/{id}/toggle-status', [PromoBannerController::class, 'toggleStatus'])->name('web.promo-banners.toggle-status');
 
         // Category Management
-        Route::resource('categories', CategoryController::class)->except(['show']);
-        Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
+       Route::resource('categories', CategoryController::class)->except(['show']);
 
+       
         // Product Management
         Route::resource('products', ProductController::class);
         Route::prefix('products')->name('products.')->group(function () {
