@@ -330,7 +330,7 @@
                                                 <td colspan="8" class="text-center py-5 text-muted">
                                                     @if(request()->except('page'))
                                                         No categories found matching your filters.<br>
-                                                        <a href="{{ route('categories.index') }}" class="btn btn-sm btn-outline-primary mt-2">Clear filters</a>
+                                                        <a href="{{ route('web.categories.index') }}" class="btn btn-sm btn-outline-primary mt-2">Clear filters</a>
                                                     @else
                                                         No categories found. <a href="javascript:void(0)" class="text-primary" data-bs-toggle="modal" data-bs-target="#showModal">Add your first category</a>
                                                     @endif
@@ -444,8 +444,8 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Build URLs dynamically without relying on named routes
-    const baseUrl = '{{ url("/categories") }}';
+    // Build URLs with the correct web prefix
+    const baseUrl = '{{ url("/web/categories") }}';
 
     const categoryRoutes = {
         store: baseUrl,
