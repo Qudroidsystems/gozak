@@ -169,8 +169,6 @@
                                         </select>
                                     </div>
                                     <div class="col-md-2">
-                                        {{-- NEW: the controller already supports filtering by nsfw,
-                                             but nothing in the UI exposed it. Added here. --}}
                                         <label class="form-label">Content</label>
                                         <select class="form-control" id="nsfwFilter">
                                             <option value="">All</option>
@@ -450,15 +448,12 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Generated server-side with route() so this works no matter what
-    // prefix/group these routes actually live under (e.g. /admin/categories
-    // vs /categories). Hardcoding "/categories/..." in JS breaks the moment
-    // the routes file changes; this doesn't.
+    // Use the correct route names from Route::resource('categories')
     const categoryRoutes = {
-        store:   @json(route('web.categories.store')),
-        edit:    @json(route('web.categories.edit', ['category' => '__ID__'])),
-        update:  @json(route('web.categories.update', ['category' => '__ID__'])),
-        destroy: @json(route('web.categories.destroy', ['category' => '__ID__'])),
+        store:   @json(route('categories.store')),
+        edit:    @json(route('categories.edit', ['category' => '__ID__'])),
+        update:  @json(route('categories.update', ['category' => '__ID__'])),
+        destroy: @json(route('categories.destroy', ['category' => '__ID__'])),
     };
 
     function categoryUrl(action, id) {
@@ -470,9 +465,7 @@ document.addEventListener('DOMContentLoaded', function () {
         axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken.getAttribute('content');
     }
 
-    // Pulls a readable message out of any failed axios response, falling
-    // back gracefully. Used everywhere instead of hardcoded error strings,
-    // so real server errors are never hidden from you again.
+    // Pulls a readable message out of any failed axios response
     function extractErrorMessage(err, fallback) {
         if (err?.response?.data?.message) return err.response.data.message;
         if (err?.response?.status === 419) return 'Your session expired — please refresh the page and try again.';
@@ -596,7 +589,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('categoryForm');
     const imgPreview = document.getElementById('image_preview');
     const parentSelect = document.getElementById('parent_id');
-    const parentOptionsHtml = parentSelect.innerHTML; // pristine copy, restored on reset/add
+    const parentOptionsHtml = parentSelect.innerHTML;
 
     function resetForm() {
         form.reset();
@@ -607,11 +600,13 @@ document.addEventListener('DOMContentLoaded', function () {
         imgPreview.style.display = 'none';
         imgPreview.src = '';
         document.getElementById('name').classList.remove('is-invalid');
+        document.getElementById('name_error').textContent = '';
     }
 
+    // Add Category button
     document.querySelector('.add-btn')?.addEventListener('click', resetForm);
 
-    // Edit
+    // Edit button
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.edit-item-btn');
         if (!btn) return;
@@ -629,8 +624,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('is_featured').checked = c.is_featured;
                 document.getElementById('is_nsfw').checked = c.is_nsfw;
 
-                // Remove this category and its own descendants from the
-                // parent dropdown so it can't become its own ancestor.
+                // Remove this category and its descendants from parent dropdown
                 (c.excluded_ids || []).forEach(excludedId => {
                     const opt = parentSelect.querySelector(`option[value="${excludedId}"]`);
                     if (opt) opt.remove();
@@ -650,61 +644,100 @@ document.addEventListener('DOMContentLoaded', function () {
                 modal.show();
             })
             .catch(err => {
-                // FIX: this used to be a hardcoded "Failed to load category"
-                // no matter what the actual problem was. Now it shows the
-                // real reason (permission denied, category deleted, server
-                // error, etc.) so the actual cause is visible instead of
-                // guessing.
                 Swal.fire('Error', extractErrorMessage(err, 'Failed to load category.'), 'error');
             });
     });
 
-    // Submit
+    // ==================== FORM SUBMIT - FIXED ====================
     form.addEventListener('submit', function (e) {
         e.preventDefault();
+
         const id = document.getElementById('category_id').value;
-        const url = id ? categoryUrl('update', id) : categoryRoutes.store;
+        const isUpdate = id !== '';
+        const url = isUpdate ? categoryUrl('update', id) : categoryRoutes.store;
         const data = new FormData(form);
-        if (id) data.append('_method', 'PUT');
+
+        // For update, add _method=PUT
+        if (isUpdate) {
+            data.append('_method', 'PUT');
+        }
 
         const btn = document.getElementById('submitBtn');
         const spinner = document.getElementById('submitSpinner');
         btn.disabled = true;
         spinner.classList.remove('d-none');
         document.getElementById('name').classList.remove('is-invalid');
+        document.getElementById('name_error').textContent = '';
 
-        axios.post(url, data)
-            .then(() => {
-                Swal.fire({ icon: 'success', title: 'Saved!', showConfirmButton: false, timer: 1200 })
-                    .then(() => location.reload());
-            })
-            .catch(err => {
-                if (err.response?.status === 422) {
-                    const errors = err.response.data.errors || {};
-                    if (errors.name) {
-                        document.getElementById('name').classList.add('is-invalid');
-                        document.getElementById('name_error').textContent = errors.name[0];
-                    }
-                    const msg = Object.values(errors).flat().join('<br>');
-                    Swal.fire('Validation Error', msg, 'error');
-                } else {
-                    Swal.fire('Error', extractErrorMessage(err, 'Something went wrong.'), 'error');
+        axios({
+            method: 'POST',
+            url: url,
+            data: data,
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => {
+            if (response.data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: response.data.message || (isUpdate ? 'Category updated!' : 'Category created!'),
+                    showConfirmButton: false,
+                    timer: 1200
+                }).then(() => {
+                    location.reload();
+                });
+            }
+        })
+        .catch(err => {
+            if (err.response?.status === 422) {
+                const errors = err.response.data.errors || {};
+                let errorMessages = [];
+
+                if (errors.name) {
+                    document.getElementById('name').classList.add('is-invalid');
+                    document.getElementById('name_error').textContent = errors.name[0];
+                    errorMessages.push(errors.name[0]);
                 }
-            })
-            .finally(() => {
-                btn.disabled = false;
-                spinner.classList.add('d-none');
-            });
+
+                if (errors.parent_id) {
+                    errorMessages.push(errors.parent_id[0]);
+                }
+
+                if (errors.image) {
+                    errorMessages.push(errors.image[0]);
+                }
+
+                if (errorMessages.length > 0) {
+                    Swal.fire('Validation Error', errorMessages.join('<br>'), 'error');
+                } else {
+                    Swal.fire('Validation Error', 'Please check the form for errors.', 'error');
+                }
+            } else {
+                Swal.fire('Error', extractErrorMessage(err, 'Something went wrong. Please try again.'), 'error');
+            }
+        })
+        .finally(() => {
+            btn.disabled = false;
+            spinner.classList.add('d-none');
+        });
     });
 
+    // Image preview
     document.getElementById('image_input')?.addEventListener('change', function (e) {
         const file = e.target.files[0];
         if (file) {
-            imgPreview.src = URL.createObjectURL(file);
-            imgPreview.style.display = 'block';
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                imgPreview.src = event.target.result;
+                imgPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
         }
     });
 
+    // Clean up modal backdrop
     modalEl.addEventListener('hidden.bs.modal', function () {
         document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
         document.body.classList.remove('modal-open');
