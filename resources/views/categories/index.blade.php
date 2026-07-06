@@ -585,6 +585,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const imgPreview = document.getElementById('image_preview');
     const parentSelect = document.getElementById('parent_id');
     const parentOptionsHtml = parentSelect.innerHTML;
+    const nameInput = document.getElementById('name');
+    const nameError = document.getElementById('name_error');
 
     function resetForm() {
         form.reset();
@@ -594,8 +596,12 @@ document.addEventListener('DOMContentLoaded', function () {
         parentSelect.innerHTML = parentOptionsHtml;
         imgPreview.style.display = 'none';
         imgPreview.src = '';
-        document.getElementById('name').classList.remove('is-invalid');
-        document.getElementById('name_error').textContent = '';
+        if (nameInput) {
+            nameInput.classList.remove('is-invalid');
+        }
+        if (nameError) {
+            nameError.textContent = '';
+        }
     }
 
     document.querySelector('.add-btn')?.addEventListener('click', resetForm);
@@ -614,7 +620,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 resetForm();
 
                 document.getElementById('category_id').value = c.id;
-                document.getElementById('name').value = c.name;
+                if (nameInput) nameInput.value = c.name;
                 document.getElementById('is_featured').checked = c.is_featured;
                 document.getElementById('is_nsfw').checked = c.is_nsfw;
 
@@ -660,8 +666,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const spinner = document.getElementById('submitSpinner');
         btn.disabled = true;
         spinner.classList.remove('d-none');
-        document.getElementById('name').classList.remove('is-invalid');
-        document.getElementById('name_error').textContent = '';
+
+        // Remove any existing validation errors
+        if (nameInput) {
+            nameInput.classList.remove('is-invalid');
+        }
+        if (nameError) {
+            nameError.textContent = '';
+        }
 
         axios({
             method: 'POST',
@@ -689,9 +701,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 const errors = err.response.data.errors || {};
                 let errorMessages = [];
 
-                if (errors.name) {
-                    document.getElementById('name').classList.add('is-invalid');
-                    document.getElementById('name_error').textContent = errors.name[0];
+                if (errors.name && nameInput && nameError) {
+                    nameInput.classList.add('is-invalid');
+                    nameError.textContent = errors.name[0];
                     errorMessages.push(errors.name[0]);
                 }
 
