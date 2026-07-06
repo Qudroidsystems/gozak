@@ -167,6 +167,16 @@
                                         </select>
                                     </div>
                                     <div class="col-md-2">
+                                        {{-- NEW: the controller already supports filtering by nsfw,
+                                             but nothing in the UI exposed it. Added here. --}}
+                                        <label class="form-label">Content</label>
+                                        <select class="form-control" id="nsfwFilter">
+                                            <option value="">All</option>
+                                            <option value="0" {{ request('nsfw') === '0' ? 'selected' : '' }}>Safe Only</option>
+                                            <option value="1" {{ request('nsfw') === '1' ? 'selected' : '' }}>NSFW Only</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
                                         <label class="form-label">Stock</label>
                                         <select class="form-control" id="stockFilter">
                                             <option value="">All</option>
@@ -174,7 +184,7 @@
                                             <option value="has_stock" {{ request('stock_filter') == 'has_stock' ? 'selected' : '' }}>Has Products</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-2">
+                                    <div class="col-md-1">
                                         <label class="form-label">Sort By</label>
                                         <select class="form-control" id="sortFilter">
                                             <option value="name_asc" {{ request('sort', 'name_asc') == 'name_asc' ? 'selected' : '' }}>Name A-Z</option>
@@ -184,13 +194,13 @@
                                             <option value="oldest" {{ request('sort') == 'oldest' ? 'selected' : '' }}>Oldest First</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-1 d-flex align-items-end gap-2">
-                                        <button type="button" class="btn btn-primary w-100" id="applyFilter" title="Apply">
-                                            <i class="bi bi-funnel"></i>
-                                        </button>
+                                    <div class="col-12 d-flex justify-content-end gap-2">
                                         <button type="button" class="btn btn-outline-secondary" id="clearFilters" title="Clear all filters"
                                             style="{{ request()->except('page') ? '' : 'display: none;' }}">
-                                            <i class="bi bi-x-circle"></i>
+                                            <i class="bi bi-x-circle me-1"></i> Clear
+                                        </button>
+                                        <button type="button" class="btn btn-primary" id="applyFilter" title="Apply">
+                                            <i class="bi bi-funnel me-1"></i> Apply Filters
                                         </button>
                                     </div>
                                 </div>
@@ -210,6 +220,9 @@
                                         @endif
                                         @if(request('featured') !== null && request('featured') !== '')
                                             <span class="badge bg-primary-subtle text-primary">{{ request('featured') === '1' ? 'Featured' : 'Regular' }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('featured')"></button></span>
+                                        @endif
+                                        @if(request('nsfw') !== null && request('nsfw') !== '')
+                                            <span class="badge bg-danger-subtle text-danger">{{ request('nsfw') === '1' ? 'NSFW Only' : 'Safe Only' }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('nsfw')"></button></span>
                                         @endif
                                         @if(request('stock_filter'))
                                             <span class="badge bg-info-subtle text-info">Stock: {{ request('stock_filter') == 'empty' ? 'Empty' : 'Has Products' }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('stock_filter')"></button></span>
@@ -430,6 +443,16 @@ document.addEventListener('DOMContentLoaded', function () {
         axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken.getAttribute('content');
     }
 
+    // Pulls a readable message out of any failed axios response, falling
+    // back gracefully. Used everywhere instead of hardcoded error strings,
+    // so real server errors are never hidden from you again.
+    function extractErrorMessage(err, fallback) {
+        if (err?.response?.data?.message) return err.response.data.message;
+        if (err?.response?.status === 419) return 'Your session expired — please refresh the page and try again.';
+        if (err?.request && !err.response) return 'Could not reach the server. Check your connection and try again.';
+        return fallback;
+    }
+
     // ==================== CHART ====================
     const chartLabels = @json($chart_labels ?? []);
     const chartData = @json($chart_data ?? []);
@@ -459,6 +482,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const featuredFilter = document.getElementById('featuredFilter')?.value;
         (featuredFilter !== '' && featuredFilter !== undefined) ? params.set('featured', featuredFilter) : params.delete('featured');
+
+        const nsfwFilter = document.getElementById('nsfwFilter')?.value;
+        (nsfwFilter !== '' && nsfwFilter !== undefined) ? params.set('nsfw', nsfwFilter) : params.delete('nsfw');
 
         const stockFilter = document.getElementById('stockFilter')?.value;
         stockFilter ? params.set('stock_filter', stockFilter) : params.delete('stock_filter');
@@ -514,11 +540,22 @@ document.addEventListener('DOMContentLoaded', function () {
             showCancelButton: true,
             confirmButtonText: 'Yes, delete all'
         }).then(r => {
-            if (r.isConfirmed) {
-                Promise.all(selectedCategories.map(id => axios.delete(`/categories/${id}`)))
-                    .then(() => { Swal.fire('Deleted!', 'Categories removed.', 'success').then(() => location.reload()); })
-                    .catch(() => Swal.fire('Error', 'Some categories could not be deleted.', 'error'));
-            }
+            if (!r.isConfirmed) return;
+
+            Promise.allSettled(selectedCategories.map(id => axios.delete(`/categories/${id}`)))
+                .then(results => {
+                    const failed = results.filter(r => r.status === 'rejected');
+                    if (failed.length === 0) {
+                        Swal.fire('Deleted!', 'Categories removed.', 'success').then(() => location.reload());
+                    } else {
+                        const firstError = extractErrorMessage(failed[0].reason, 'Unknown error');
+                        Swal.fire(
+                            'Partially completed',
+                            `${results.length - failed.length} deleted, ${failed.length} failed. First error: ${firstError}`,
+                            'warning'
+                        ).then(() => location.reload());
+                    }
+                });
         });
     };
 
@@ -578,10 +615,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 document.getElementById('modalTitle').textContent = 'Edit Category';
                 document.getElementById('submitBtn').textContent = 'Update Category';
-                modal.show();
                 Swal.close();
+                modal.show();
             })
-            .catch(() => Swal.fire('Error', 'Failed to load category', 'error'));
+            .catch(err => {
+                // FIX: this used to be a hardcoded "Failed to load category"
+                // no matter what the actual problem was. Now it shows the
+                // real reason (permission denied, category deleted, server
+                // error, etc.) so the actual cause is visible instead of
+                // guessing.
+                Swal.fire('Error', extractErrorMessage(err, 'Failed to load category.'), 'error');
+            });
     });
 
     // Submit
@@ -613,7 +657,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const msg = Object.values(errors).flat().join('<br>');
                     Swal.fire('Validation Error', msg, 'error');
                 } else {
-                    Swal.fire('Error', err.response?.data?.message || 'Something went wrong', 'error');
+                    Swal.fire('Error', extractErrorMessage(err, 'Something went wrong.'), 'error');
                 }
             })
             .finally(() => {
@@ -674,7 +718,7 @@ document.addEventListener('DOMContentLoaded', function () {
             })
             .catch(err => {
                 deleteModal.hide();
-                Swal.fire('Error', err.response?.data?.message || 'Cannot delete category', 'error');
+                Swal.fire('Error', extractErrorMessage(err, 'Cannot delete category.'), 'error');
             });
     });
 });

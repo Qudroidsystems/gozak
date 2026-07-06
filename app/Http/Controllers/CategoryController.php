@@ -3,15 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Services\CategoryTreeService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use Throwable;
 
 class CategoryController extends Controller
 {
-    public function __construct()
+    public function __construct(private CategoryTreeService $tree)
     {
         $this->middleware('permission:View category|Create category|Update category|Delete category', ['only' => ['index']]);
         $this->middleware('permission:Create category', ['only' => ['store']]);
@@ -21,49 +23,52 @@ class CategoryController extends Controller
 
     public function index(Request $request)
     {
-        $pagetitle = "Category Management";
+        $pagetitle = 'Category Management';
 
-        $query = Category::with('parent')
-            ->withCount(['products', 'children']);
+        $query = Category::with('parent')->withCount(['products', 'children']);
 
         if ($request->filled('search')) {
-            $search = $request->search;
+            // Escape LIKE wildcards so a literal "%" or "_" in a search
+            // term doesn't act as a wildcard.
+            $search = str_replace(['%', '_'], ['\%', '\_'], $request->search);
+
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhereHas('parent', fn($q2) => $q2->where('name', 'like', "%{$search}%"));
+                  ->orWhereHas('parent', fn ($q2) => $q2->where('name', 'like', "%{$search}%"));
             });
         }
 
         if ($request->filled('parent_filter')) {
-            switch ($request->parent_filter) {
-                case 'top':   $query->whereNull('parent_id'); break;
-                case 'child': $query->whereNotNull('parent_id'); break;
-                default:      $query->where('parent_id', $request->parent_filter); break;
-            }
+            match ($request->parent_filter) {
+                'top'   => $query->whereNull('parent_id'),
+                'child' => $query->whereNotNull('parent_id'),
+                default => $query->where('parent_id', $request->parent_filter),
+            };
         }
 
         if ($request->filled('featured')) {
-            $query->where('is_featured', (bool) $request->featured);
+            $query->where('is_featured', $request->boolean('featured'));
         }
 
         if ($request->filled('nsfw')) {
-            $query->where('is_nsfw', (bool) $request->nsfw);
+            $query->where('is_nsfw', $request->boolean('nsfw'));
         }
 
         if ($request->filled('stock_filter')) {
-            switch ($request->stock_filter) {
-                case 'empty':     $query->doesntHave('products'); break;
-                case 'has_stock': $query->has('products'); break;
-            }
+            match ($request->stock_filter) {
+                'empty'     => $query->doesntHave('products'),
+                'has_stock' => $query->has('products'),
+                default     => null,
+            };
         }
 
-        switch ($request->get('sort', 'name_asc')) {
-            case 'name_desc':     $query->orderByDesc('name'); break;
-            case 'most_products': $query->orderByDesc('products_count'); break;
-            case 'newest':        $query->latest(); break;
-            case 'oldest':        $query->oldest(); break;
-            default:               $query->orderBy('name'); break;
-        }
+        match ($request->get('sort', 'name_asc')) {
+            'name_desc'     => $query->orderByDesc('name'),
+            'most_products' => $query->orderByDesc('products_count'),
+            'newest'        => $query->latest(),
+            'oldest'        => $query->oldest(),
+            default         => $query->orderBy('name'),
+        };
 
         $categories = $query->paginate(15)->appends($request->query());
 
@@ -79,37 +84,59 @@ class CategoryController extends Controller
             ->limit(8)
             ->get();
 
-        $chart_labels = $chartData->pluck('name')->toArray();
-        $chart_data   = $chartData->pluck('products_count')->toArray();
-
         $allCategories = Category::whereNull('parent_id')->orderBy('name')->get();
 
-        return view('categories.index', compact(
-            'categories',
-            'allCategories',
-            'pagetitle',
-            'analytics',
-            'chart_labels',
-            'chart_data'
-        ));
+        return view('categories.index', [
+            'categories'    => $categories,
+            'allCategories' => $allCategories,
+            'pagetitle'     => $pagetitle,
+            'analytics'     => $analytics,
+            'chart_labels'  => $chartData->pluck('name'),
+            'chart_data'    => $chartData->pluck('products_count'),
+        ]);
     }
 
+    /**
+     * FIX: this used to have no try/catch at all. Any exception here
+     * (permission edge case, a deleted row, a bad relation, whatever)
+     * fell through to Laravel's default HTML error response. Axios
+     * can't parse that as the JSON it expects, the request lands in
+     * .catch(), and the frontend showed a hardcoded, meaningless
+     * "Failed to load category" no matter what actually went wrong.
+     *
+     * This now always returns JSON, so the blade can show the real
+     * reason if something still fails.
+     */
     public function edit($id)
     {
-        $category = Category::with('parent')->findOrFail($id);
+        try {
+            $category = Category::with('parent')->findOrFail($id);
 
-        return response()->json([
-            'id'            => $category->id,
-            'name'          => $category->name,
-            'parent_id'     => $category->parent_id,
-            'is_featured'   => (bool) $category->is_featured,
-            'is_nsfw'       => (bool) $category->is_nsfw,
-            'image'         => $category->image ? asset('storage/' . $category->image) : null,
-            // A category can't become its own parent, nor the parent of one
-            // of its own ancestors -- the dropdown on the frontend removes
-            // these ids so the user can't even attempt it.
-            'excluded_ids'  => array_merge([$category->id], $this->getDescendantIds($category->id)),
-        ]);
+            return response()->json([
+                'success'      => true,
+                'id'           => $category->id,
+                'name'         => $category->name,
+                'parent_id'    => $category->parent_id,
+                'is_featured'  => (bool) $category->is_featured,
+                'is_nsfw'      => (bool) $category->is_nsfw,
+                'image'        => $category->image ? asset('storage/' . $category->image) : null,
+                'excluded_ids' => array_merge([$category->id], $this->tree->descendantIds($category->id)),
+            ]);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'That category no longer exists — it may have just been deleted.',
+            ], 404);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug')
+                    ? $e->getMessage()
+                    : 'Unable to load this category. Please try again.',
+            ], 500);
+        }
     }
 
     public function store(Request $request)
@@ -123,7 +150,11 @@ class CategoryController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], 422);
         }
 
         $imagePath = null;
@@ -149,22 +180,32 @@ class CategoryController extends Controller
                 'success' => true,
                 'message' => 'Category created successfully',
             ], 201);
-
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             DB::rollBack();
 
-            // Don't leave an orphaned upload behind if the DB write failed
             if ($imagePath) {
                 Storage::disk('public')->delete($imagePath);
             }
 
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug') ? $e->getMessage() : 'Unable to create category. Please try again.',
+            ], 500);
         }
     }
 
     public function update(Request $request, $id)
     {
-        $category = Category::findOrFail($id);
+        try {
+            $category = Category::findOrFail($id);
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'That category no longer exists — it may have just been deleted.',
+            ], 404);
+        }
 
         $validator = Validator::make($request->all(), [
             'name'        => 'required|string|max:255|unique:categories,name,' . $id,
@@ -178,7 +219,7 @@ class CategoryController extends Controller
         // itself or to any of its own descendants.
         $validator->after(function ($validator) use ($request, $category) {
             if ($request->filled('parent_id')) {
-                $blocked = array_merge([$category->id], $this->getDescendantIds($category->id));
+                $blocked = array_merge([$category->id], $this->tree->descendantIds($category->id));
                 if (in_array((int) $request->parent_id, $blocked)) {
                     $validator->errors()->add('parent_id', 'A category cannot be set as its own parent or descendant.');
                 }
@@ -186,7 +227,11 @@ class CategoryController extends Controller
         });
 
         if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], 422);
         }
 
         $newImagePath = null;
@@ -219,15 +264,19 @@ class CategoryController extends Controller
                 'success' => true,
                 'message' => 'Category updated successfully',
             ]);
-
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             DB::rollBack();
 
             if ($newImagePath) {
                 Storage::disk('public')->delete($newImagePath);
             }
 
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug') ? $e->getMessage() : 'Unable to update category. Please try again.',
+            ], 500);
         }
     }
 
@@ -255,37 +304,23 @@ class CategoryController extends Controller
             DB::commit();
 
             return response()->json([
-                'success'            => true,
-                'message'            => 'Category deleted successfully',
-                'affected_products'  => $affectedProducts,
+                'success'           => true,
+                'message'           => 'Category deleted successfully',
+                'affected_products' => $affectedProducts,
             ]);
-        } catch (\Exception $e) {
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'That category no longer exists — it may have already been deleted.',
+            ], 404);
+        } catch (Throwable $e) {
             DB::rollBack();
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            report($e);
+
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug') ? $e->getMessage() : 'Unable to delete category. Please try again.',
+            ], 500);
         }
-    }
-
-    /**
-     * Walk the parent/child tree to collect every descendant id of a
-     * category, so the UI can prevent circular parent assignments.
-     */
-    private function getDescendantIds(int $id): array
-    {
-        $ids   = [];
-        $stack = [$id];
-
-        while (!empty($stack)) {
-            $current = array_pop($stack);
-            $childIds = Category::where('parent_id', $current)->pluck('id')->all();
-
-            foreach ($childIds as $childId) {
-                if (!in_array($childId, $ids, true)) {
-                    $ids[]   = $childId;
-                    $stack[] = $childId;
-                }
-            }
-        }
-
-        return $ids;
     }
 }
