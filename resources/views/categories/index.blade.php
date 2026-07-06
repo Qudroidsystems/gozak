@@ -445,10 +445,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // vs /categories). Hardcoding "/categories/..." in JS breaks the moment
     // the routes file changes; this doesn't.
     const categoryRoutes = {
-        store:   @json(route('categories.store')),
-        edit:    @json(route('categories.edit', ['category' => '__ID__'])),
-        update:  @json(route('categories.update', ['category' => '__ID__'])),
-        destroy: @json(route('categories.destroy', ['category' => '__ID__'])),
+        store:   @json(route('web.categories.store')),
+        edit:    @json(route('web.categories.edit', ['category' => '__ID__'])),
+        update:  @json(route('web.categories.update', ['category' => '__ID__'])),
+        destroy: @json(route('web.categories.destroy', ['category' => '__ID__'])),
     };
 
     function categoryUrl(action, id) {
