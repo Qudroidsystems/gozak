@@ -434,6 +434,16 @@
     </div>
 </div>
 
+<style>
+    /* SweetAlert2's default z-index can end up underneath the Bootstrap
+       modal backdrop in this layout (same issue seen elsewhere with the
+       spotlight overlay) — force it above everything so success/error
+       popups triggered while the Add/Edit modal is open are actually visible. */
+    .swal2-container {
+        z-index: 20000 !important;
+    }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
