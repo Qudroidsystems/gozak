@@ -365,7 +365,7 @@
 <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form id="categoryForm" enctype="multipart/form-data">
+            <form id="categoryForm" enctype="multipart/form-data" action="" method="POST">
                 @csrf
                 <input type="hidden" name="id" id="category_id">
                 <div class="modal-header">
@@ -433,10 +433,6 @@
 </div>
 
 <style>
-    /* SweetAlert2's default z-index can end up underneath the Bootstrap
-       modal backdrop in this layout (same issue seen elsewhere with the
-       spotlight overlay) — force it above everything so success/error
-       popups triggered while the Add/Edit modal is open are actually visible. */
     .swal2-container {
         z-index: 20000 !important;
     }
@@ -448,24 +444,21 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Use the correct route names from Route::resource('categories')
-    const categoryRoutes = {
-        store:   @json(route('categories.store')),
-        edit:    @json(route('categories.edit', ['category' => '__ID__'])),
-        update:  @json(route('categories.update', ['category' => '__ID__'])),
-        destroy: @json(route('categories.destroy', ['category' => '__ID__'])),
-    };
+    // Build URLs dynamically without relying on named routes
+    const baseUrl = '{{ url("/categories") }}';
 
-    function categoryUrl(action, id) {
-        return categoryRoutes[action].replace('__ID__', id);
-    }
+    const categoryRoutes = {
+        store: baseUrl,
+        edit: function(id) { return baseUrl + '/' + id + '/edit'; },
+        update: function(id) { return baseUrl + '/' + id; },
+        destroy: function(id) { return baseUrl + '/' + id; },
+    };
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
     if (csrfToken) {
         axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken.getAttribute('content');
     }
 
-    // Pulls a readable message out of any failed axios response
     function extractErrorMessage(err, fallback) {
         if (err?.response?.data?.message) return err.response.data.message;
         if (err?.response?.status === 419) return 'Your session expired — please refresh the page and try again.';
@@ -566,20 +559,22 @@ document.addEventListener('DOMContentLoaded', function () {
         }).then(r => {
             if (!r.isConfirmed) return;
 
-            Promise.allSettled(selectedCategories.map(id => axios.delete(categoryUrl('destroy', id))))
-                .then(results => {
-                    const failed = results.filter(r => r.status === 'rejected');
-                    if (failed.length === 0) {
-                        Swal.fire('Deleted!', 'Categories removed.', 'success').then(() => location.reload());
-                    } else {
-                        const firstError = extractErrorMessage(failed[0].reason, 'Unknown error');
-                        Swal.fire(
-                            'Partially completed',
-                            `${results.length - failed.length} deleted, ${failed.length} failed. First error: ${firstError}`,
-                            'warning'
-                        ).then(() => location.reload());
-                    }
-                });
+            Promise.allSettled(selectedCategories.map(id =>
+                axios.delete(categoryRoutes.destroy(id))
+            ))
+            .then(results => {
+                const failed = results.filter(r => r.status === 'rejected');
+                if (failed.length === 0) {
+                    Swal.fire('Deleted!', 'Categories removed.', 'success').then(() => location.reload());
+                } else {
+                    const firstError = extractErrorMessage(failed[0].reason, 'Unknown error');
+                    Swal.fire(
+                        'Partially completed',
+                        `${results.length - failed.length} deleted, ${failed.length} failed. First error: ${firstError}`,
+                        'warning'
+                    ).then(() => location.reload());
+                }
+            });
         });
     };
 
@@ -603,10 +598,9 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('name_error').textContent = '';
     }
 
-    // Add Category button
     document.querySelector('.add-btn')?.addEventListener('click', resetForm);
 
-    // Edit button
+    // Edit
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.edit-item-btn');
         if (!btn) return;
@@ -614,7 +608,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const id = btn.dataset.id;
         Swal.fire({ title: 'Loading...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
-        axios.get(categoryUrl('edit', id))
+        axios.get(categoryRoutes.edit(id))
             .then(res => {
                 const c = res.data;
                 resetForm();
@@ -624,7 +618,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('is_featured').checked = c.is_featured;
                 document.getElementById('is_nsfw').checked = c.is_nsfw;
 
-                // Remove this category and its descendants from parent dropdown
+                // Remove this category and its own descendants from parent dropdown
                 (c.excluded_ids || []).forEach(excludedId => {
                     const opt = parentSelect.querySelector(`option[value="${excludedId}"]`);
                     if (opt) opt.remove();
@@ -654,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const id = document.getElementById('category_id').value;
         const isUpdate = id !== '';
-        const url = isUpdate ? categoryUrl('update', id) : categoryRoutes.store;
+        const url = isUpdate ? categoryRoutes.update(id) : categoryRoutes.store;
         const data = new FormData(form);
 
         // For update, add _method=PUT
@@ -724,7 +718,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Image preview
     document.getElementById('image_input')?.addEventListener('change', function (e) {
         const file = e.target.files[0];
         if (file) {
@@ -737,7 +730,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    // Clean up modal backdrop
     modalEl.addEventListener('hidden.bs.modal', function () {
         document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
         document.body.classList.remove('modal-open');
@@ -775,7 +767,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('delete-record')?.addEventListener('click', function () {
         if (!deleteId) return;
-        axios.delete(categoryUrl('destroy', deleteId))
+        axios.delete(categoryRoutes.destroy(deleteId))
             .then(() => {
                 deleteModal.hide();
                 Swal.fire('Deleted!', 'Category has been deleted', 'success').then(() => location.reload());
