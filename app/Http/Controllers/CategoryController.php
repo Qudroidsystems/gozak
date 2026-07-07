@@ -281,6 +281,7 @@ class CategoryController extends Controller
     }
 
 
+
     /**
      * Bulk update categories
      */
@@ -294,8 +295,16 @@ class CategoryController extends Controller
         ]);
 
         try {
+            // Map the field names to actual column names
+            $columnMap = [
+                'featured' => 'is_featured',
+                'nsfw' => 'is_nsfw'
+            ];
+
+            $column = $columnMap[$request->field];
+
             $updated = Category::whereIn('id', $request->ids)
-                ->update([$request->field => $request->value]);
+                ->update([$column => $request->value]);
 
             return response()->json([
                 'success' => true,
@@ -310,7 +319,6 @@ class CategoryController extends Controller
             ], 500);
         }
     }
-
 
     public function destroy($id)
     {
