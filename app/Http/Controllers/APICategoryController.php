@@ -19,14 +19,14 @@ use Illuminate\Support\Facades\Validator;
 class APICategoryController extends Controller
 {
     /**
-     * Get a paginated list of categories with optional filters
+     * Get all categories with optional filters (NO PAGINATION)
      *
      * Public endpoint — no authentication required.
      *
-     * @queryParam per_page integer Number of items per page (max 100). Default: 20. Example: 30
      * @queryParam is_featured boolean Only return featured categories. Example: true
      * @queryParam parent_id integer Show only sub-categories of this parent. Example: 5
      * @queryParam safe_mode boolean Hide NSFW categories (when enabled globally). Example: true
+     * @queryParam limit integer Max number of categories to return (0 for all). Example: 0
      *
      * @response 200 {
      *     "success": true,
@@ -64,10 +64,12 @@ class APICategoryController extends Controller
             $query->where('is_nsfw', false);
         }
 
-        $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
+        // Order by name for consistency
+        $query->orderBy('name');
 
         try {
-            $categories = $query->paginate($perPage);
+            // Get ALL categories - NO pagination
+            $categories = $query->get();
 
             $formattedCategories = $categories->map(function ($category) {
                 return [
@@ -75,14 +77,15 @@ class APICategoryController extends Controller
                     'name'        => $category->name ?? '',
                     'image'       => $category->image ? url(Storage::url($category->image)) : null,
                     'parent_id'   => $category->parent_id,
-                    'is_featured' => $category->is_featured ?? false,
-                    'is_nsfw'     => $category->is_nsfw ?? false,
+                    'is_featured' => (bool) $category->is_featured,
+                    'is_nsfw'     => (bool) $category->is_nsfw,
                 ];
             })->values();
 
             return response()->json([
                 'success' => true,
                 'data'    => $formattedCategories,
+                'total'   => $formattedCategories->count(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -158,8 +161,8 @@ class APICategoryController extends Controller
                     'name'        => $category->name,
                     'image'       => $category->image ? url(Storage::url($category->image)) : null,
                     'parent_id'   => $category->parent_id,
-                    'is_featured' => $category->is_featured,
-                    'is_nsfw'     => $category->is_nsfw,
+                    'is_featured' => (bool) $category->is_featured,
+                    'is_nsfw'     => (bool) $category->is_nsfw,
                 ],
                 'message' => 'Category created successfully',
             ], 201);
