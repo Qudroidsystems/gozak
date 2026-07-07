@@ -280,6 +280,38 @@ class CategoryController extends Controller
         }
     }
 
+
+    /**
+     * Bulk update categories
+     */
+    public function bulkUpdate(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'exists:categories,id',
+            'field' => 'required|in:featured,nsfw',
+            'value' => 'required|in:0,1'
+        ]);
+
+        try {
+            $updated = Category::whereIn('id', $request->ids)
+                ->update([$request->field => $request->value]);
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$updated} categories updated successfully.",
+                'updated' => $updated
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+            return response()->json([
+                'success' => false,
+                'message' => config('app.debug') ? $e->getMessage() : 'Failed to update categories.'
+            ], 500);
+        }
+    }
+
+
     public function destroy($id)
     {
         try {

@@ -128,12 +128,35 @@
                                 </div>
                                 <div class="flex-shrink-0">
                                     <div class="d-flex flex-wrap align-items-start gap-2">
+                                        <!-- Bulk Actions -->
+                                        <div class="btn-group d-none" id="bulkActions">
+                                            <button type="button" class="btn btn-warning dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="bi bi-gear me-1"></i> Bulk Actions (<span id="selectedCountBulk">0</span>)
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('featured', 1)">
+                                                    <i class="bi bi-star-fill text-warning me-2"></i> Mark as Featured
+                                                </a></li>
+                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('featured', 0)">
+                                                    <i class="bi bi-star text-muted me-2"></i> Unmark Featured
+                                                </a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('nsfw', 1)">
+                                                    <i class="bi bi-exclamation-triangle text-danger me-2"></i> Mark as NSFW
+                                                </a></li>
+                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('nsfw', 0)">
+                                                    <i class="bi bi-check-circle text-success me-2"></i> Mark as Safe
+                                                </a></li>
+                                            </ul>
+                                        </div>
+
                                         <button class="btn btn-danger d-none" id="remove-actions" onclick="deleteMultiple()">
-                                            Delete Selected (<span id="selectedCount">0</span>)
+                                            <i class="bi bi-trash me-1"></i> Delete Selected (<span id="selectedCount">0</span>)
                                         </button>
+
                                         @can('Create category')
                                             <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal">
-                                                Add Category
+                                                <i class="bi bi-plus-lg me-1"></i> Add Category
                                             </button>
                                         @endcan
                                     </div>
@@ -452,6 +475,7 @@ document.addEventListener('DOMContentLoaded', function () {
         edit: function(id) { return baseUrl + '/' + id + '/edit'; },
         update: function(id) { return baseUrl + '/' + id; },
         destroy: function(id) { return baseUrl + '/' + id; },
+        bulkUpdate: baseUrl + '/bulk-update',
     };
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
@@ -531,8 +555,14 @@ document.addEventListener('DOMContentLoaded', function () {
         selectedCategories = Array.from(document.querySelectorAll('.row-select:checked')).map(cb => cb.value);
         const btn = document.getElementById('remove-actions');
         const countEl = document.getElementById('selectedCount');
+        const bulkActions = document.getElementById('bulkActions');
+        const countElBulk = document.getElementById('selectedCountBulk');
+
         if (countEl) countEl.textContent = selectedCategories.length;
+        if (countElBulk) countElBulk.textContent = selectedCategories.length;
+
         if (btn) btn.classList.toggle('d-none', selectedCategories.length === 0);
+        if (bulkActions) bulkActions.classList.toggle('d-none', selectedCategories.length === 0);
     }
 
     document.getElementById('selectAll')?.addEventListener('change', function () {
@@ -548,6 +578,63 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    // ==================== BULK UPDATE ====================
+    window.bulkUpdate = function(field, value) {
+        const ids = selectedCategories;
+        if (!ids.length) {
+            Swal.fire('Warning', 'Please select at least one category.', 'warning');
+            return;
+        }
+
+        const fieldLabels = {
+            'featured': value === 1 ? 'Featured' : 'Regular',
+            'nsfw': value === 1 ? 'NSFW' : 'Safe'
+        };
+
+        Swal.fire({
+            title: `Bulk Update`,
+            html: `
+                <p>You are about to update <strong>${ids.length}</strong> categories.</p>
+                <p>Set <strong>${fieldLabels[field]}</strong> status for all selected categories.</p>
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, update',
+            cancelButtonText: 'Cancel'
+        }).then(result => {
+            if (!result.isConfirmed) return;
+
+            Swal.fire({
+                title: 'Updating...',
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            axios.post(categoryRoutes.bulkUpdate, {
+                ids: ids,
+                field: field,
+                value: value
+            })
+            .then(response => {
+                if (response.data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Updated!',
+                        text: `${response.data.updated} categories updated successfully.`,
+                        timer: 2000,
+                        showConfirmButton: true
+                    }).then(() => {
+                        location.reload();
+                    });
+                }
+            })
+            .catch(err => {
+                Swal.fire('Error', extractErrorMessage(err, 'Failed to update categories.'), 'error');
+            });
+        });
+    };
+
+    // ==================== DELETE MULTIPLE ====================
     window.deleteMultiple = function () {
         if (!selectedCategories.length) return;
         Swal.fire({
@@ -654,7 +741,7 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     });
 
-    // ==================== FORM SUBMIT - FIXED ====================
+    // ==================== FORM SUBMIT ====================
     form.addEventListener('submit', function (e) {
         e.preventDefault();
 

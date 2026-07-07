@@ -96,8 +96,10 @@ Route::middleware(['auth'])->group(function () {
 
         // Category Management
        Route::resource('categories', CategoryController::class)->except(['show']);
+        // Bulk update route
+       Route::post('categories/bulk-update', [CategoryController::class, 'bulkUpdate'])->name('categories.bulk-update');
 
-       
+
         // Product Management
         Route::resource('products', ProductController::class);
         Route::prefix('products')->name('products.')->group(function () {
