@@ -374,12 +374,12 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Category Name *</label>
-                        <input type="text" class="form-control" name="name" id="name" required>
+                        <label class="form-label" for="category_name">Category Name *</label>
+                        <input type="text" class="form-control" name="name" id="category_name" required>
                         <div class="invalid-feedback" id="name_error"></div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Parent Category</label>
+                        <label class="form-label" for="parent_id">Parent Category</label>
                         <select class="form-select" name="parent_id" id="parent_id">
                             <option value="">No Parent (Top Level)</option>
                             @foreach($allCategories as $c)
@@ -389,7 +389,7 @@
                         <small class="text-muted">When editing, this category and its own sub-categories are hidden here to prevent circular relationships.</small>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Image</label>
+                        <label class="form-label" for="image_input">Image</label>
                         <input type="file" class="form-control" name="image" id="image_input" accept="image/*">
                         <div class="mt-2">
                             <img id="image_preview" class="rounded shadow-sm" style="max-height:120px; display:none;">
@@ -585,14 +585,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const imgPreview = document.getElementById('image_preview');
     const parentSelect = document.getElementById('parent_id');
     const parentOptionsHtml = parentSelect.innerHTML;
-    const nameInput = document.getElementById('name');
+
+    // Cache DOM elements
+    const nameInput = document.getElementById('category_name');
     const nameError = document.getElementById('name_error');
+    const categoryIdInput = document.getElementById('category_id');
+    const modalTitle = document.getElementById('modalTitle');
+    const submitBtn = document.getElementById('submitBtn');
+    const submitSpinner = document.getElementById('submitSpinner');
 
     function resetForm() {
         form.reset();
-        document.getElementById('category_id').value = '';
-        document.getElementById('modalTitle').textContent = 'Add Category';
-        document.getElementById('submitBtn').textContent = 'Save Category';
+        categoryIdInput.value = '';
+        modalTitle.textContent = 'Add Category';
+        submitBtn.textContent = 'Save Category';
         parentSelect.innerHTML = parentOptionsHtml;
         imgPreview.style.display = 'none';
         imgPreview.src = '';
@@ -619,7 +625,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const c = res.data;
                 resetForm();
 
-                document.getElementById('category_id').value = c.id;
+                categoryIdInput.value = c.id;
                 if (nameInput) nameInput.value = c.name;
                 document.getElementById('is_featured').checked = c.is_featured;
                 document.getElementById('is_nsfw').checked = c.is_nsfw;
@@ -638,8 +644,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     imgPreview.style.display = 'none';
                 }
 
-                document.getElementById('modalTitle').textContent = 'Edit Category';
-                document.getElementById('submitBtn').textContent = 'Update Category';
+                modalTitle.textContent = 'Edit Category';
+                submitBtn.textContent = 'Update Category';
                 Swal.close();
                 modal.show();
             })
@@ -652,7 +658,7 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', function (e) {
         e.preventDefault();
 
-        const id = document.getElementById('category_id').value;
+        const id = categoryIdInput.value;
         const isUpdate = id !== '';
         const url = isUpdate ? categoryRoutes.update(id) : categoryRoutes.store;
         const data = new FormData(form);
@@ -662,12 +668,11 @@ document.addEventListener('DOMContentLoaded', function () {
             data.append('_method', 'PUT');
         }
 
-        const btn = document.getElementById('submitBtn');
-        const spinner = document.getElementById('submitSpinner');
-        btn.disabled = true;
-        spinner.classList.remove('d-none');
+        // Disable button and show spinner
+        submitBtn.disabled = true;
+        submitSpinner.classList.remove('d-none');
 
-        // Remove any existing validation errors
+        // Clear previous errors
         if (nameInput) {
             nameInput.classList.remove('is-invalid');
         }
@@ -701,9 +706,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 const errors = err.response.data.errors || {};
                 let errorMessages = [];
 
-                if (errors.name && nameInput && nameError) {
+                if (errors.name && nameInput) {
                     nameInput.classList.add('is-invalid');
-                    nameError.textContent = errors.name[0];
+                    if (nameError) nameError.textContent = errors.name[0];
                     errorMessages.push(errors.name[0]);
                 }
 
@@ -725,8 +730,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         })
         .finally(() => {
-            btn.disabled = false;
-            spinner.classList.add('d-none');
+            submitBtn.disabled = false;
+            submitSpinner.classList.add('d-none');
         });
     });
 
