@@ -364,6 +364,7 @@
                                     </table>
                                 </div>
 
+                                {{-- ─── PAGINATION ─────────────────────────────────── --}}
                                 <div class="row mt-3 align-items-center">
                                     <div class="col-sm">
                                         <div class="text-muted text-center text-sm-start">
@@ -371,7 +372,7 @@
                                         </div>
                                     </div>
                                     <div class="col-sm-auto mt-3 mt-sm-0">
-                                        {!! $categories->appends(request()->query())->links('pagination::bootstrap-5') !!}
+                                        {!! $categories->appends(request()->query())->links('pagination::custom') !!}
                                     </div>
                                 </div>
                             </div>
@@ -458,6 +459,41 @@
 <style>
     .swal2-container {
         z-index: 20000 !important;
+    }
+
+    /* Custom Pagination Styles */
+    .pagination {
+        gap: 4px;
+    }
+
+    .pagination .page-item .page-link {
+        border-radius: 4px;
+        border: 1px solid #e0e0e0;
+        padding: 0.5rem 0.75rem;
+        color: #405189;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .pagination .page-item.active .page-link {
+        background-color: #405189;
+        border-color: #405189;
+        color: #ffffff;
+    }
+
+    .pagination .page-item:not(.active):not(.disabled) .page-link:hover {
+        background-color: #f8f9fa;
+        border-color: #405189;
+        color: #405189;
+    }
+
+    .pagination .page-item.disabled .page-link {
+        color: #9ca3af;
+        cursor: not-allowed;
+    }
+
+    .pagination .page-item .page-link:focus {
+        box-shadow: 0 0 0 0.2rem rgba(64, 81, 137, 0.25);
     }
 </style>
 
