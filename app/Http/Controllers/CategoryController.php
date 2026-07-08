@@ -27,17 +27,16 @@ class CategoryController extends Controller
 
         $query = Category::with('parent')->withCount(['products', 'children']);
 
+        // Search filter
         if ($request->filled('search')) {
-            // Escape LIKE wildcards so a literal "%" or "_" in a search
-            // term doesn't act as a wildcard.
             $search = str_replace(['%', '_'], ['\%', '\_'], $request->search);
-
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhereHas('parent', fn ($q2) => $q2->where('name', 'like', "%{$search}%"));
             });
         }
 
+        // Parent filter
         if ($request->filled('parent_filter')) {
             match ($request->parent_filter) {
                 'top'   => $query->whereNull('parent_id'),
@@ -46,14 +45,17 @@ class CategoryController extends Controller
             };
         }
 
+        // Featured filter
         if ($request->filled('featured')) {
             $query->where('is_featured', $request->boolean('featured'));
         }
 
+        // NSFW filter
         if ($request->filled('nsfw')) {
             $query->where('is_nsfw', $request->boolean('nsfw'));
         }
 
+        // Stock filter
         if ($request->filled('stock_filter')) {
             match ($request->stock_filter) {
                 'empty'     => $query->doesntHave('products'),
@@ -62,6 +64,7 @@ class CategoryController extends Controller
             };
         }
 
+        // Sort
         match ($request->get('sort', 'name_asc')) {
             'name_desc'     => $query->orderByDesc('name'),
             'most_products' => $query->orderByDesc('products_count'),
@@ -70,7 +73,16 @@ class CategoryController extends Controller
             default         => $query->orderBy('name'),
         };
 
-        $categories = $query->paginate(15)->appends($request->query());
+        // Get per_page from request or default to 15
+        $perPage = $request->get('per_page', 15);
+
+        // Validate per_page to prevent abuse (allow only specific values)
+        $allowedPerPage = [10, 15, 25, 50, 100, 250, 500];
+        if (!in_array((int)$perPage, $allowedPerPage)) {
+            $perPage = 15;
+        }
+
+        $categories = $query->paginate((int)$perPage)->appends($request->query());
 
         $analytics = [
             'total_categories' => Category::count(),
@@ -96,17 +108,6 @@ class CategoryController extends Controller
         ]);
     }
 
-    /**
-     * FIX: this used to have no try/catch at all. Any exception here
-     * (permission edge case, a deleted row, a bad relation, whatever)
-     * fell through to Laravel's default HTML error response. Axios
-     * can't parse that as the JSON it expects, the request lands in
-     * .catch(), and the frontend showed a hardcoded, meaningless
-     * "Failed to load category" no matter what actually went wrong.
-     *
-     * This now always returns JSON, so the blade can show the real
-     * reason if something still fails.
-     */
     public function edit($id)
     {
         try {
@@ -215,8 +216,7 @@ class CategoryController extends Controller
             'is_nsfw'     => 'nullable|boolean',
         ]);
 
-        // Block circular references: a category can't be parented to
-        // itself or to any of its own descendants.
+        // Block circular references
         $validator->after(function ($validator) use ($request, $category) {
             if ($request->filled('parent_id')) {
                 $blocked = array_merge([$category->id], $this->tree->descendantIds($category->id));
@@ -280,11 +280,6 @@ class CategoryController extends Controller
         }
     }
 
-
-
-    /**
-     * Bulk update categories
-     */
     public function bulkUpdate(Request $request)
     {
         $request->validate([
@@ -295,7 +290,6 @@ class CategoryController extends Controller
         ]);
 
         try {
-            // Map the field names to actual column names
             $columnMap = [
                 'featured' => 'is_featured',
                 'nsfw' => 'is_nsfw'
@@ -331,12 +325,9 @@ class CategoryController extends Controller
                 Storage::disk('public')->delete($category->image);
             }
 
-            // Promote direct children to top-level rather than letting the
-            // parent_id FK's ON DELETE CASCADE take them out too.
+            // Promote direct children to top-level
             Category::where('parent_id', $id)->update(['parent_id' => null]);
 
-            // Products keep existing via ON DELETE SET NULL, but we surface
-            // the affected count so the frontend can warn before this runs.
             $affectedProducts = $category->products_count;
 
             $category->delete();

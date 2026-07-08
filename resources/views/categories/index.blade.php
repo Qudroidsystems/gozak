@@ -219,7 +219,7 @@
                                     </div>
                                     <div class="col-12 d-flex justify-content-end gap-2">
                                         <button type="button" class="btn btn-outline-secondary" id="clearFilters" title="Clear all filters"
-                                            style="{{ request()->except('page') ? '' : 'display: none;' }}">
+                                            style="{{ request()->except('page', 'per_page') ? '' : 'display: none;' }}">
                                             <i class="bi bi-x-circle me-1"></i> Clear
                                         </button>
                                         <button type="button" class="btn btn-primary" id="applyFilter" title="Apply">
@@ -231,7 +231,7 @@
 
                             <div class="card-body">
                                 {{-- Active Filter Badges --}}
-                                @if(request()->except('page'))
+                                @if(request()->except('page', 'per_page'))
                                 <div class="mb-3">
                                     <div class="d-flex align-items-center flex-wrap gap-2">
                                         <span class="text-muted me-1">Active filters:</span>
@@ -351,7 +351,7 @@
                                             @empty
                                             <tr>
                                                 <td colspan="8" class="text-center py-5 text-muted">
-                                                    @if(request()->except('page'))
+                                                    @if(request()->except('page', 'per_page'))
                                                         No categories found matching your filters.<br>
                                                         <a href="{{ route('web.categories.index') }}" class="btn btn-sm btn-outline-primary mt-2">Clear filters</a>
                                                     @else
@@ -364,22 +364,39 @@
                                     </table>
                                 </div>
 
-                                {{-- ─── PAGINATION ─────────────────────────────────── --}}
+                                {{-- ─── PAGINATION WITH PER-PAGE SELECTOR ─────────────────── --}}
                                 <div class="row mt-3 align-items-center">
-                                    <div class="col-sm">
-                                        <div class="text-muted text-center text-sm-start">
-                                            Showing {{ $categories->firstItem() ?? 0 }} to {{ $categories->lastItem() ?? 0 }} of {{ $categories->total() }} Results
+                                    <div class="col-sm-6">
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                            <div class="text-muted">
+                                                Showing {{ $categories->firstItem() ?? 0 }} to {{ $categories->lastItem() ?? 0 }} of {{ $categories->total() }} Results
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="col-sm-auto mt-3 mt-sm-0">
-                                        {{-- Option 1: Use Bootstrap 5 default pagination --}}
-                                        {!! $categories->appends(request()->query())->links('pagination::bootstrap-5') !!}
+                                    <div class="col-sm-6">
+                                        <div class="d-flex align-items-center justify-content-sm-end gap-3 flex-wrap">
+                                            {{-- Per Page Selector --}}
+                                            <div class="d-flex align-items-center gap-2">
+                                                <label class="text-muted mb-0" style="white-space: nowrap; font-size: 0.9rem;">
+                                                    <i class="bi bi-table me-1"></i> Show:
+                                                </label>
+                                                <select class="form-select form-select-sm" id="perPageSelect" style="width: auto; min-width: 70px;">
+                                                    <option value="10" {{ request('per_page', 15) == 10 ? 'selected' : '' }}>10</option>
+                                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
+                                                    <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
+                                                    <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
+                                                    <option value="100" {{ request('per_page', 15) == 100 ? 'selected' : '' }}>100</option>
+                                                    <option value="250" {{ request('per_page', 15) == 250 ? 'selected' : '' }}>250</option>
+                                                    <option value="500" {{ request('per_page', 15) == 500 ? 'selected' : '' }}>500</option>
+                                                </select>
+                                                <span class="text-muted" style="font-size: 0.85rem;">per page</span>
+                                            </div>
 
-                                        {{-- Option 2: If you create custom.blade.php, use this instead --}}
-                                        {{-- {!! $categories->appends(request()->query())->links('pagination::custom') !!} --}}
-
-                                        {{-- Option 3: Simple pagination (only previous/next) --}}
-                                        {{-- {!! $categories->appends(request()->query())->links('pagination::simple-bootstrap-5') !!} --}}
+                                            {{-- Pagination Links --}}
+                                            <div>
+                                                {!! $categories->appends(request()->query())->links('pagination::bootstrap-5') !!}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -468,7 +485,7 @@
         z-index: 20000 !important;
     }
 
-    /* Custom Pagination Styles - works with bootstrap-5 */
+    /* Custom Pagination Styles */
     .pagination {
         gap: 4px;
     }
@@ -501,6 +518,35 @@
 
     .pagination .page-item .page-link:focus {
         box-shadow: 0 0 0 0.2rem rgba(64, 81, 137, 0.25);
+    }
+
+    /* Per Page Selector Styles */
+    #perPageSelect {
+        border-color: #e0e0e0;
+        background-color: #fff;
+        color: #333;
+        cursor: pointer;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    #perPageSelect:hover {
+        border-color: #405189;
+    }
+
+    #perPageSelect:focus {
+        border-color: #405189;
+        box-shadow: 0 0 0 0.2rem rgba(64, 81, 137, 0.25);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .row .col-sm-6 {
+            text-align: center !important;
+        }
+        .d-flex.align-items-center.justify-content-sm-end {
+            justify-content: center !important;
+            margin-top: 10px;
+        }
     }
 </style>
 
@@ -576,6 +622,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const sortFilter = document.getElementById('sortFilter')?.value;
         sortFilter ? params.set('sort', sortFilter) : params.delete('sort');
 
+        // Preserve per_page if it exists
+        const perPage = document.getElementById('perPageSelect')?.value;
+        if (perPage && perPage !== '15') {
+            params.set('per_page', perPage);
+        } else {
+            params.delete('per_page');
+        }
+
         params.delete('page');
         window.location.href = `${window.location.pathname}?${params.toString()}`;
     }
@@ -590,6 +644,21 @@ document.addEventListener('DOMContentLoaded', function () {
         params.delete('page');
         window.location.href = `${window.location.pathname}?${params.toString()}`;
     };
+
+    // ==================== PER PAGE SELECTOR ====================
+    document.getElementById('perPageSelect')?.addEventListener('change', function() {
+        const params = new URLSearchParams(window.location.search);
+        const perPage = this.value;
+
+        if (perPage && perPage !== '15') {
+            params.set('per_page', perPage);
+        } else {
+            params.delete('per_page');
+        }
+
+        params.delete('page'); // Reset to first page when changing per page
+        window.location.href = `${window.location.pathname}?${params.toString()}`;
+    });
 
     // ==================== BULK SELECT ====================
     let selectedCategories = [];
@@ -716,7 +785,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const parentSelect = document.getElementById('parent_id');
     const parentOptionsHtml = parentSelect.innerHTML;
 
-    // Cache DOM elements
     const nameInput = document.getElementById('category_name');
     const nameError = document.getElementById('name_error');
     const categoryIdInput = document.getElementById('category_id');
@@ -742,7 +810,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.querySelector('.add-btn')?.addEventListener('click', resetForm);
 
-    // Edit
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('.edit-item-btn');
         if (!btn) return;
@@ -760,7 +827,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('is_featured').checked = c.is_featured;
                 document.getElementById('is_nsfw').checked = c.is_nsfw;
 
-                // Remove this category and its own descendants from parent dropdown
                 (c.excluded_ids || []).forEach(excludedId => {
                     const opt = parentSelect.querySelector(`option[value="${excludedId}"]`);
                     if (opt) opt.remove();
@@ -784,7 +850,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     });
 
-    // ==================== FORM SUBMIT ====================
     form.addEventListener('submit', function (e) {
         e.preventDefault();
 
@@ -793,16 +858,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const url = isUpdate ? categoryRoutes.update(id) : categoryRoutes.store;
         const data = new FormData(form);
 
-        // For update, add _method=PUT
         if (isUpdate) {
             data.append('_method', 'PUT');
         }
 
-        // Disable button and show spinner
         submitBtn.disabled = true;
         submitSpinner.classList.remove('d-none');
 
-        // Clear previous errors
         if (nameInput) {
             nameInput.classList.remove('is-invalid');
         }
