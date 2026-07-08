@@ -19,14 +19,13 @@ use Illuminate\Support\Facades\Validator;
 class APICategoryController extends Controller
 {
     /**
-     * Get all categories with optional filters (NO PAGINATION)
+     * Get ALL categories with optional filters (NO PAGINATION)
      *
      * Public endpoint — no authentication required.
      *
      * @queryParam is_featured boolean Only return featured categories. Example: true
      * @queryParam parent_id integer Show only sub-categories of this parent. Example: 5
      * @queryParam safe_mode boolean Hide NSFW categories (when enabled globally). Example: true
-     * @queryParam limit integer Max number of categories to return (0 for all). Example: 0
      *
      * @response 200 {
      *     "success": true,
@@ -39,7 +38,8 @@ class APICategoryController extends Controller
      *             "is_featured": true,
      *             "is_nsfw": false
      *         }
-     *     ]
+     *     ],
+     *     "total": 48
      * }
      * @response 500 {
      *     "success": false,
