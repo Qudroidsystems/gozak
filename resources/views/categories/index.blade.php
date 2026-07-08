@@ -372,7 +372,14 @@
                                         </div>
                                     </div>
                                     <div class="col-sm-auto mt-3 mt-sm-0">
-                                        {!! $categories->appends(request()->query())->links('pagination::custom') !!}
+                                        {{-- Option 1: Use Bootstrap 5 default pagination --}}
+                                        {!! $categories->appends(request()->query())->links('pagination::bootstrap-5') !!}
+
+                                        {{-- Option 2: If you create custom.blade.php, use this instead --}}
+                                        {{-- {!! $categories->appends(request()->query())->links('pagination::custom') !!} --}}
+
+                                        {{-- Option 3: Simple pagination (only previous/next) --}}
+                                        {{-- {!! $categories->appends(request()->query())->links('pagination::simple-bootstrap-5') !!} --}}
                                     </div>
                                 </div>
                             </div>
@@ -461,7 +468,7 @@
         z-index: 20000 !important;
     }
 
-    /* Custom Pagination Styles */
+    /* Custom Pagination Styles - works with bootstrap-5 */
     .pagination {
         gap: 4px;
     }
