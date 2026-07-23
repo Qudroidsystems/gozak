@@ -72,7 +72,6 @@ class APIPromoBannerController extends Controller
                 'count' => count($bannerIds)
             ]);
 
-            // ✅ Return success without requiring a model
             return response()->json([
                 'success' => true,
                 'message' => 'Banners marked as shown successfully',
@@ -118,6 +117,15 @@ class APIPromoBannerController extends Controller
             'show_once_daily' => $b->show_once_daily,
             'starts_at' => $b->starts_at?->toISOString(),
             'ends_at' => $b->ends_at?->toISOString(),
+            // ── Temu-style fields ──────────────────────────────────────
+            'display_style' => $b->display_style,
+            'amount_text' => $b->amount_text,
+            'masked_user' => $b->masked_user,
+            'from_label' => $b->from_label,
+            'type_label' => $b->type_label,
+            'date_label' => $b->date_label,
+            'conditions_text' => $b->conditions_text,
+            'announcement_text' => $b->announcement_text,
         ];
     }
 }

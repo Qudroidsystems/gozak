@@ -4,7 +4,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
 class PromoBanner extends Model
@@ -26,6 +25,15 @@ class PromoBanner extends Model
         'ends_at',
         'sort_order',
         'show_once_daily',
+        // ── Temu-style fields ──────────────────────────────────────────
+        'display_style',
+        'amount_text',
+        'masked_user',
+        'from_label',
+        'type_label',
+        'date_label',
+        'conditions_text',
+        'announcement_text',
     ];
 
     protected $casts = [
