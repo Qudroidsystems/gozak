@@ -47,6 +47,11 @@ class PromoBannerController extends Controller
             $query->where('target_screen', $request->screen);
         }
 
+        // ─── Style Filter ─────────────────────────────────────────────────────
+        if ($request->filled('display_style')) {
+            $query->where('display_style', $request->display_style);
+        }
+
         // ─── Status Filter ────────────────────────────────────────────────────
         if ($request->filled('status')) {
             $now = now();
@@ -349,6 +354,16 @@ class PromoBannerController extends Controller
             'ends_at' => 'nullable|date|after_or_equal:starts_at',
             'sort_order' => 'nullable|integer|min:0',
             'show_once_daily' => 'boolean',
+
+            // ── Temu-style display fields ───────────────────────────────
+            'display_style' => 'nullable|in:coupon,voucher,gradient',
+            'amount_text' => 'nullable|string|max:50',
+            'masked_user' => 'nullable|string|max:50',
+            'from_label' => 'nullable|string|max:60',
+            'type_label' => 'nullable|string|max:60',
+            'date_label' => 'nullable|string|max:30',
+            'conditions_text' => 'nullable|string|max:150',
+            'announcement_text' => 'nullable|string|max:150',
         ];
 
         $data = $request->validate($rules);
@@ -357,6 +372,11 @@ class PromoBannerController extends Controller
         $data['active'] = $request->boolean('active', false);
         $data['show_once_daily'] = $request->boolean('show_once_daily', true);
         $data['sort_order'] = $request->input('sort_order', 0);
+
+        // Empty-string display_style means "auto-cycle" → store as null
+        if (($data['display_style'] ?? null) === '') {
+            $data['display_style'] = null;
+        }
 
         return $data;
     }

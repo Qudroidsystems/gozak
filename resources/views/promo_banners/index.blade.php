@@ -154,6 +154,15 @@
                                         </select>
                                     </div>
                                     <div class="col-md-2">
+                                        <label class="form-label">Style</label>
+                                        <select class="form-control" id="styleFilter">
+                                            <option value="">All Styles</option>
+                                            <option value="coupon" {{ request('display_style') == 'coupon' ? 'selected' : '' }}>Coupon Ticket</option>
+                                            <option value="voucher" {{ request('display_style') == 'voucher' ? 'selected' : '' }}>Gift Voucher</option>
+                                            <option value="gradient" {{ request('display_style') == 'gradient' ? 'selected' : '' }}>Gradient</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
                                         <label class="form-label">Status</label>
                                         <select class="form-control" id="statusFilter">
                                             <option value="">All Status</option>
@@ -172,14 +181,11 @@
                                             <option value="title" {{ request('sort') == 'title' ? 'selected' : '' }}>Title</option>
                                         </select>
                                     </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Order</label>
-                                        <select class="form-control" id="orderFilter">
+                                    <div class="col-md-1 d-flex align-items-end gap-2">
+                                        <select class="form-control d-none" id="orderFilter">
                                             <option value="asc" {{ request('order') == 'asc' ? 'selected' : '' }}>Ascending</option>
                                             <option value="desc" {{ request('order') == 'desc' ? 'selected' : '' }}>Descending</option>
                                         </select>
-                                    </div>
-                                    <div class="col-md-1 d-flex align-items-end gap-2">
                                         <button type="button" class="btn btn-primary w-100" id="applyFilter">
                                             <i class="bi bi-funnel"></i>
                                         </button>
@@ -203,6 +209,9 @@
                                         @if(request('screen'))
                                             <span class="badge bg-primary-subtle text-primary">Screen: {{ ucfirst(request('screen')) }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('screen')"></button></span>
                                         @endif
+                                        @if(request('display_style'))
+                                            <span class="badge bg-primary-subtle text-primary">Style: {{ ucfirst(request('display_style')) }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('display_style')"></button></span>
+                                        @endif
                                         @if(request('status'))
                                             <span class="badge bg-primary-subtle text-primary">Status: {{ ucfirst(request('status')) }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('status')"></button></span>
                                         @endif
@@ -220,6 +229,7 @@
                                                 <th style="width: 60px;">#</th>
                                                 <th>Preview</th>
                                                 <th>Badge / Title</th>
+                                                <th>Style</th>
                                                 <th>Screen</th>
                                                 <th>Schedule</th>
                                                 <th>Status</th>
@@ -262,6 +272,19 @@
                                                             @endif
                                                         </small>
                                                     </div>
+                                                </td>
+                                                <td>
+                                                    @php
+                                                        $styleLabels = [
+                                                            'coupon' => ['Coupon', 'bg-warning-subtle text-warning', 'bi-ticket-perforated'],
+                                                            'voucher' => ['Voucher', 'bg-info-subtle text-info', 'bi-award'],
+                                                            'gradient' => ['Gradient', 'bg-primary-subtle text-primary', 'bi-palette'],
+                                                        ];
+                                                        [$styleName, $styleClass, $styleIcon] = $styleLabels[$banner->display_style] ?? ['Auto-cycle', 'bg-secondary-subtle text-secondary', 'bi-shuffle'];
+                                                    @endphp
+                                                    <span class="badge {{ $styleClass }} d-inline-flex align-items-center gap-1">
+                                                        <i class="bi {{ $styleIcon }}"></i> {{ $styleName }}
+                                                    </span>
                                                 </td>
                                                 <td>
                                                     <span class="badge bg-info-subtle text-info">
@@ -340,6 +363,14 @@
                                                                    data-gradient-end="{{ $banner->gradient_end }}"
                                                                    data-accent="{{ $banner->accent_color }}"
                                                                    data-screen="{{ $banner->target_screen }}"
+                                                                   data-style="{{ $banner->display_style }}"
+                                                                   data-amount="{{ $banner->amount_text }}"
+                                                                   data-masked-user="{{ $banner->masked_user }}"
+                                                                   data-from-label="{{ $banner->from_label }}"
+                                                                   data-type-label="{{ $banner->type_label }}"
+                                                                   data-date-label="{{ $banner->date_label }}"
+                                                                   data-conditions="{{ $banner->conditions_text }}"
+                                                                   data-announcement="{{ $banner->announcement_text }}"
                                                                    data-image="{{ $banner->full_image_url }}">
                                                                     <i class="bi bi-eye me-1"></i> View
                                                                 </a>
@@ -363,7 +394,15 @@
                                                                        data-image="{{ $banner->full_image_url }}"
                                                                        data-lottie="{{ $banner->lottie_asset }}"
                                                                        data-show-once="{{ $banner->show_once_daily ? '1' : '0' }}"
-                                                                       data-sort="{{ $banner->sort_order }}">
+                                                                       data-sort="{{ $banner->sort_order }}"
+                                                                       data-style="{{ $banner->display_style }}"
+                                                                       data-amount="{{ $banner->amount_text }}"
+                                                                       data-masked-user="{{ $banner->masked_user }}"
+                                                                       data-from-label="{{ $banner->from_label }}"
+                                                                       data-type-label="{{ $banner->type_label }}"
+                                                                       data-date-label="{{ $banner->date_label }}"
+                                                                       data-conditions="{{ $banner->conditions_text }}"
+                                                                       data-announcement="{{ $banner->announcement_text }}">
                                                                         <i class="bi bi-pencil me-1"></i> Edit
                                                                     </a>
                                                                 </li>
@@ -392,7 +431,7 @@
                                             </tr>
                                             @empty
                                             <tr id="noResultsRow">
-                                                <td colspan="9" class="text-center py-5 text-muted">
+                                                <td colspan="10" class="text-center py-5 text-muted">
                                                     @if(request()->except('page'))
                                                         No promo banners found matching your filters.<br>
                                                         <a href="{{ route('web.promo-banners.index') }}" class="btn btn-sm btn-outline-primary mt-2">Clear filters</a>
@@ -453,10 +492,20 @@
                                     <h6 class="card-title mb-3">Banner Content</h6>
                                     <div class="row g-3">
                                         <div class="col-12">
+                                            <label class="form-label">Display Style</label>
+                                            <select class="form-select" name="display_style" id="f_style">
+                                                <option value="">Auto-cycle (coupon → voucher → gradient)</option>
+                                                <option value="coupon">Coupon Ticket (Temu "Coupons Available")</option>
+                                                <option value="voucher">Gift Voucher (Temu certificate style)</option>
+                                                <option value="gradient">Gradient Promo (flash-sale style)</option>
+                                            </select>
+                                            <small class="text-muted">Leave on Auto-cycle if you want batches of banners to rotate through all three looks.</small>
+                                        </div>
+                                        <div class="col-12">
                                             <label class="form-label">Badge Text <span class="text-danger">*</span></label>
                                             <input type="text" class="form-control" name="badge_text" id="f_badge"
                                                    placeholder="⚡ TODAY ONLY" maxlength="80" required>
-                                            <small class="text-muted">Short label shown in the top-left pill (emoji + text)</small>
+                                            <small class="text-muted">Short label shown in the top-left pill (emoji + text) — used by the Gradient style</small>
                                         </div>
                                         <div class="col-12">
                                             <label class="form-label">Title <span class="text-danger">*</span></label>
@@ -481,20 +530,68 @@
                                             <small class="text-muted">Named Flutter route the button opens</small>
                                         </div>
                                         <div class="col-12">
-                                            <label class="form-label">Banner Image <small class="text-muted">(optional)</small></label>
+                                            <label class="form-label">Banner Image <small class="text-muted">(optional, Gradient style only)</small></label>
                                             <input type="file" class="form-control" name="image" id="f_image"
                                                    accept="image/jpeg,image/png,image/jpg,image/gif,image/webp">
-                                            <small class="text-muted">Max 3 MB. If omitted a fallback gradient is shown.</small>
+                                            <small class="text-muted">Max 3 MB. If omitted a fallback gradient/icon is shown.</small>
                                             <div class="mt-2 text-center">
                                                 <img id="img_preview" class="img-fluid rounded shadow"
                                                      style="max-width:100%;max-height:160px;display:none;" alt="Preview">
                                             </div>
                                         </div>
                                         <div class="col-12">
-                                            <label class="form-label">Lottie Animation Asset <small class="text-muted">(optional)</small></label>
+                                            <label class="form-label">Lottie Animation Asset <small class="text-muted">(optional, Gradient style only)</small></label>
                                             <input type="text" class="form-control" name="lottie_asset" id="f_lottie"
                                                    placeholder="assets/animations/sale.json">
                                             <small class="text-muted">Path to Lottie animation in Flutter assets</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Temu-style coupon / voucher fields ── shown for coupon & voucher styles --}}
+                            <div class="card" id="temuFieldsCard">
+                                <div class="card-body">
+                                    <h6 class="card-title mb-1">Coupon / Voucher Details</h6>
+                                    <small class="text-muted d-block mb-3">Used by the Coupon and Voucher display styles (and shown when Auto-cycle rotates into them).</small>
+                                    <div class="row g-3">
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Amount Text</label>
+                                            <input type="text" class="form-control" name="amount_text" id="f_amount"
+                                                   placeholder="₦300,000" maxlength="50">
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Masked User</label>
+                                            <input type="text" class="form-control" name="masked_user" id="f_masked_user"
+                                                   placeholder="IL***JI" maxlength="50">
+                                            <small class="text-muted">Recipient shown on the card ("TO" / verified user)</small>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">From Label</label>
+                                            <input type="text" class="form-control" name="from_label" id="f_from_label"
+                                                   placeholder="Event" maxlength="60">
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Type Label</label>
+                                            <input type="text" class="form-control" name="type_label" id="f_type_label"
+                                                   placeholder="Coupons / Coupon bundle" maxlength="60">
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Date Label</label>
+                                            <input type="text" class="form-control" name="date_label" id="f_date_label"
+                                                   placeholder="06/27/2026" maxlength="30">
+                                            <small class="text-muted">Leave blank to auto-derive from End Date</small>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label">Conditions Text</label>
+                                            <input type="text" class="form-control" name="conditions_text" id="f_conditions"
+                                                   placeholder="With qualifying orders" maxlength="150">
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Announcement Text <small class="text-muted">(Voucher style — floats above the card)</small></label>
+                                            <input type="text" class="form-control" name="announcement_text" id="f_announcement"
+                                                   placeholder="Gift Voucher Awaits You" maxlength="150">
+                                            <small class="text-muted">Leave blank to use the default "Gift Voucher Awaits You"</small>
                                         </div>
                                     </div>
                                 </div>
@@ -507,7 +604,9 @@
                             <div class="card">
                                 <div class="card-body">
                                     <h6 class="card-title mb-3">Live Preview</h6>
-                                    <div id="card_preview" class="banner-card-preview p-3"
+
+                                    {{-- Gradient preview --}}
+                                    <div id="preview_gradient" class="banner-card-preview p-3"
                                          style="background: linear-gradient(135deg, #FF4E50, #F9A720); border-radius: 16px; min-height: 150px;">
                                         <span id="prev_badge" class="badge bg-white bg-opacity-25 text-white"
                                               style="font-size:11px; padding: 4px 12px;">⚡ TODAY ONLY</span>
@@ -525,13 +624,46 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    {{-- Coupon ticket preview --}}
+                                    <div id="preview_coupon" class="d-none text-center p-3"
+                                         style="background:#fff;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,.12);">
+                                        <div class="d-flex align-items-center justify-content-center gap-1 mb-2">
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                            <span id="prev_masked_user" class="fw-bold text-success" style="font-size:13px;">IL***JI</span>
+                                        </div>
+                                        <hr class="my-2">
+                                        <div id="prev_amount" style="font-size:28px;font-weight:900;color:#1a1a1a;">₦300,000</div>
+                                        <div class="text-success fw-bold" style="font-size:12px;">Coupons Available</div>
+                                        <hr class="my-2">
+                                        <div class="d-flex justify-content-between text-start" style="font-size:12px;">
+                                            <div><small class="text-muted d-block">From</small><span id="prev_from" class="fw-semibold">Event</span></div>
+                                            <div><small class="text-muted d-block">Type</small><span id="prev_type" class="fw-semibold">Coupons</span></div>
+                                        </div>
+                                    </div>
+
+                                    {{-- Voucher preview --}}
+                                    <div id="preview_voucher" class="d-none text-center p-3"
+                                         style="background:#FFFDF8;border:1.2px solid #E8D9B5;border-radius:16px;">
+                                        <div id="prev_announcement" class="fw-bold text-success mb-2" style="font-size:12px;">
+                                            <i class="bi bi-check-circle-fill"></i> Gift Voucher Awaits You
+                                        </div>
+                                        <div style="font-family:serif;font-size:20px;font-weight:700;letter-spacing:1px;">GIFT VOUCHER</div>
+                                        <hr class="my-2" style="border-color:#E8D9B5;">
+                                        <div class="d-flex justify-content-between text-start" style="font-size:11px;">
+                                            <div><small class="text-muted d-block">TO</small><span id="prev_voucher_user" class="fw-semibold">IL***JI</span></div>
+                                            <div><small class="text-muted d-block">FROM</small><span id="prev_voucher_from" class="fw-semibold">event</span></div>
+                                        </div>
+                                        <div id="prev_voucher_amount" class="mt-2" style="font-family:serif;font-size:22px;font-weight:800;color:#C9881A;">₦300,000</div>
+                                        <small id="prev_voucher_type" class="text-muted d-block mt-1">coupon bundle</small>
+                                    </div>
                                 </div>
                             </div>
 
                             {{-- Colors --}}
-                            <div class="card">
+                            <div class="card" id="colorsCard">
                                 <div class="card-body">
-                                    <h6 class="card-title mb-3">Colors</h6>
+                                    <h6 class="card-title mb-3">Colors <small class="text-muted">(Gradient style only)</small></h6>
                                     <div class="row g-3">
                                         <div class="col-sm-4">
                                             <label class="form-label">Gradient Start</label>
@@ -748,6 +880,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const applyFilter = document.getElementById('applyFilter');
         const clearFilters = document.getElementById('clearFilters');
         const screenFilter = document.getElementById('screenFilter');
+        const styleFilter = document.getElementById('styleFilter');
         const statusFilter = document.getElementById('statusFilter');
         const sortFilter = document.getElementById('sortFilter');
         const orderFilter = document.getElementById('orderFilter');
@@ -757,6 +890,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const s = searchInput?.value.trim();
             s ? params.set('search', s) : params.delete('search');
             screenFilter?.value ? params.set('screen', screenFilter.value) : params.delete('screen');
+            styleFilter?.value ? params.set('display_style', styleFilter.value) : params.delete('display_style');
             statusFilter?.value ? params.set('status', statusFilter.value) : params.delete('status');
             sortFilter?.value ? params.set('sort', sortFilter.value) : params.delete('sort');
             orderFilter?.value ? params.set('order', orderFilter.value) : params.delete('order');
@@ -795,19 +929,64 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = `${window.location.pathname}?${params.toString()}`;
     };
 
-    // ==================== LIVE PREVIEW ====================
-    function updatePreview() {
-        const gs = document.getElementById('f_grad_start').value;
-        const ge = document.getElementById('f_grad_end').value;
-        document.getElementById('card_preview').style.background =
-            `linear-gradient(135deg, ${gs}, ${ge})`;
-        document.getElementById('prev_badge').textContent = document.getElementById('f_badge').value || '⚡ BADGE';
-        document.getElementById('prev_title').textContent = document.getElementById('f_title').value || 'Banner Title';
-        document.getElementById('prev_subtitle').textContent = document.getElementById('f_subtitle').value || 'Subtitle';
-        document.getElementById('prev_cta').textContent = document.getElementById('f_cta_text').value || 'CTA';
+    // ==================== STYLE-DEPENDENT FIELD VISIBILITY ====================
+    function updateStyleVisibility() {
+        const style = document.getElementById('f_style').value; // '', 'coupon', 'voucher', 'gradient'
+
+        // Colors card is only really meaningful for the gradient style
+        document.getElementById('colorsCard').style.display = (style === 'voucher') ? 'none' : '';
+
+        // Swap preview panels
+        document.getElementById('preview_gradient').classList.toggle('d-none', style === 'coupon' || style === 'voucher');
+        document.getElementById('preview_coupon').classList.toggle('d-none', style !== 'coupon');
+        document.getElementById('preview_voucher').classList.toggle('d-none', style !== 'voucher');
+
+        updatePreview();
     }
 
-    ['f_badge','f_title','f_subtitle','f_cta_text','f_grad_start','f_grad_end'].forEach(id => {
+    // ==================== LIVE PREVIEW ====================
+    function updatePreview() {
+        const style = document.getElementById('f_style').value;
+
+        const badge = document.getElementById('f_badge').value || '⚡ BADGE';
+        const title = document.getElementById('f_title').value || 'Banner Title';
+        const subtitle = document.getElementById('f_subtitle').value || 'Subtitle';
+        const ctaText = document.getElementById('f_cta_text').value || 'CTA';
+        const amount = document.getElementById('f_amount').value || title || '₦0';
+        const maskedUser = document.getElementById('f_masked_user').value || 'You';
+        const fromLabel = document.getElementById('f_from_label').value || 'Event';
+        const typeLabel = document.getElementById('f_type_label').value || 'Coupons';
+        const announcement = document.getElementById('f_announcement').value || 'Gift Voucher Awaits You';
+
+        // Gradient preview
+        const gs = document.getElementById('f_grad_start').value;
+        const ge = document.getElementById('f_grad_end').value;
+        document.getElementById('preview_gradient').style.background = `linear-gradient(135deg, ${gs}, ${ge})`;
+        document.getElementById('prev_badge').textContent = badge;
+        document.getElementById('prev_title').textContent = title;
+        document.getElementById('prev_subtitle').textContent = subtitle;
+        document.getElementById('prev_cta').textContent = ctaText;
+
+        // Coupon preview
+        document.getElementById('prev_masked_user').textContent = maskedUser;
+        document.getElementById('prev_amount').textContent = amount;
+        document.getElementById('prev_from').textContent = fromLabel;
+        document.getElementById('prev_type').textContent = typeLabel;
+
+        // Voucher preview
+        document.getElementById('prev_announcement').innerHTML = `<i class="bi bi-check-circle-fill"></i> ${announcement}`;
+        document.getElementById('prev_voucher_user').textContent = maskedUser;
+        document.getElementById('prev_voucher_from').textContent = fromLabel;
+        document.getElementById('prev_voucher_amount').textContent = amount;
+        document.getElementById('prev_voucher_type').textContent = typeLabel;
+    }
+
+    document.getElementById('f_style')?.addEventListener('change', updateStyleVisibility);
+
+    [
+        'f_badge','f_title','f_subtitle','f_cta_text','f_grad_start','f_grad_end',
+        'f_amount','f_masked_user','f_from_label','f_type_label','f_announcement'
+    ].forEach(id => {
         document.getElementById(id)?.addEventListener('input', updatePreview);
     });
 
@@ -834,13 +1013,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('form_method').value = 'POST';
         document.getElementById('modalTitle').textContent = 'Add Promo Banner';
         document.getElementById('img_preview').style.display = 'none';
+        document.getElementById('f_style').value = '';
         document.getElementById('f_grad_start').value = '#FF4E50';
         document.getElementById('f_grad_end').value = '#F9A720';
         document.getElementById('f_accent').value = '#FFD700';
         document.getElementById('f_active').checked = true;
         document.getElementById('f_show_once').checked = true;
         document.getElementById('f_sort').value = '0';
-        updatePreview();
+        updateStyleVisibility();
 
         const modalEl = document.getElementById('showModal');
         const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
@@ -857,6 +1037,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('banner_id').value = d.id;
             document.getElementById('form_method').value = 'PUT';
             document.getElementById('modalTitle').textContent = 'Edit Promo Banner';
+            document.getElementById('f_style').value = d.style || '';
             document.getElementById('f_badge').value = d.badge || '';
             document.getElementById('f_title').value = d.title || '';
             document.getElementById('f_subtitle').value = d.subtitle || '';
@@ -873,6 +1054,15 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('f_lottie').value = d.lottie || '';
             document.getElementById('f_sort').value = d.sort || '0';
 
+            // Temu-style fields
+            document.getElementById('f_amount').value = d.amount || '';
+            document.getElementById('f_masked_user').value = d.maskedUser || '';
+            document.getElementById('f_from_label').value = d.fromLabel || '';
+            document.getElementById('f_type_label').value = d.typeLabel || '';
+            document.getElementById('f_date_label').value = d.dateLabel || '';
+            document.getElementById('f_conditions').value = d.conditions || '';
+            document.getElementById('f_announcement').value = d.announcement || '';
+
             const prev = document.getElementById('img_preview');
             if (d.image && d.image !== 'null' && d.image !== '') {
                 prev.src = d.image;
@@ -881,7 +1071,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 prev.style.display = 'none';
             }
 
-            updatePreview();
+            updateStyleVisibility();
 
             const modalEl = document.getElementById('showModal');
             const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
@@ -894,27 +1084,67 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             const d = this.dataset;
             const body = document.getElementById('viewModalBody');
+            const style = d.style || '';
 
-            let html = `
-                <div class="banner-card-preview p-4 mx-auto"
-                     style="background: linear-gradient(135deg, ${d.gradientStart}, ${d.gradientEnd});
-                            max-width: 400px; border-radius: 16px; min-height: 200px;">
-                    <span class="badge bg-white bg-opacity-25 text-white" style="font-size:12px; padding: 4px 16px;">
-                        ${d.badge}
-                    </span>
-                    <div class="mt-3">
-                        <div style="font-size:24px;font-weight:800;color:#fff;">${d.title}</div>
-                        <div style="font-size:14px;opacity:.85;color:#fff;margin-top:6px;">${d.subtitle}</div>
-                        <div style="margin-top:16px;background:rgba(255,255,255,.25);display:inline-block;
-                                   padding:6px 20px;border-radius:20px;font-size:14px;font-weight:700;color:#fff;">
-                            ${d.ctaText}
+            let html = '';
+
+            if (style === 'coupon') {
+                html = `
+                    <div class="p-4 mx-auto text-center" style="max-width:360px;background:#fff;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.15);">
+                        <div class="d-flex align-items-center justify-content-center gap-1 mb-2">
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            <span class="fw-bold text-success" style="font-size:13px;">${d.maskedUser || 'You'}</span>
                         </div>
-                        ${d.image ? `<img src="${d.image}" class="img-fluid mt-3 rounded" style="max-height:150px;">` : ''}
+                        <hr class="my-2">
+                        <div style="font-size:30px;font-weight:900;color:#1a1a1a;">${d.amount || d.title}</div>
+                        <div class="text-success fw-bold" style="font-size:12px;">Coupons Available</div>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between text-start" style="font-size:13px;">
+                            <div><small class="text-muted d-block">From</small><span class="fw-semibold">${d.fromLabel || 'Event'}</span></div>
+                            <div><small class="text-muted d-block">Type</small><span class="fw-semibold">${d.typeLabel || 'Coupons'}</span></div>
+                        </div>
+                    </div>`;
+            } else if (style === 'voucher') {
+                html = `
+                    <div class="fw-bold text-success mb-2" style="font-size:13px;">
+                        <i class="bi bi-check-circle-fill"></i> ${d.announcement || 'Gift Voucher Awaits You'}
                     </div>
-                </div>
+                    <div class="p-4 mx-auto text-center" style="max-width:360px;background:#FFFDF8;border:1.2px solid #E8D9B5;border-radius:16px;">
+                        <div style="font-family:serif;font-size:24px;font-weight:700;letter-spacing:1.5px;">GIFT VOUCHER</div>
+                        <hr class="my-2" style="border-color:#E8D9B5;">
+                        <div class="d-flex justify-content-between text-start" style="font-size:12px;">
+                            <div><small class="text-muted d-block">TO</small><span class="fw-semibold">${d.maskedUser || 'You'}</span></div>
+                            <div><small class="text-muted d-block">FROM</small><span class="fw-semibold">${d.fromLabel || 'event'}</span></div>
+                        </div>
+                        <div class="mt-2" style="font-family:serif;font-size:26px;font-weight:800;color:#C9881A;">${d.amount || d.title}</div>
+                        <small class="text-muted d-block mt-1">${d.typeLabel || 'coupon bundle'}</small>
+                    </div>`;
+            } else {
+                html = `
+                    <div class="banner-card-preview p-4 mx-auto"
+                         style="background: linear-gradient(135deg, ${d.gradientStart}, ${d.gradientEnd});
+                                max-width: 400px; border-radius: 16px; min-height: 200px;">
+                        <span class="badge bg-white bg-opacity-25 text-white" style="font-size:12px; padding: 4px 16px;">
+                            ${d.badge}
+                        </span>
+                        <div class="mt-3">
+                            <div style="font-size:24px;font-weight:800;color:#fff;">${d.title}</div>
+                            <div style="font-size:14px;opacity:.85;color:#fff;margin-top:6px;">${d.subtitle}</div>
+                            <div style="margin-top:16px;background:rgba(255,255,255,.25);display:inline-block;
+                                       padding:6px 20px;border-radius:20px;font-size:14px;font-weight:700;color:#fff;">
+                                ${d.ctaText}
+                            </div>
+                            ${d.image ? `<img src="${d.image}" class="img-fluid mt-3 rounded" style="max-height:150px;">` : ''}
+                        </div>
+                    </div>`;
+            }
+
+            html += `
                 <div class="mt-3 text-start">
+                    <p><strong>Style:</strong> ${style ? style.charAt(0).toUpperCase() + style.slice(1) : 'Auto-cycle'}</p>
                     <p><strong>Screen:</strong> ${d.screen}</p>
                     <p><strong>CTA Route:</strong> ${d.ctaRoute || 'None'}</p>
+                    ${d.conditions ? `<p><strong>Conditions:</strong> ${d.conditions}</p>` : ''}
                 </div>
             `;
 
@@ -1062,7 +1292,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Initial preview render
-    updatePreview();
+    updateStyleVisibility();
 
     // ==================== KEYBOARD SHORTCUTS ====================
     document.addEventListener('keydown', function(e) {
