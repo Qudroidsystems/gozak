@@ -605,23 +605,28 @@
                                 <div class="card-body">
                                     <h6 class="card-title mb-3">Live Preview</h6>
 
-                                    {{-- Gradient preview --}}
-                                    <div id="preview_gradient" class="banner-card-preview p-3"
-                                         style="background: linear-gradient(135deg, #FF4E50, #F9A720); border-radius: 16px; min-height: 150px;">
-                                        <span id="prev_badge" class="badge bg-white bg-opacity-25 text-white"
-                                              style="font-size:11px; padding: 4px 12px;">⚡ TODAY ONLY</span>
-                                        <div class="mt-3">
-                                            <div id="prev_title" style="font-size:18px;font-weight:800;color:#fff;">
-                                                Banner Title
+                                    {{-- Gradient preview — CTA now floats OUTSIDE the gradient box,
+                                         matching the app's separate-button layout --}}
+                                    <div id="preview_gradient">
+                                        <div class="banner-card-preview p-3"
+                                             style="background: linear-gradient(135deg, #FF4E50, #F9A720); border-radius: 16px; min-height: 150px;">
+                                            <span id="prev_badge" class="badge bg-white bg-opacity-25 text-white"
+                                                  style="font-size:11px; padding: 4px 12px;">⚡ TODAY ONLY</span>
+                                            <div class="mt-3">
+                                                <div id="prev_title" style="font-size:18px;font-weight:800;color:#fff;">
+                                                    Banner Title
+                                                </div>
+                                                <div id="prev_subtitle" style="font-size:13px;opacity:.85;color:#fff;margin-top:4px;">
+                                                    Subtitle goes here
+                                                </div>
                                             </div>
-                                            <div id="prev_subtitle" style="font-size:13px;opacity:.85;color:#fff;margin-top:4px;">
-                                                Subtitle goes here
-                                            </div>
-                                            <div id="prev_cta"
-                                                 style="margin-top:12px;background:rgba(255,255,255,.25);display:inline-block;
-                                                        padding:6px 16px;border-radius:20px;font-size:13px;font-weight:700;color:#fff;">
+                                        </div>
+                                        <div class="text-center mt-2">
+                                            <span id="prev_cta"
+                                                  class="d-inline-block"
+                                                  style="background:#FF7A1A;padding:8px 24px;border-radius:24px;font-size:13px;font-weight:800;color:#fff;">
                                                 Shop Now
-                                            </div>
+                                            </span>
                                         </div>
                                     </div>
 
@@ -936,7 +941,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Colors card is only really meaningful for the gradient style
         document.getElementById('colorsCard').style.display = (style === 'voucher') ? 'none' : '';
 
-        // Swap preview panels
+        // Swap preview panels — toggling the outer #preview_gradient wrapper,
+        // which now contains both the gradient box AND its floating CTA pill
         document.getElementById('preview_gradient').classList.toggle('d-none', style === 'coupon' || style === 'voucher');
         document.getElementById('preview_coupon').classList.toggle('d-none', style !== 'coupon');
         document.getElementById('preview_voucher').classList.toggle('d-none', style !== 'voucher');
@@ -961,11 +967,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // Gradient preview
         const gs = document.getElementById('f_grad_start').value;
         const ge = document.getElementById('f_grad_end').value;
-        document.getElementById('preview_gradient').style.background = `linear-gradient(135deg, ${gs}, ${ge})`;
+        document.querySelector('#preview_gradient .banner-card-preview').style.background = `linear-gradient(135deg, ${gs}, ${ge})`;
         document.getElementById('prev_badge').textContent = badge;
         document.getElementById('prev_title').textContent = title;
         document.getElementById('prev_subtitle').textContent = subtitle;
         document.getElementById('prev_cta').textContent = ctaText;
+        document.getElementById('prev_cta').style.background = gs; // CTA pill echoes the gradient start color
 
         // Coupon preview
         document.getElementById('prev_masked_user').textContent = maskedUser;
@@ -1103,6 +1110,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div><small class="text-muted d-block">From</small><span class="fw-semibold">${d.fromLabel || 'Event'}</span></div>
                             <div><small class="text-muted d-block">Type</small><span class="fw-semibold">${d.typeLabel || 'Coupons'}</span></div>
                         </div>
+                    </div>
+                    <div class="text-center mt-3">
+                        <span class="d-inline-block"
+                              style="background:#FF7A1A;padding:8px 28px;border-radius:24px;font-size:14px;font-weight:800;color:#fff;">
+                            ${d.ctaText}
+                        </span>
                     </div>`;
             } else if (style === 'voucher') {
                 html = `
@@ -1118,6 +1131,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <div class="mt-2" style="font-family:serif;font-size:26px;font-weight:800;color:#C9881A;">${d.amount || d.title}</div>
                         <small class="text-muted d-block mt-1">${d.typeLabel || 'coupon bundle'}</small>
+                    </div>
+                    <div class="text-center mt-3">
+                        <span class="d-inline-block"
+                              style="background:#FF7A1A;padding:8px 28px;border-radius:24px;font-size:14px;font-weight:800;color:#fff;">
+                            ${d.ctaText}
+                        </span>
                     </div>`;
             } else {
                 html = `
@@ -1130,12 +1149,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="mt-3">
                             <div style="font-size:24px;font-weight:800;color:#fff;">${d.title}</div>
                             <div style="font-size:14px;opacity:.85;color:#fff;margin-top:6px;">${d.subtitle}</div>
-                            <div style="margin-top:16px;background:rgba(255,255,255,.25);display:inline-block;
-                                       padding:6px 20px;border-radius:20px;font-size:14px;font-weight:700;color:#fff;">
-                                ${d.ctaText}
-                            </div>
                             ${d.image ? `<img src="${d.image}" class="img-fluid mt-3 rounded" style="max-height:150px;">` : ''}
                         </div>
+                    </div>
+                    <div class="text-center mt-3">
+                        <span class="d-inline-block"
+                              style="background:#fff;padding:8px 28px;border-radius:24px;font-size:14px;font-weight:700;color:${d.gradientStart};">
+                            ${d.ctaText}
+                        </span>
                     </div>`;
             }
 
