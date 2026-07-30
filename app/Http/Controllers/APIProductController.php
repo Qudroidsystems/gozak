@@ -267,6 +267,26 @@ class APIProductController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Apply a category filter that matches EITHER:
+    //   - the product's direct `category_id` column, OR
+    //   - a row in the `product_category` pivot table (Product::categories())
+    //
+    // Products can be linked to a category via either mechanism depending on
+    // how they were created/assigned in the admin panel, so both must be
+    // checked or products attached only via the pivot table (e.g. many
+    // subcategories) will silently return zero results.
+    // ─────────────────────────────────────────────────────────────────────────
+    private function applyCategoryFilter($query, $categoryId)
+    {
+        return $query->where(function ($q) use ($categoryId) {
+            $q->where('category_id', $categoryId)
+              ->orWhereHas('categories', function ($q2) use ($categoryId) {
+                  $q2->where('categories.id', $categoryId);
+              });
+        });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // INDEX
     // ─────────────────────────────────────────────────────────────────────────
     public function index(Request $request)
@@ -278,9 +298,9 @@ class APIProductController extends Controller
             $query->where('is_featured', true);
         }
 
-        // CATEGORY
+        // CATEGORY (direct column OR pivot table — see applyCategoryFilter)
         if ($request->has('category_id')) {
-            $query->where('category_id', $request->category_id);
+            $query = $this->applyCategoryFilter($query, $request->category_id);
         }
 
         // BRAND
@@ -404,8 +424,8 @@ class APIProductController extends Controller
                 ->select('products.*');
 
             // Priority 1: same category + same brand
-            $related = (clone $base)
-                ->where('category_id', $product->category_id)
+            // (category match checks direct column OR pivot table)
+            $related = $this->applyCategoryFilter(clone $base, $product->category_id)
                 ->where('brand_id', $product->brand_id)
                 ->whereNotNull('brand_id')
                 ->orderByDesc('sold_quantity')
@@ -414,8 +434,7 @@ class APIProductController extends Controller
 
             // Priority 2: same category
             if ($related->count() < $limit / 2) {
-                $more = (clone $base)
-                    ->where('category_id', $product->category_id)
+                $more = $this->applyCategoryFilter(clone $base, $product->category_id)
                     ->orderByDesc('sold_quantity')
                     ->take($limit - $related->count())
                     ->get();
