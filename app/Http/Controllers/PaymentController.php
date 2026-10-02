@@ -247,6 +247,11 @@ class PaymentController extends Controller
                 'payment_method' => $gateway,
             ]);
 
+            // Keep the order in sync with the gateway actually used (the customer may switch at the payment step).
+            if ($order->payment_method !== $gateway) {
+                $order->forceFill(['payment_method' => $gateway])->save();
+            }
+
             Log::info('PaymentController@initializePayment: SUCCESS', [
                 'order_id'          => $order->id,
                 'transaction_id'    => $transaction->id,
