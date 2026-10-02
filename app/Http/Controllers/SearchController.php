@@ -48,7 +48,7 @@ class SearchController extends Controller
                 $digits = ltrim($q, '#');
                 Order::query()->with('user:id,first_name,last_name')
                     ->where(fn ($w) => $w->where('invoice_number', 'like', "%{$q}%")
-                        ->when(ctype_digit($digits), fn ($x) => $x->orWhere('id', (int) $digits)))
+                        ->orWhere('id', 'like', "{$digits}%"))   // order ids are UUIDs
                     ->latest('id')->limit(5)->get(['id', 'invoice_number', 'user_id', 'status', 'total_amount'])
                     ->each(function ($o) use (&$out) {
                         $out[] = [

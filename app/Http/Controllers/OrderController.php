@@ -120,7 +120,7 @@ class OrderController extends Controller
         return DataTables::eloquent($query)
             ->setRowClass(fn ($o) => $o->status === 'delivered' ? 'table-success' : ($o->status === 'pending' ? 'table-warning' : ''))
             ->setRowAttr(['data-order-id' => fn ($o) => $o->id, 'data-status' => fn ($o) => $o->status])
-            ->addColumn('invoice', fn ($o) => '<a href="' . route('adminorders.show', $o->id) . '" class="fw-bold text-primary">' . e($o->invoice_number ?? ('#' . $o->id)) . '</a>')
+            ->addColumn('invoice', fn ($o) => '<a href="' . route('adminorders.show', $o->id) . '" class="fw-bold text-primary">' . e($o->invoice_number ?? ('#' . substr($o->id, 0, 8))) . '</a>')
             ->addColumn('customer', function ($o) {
                 $name = trim($o->first_name . ' ' . $o->last_name) ?: 'Guest';
                 return '<div class="d-flex align-items-center gap-2"><span class="gz-avatar">' . e(strtoupper(substr($name, 0, 1))) . '</span>'
@@ -146,7 +146,7 @@ class OrderController extends Controller
                 . '<li><a class="dropdown-item" href="' . route('adminorders.packing-slip', $o->id) . '" target="_blank">Packing Slip</a></li>'
                 . '<li><a class="dropdown-item email-invoice" href="javascript:void(0)" data-id="' . $o->id . '">Email Invoice</a></li>'
                 . '</ul></div>')
-            ->filterColumn('invoice', fn ($q, $k) => $q->where(fn ($w) => $w->where('orders.invoice_number', 'like', "%{$k}%")->orWhere('orders.id', ltrim($k, '#'))))
+            ->filterColumn('invoice', fn ($q, $k) => $q->where(fn ($w) => $w->where('orders.invoice_number', 'like', "%{$k}%")->orWhere('orders.id', 'like', ltrim($k, '#') . '%')))
             ->filterColumn('customer', function ($q, $k) {
                 $q->where(fn ($w) => $w->whereRaw("CONCAT(users.first_name, ' ', users.last_name) LIKE ?", ["%{$k}%"])
                     ->orWhere('users.email', 'like', "%{$k}%"));
@@ -227,7 +227,7 @@ public function show($id)
 
     public function invoice($id)
     {
-        $order = Order::with(['user', 'items', 'shippingAddress', 'billingAddress'])->findOrFail($id);
+        $order = Order::with(['user', 'customer', 'items', 'shippingAddress', 'billingAddress'])->findOrFail($id);
 
         if (!$order->invoice_number) {
             $order->invoice_number = InvoiceNumber::generate();
@@ -246,7 +246,12 @@ public function show($id)
 
     public function emailInvoice($id)
     {
-        $order = Order::findOrFail($id);
+        $order = Order::with(['user', 'customer'])->findOrFail($id);
+
+        $email = $order->user?->email ?? $order->customer?->email;
+        if (!$email) {
+            return response()->json(['success' => false, 'message' => 'This order has no customer email address.'], 422);
+        }
 
         if (!$order->invoice_number) {
             $order->invoice_number = InvoiceNumber::generate();
@@ -254,7 +259,7 @@ public function show($id)
             $order->save();
         }
 
-        Mail::to($order->user->email)->send(new InvoiceMail($order));
+        Mail::to($email)->send(new InvoiceMail($order));
 
         return response()->json(['success' => true, 'message' => 'Invoice sent!']);
     }
@@ -306,8 +311,8 @@ public function show($id)
 
     public function packingSlip($id)
     {
-        $order = Order::with('items', 'shippingAddress')->findOrFail($id);
-        $pdf   = Pdf::loadView('orders.packing-slip', compact('order'));
-        return $pdf->stream("packing-slip-{$order->invoice_number}.pdf");
+        $order = Order::with(['items', 'shippingAddress', 'billingAddress', 'user', 'customer'])->findOrFail($id);
+        $pdf   = Pdf::loadView('orders.packing-slip', compact('order'))->setPaper('a4', 'portrait');
+        return $pdf->stream('packing-slip-' . ($order->invoice_number ?? substr($order->id, 0, 8)) . '.pdf');
     }
 }

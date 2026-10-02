@@ -34,6 +34,6 @@ class StoreSetting extends Model
 
     public function getCurrencyAttribute()
     {
-        return $this->currency_symbol ?? '$';
+        return $this->currency_symbol ?? '₦';
     }
 }

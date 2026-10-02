@@ -1,52 +1,94 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Packing Slip - {{ $order->invoice_number }}</title>
+    <meta charset="UTF-8">
+    <title>Packing Slip - {{ $order->invoice_number ?? substr($order->id, 0, 8) }}</title>
     <style>
-        body { font-family: DejaVu Sans, sans-serif; margin: 40px; }
-        .header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 20px; margin-bottom: 40px; }
-        .info { display: flex; justify-content: space-between; margin: 40px 0; }
-        table { width: 100%; border-collapse: collapse; margin: 30px 0; }
-        th, td { border: 1px solid #000; padding: 12px; text-align: left; }
-        th { background: #f0f0f0; }
-        .footer { margin-top: 100px; text-align: center; font-size: 12px; }
+        @page { margin: 30px; }
+        body { font-family: 'DejaVu Sans', sans-serif; font-size: 12px; color: #111; margin: 0; }
+        .header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 14px; margin-bottom: 24px; }
+        .header h1 { margin: 0 0 4px; font-size: 22px; }
+        .header h3 { margin: 0; font-weight: normal; }
+        table { width: 100%; border-collapse: collapse; }
+        .info td { vertical-align: top; width: 50%; padding-bottom: 20px; }
+        .items th, .items td { border: 1px solid #000; padding: 8px 10px; text-align: left; }
+        .items th { background: #f0f0f0; }
+        .check { width: 60px; text-align: center; }
+        .footer { margin-top: 60px; text-align: center; font-size: 11px; color: #444; }
+        .sign td { padding-top: 50px; width: 50%; }
+        .line { border-top: 1px solid #000; width: 80%; padding-top: 4px; font-size: 10px; }
     </style>
 </head>
 <body>
+@php
+    // Shipping address can be missing (POS / pickup orders) — fall back to billing, then the customer.
+    $addr     = $order->shippingAddress ?? $order->billingAddress;
+    $custName = $order->user?->name ?: trim(($order->customer->first_name ?? '') . ' ' . ($order->customer->last_name ?? '')) ?: 'Walk-in customer';
+    $custPhone = $order->user?->phone_number ?? ($order->customer->phone_number ?? null);
+    $variation = function ($v) {
+        if (empty($v)) return '';
+        if (is_string($v)) { $v = json_decode($v, true); }
+        if (!is_array($v)) return '';
+        return collect($v)->map(fn ($val, $k) => ucfirst((string) $k) . ': ' . (is_array($val) ? implode(', ', $val) : $val))->implode(' · ');
+    };
+@endphp
+
     <div class="header">
         <h1>PACKING SLIP</h1>
-        <h3>Order #{{ $order->invoice_number }}</h3>
+        <h3>Order #{{ $order->invoice_number ?? substr($order->id, 0, 8) }}</h3>
     </div>
 
-    <div class="info">
-        <div>
-            <strong>Ship To:</strong><br>
-            {{ $order->shippingAddress->name }}<br>
-            {{ $order->shippingAddress->street }}<br>
-            {{ $order->shippingAddress->city }}, {{ $order->shippingAddress->country }}
-        </div>
-        <div>
-            <strong>Order Date:</strong> {{ $order->created_at->format('d M Y') }}<br>
-            <strong>Items:</strong> {{ $order->items_count }}
-        </div>
-    </div>
+    <table class="info">
+        <tr>
+            <td>
+                <strong>Ship To:</strong><br>
+                @if($addr)
+                    {{ $addr->name ?: $custName }}<br>
+                    {{ $addr->street }}<br>
+                    {{ collect([$addr->city, $addr->state])->filter()->implode(', ') }}{{ $addr->country ? ', ' . $addr->country : '' }}<br>
+                    @if($addr->phone_number)Tel: {{ $addr->phone_number }}@endif
+                @else
+                    {{ $custName }}<br>
+                    <em>No delivery address (pickup)</em><br>
+                    @if($custPhone)Tel: {{ $custPhone }}@endif
+                @endif
+            </td>
+            <td style="text-align:right;">
+                <strong>Order Date:</strong> {{ ($order->order_date ?? $order->created_at)->format('d M Y') }}<br>
+                <strong>Items:</strong> {{ $order->items->sum('quantity') }} ({{ $order->items->count() }} lines)<br>
+                <strong>Payment:</strong> {{ ucfirst($order->payment_status ?? 'unpaid') }}
+            </td>
+        </tr>
+    </table>
 
-    <table>
+    <table class="items">
         <thead>
-            <tr><th>Product</th><th>Qty</th></tr>
+            <tr><th>Product</th><th>SKU</th><th>Qty</th><th class="check">Packed</th></tr>
         </thead>
         <tbody>
-            @foreach($order->items as $item)
+            @forelse($order->items as $item)
             <tr>
-                <td>{{ $item->title }}</td>
+                <td>
+                    {{ $item->title }}
+                    @if($v = $variation($item->selected_variation))<br><small>{{ $v }}</small>@endif
+                </td>
+                <td>{{ $item->sku ?? '-' }}</td>
                 <td>{{ $item->quantity }}</td>
+                <td class="check">&#9744;</td>
             </tr>
-            @endforeach
+            @empty
+            <tr><td colspan="4" style="text-align:center;">No items</td></tr>
+            @endforelse
         </tbody>
     </table>
 
-    <div class="footer">
-        Thank you for your order!
-    </div>
+    <table class="sign">
+        <tr>
+            <td><div class="line">Packed by</div></td>
+            <td><div class="line">Received by (customer)</div></td>
+        </tr>
+    </table>
+
+    <div class="footer">Thank you for your order!</div>
 </body>
 </html>

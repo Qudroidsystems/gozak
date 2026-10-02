@@ -12,7 +12,9 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OverviewController;
+use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\Admin\PaymentGatewayController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\PromoBannerController;
@@ -41,10 +43,21 @@ Route::get('/payment-callback', function () {
     return view('payment-callback');
 })->name('payment.callback');
 
+// OPay sends the customer's browser / app WebView back here after paying
+Route::get('/payment/opay/return', [PaymentController::class, 'opayReturn'])->name('payment.opay.return');
+
 // ===================================================================
 // AUTHENTICATED ROUTES (Admin Panel)
 // ===================================================================
 Route::middleware(['auth'])->group(function () {
+
+    // Settings › Payment Gateways (Paystack / OPay keys) — permission: Manage payment gateways
+    Route::prefix('admin/payment-gateways')->name('admin.payment-gateways.')->group(function () {
+        Route::get('/',                [PaymentGatewayController::class, 'index'])->name('index');
+        Route::put('{gateway}',        [PaymentGatewayController::class, 'updateConfig'])->name('update');
+        Route::post('{gateway}/toggle',[PaymentGatewayController::class, 'toggleGateway'])->name('toggle');
+        Route::post('{gateway}/test',  [PaymentGatewayController::class, 'testGateway'])->name('test');
+    });
     // Dashboard
     Route::prefix('dashboard')->name('dashboard.')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('index');

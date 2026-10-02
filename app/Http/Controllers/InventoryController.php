@@ -966,8 +966,8 @@ class InventoryController extends Controller
                     $transaction->product->sku,
                     $transaction->stockLocation->name,
                     $transaction->quantity,
-                    $transaction->unit_cost ? '$' . number_format($transaction->unit_cost, 2) : '',
-                    $transaction->total_cost ? '$' . number_format($transaction->total_cost, 2) : '',
+                    $transaction->unit_cost ? '₦' . number_format($transaction->unit_cost, 2) : '',
+                    $transaction->total_cost ? '₦' . number_format($transaction->total_cost, 2) : '',
                     $transaction->reference_number,
                     $transaction->adjustment_reason ?? '',
                     $userName,
@@ -1012,7 +1012,7 @@ class InventoryController extends Controller
                     $product->sku,
                     $product->category->name ?? '',
                     $product->brand->name ?? '',
-                    '$' . number_format($product->price, 2),
+                    '₦' . number_format($product->price, 2),
                     $product->stock
                 ];
 
@@ -1085,7 +1085,7 @@ class InventoryController extends Controller
                 $report[] = [
                     'location' => $location->name,
                     'value' => $value,
-                    'formatted_value' => '$' . number_format($value, 2),
+                    'formatted_value' => '₦' . number_format($value, 2),
                     'product_count' => $location->total_products ?? 0
                 ];
             }
@@ -1100,7 +1100,7 @@ class InventoryController extends Controller
         return response()->json([
             'success' => true,
             'total_value' => $totalValue,
-            'formatted_total' => '$' . number_format($totalValue, 2),
+            'formatted_total' => '₦' . number_format($totalValue, 2),
             'locations' => $report
         ]);
     }
@@ -1249,7 +1249,7 @@ class InventoryController extends Controller
                 $report[] = [
                     'location' => $location,
                     'value' => $value,
-                    'formatted_value' => '$' . number_format($value, 2),
+                    'formatted_value' => '₦' . number_format($value, 2),
                     'product_count' => $location->total_products ?? 0
                 ];
             }

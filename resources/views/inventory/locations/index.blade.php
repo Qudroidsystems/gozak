@@ -287,7 +287,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to format currency
     function formatCurrency(amount) {
         if (amount === null || amount === undefined) return '$0.00';
-        return '$' + parseFloat(amount).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+        return '₦' + parseFloat(amount).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
     }
     
     // Add location form

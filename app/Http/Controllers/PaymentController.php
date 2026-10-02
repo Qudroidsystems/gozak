@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\PaymentGateway;
+use App\Services\Payment\OpayGateway;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use App\Services\BarcodeService;
@@ -19,13 +21,64 @@ class PaymentController extends Controller
     protected $barcodeService;
 
     public function __construct(
-        PaystackService $paystackService,
         NotificationService $notificationService,
         BarcodeService $barcodeService
     ) {
-        $this->paystackService     = $paystackService;
         $this->notificationService = $notificationService;
         $this->barcodeService      = $barcodeService;
+    }
+
+    /**
+     * Paystack is built only when needed, so OPay keeps working even when
+     * Paystack has no keys (PaystackService throws without a secret key).
+     */
+    protected function paystack(): PaystackService
+    {
+        return $this->paystackService ??= app(PaystackService::class);
+    }
+
+    /** Gateways that are switched on and have keys for their current mode. */
+    protected function readyGateways(): array
+    {
+        try {
+            $rows = PaymentGateway::active()->whereIn('provider_key', ['paystack', 'opay'])->get()
+                ->filter(fn ($g) => $g->isConfigured());
+        } catch (\Throwable $e) {
+            $rows = collect(); // table not migrated yet
+        }
+
+        if ($rows->isEmpty() && config('services.paystack.secret_key')) {
+            // Before the payment_gateways migration: behave exactly as before.
+            return ['paystack' => ['key' => 'paystack', 'name' => 'Paystack', 'mode' => 'env']];
+        }
+
+        $order = ['paystack' => 1, 'opay' => 2];
+        return $rows->sortBy(fn ($g) => $order[$g->provider_key] ?? 9)
+            ->mapWithKeys(fn ($g) => [$g->provider_key => [
+                'key'  => $g->provider_key,
+                'name' => $g->name,
+                'mode' => $g->mode,
+            ]])->all();
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GATEWAYS (for the app's checkout screen)
+    // ─────────────────────────────────────────────────────────────────────────
+    public function gateways()
+    {
+        $ready = $this->readyGateways();
+        $meta  = [
+            'paystack' => ['label' => 'Pay with Card / Bank (Paystack)', 'icon' => 'credit_card'],
+            'opay'     => ['label' => 'Pay with OPay',                   'icon' => 'account_balance_wallet'],
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'default'  => array_key_first($ready),
+                'gateways' => array_values(array_map(fn ($g) => $g + ($meta[$g['key']] ?? []), $ready)),
+            ],
+        ]);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -62,6 +115,7 @@ class PaymentController extends Controller
         $validator = Validator::make($request->all(), [
             'order_id' => 'required|exists:orders,id',
             'email'    => 'required|email',
+            'gateway'  => 'nullable|in:paystack,opay',
         ]);
 
         if ($validator->fails()) {
@@ -140,18 +194,43 @@ class PaymentController extends Controller
                 ],
             ];
 
-            Log::info('PaymentController@initializePayment: CALLING PAYSTACK', [
+            // Which gateway? The app may ask for one; otherwise use the first one switched on.
+            $ready   = $this->readyGateways();
+            $gateway = $request->input('gateway') ?: array_key_first($ready);
+
+            if (!$gateway || !isset($ready[$gateway])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $gateway
+                        ? ucfirst($gateway) . ' payments are not available right now. Please choose another payment method.'
+                        : 'Online payment is not available right now.',
+                    'available_gateways' => array_keys($ready),
+                ], 422);
+            }
+
+            Log::info('PaymentController@initializePayment: CALLING GATEWAY', [
+                'gateway'  => $gateway,
                 'email'    => $request->email,
                 'amount'   => $order->total_amount,
                 'order_id' => $order->id,
             ]);
 
-            $response = $this->paystackService->initializePayment(
-                $request->email,
-                $order->total_amount,
-                null,
-                $metadata
-            );
+            if ($gateway === 'opay') {
+                $metadata['phone'] = auth()->user()->phone_number ?? null;
+                $response = app(OpayGateway::class)->initialize(
+                    $request->email,
+                    (float) $order->total_amount,
+                    OpayGateway::generateReference(),
+                    $metadata
+                );
+            } else {
+                $response = $this->paystack()->initializePayment(
+                    $request->email,
+                    $order->total_amount,
+                    null,
+                    $metadata
+                );
+            }
 
             Log::info('PaymentController@initializePayment: PAYSTACK RESPONSE', [
                 'response_status'       => $response['status'] ?? 'unknown',
@@ -165,7 +244,7 @@ class PaymentController extends Controller
                 'reference'      => $response['data']['reference'],
                 'amount'         => $order->total_amount,
                 'status'         => 'pending',
-                'payment_method' => 'paystack',
+                'payment_method' => $gateway,
             ]);
 
             Log::info('PaymentController@initializePayment: SUCCESS', [
@@ -185,6 +264,11 @@ class PaymentController extends Controller
                     'reference'         => $response['data']['reference'],
                     'amount'            => $order->total_amount,
                     'order_id'          => $order->id,
+                    'gateway'           => $gateway,
+                    // The app's WebView closes when it reaches one of these URLs, then calls /payment/verify.
+                    'callback_url'      => $gateway === 'opay'
+                        ? route('payment.opay.return')
+                        : (config('services.paystack.callback_url') ?: route('payment.callback')),
                 ],
             ], 200);
 
@@ -240,9 +324,9 @@ class PaymentController extends Controller
         }
 
         try {
-            $response = $this->paystackService->verifyPayment($request->reference);
+            $response = $this->verifyWithGateway($request->reference);
 
-            Log::info('PaymentController@verifyPayment: PAYSTACK RESPONSE', [
+            Log::info('PaymentController@verifyPayment: GATEWAY RESPONSE', [
                 'reference'       => $request->reference,
                 'paystack_status' => $response['data']['status'] ?? 'unknown',
             ]);
@@ -412,7 +496,7 @@ class PaymentController extends Controller
                 'email'     => $request->email,
             ]);
 
-            $response = $this->paystackService->chargeCard($cardData);
+            $response = $this->paystack()->chargeCard($cardData);
 
             if ($response['status'] === true && isset($response['data'])) {
                 $status = $response['data']['status'];
@@ -554,7 +638,7 @@ class PaymentController extends Controller
                 ], 400);
             }
 
-            $response = $this->paystackService->submitOtp($request->reference, $request->otp);
+            $response = $this->paystack()->submitOtp($request->reference, $request->otp);
 
             return $response['data']['status'] === 'success'
                 ? $this->handleSuccessfulPayment($transaction, $response)
@@ -600,7 +684,7 @@ class PaymentController extends Controller
                 ], 400);
             }
 
-            $response = $this->paystackService->submitPin($request->reference, $request->pin);
+            $response = $this->paystack()->submitPin($request->reference, $request->pin);
 
             return $response['data']['status'] === 'success'
                 ? $this->handleSuccessfulPayment($transaction, $response)
@@ -632,9 +716,7 @@ class PaymentController extends Controller
         }
 
         $body              = $request->getContent();
-        $expectedSignature = hash_hmac('sha512', $body, config('services.paystack.secret_key'));
-
-        if ($signature !== $expectedSignature) {
+        if (! $this->paystack()->verifyWebhookSignature($signature, $body)) {
             Log::warning('PaymentController@webhook: SIGNATURE MISMATCH');
             return response()->json(['message' => 'Invalid signature'], 401);
         }
@@ -749,10 +831,98 @@ class PaymentController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     public function getPublicKey()
     {
+        try {
+            $key = $this->paystack()->getPublicKey();
+        } catch (\Exception $e) {
+            $key = null;
+        }
         return response()->json([
-            'success'    => true,
-            'public_key' => $this->paystackService->getPublicKey(),
-        ], 200);
+            'success'    => (bool) $key,
+            'public_key' => $key,
+        ], $key ? 200 : 503);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GATEWAY DISPATCH
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** Verify with whichever gateway the transaction was started on. Paystack-shaped result. */
+    protected function verifyWithGateway(string $reference): array
+    {
+        $method = Transaction::where('reference', $reference)->value('payment_method');
+
+        if ($method === 'opay' || ($method === null && str_starts_with($reference, 'OPAY_'))) {
+            return app(OpayGateway::class)->verify($reference);
+        }
+        return $this->paystack()->verifyPayment($reference);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // OPAY CALLBACK (server-to-server) — POST /api/payment/opay/webhook
+    // ─────────────────────────────────────────────────────────────────────────
+    public function opayWebhook(Request $request)
+    {
+        $body      = $request->all();
+        $reference = (string) ($body['payload']['reference'] ?? $request->input('reference', ''));
+
+        Log::info('PaymentController@opayWebhook: CALLBACK RECEIVED', [
+            'reference' => $reference,
+            'status'    => $body['payload']['status'] ?? null,
+        ]);
+
+        if ($reference === '') {
+            return response()->json(['message' => 'No reference'], 400);
+        }
+
+        $opay = app(OpayGateway::class);
+        if (! $opay->validCallback($body)) {
+            // Not fatal: we never trust the callback body, we re-query OPay below.
+            Log::warning('PaymentController@opayWebhook: signature did not match, re-querying OPay', ['reference' => $reference]);
+        }
+
+        try {
+            $result = $opay->verify($reference);
+            $status = $result['data']['status'] ?? 'pending';
+
+            if ($status === 'success') {
+                $this->handleChargeSuccess($result['data']);
+            } elseif (in_array($status, ['failed', 'abandoned'], true)) {
+                $this->handleChargeFailed($result['data']);
+            }
+            return response()->json(['message' => 'Callback processed'], 200);
+        } catch (\Exception $e) {
+            Log::error('PaymentController@opayWebhook: EXCEPTION', ['reference' => $reference, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Callback processing failed'], 500);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // OPAY RETURN PAGE — where OPay sends the customer's browser/WebView back to
+    // ─────────────────────────────────────────────────────────────────────────
+    public function opayReturn(Request $request)
+    {
+        $reference = (string) $request->query('reference', '');
+        $status    = 'pending';
+
+        if ($reference !== '') {
+            try {
+                $result = app(OpayGateway::class)->verify($reference);
+                $status = $result['data']['status'] ?? 'pending';
+                if ($status === 'success') {
+                    $this->handleChargeSuccess($result['data']); // safe to repeat
+                } elseif (in_array($status, ['failed', 'abandoned'], true)) {
+                    $this->handleChargeFailed($result['data']);
+                }
+            } catch (\Exception $e) {
+                Log::warning('PaymentController@opayReturn: verify failed', ['reference' => $reference, 'error' => $e->getMessage()]);
+            }
+        }
+
+        return view('payment-callback', [
+            'reference' => $reference,
+            'gateway'   => 'opay',
+            'status'    => $status,
+        ]);
     }
 
     public function getPaymentHistory()
@@ -774,6 +944,20 @@ class PaymentController extends Controller
                 'message' => 'Failed to fetch payment history',
             ], 500);
         }
+    }
+
+    /** GET /api/payment/{reference} — one of the signed-in user's transactions. */
+    public function getPayment(string $reference)
+    {
+        $transaction = Transaction::where('reference', $reference)
+            ->where('user_id', auth()->id())
+            ->with(['order.items.product'])
+            ->first();
+
+        if (! $transaction) {
+            return response()->json(['success' => false, 'message' => 'Payment not found'], 404);
+        }
+        return response()->json(['success' => true, 'data' => $transaction], 200);
     }
 
     public function successPage(Request $request)

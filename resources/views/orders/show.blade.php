@@ -69,7 +69,7 @@
                             <form action="{{ route('adminorders.refund', $order->id) }}" method="POST">
                                 @csrf
                                 <div class="mb-3">
-                                    <label>Amount (Max: ${{ number_format($order->refundableAmount(), 2) }})</label>
+                                    <label>Amount (Max: ₦{{ number_format($order->refundableAmount(), 2) }})</label>
                                     <input type="number" step="0.01" name="amount" class="form-control" max="{{ $order->refundableAmount() }}" required>
                                 </div>
                                 <div class="mb-3">
@@ -93,7 +93,7 @@
                             <div class="p-3 border-bottom">
                                 <div class="d-flex justify-content-between">
                                     <div>
-                                        <strong>${{ number_format($refund->amount, 2) }}</strong>
+                                        <strong>₦{{ number_format($refund->amount, 2) }}</strong>
                                         <small class="d-block text-muted">{{ $refund->reason }}</small>
                                     </div>
                                     <span class="badge {{ $refund->status == 'processed' ? 'bg-success' : 'bg-warning' }}-subtle">
@@ -155,8 +155,8 @@
                                                 </div>
                                             </td>
                                             <td>{{ $item->quantity }}</td>
-                                            <td>${{ number_format($item->price, 2) }}</td>
-                                            <td>${{ number_format($item->price * $item->quantity, 2) }}</td>
+                                            <td>₦{{ number_format($item->price, 2) }}</td>
+                                            <td>₦{{ number_format($item->price * $item->quantity, 2) }}</td>
                                         </tr>
                                         @endforeach
                                     </tbody>
@@ -171,19 +171,19 @@
                             <div class="row justify-content-end">
                                 <div class="col-md-5">
                                     <table class="table table-sm">
-                                        <tr><td>Subtotal</td><td class="text-end">${{ number_format($order->total, 2) }}</td></tr>
-                                        <tr><td>Shipping</td><td class="text-end">${{ number_format($order->shipping_cost, 2) }}</td></tr>
-                                        <tr><td>Tax</td><td class="text-end">${{ number_format($order->tax_cost, 2) }}</td></tr>
+                                        <tr><td>Subtotal</td><td class="text-end">₦{{ number_format($order->total, 2) }}</td></tr>
+                                        <tr><td>Shipping</td><td class="text-end">₦{{ number_format($order->shipping_cost, 2) }}</td></tr>
+                                        <tr><td>Tax</td><td class="text-end">₦{{ number_format($order->tax_cost, 2) }}</td></tr>
                                         @if($order->totalRefunded() > 0)
                                         <tr class="text-danger">
                                             <td>Refunded</td>
-                                            <td class="text-end">-${{ number_format($order->totalRefunded(), 2) }}</td>
+                                            <td class="text-end">-₦{{ number_format($order->totalRefunded(), 2) }}</td>
                                         </tr>
                                         @endif
                                         <tr class="table-active fw-bold fs-5">
                                             <td>Total Paid</td>
                                             <td class="text-end text-success">
-                                                ${{ number_format($order->total_amount - $order->totalRefunded(), 2) }}
+                                                ₦{{ number_format($order->total_amount - $order->totalRefunded(), 2) }}
                                             </td>
                                         </tr>
                                     </table>

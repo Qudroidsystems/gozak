@@ -148,8 +148,8 @@
                     @endif
                 </td>
                 <td>{{ $item->quantity }}</td>
-                <td>${{ number_format($item->price, 2) }}</td>
-                <td>${{ number_format($item->price * $item->quantity, 2) }}</td>
+                <td>₦{{ number_format($item->price, 2) }}</td>
+                <td>₦{{ number_format($item->price * $item->quantity, 2) }}</td>
             </tr>
             @endforeach
         </tbody>
@@ -158,19 +158,19 @@
     <table style="width: 40%; margin-left: auto;">
         <tr>
             <td style="border: none;"><strong>Subtotal</strong></td>
-            <td style="border: none;" class="text-right">${{ number_format($order->total, 2) }}</td>
+            <td style="border: none;" class="text-right">₦{{ number_format($order->total, 2) }}</td>
         </tr>
         <tr>
             <td style="border: none;"><strong>Shipping</strong></td>
-            <td style="border: none;" class="text-right">${{ number_format($order->shipping_cost, 2) }}</td>
+            <td style="border: none;" class="text-right">₦{{ number_format($order->shipping_cost, 2) }}</td>
         </tr>
         <tr>
             <td style="border: none;"><strong>Tax</strong></td>
-            <td style="border: none;" class="text-right">${{ number_format($order->tax_cost, 2) }}</td>
+            <td style="border: none;" class="text-right">₦{{ number_format($order->tax_cost, 2) }}</td>
         </tr>
         <tr class="total-row">
             <td><strong>Grand Total</strong></td>
-            <td class="text-right"><strong>${{ number_format($order->total_amount, 2) }}</strong></td>
+            <td class="text-right"><strong>₦{{ number_format($order->total_amount, 2) }}</strong></td>
         </tr>
     </table>
 

@@ -785,11 +785,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label fw-semibold">Unit Cost:</label>
-                                        <p>$${parseFloat(transaction.unit_cost).toFixed(2)}</p>
+                                        <p>₦${parseFloat(transaction.unit_cost).toFixed(2)}</p>
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <label class="form-label fw-semibold">Total Cost:</label>
-                                        <p>$${parseFloat(transaction.total_cost || 0).toFixed(2)}</p>
+                                        <p>₦${parseFloat(transaction.total_cost || 0).toFixed(2)}</p>
                                     </div>
                                 </div>
                             `;

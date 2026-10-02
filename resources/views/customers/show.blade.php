@@ -60,7 +60,7 @@
                             <hr>
                             <div class="mt-3">
                                 <p><strong>Total Orders:</strong> {{ $order->user->orders_count ?? 0 }}</p>
-                                <p><strong>Total Spent:</strong> ${{ number_format($order->user->orders_sum_total_amount ?? 0, 2) }}</p>
+                                <p><strong>Total Spent:</strong> ₦{{ number_format($order->user->orders_sum_total_amount ?? 0, 2) }}</p>
                             </div>
                         </div>
                     </div>
@@ -181,8 +181,8 @@
                                                 @endif
                                             </td>
                                             <td class="text-center fw-semibold">{{ $item->quantity }}</td>
-                                            <td class="text-end">${{ number_format($item->price, 2) }}</td>
-                                            <td class="text-end fw-bold">${{ number_format($item->price * $item->quantity, 2) }}</td>
+                                            <td class="text-end">₦{{ number_format($item->price, 2) }}</td>
+                                            <td class="text-end fw-bold">₦{{ number_format($item->price * $item->quantity, 2) }}</td>
                                         </tr>
                                         @empty
                                         <tr><td colspan="5" class="text-center text-muted py-4">No items</td></tr>
@@ -201,19 +201,19 @@
                                     <table class="table table-sm table-borderless">
                                         <tr>
                                             <td>Subtotal</td>
-                                            <td class="text-end">${{ number_format($order->total, 2) }}</td>
+                                            <td class="text-end">₦{{ number_format($order->total, 2) }}</td>
                                         </tr>
                                         <tr>
                                             <td>Shipping</td>
-                                            <td class="text-end">${{ number_format($order->shipping_cost, 2) }}</td>
+                                            <td class="text-end">₦{{ number_format($order->shipping_cost, 2) }}</td>
                                         </tr>
                                         <tr>
                                             <td>Tax</td>
-                                            <td class="text-end">${{ number_format($order->tax_cost, 2) }}</td>
+                                            <td class="text-end">₦{{ number_format($order->tax_cost, 2) }}</td>
                                         </tr>
                                         <tr class="table-active fw-bold fs-5">
                                             <td>Total Amount</td>
-                                            <td class="text-end text-success">${{ number_format($order->total_amount, 2) }}</td>
+                                            <td class="text-end text-success">₦{{ number_format($order->total_amount, 2) }}</td>
                                         </tr>
                                     </table>
                                 </div>

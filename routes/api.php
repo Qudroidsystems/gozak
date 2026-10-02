@@ -78,6 +78,8 @@ Route::get('/settings/global',                     [APISettingsController::class
 
 // Webhook (no auth — Paystack calls this externally)
 Route::post('/payment/webhook',                    [PaymentController::class, 'webhook'])->name('payment.webhook');
+Route::post('/payment/opay/webhook',               [PaymentController::class, 'opayWebhook'])->name('payment.opay.webhook');
+Route::get('/payment/gateways',                    [PaymentController::class, 'gateways'])->name('payment.gateways');
 
 // Health check
 Route::get('/health', function () {
@@ -161,8 +163,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/payment/verify',                  [PaymentController::class, 'verifyPayment'])->name('payment.verify');
     Route::get('/payment/public-key',               [PaymentController::class, 'getPublicKey'])->name('payment.public-key');
     Route::get('/payment/history',                  [PaymentController::class, 'getPaymentHistory'])->name('payment.history');
-    Route::get('/payment/{reference}',              [PaymentController::class, 'getPayment'])->name('payment.show');
     Route::get('/payment/success',                  [PaymentController::class, 'successPage'])->name('payment.success');
+    Route::get('/payment/{reference}',              [PaymentController::class, 'getPayment'])->name('payment.show');
 
     // ── FCM (authenticated — token management & preferences via FcmTestController) ─
     Route::prefix('fcm')->group(function () {

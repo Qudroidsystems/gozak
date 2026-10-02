@@ -30,7 +30,7 @@
                             <div class="row align-items-center">
                                 <div class="col-md-8">
                                     <h4 class="card-title mb-1">Total Stock Value</h4>
-                                    <h2 class="fw-bold mb-0">${{ number_format($totalValue, 2) }}</h2>
+                                    <h2 class="fw-bold mb-0">₦{{ number_format($totalValue, 2) }}</h2>
                                     <p class="text-muted mb-0">Across all locations</p>
                                 </div>
                                 <div class="col-md-4 text-end">
@@ -74,7 +74,7 @@
                                             </td>
                                             <td>{{ $item['product_count'] }}</td>
                                             <td>
-                                                <span class="fw-bold">${{ number_format($item['value'], 2) }}</span>
+                                                <span class="fw-bold">₦{{ number_format($item['value'], 2) }}</span>
                                             </td>
                                             <td>
                                                 <div class="d-flex align-items-center">
@@ -105,7 +105,7 @@
                                     <tr>
                                         <th>Total</th>
                                         <th>{{ array_sum(array_column($report, 'product_count')) }}</th>
-                                        <th>${{ number_format($totalValue, 2) }}</th>
+                                        <th>₦{{ number_format($totalValue, 2) }}</th>
                                         <th>100%</th>
                                         <th></th>
                                     </tr>
@@ -146,7 +146,7 @@
                                             <h6 class="mb-0">{{ $index + 1 }}. {{ $item['location']->name }}</h6>
                                             <small class="text-muted">{{ $item['product_count'] }} products</small>
                                         </div>
-                                        <span class="badge bg-success rounded-pill">${{ number_format($item['value'], 2) }}</span>
+                                        <span class="badge bg-success rounded-pill">₦{{ number_format($item['value'], 2) }}</span>
                                     </div>
                                 @endforeach
                             </div>
@@ -191,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             show: true,
                             label: 'Total Value',
                             formatter: function (w) {
-                                return '${{ number_format($totalValue, 2) }}';
+                                return '₦{{ number_format($totalValue, 2) }}';
                             }
                         }
                     }
@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tooltip: {
             y: {
                 formatter: function(value) {
-                    return '$' + value.toLocaleString('en-US', {minimumFractionDigits: 2});
+                    return '₦' + value.toLocaleString('en-US', {minimumFractionDigits: 2});
                 }
             }
         }

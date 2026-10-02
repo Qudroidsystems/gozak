@@ -33,7 +33,7 @@ class OrdersExport implements FromCollection, WithHeadings, WithMapping
             $order->user->email,
             $order->created_at->format('d M Y'),
             $order->items_count,
-            '$' . number_format($order->total_amount, 2),
+            '₦' . number_format($order->total_amount, 2),
             ucfirst($order->payment_status),
             ucfirst($order->status),
         ];

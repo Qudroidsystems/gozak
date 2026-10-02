@@ -481,6 +481,14 @@
                         </li>
                     @endcanany
 
+                    @can('Manage payment gateways')
+                        <li class="nav-item">
+                            <a class="nav-link menu-link {{ request()->is('admin/payment-gateways*') ? 'active' : '' }}" href="{{ route('admin.payment-gateways.index') }}">
+                                <i class="ph-credit-card"></i> <span>Payment Gateways</span>
+                            </a>
+                        </li>
+                    @endcan
+
                     {{-- MY ACCOUNT --}}
                     <li class="nav-item">
                         <a class="nav-link menu-link collapsed" href="#sidebaraccount" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebaraccount">
@@ -1342,6 +1350,10 @@
         @endcan
         @can('View permission')
         {title:'Permissions',               url:'{{ route("permissions.index") }}',            icon:'mdi-lock',               category:'Users & Privileges', keywords:['access','rights','permissions']},
+        @endcan
+
+        @can('Manage payment gateways')
+        {title:'Payment Gateways',          url:'{{ route("admin.payment-gateways.index") }}', icon:'mdi-credit-card-settings-outline', category:'Settings', keywords:['paystack','opay','payment','keys','gateway','checkout']},
         @endcan
 
         /* ── My Account ── */

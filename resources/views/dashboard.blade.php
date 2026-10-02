@@ -37,7 +37,7 @@
                                             </div>
                                             <div class="mt-4">
                                                 <p class="text-uppercase fw-medium text-muted text-truncate fs-sm">Total Revenue</p>
-                                                <h4 class="fw-semibold mb-3">${{ number_format($totalRevenue / 1000000, 2) }}M</h4>
+                                                <h4 class="fw-semibold mb-3">₦{{ number_format($totalRevenue / 1000000, 2) }}M</h4>
                                                 <div class="d-flex align-items-center gap-2">
                                                     <h5 class="text-success fs-xs mb-0">
                                                         <i class="ri-arrow-right-up-line fs-sm align-middle"></i> +19.07%
@@ -170,8 +170,8 @@
                             <div class="col-xl-3">
                                 <div class="card-body border-start-xl border-top border-top-xl-0 border-2 h-100">
                                     <div>
-                                        <p class="text-muted mb-2">Budget (USD)</p>
-                                        <h4>${{ number_format($totalRevenue, 2) }} <small class="text-success fs-sm fw-normal"><i class="ph-arrow-up align-baseline"></i> 2.17%</small></h4>
+                                        <p class="text-muted mb-2">Budget (NGN)</p>
+                                        <h4>₦{{ number_format($totalRevenue, 2) }} <small class="text-success fs-sm fw-normal"><i class="ph-arrow-up align-baseline"></i> 2.17%</small></h4>
                                         <p class="text-muted">Budget than last years</p>
                                         <div class="mx-3">
                                             <div id="mini-chart-6" data-colors='["--tb-primary"]' class="apex-charts" dir="ltr"></div>
@@ -273,7 +273,7 @@
                                                 </div>
                                             </td>
                                             <td class="text-end">
-                                                <h6 class="fs-md">${{ $sale['amount'] }}</h6>
+                                                <h6 class="fs-md">₦{{ $sale['amount'] }}</h6>
                                             </td>
                                         </tr>
                                         @endforeach
@@ -331,7 +331,7 @@
                                             </td>
                                             <td class="customer">{{ $order['customer'] }}</td>
                                             <td class="products">{{ $order['products'] }}</td>
-                                            <td class="amount"><span class="fw-medium">${{ $order['amount'] }}</span></td>
+                                            <td class="amount"><span class="fw-medium">₦{{ $order['amount'] }}</span></td>
                                             <td class="status">
                                                 <span class="badge bg-{{ $order['status'] == 'delivered' ? 'success' : ($order['status'] == 'pending' ? 'warning' : 'secondary') }}-subtle text-{{ $order['status'] == 'delivered' ? 'success' : ($order['status'] == 'pending' ? 'warning' : 'secondary') }}">{{ ucfirst($order['status']) }}</span>
                                             </td>
@@ -387,7 +387,7 @@
                                                 </ul>
                                             </div>
                                             <div class="text-end">
-                                                <h5 class="fs-md text-primary mb-0">${{ $product['price'] }}</h5>
+                                                <h5 class="fs-md text-primary mb-0">₦{{ $product['price'] }}</h5>
                                             </div>
                                             <div class="flex-shrink-0">
                                                 <button class="btn btn-secondary btn-icon btn-sm" data-bs-toggle="modal" data-bs-target="#productModal"><i class="ph-arrow-right"></i></button>

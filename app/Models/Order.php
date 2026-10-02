@@ -54,6 +54,12 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** POS / walk-in customer (orders.customer_id), used when there is no app user. */
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
     public function items()
     {
         return $this->hasMany(OrderItem::class);

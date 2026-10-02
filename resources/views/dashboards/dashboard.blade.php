@@ -200,10 +200,10 @@
                             <h5 class="card-title mb-0">Flock Capital Analysis</h5>
                         </div>
                         <div class="card-body">
-                            <p><strong>Capital Investment:</strong> ${{ number_format($capitalInvestment, 2) }}</p>
-                            <p><strong>Operational Expenses:</strong> ${{ number_format($operationalExpenses, 2) }}</p>
-                            <p><strong>Net Income:</strong> ${{ number_format($netIncome, 2) }}</p>
-                            <p><strong>Capital Value (Income Approach):</strong> ${{ number_format($capitalValue, 2) }}</p>
+                            <p><strong>Capital Investment:</strong> ₦{{ number_format($capitalInvestment, 2) }}</p>
+                            <p><strong>Operational Expenses:</strong> ₦{{ number_format($operationalExpenses, 2) }}</p>
+                            <p><strong>Net Income:</strong> ₦{{ number_format($netIncome, 2) }}</p>
+                            <p><strong>Capital Value (Income Approach):</strong> ₦{{ number_format($capitalValue, 2) }}</p>
                             @if ($netIncome < 0)
                                 <p class="text-danger">Note: Negative net income indicates operational losses.</p>
                             @endif

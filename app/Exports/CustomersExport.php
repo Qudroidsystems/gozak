@@ -31,7 +31,7 @@ class CustomersExport implements FromCollection, WithHeadings, WithMapping
             $customer->email,
             $customer->phone_number ?? '—',
             $customer->orders_count,
-            '$' . number_format($customer->orders_sum_total_amount ?? 0, 2),
+            '₦' . number_format($customer->orders_sum_total_amount ?? 0, 2),
             $customer->created_at->format('d M Y'),
         ];
     }

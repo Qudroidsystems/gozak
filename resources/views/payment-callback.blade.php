@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Successful</title>
+    <title>Payment</title>
     <style>
         * {
             margin: 0;
@@ -174,29 +174,42 @@
 </head>
 <body>
     <div class="container">
+@php
+    // Paystack lands here after a payment; OPay lands here via /payment/opay/return with $status.
+    $status = $status ?? 'success';
+    $ok     = $status === 'success';
+    $wait   = $status === 'pending';
+@endphp
         <div class="success-animation">
-            <div class="success-icon">
-                <div class="checkmark"></div>
+            <div class="success-icon" @unless($ok) style="background: {{ $wait ? '#f59e0b' : '#ef4444' }};" @endunless>
+                @if($ok)
+                    <div class="checkmark"></div>
+                @else
+                    <span style="color:#fff;font-size:48px;font-weight:700;line-height:1;">{{ $wait ? '…' : '!' }}</span>
+                @endif
             </div>
         </div>
-
-        <h1>Payment Successful!</h1>
-        <p>Your payment has been processed successfully. Gozak says thank you for your order!</p>
-
+        @if($ok)
+            <h1>Payment Successful!</h1>
+            <p>Your payment has been processed successfully. Gozak says thank you for your order!</p>
+        @elseif($wait)
+            <h1>Payment Processing</h1>
+            <p>We are still waiting for confirmation of your payment. Your order will update automatically once it is confirmed.</p>
+        @else
+            <h1>Payment Not Completed</h1>
+            <p>Your payment was cancelled or declined. No money was taken — return to the app to try again.</p>
+        @endif
         @if(request('reference'))
         <div class="reference">
             <strong>Transaction Reference</strong>
             <span>{{ request('reference') }}</span>
         </div>
         @endif
-
-
         <p class="note">
-            A receipt has been sent to your email.<br>
+            @if($ok)A receipt has been sent to your email.<br>@endif
             You can safely close this page after returning to the app.
         </p>
     </div>
-
     {{-- <script>
         function returnToApp() {
             // Send message to Flutter WebView

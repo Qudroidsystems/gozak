@@ -47,7 +47,7 @@
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
                                     <p class="text-uppercase fw-medium text-success mb-0">Total Revenue</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">${{ number_format($analytics['total_revenue'] ?? 0, 2) }}</h4>
+                                    <h4 class="fs-22 fw-semibold mb-0">₦{{ number_format($analytics['total_revenue'] ?? 0, 2) }}</h4>
                                 </div>
                                 <div class="avatar-sm flex-shrink-0">
                                     <span class="avatar-title bg-success rounded-circle fs-3">
@@ -64,7 +64,7 @@
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
                                     <p class="text-uppercase fw-medium text-info mb-0">Total Cost Value</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">${{ number_format($analytics['total_cost_value'] ?? 0, 2) }}</h4>
+                                    <h4 class="fs-22 fw-semibold mb-0">₦{{ number_format($analytics['total_cost_value'] ?? 0, 2) }}</h4>
                                 </div>
                                 <div class="avatar-sm flex-shrink-0">
                                     <span class="avatar-title bg-info rounded-circle fs-3">

@@ -81,7 +81,7 @@
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
                                     <p class="text-uppercase fw-medium text-muted mb-0">Total Stock Value</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">${{ number_format($stockValueByLocation->sum('total_value'), 2) }}</h4>
+                                    <h4 class="fs-22 fw-semibold mb-0">₦{{ number_format($stockValueByLocation->sum('total_value'), 2) }}</h4>
                                 </div>
                                 <div class="avatar-sm flex-shrink-0">
                                     <span class="avatar-title bg-info-subtle rounded-circle fs-3">
@@ -128,7 +128,7 @@
                                                             <span>{{ $location->name }}</span>
                                                         </div>
                                                     </td>
-                                                    <td class="fw-semibold">${{ number_format($location->total_value, 2) }}</td>
+                                                    <td class="fw-semibold">₦{{ number_format($location->total_value, 2) }}</td>
                                                     <td>{{ $location->total_products ?? 0 }}</td>
                                                     <td>
                                                         <div class="d-flex align-items-center">

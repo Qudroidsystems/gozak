@@ -14,16 +14,19 @@ class PaystackService
 
     public function __construct()
     {
-        $this->secretKey = Config::get('services.paystack.secret_key');
-        $this->publicKey = Config::get('services.paystack.public_key');
-        $this->baseUrl = Config::get('services.paystack.payment_url', 'https://api.paystack.co');
+        // Keys come from Settings › Payment Gateways first; .env is the fallback.
+        $gateway = null;
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('payment_gateways')) {
+                $gateway = \App\Models\PaymentGateway::where('provider_key', 'paystack')->first();
+            }
+        } catch (\Throwable $e) {
+            $gateway = null;
+        }
 
-        // Debug logging
-        Log::info('PaystackService initialized', [
-            'secret_key_prefix' => substr($this->secretKey, 0, 10) . '...',
-            'public_key_prefix' => substr($this->publicKey, 0, 10) . '...',
-            'base_url' => $this->baseUrl,
-        ]);
+        $this->secretKey = ($gateway ? $gateway->credential('secret_key') : null) ?: Config::get('services.paystack.secret_key');
+        $this->publicKey = ($gateway ? $gateway->credential('public_key') : null) ?: Config::get('services.paystack.public_key');
+        $this->baseUrl   = Config::get('services.paystack.payment_url') ?: 'https://api.paystack.co';
 
         if (empty($this->secretKey)) {
             Log::error('Paystack secret key is empty!');
