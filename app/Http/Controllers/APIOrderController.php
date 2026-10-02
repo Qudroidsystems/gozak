@@ -11,6 +11,8 @@ use Illuminate\Http\Request;
 use App\Services\BarcodeService;
 use App\Services\NotificationService;
 use App\Services\OrderNotificationService;
+use App\Services\OrderPricingService;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -36,40 +38,46 @@ class APIOrderController extends Controller
     /**
      * Create a new order and notify the user via FCM.
      */
-    public function store(Request $request)
+    public function store(Request $request, OrderPricingService $pricing)
     {
         try {
             $validated = $request->validate([
-                'user_id'                          => 'required|exists:users,id',
-                'status'                           => 'required|in:pending,shipped,delivered,cancelled',
-                'total_amount'                     => 'required|numeric|min:0',
-                'total'                            => 'required|numeric|min:0',
-                'shipping_cost'                    => 'required|numeric|min:0',
-                'tax_cost'                         => 'required|numeric|min:0',
-                'order_date'                       => 'required|date',
-                'payment_method'                   => 'required|string',
+                // Kept for older app builds — the server ignores these values and
+                // works out user, status and every amount itself (see below).
+                'user_id'                          => 'nullable',
+                'status'                           => 'nullable|string',
+                'total_amount'                     => 'nullable|numeric|min:0',
+                'total'                            => 'nullable|numeric|min:0',
+                'shipping_cost'                    => 'nullable|numeric|min:0',
+                'tax_cost'                         => 'nullable|numeric|min:0',
+                'order_date'                       => 'nullable|date',
+                'payment_method'                   => 'required|string|max:50',
                 'shipping_address'                 => 'required|array',
-                'shipping_address.name'            => 'required|string',
-                'shipping_address.street'          => 'required|string',
-                'shipping_address.city'            => 'required|string',
-                'shipping_address.country'         => 'required|string',
-                'shipping_address.phone_number'    => 'nullable|string',
+                'shipping_address.name'            => 'required|string|max:255',
+                'shipping_address.street'          => 'required|string|max:255',
+                'shipping_address.city'            => 'required|string|max:255',
+                'shipping_address.state'           => 'nullable|string|max:255',
+                'shipping_address.postal_code'     => 'nullable|string|max:20',
+                'shipping_address.country'         => 'required|string|max:255',
+                'shipping_address.phone_number'    => 'nullable|string|max:50',
                 'billing_address'                  => 'required_if:billing_address_same_as_shipping,false|array',
-                'billing_address.name'             => 'required_if:billing_address_same_as_shipping,false|string',
-                'billing_address.street'           => 'required_if:billing_address_same_as_shipping,false|string',
-                'billing_address.city'             => 'required_if:billing_address_same_as_shipping,false|string',
-                'billing_address.country'          => 'required_if:billing_address_same_as_shipping,false|string',
-                'billing_address.phone_number'     => 'nullable|string',
+                'billing_address.name'             => 'required_if:billing_address_same_as_shipping,false|string|max:255',
+                'billing_address.street'           => 'required_if:billing_address_same_as_shipping,false|string|max:255',
+                'billing_address.city'             => 'required_if:billing_address_same_as_shipping,false|string|max:255',
+                'billing_address.state'            => 'nullable|string|max:255',
+                'billing_address.postal_code'      => 'nullable|string|max:20',
+                'billing_address.country'          => 'required_if:billing_address_same_as_shipping,false|string|max:255',
+                'billing_address.phone_number'     => 'nullable|string|max:50',
                 'billing_address_same_as_shipping' => 'required|boolean',
                 'delivery_date'                    => 'nullable|date',
-                'items'                            => 'required|array|min:1',
+                'items'                            => 'required|array|min:1|max:100',
                 'items.*.product_id'               => 'required|exists:products,id',
-                'items.*.title'                    => 'required|string',
-                'items.*.price'                    => 'required|numeric|min:0',
-                'items.*.quantity'                 => 'required|integer|min:1',
+                'items.*.title'                    => 'nullable|string|max:255',
+                'items.*.price'                    => 'nullable|numeric|min:0',
+                'items.*.quantity'                 => 'required|integer|min:1|max:1000',
                 'items.*.variation_id'             => 'nullable|exists:product_variations,id',
-                'items.*.image'                    => 'nullable|string',
-                'items.*.brand_name'               => 'nullable|string',
+                'items.*.image'                    => 'nullable|string|max:2048',
+                'items.*.brand_name'               => 'nullable|string|max:255',
                 'items.*.selected_variation'       => 'nullable|array',
             ]);
 
@@ -77,18 +85,49 @@ class APIOrderController extends Controller
                 $validated['billing_address'] = $validated['shipping_address'];
             }
 
-            return DB::transaction(function () use ($validated) {
-                $orderData = array_merge(
-                    Arr::except($validated, ['items', 'id']),
-                    [
-                        'id'             => Str::uuid()->toString(),
-                        'payment_status' => 'unpaid',
-                    ]
-                );
+            // ── Price everything from the database ──────────────────────────
+            // The app's totals are never trusted: a modified app could otherwise
+            // create a ₦1 order for expensive items and pay ₦1.
+            $quote        = $pricing->price($validated['items']);
+            $clientTotal  = isset($validated['total_amount']) ? (float) $validated['total_amount'] : null;
+            $priceChanged = $quote['changed']
+                || ($clientTotal !== null && abs($clientTotal - $quote['total']) >= 0.01);
 
-                $order = Order::create($orderData);
+            if ($quote['total'] <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'These items cannot be ordered right now (no price set). Please contact support.',
+                ], 422);
+            }
 
-                foreach ($validated['items'] as $item) {
+            $userId = Auth::id();
+
+            return DB::transaction(function () use ($validated, $quote, $priceChanged, $clientTotal, $userId) {
+                // Addresses used to be dropped (not fillable on Order), so orders
+                // had no delivery address. Save them as the customer's addresses
+                // (re-using an identical one) and link them to the order.
+                $shippingId = $this->saveAddress($userId, $validated['shipping_address']);
+                $billingId  = $validated['billing_address_same_as_shipping']
+                    ? $shippingId
+                    : $this->saveAddress($userId, $validated['billing_address']);
+
+                $order = Order::create([
+                    'id'                               => Str::uuid()->toString(),
+                    'user_id'                          => $userId,
+                    'status'                           => 'pending',
+                    'payment_status'                   => 'unpaid',
+                    'total_amount'                     => $quote['total'],
+                    'shipping_cost'                    => $quote['shipping'],
+                    'tax_cost'                         => $quote['tax'],
+                    'order_date'                       => now(),
+                    'payment_method'                   => $validated['payment_method'],
+                    'shipping_address_id'              => $shippingId,
+                    'billing_address_id'               => $billingId,
+                    'billing_address_same_as_shipping' => $validated['billing_address_same_as_shipping'],
+                    'delivery_date'                    => $validated['delivery_date'] ?? now()->addDays(7),
+                ]);
+
+                foreach ($quote['items'] as $item) {
                     $order->items()->create([
                         'order_id'           => $order->id,
                         'product_id'         => $item['product_id'],
@@ -101,6 +140,14 @@ class APIOrderController extends Controller
                         'selected_variation' => isset($item['selected_variation'])
                             ? json_encode($item['selected_variation'])
                             : null,
+                    ]);
+                }
+
+                if ($priceChanged) {
+                    Log::info('Order priced differently from the app', [
+                        'order_id'     => $order->id,
+                        'client_total' => $clientTotal,
+                        'server_total' => $quote['total'],
                     ]);
                 }
 
@@ -121,31 +168,133 @@ class APIOrderController extends Controller
                 try {
                     $this->orderNotificationService->notifyOrderPlaced($order);
                 } catch (\Exception $e) {
-                    // FCM failure must never fail the order creation
                     Log::warning('FCM order placed notification failed', [
                         'order_id' => $order->id,
                         'error'    => $e->getMessage(),
                     ]);
                 }
 
-                Log::info('Order created', ['order_id' => $order->id]);
+                Log::info('Order created', ['order_id' => $order->id, 'total' => $quote['total']]);
 
                 return response()->json([
-                    'success' => true,
-                    'order'   => $order->load(['items.product', 'shippingAddress', 'billingAddress']),
-                    'message' => 'Order created successfully. Please proceed to payment.',
+                    'success'       => true,
+                    'order'         => $order->load(['items.product', 'shippingAddress', 'billingAddress']),
+                    'pricing'       => [
+                        'subtotal' => $quote['subtotal'],
+                        'shipping' => $quote['shipping'],
+                        'tax'      => $quote['tax'],
+                        'total'    => $quote['total'],
+                    ],
+                    'price_changed' => $priceChanged,
+                    'message'       => $priceChanged
+                        ? 'Some prices changed since you added them to your cart. Your order total has been updated.'
+                        : 'Order created successfully. Please proceed to payment.',
                 ], 201);
             });
 
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?: 'Please check your order details.',
+                'errors'  => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Error placing order: ' . $e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
             ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Error placing order: ' . $e->getMessage(),
+                'message' => 'Error placing order. Please try again.',
             ], 500);
         }
+    }
+
+    /** Re-use the customer's identical saved address, or save a new one. Returns its id. */
+    protected function saveAddress(?int $userId, array $a): ?int
+    {
+        $match = [
+            'user_id' => $userId,
+            'name'    => trim((string) ($a['name'] ?? '')),
+            'street'  => trim((string) ($a['street'] ?? '')),
+            'city'    => trim((string) ($a['city'] ?? '')),
+            'country' => trim((string) ($a['country'] ?? '')),
+        ];
+        $address = Address::firstOrCreate($match, [
+            'state'        => $a['state'] ?? null,
+            'postal_code'  => $a['postal_code'] ?? null,
+            'phone_number' => $a['phone_number'] ?? null,
+            'is_default'   => false,
+        ]);
+        // Keep phone / state current if the customer edited them.
+        $address->fill(array_filter([
+            'state'        => $a['state'] ?? null,
+            'postal_code'  => $a['postal_code'] ?? null,
+            'phone_number' => $a['phone_number'] ?? null,
+        ], fn ($v) => $v !== null && $v !== ''));
+        if ($address->isDirty()) {
+            $address->save();
+        }
+        return $address->id;
+    }
+
+    /**
+     * GET /api/checkout/settings — the rates the server prices orders with, so
+     * the app's checkout shows the same shipping / tax / total.
+     */
+    public function checkoutSettings(OrderPricingService $pricing)
+    {
+        return response()->json(['success' => true, 'data' => $pricing->settings()]);
+    }
+
+    /**
+     * POST /api/checkout/quote — price a cart exactly as store() will.
+     * Body: { items: [{product_id, variation_id?, quantity, price?}] }
+     */
+    public function quote(Request $request, OrderPricingService $pricing)
+    {
+        $data = $request->validate([
+            'items'                => 'required|array|min:1|max:100',
+            'items.*.product_id'   => 'required|exists:products,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
+            'items.*.quantity'     => 'required|integer|min:1|max:1000',
+            'items.*.price'        => 'nullable|numeric|min:0',
+        ]);
+
+        try {
+            $q = $pricing->price($data['items']);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors'  => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json(['success' => true, 'data' => [
+            'items'         => collect($q['items'])->map(fn ($i) => [
+                'product_id'   => $i['product_id'],
+                'variation_id' => $i['variation_id'] ?? null,
+                'quantity'     => $i['quantity'],
+                'price'        => $i['price'],
+            ])->values(),
+            'subtotal'      => $q['subtotal'],
+            'shipping'      => $q['shipping'],
+            'tax'           => $q['tax'],
+            'total'         => $q['total'],
+            'price_changed' => $q['changed'],
+        ]]);
+    }
+
+    /** Admin / staff accounts may set any status; customers may only cancel. */
+    protected function isStaff($user): bool
+    {
+        if (!$user || !method_exists($user, 'getRoleNames')) {
+            return false;
+        }
+        return $user->getRoleNames()
+            ->map(fn ($r) => strtolower($r))
+            ->diff(['customer', 'user'])
+            ->isNotEmpty();
     }
 
     /**
@@ -163,8 +312,20 @@ class APIOrderController extends Controller
             $oldStatus = $order->status;
             $newStatus = $request->status;
 
-            if (Auth::user()->hasRole('customer') && $order->user_id !== Auth::id()) {
+            $isStaff = $this->isStaff(Auth::user());
+            $isOwner = (string) $order->user_id === (string) Auth::id();
+
+            if (!$isStaff && !$isOwner) {
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
+            }
+            // Customers can only cancel their own order, and only before it ships.
+            if (!$isStaff && ($newStatus !== 'cancelled' || !$order->canBeCancelled())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $newStatus === 'cancelled'
+                        ? 'This order can no longer be cancelled.'
+                        : 'You can only cancel your order.',
+                ], 403);
             }
 
             $legacyNotificationResult = [];
@@ -226,7 +387,7 @@ class APIOrderController extends Controller
         try {
             $order = Order::with('user')->findOrFail($id);
 
-            if (Auth::user()->hasRole('customer') && $order->user_id !== Auth::id()) {
+            if (!$this->isStaff(Auth::user()) && (string) $order->user_id !== (string) Auth::id()) {
                 return response()->json(['success' => false, 'message' => 'Access denied'], 403);
             }
 
@@ -335,10 +496,16 @@ class APIOrderController extends Controller
 
         try {
             $order = Order::where('user_id', Auth::id())->findOrFail($id);
-            $order->update([
-                'status'        => $request->input('status', $order->status),
-                'delivery_date' => $request->input('delivery_date', $order->delivery_date),
-            ]);
+
+            // Customers may only cancel (before shipping). Other status changes
+            // such as "delivered" are for staff via /orders/{id}/status.
+            if ($request->filled('status') && $request->input('status') !== $order->status) {
+                if ($request->input('status') !== 'cancelled' || !$order->canBeCancelled()) {
+                    return response()->json(['success' => false, 'message' => 'You can only cancel this order before it ships.'], 403);
+                }
+                $order->status = 'cancelled';
+                $order->save();
+            }
 
             return response()->json([
                 'success' => true,
@@ -385,7 +552,14 @@ class APIOrderController extends Controller
                 ->where('user_id', auth()->id())
                 ->firstOrFail();
 
-            $order->update($request->all());
+            // Never mass-assign from the request: that let a customer set
+            // payment_status = "paid" or change the total. Only cancelling is allowed.
+            if ($request->filled('status') && $request->input('status') !== $order->status) {
+                if ($request->input('status') !== 'cancelled' || !$order->canBeCancelled()) {
+                    return response()->json(['success' => false, 'message' => 'You can only cancel this order before it ships.'], 403);
+                }
+                $order->update(['status' => 'cancelled']);
+            }
 
             return response()->json([
                 'success' => true,

@@ -54,6 +54,7 @@ Route::middleware(['auth'])->group(function () {
     // Settings › Payment Gateways (Paystack / OPay keys) — permission: Manage payment gateways
     Route::prefix('admin/payment-gateways')->name('admin.payment-gateways.')->group(function () {
         Route::get('/',                [PaymentGatewayController::class, 'index'])->name('index');
+        Route::put('checkout-settings',[PaymentGatewayController::class, 'updateCheckout'])->name('checkout');
         Route::put('{gateway}',        [PaymentGatewayController::class, 'updateConfig'])->name('update');
         Route::post('{gateway}/toggle',[PaymentGatewayController::class, 'toggleGateway'])->name('toggle');
         Route::post('{gateway}/test',  [PaymentGatewayController::class, 'testGateway'])->name('test');

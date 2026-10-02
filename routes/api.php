@@ -80,6 +80,7 @@ Route::get('/settings/global',                     [APISettingsController::class
 Route::post('/payment/webhook',                    [PaymentController::class, 'webhook'])->name('payment.webhook');
 Route::post('/payment/opay/webhook',               [PaymentController::class, 'opayWebhook'])->name('payment.opay.webhook');
 Route::get('/payment/gateways',                    [PaymentController::class, 'gateways'])->name('payment.gateways');
+Route::get('/checkout/settings',                   [APIOrderController::class, 'checkoutSettings'])->name('checkout.settings');
 
 // Health check
 Route::get('/health', function () {
@@ -140,11 +141,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Orders ────────────────────────────────────────────────────────────────
     Route::get('/orders',                           [APIOrderController::class, 'index'])->name('orders.index');
     Route::post('/orders',                          [APIOrderController::class, 'store'])->name('orders.store');
+    Route::post('/checkout/quote',                  [APIOrderController::class, 'quote'])->name('checkout.quote');
     Route::get('/orders/{id}',                      [APIOrderController::class, 'show'])->name('orders.show');
     Route::put('/orders/{id}',                      [APIOrderController::class, 'update'])->name('orders.update');
     Route::patch('/orders/{id}',                    [APIOrderController::class, 'patch']);
     Route::delete('/orders/{id}',                   [APIOrderController::class, 'destroy'])->name('orders.destroy');
     Route::patch('/orders/{id}/status',             [APIOrderController::class, 'updateStatus'])->name('orders.update-status');
+    Route::put('/orders/{id}/status',               [APIOrderController::class, 'updateStatus']); // the app uses PUT
     Route::get('/orders/{id}/barcode',              [APIOrderController::class, 'getBarcode'])->name('orders.barcode');
     Route::post('/orders/scan-barcode',             [APIOrderController::class, 'scanBarcode'])->name('orders.scan-barcode');
 

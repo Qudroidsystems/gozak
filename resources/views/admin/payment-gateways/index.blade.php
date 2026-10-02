@@ -25,6 +25,45 @@
             Leave a key box empty to keep the saved key.</div>
     </div>
 
+    {{-- Checkout rates: the server prices every order with these (the app shows the same) --}}
+    <div class="cb-card" id="checkoutCard">
+        <div class="cb-card-header">
+            <h5><i class="ri-shopping-cart-2-line"></i>Checkout rates</h5>
+            <span class="status-pill st-info">Used to price every app order</span>
+        </div>
+        <form class="cb-card-body" id="checkoutForm" action="{{ route('admin.payment-gateways.checkout') }}" method="POST" autocomplete="off">
+            @csrf @method('PUT')
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label" for="tax_rate">Tax (VAT) %</label>
+                    <div class="input-group">
+                        <input type="number" step="0.01" min="0" max="100" class="form-control" id="tax_rate" name="tax_rate" value="{{ rtrim(rtrim(number_format($checkout['tax_rate'], 2, '.', ''), '0'), '.') }}" required>
+                        <span class="input-group-text">%</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="shipping_fee">Shipping fee</label>
+                    <div class="input-group">
+                        <span class="input-group-text">₦</span>
+                        <input type="number" step="0.01" min="0" class="form-control" id="shipping_fee" name="shipping_fee" value="{{ $checkout['shipping_fee'] + 0 }}" required>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="free_shipping_threshold">Free shipping from</label>
+                    <div class="input-group">
+                        <span class="input-group-text">₦</span>
+                        <input type="number" step="0.01" min="0" class="form-control" id="free_shipping_threshold" name="free_shipping_threshold" value="{{ $checkout['free_shipping_threshold'] + 0 }}" required>
+                    </div>
+                    <div class="form-text">Set 0 to always charge shipping.</div>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                <div class="small text-muted">The app reads these at checkout, and the server re-prices every order from your product prices — customers can't change what they pay.</div>
+                <button type="submit" class="action-btn btn-primary-cb"><i class="ri-save-3-line"></i><span>Save rates</span></button>
+            </div>
+        </form>
+    </div>
+
     @foreach($gateways as $g)
         @php
             $def    = $g->catalog();
@@ -192,6 +231,26 @@
         });
         card.querySelectorAll('input[name^="clear["]').forEach(c => { c.checked = false; });
     }
+
+    const cf = document.getElementById('checkoutForm');
+    if (cf) cf.addEventListener('submit', async e => {
+        e.preventDefault();
+        const btn = cf.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        try {
+            const res = await fetch(cf.action, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(cf),
+            });
+            const j = await res.json().catch(() => ({}));
+            say(res.ok && j.success, j.message || (j.errors ? Object.values(j.errors).flat().join(' ') : 'Could not save.'));
+        } catch (err) {
+            say(false, 'Could not save. Check your connection.');
+        } finally {
+            btn.disabled = false;
+        }
+    });
 
     document.querySelectorAll('.pg-form').forEach(form => {
         const card = form.closest('.pg-card');

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\PaymentGateway;
+use App\Models\StoreSetting;
+use App\Services\OrderPricingService;
 use App\Services\Payment\OpayGateway;
 use App\Support\PaymentGatewayCatalog;
 use Illuminate\Http\Request;
@@ -38,6 +40,7 @@ class PaymentGatewayController extends Controller
         return view('admin.payment-gateways.index', [
             'pagetitle' => 'Payment Gateways',
             'gateways'  => $gateways,
+            'checkout'  => app(OrderPricingService::class)->settings(),
             'urls'      => [
                 'paystack_webhook'  => route('payment.webhook'),
                 'paystack_callback' => route('payment.callback'),
@@ -45,6 +48,23 @@ class PaymentGatewayController extends Controller
                 'opay_return'       => route('payment.opay.return'),
             ],
         ]);
+    }
+
+    /** Save the checkout rates the server prices orders with (tax %, shipping). */
+    public function updateCheckout(Request $request)
+    {
+        $data = $request->validate([
+            'tax_rate'                => 'required|numeric|min:0|max:100',
+            'shipping_fee'            => 'required|numeric|min:0|max:10000000',
+            'free_shipping_threshold' => 'required|numeric|min:0|max:1000000000',
+        ]);
+
+        $setting = StoreSetting::first() ?? new StoreSetting(['store_name' => config('app.name', 'GozakMart')]);
+        $setting->fill($data);
+        $setting->save();
+        cache()->forget('store_settings');
+
+        return $this->reply($request, true, 'Checkout settings saved. New orders will use these rates.');
     }
 
     /** Save mode, on/off and credentials. Blank credential inputs keep the saved value. */

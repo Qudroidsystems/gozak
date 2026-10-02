@@ -18,6 +18,9 @@ class StoreSetting extends Model
         'tax_id',
         'footer_note',
         'logo',
+        'tax_rate',
+        'shipping_fee',
+        'free_shipping_threshold',
     ];
 
     public static function getSettings()

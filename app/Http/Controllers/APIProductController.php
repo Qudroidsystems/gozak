@@ -26,8 +26,59 @@ class APIProductController extends Controller
     /**
      * Calculate real-time stock from inventory movements
      */
+    /**
+     * Stock totals loaded in ONE grouped query for a whole page of products
+     * (see preloadStock). Before this, every product and every variation ran
+     * its own SUM query over the stock ledger — 20 products × N variations
+     * meant dozens of queries per /products call, which made the app slow.
+     * product_id => ['total' => int, 'variants' => [variant_id => int]]
+     */
+    private array $stockMap = [];
+    private bool $stockPreloaded = false;
+
+    private function preloadStock($productIds): void
+    {
+        $ids = collect($productIds)->filter()->unique()->values();
+        $this->stockMap       = [];
+        $this->stockPreloaded = true;
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $rows = Stock::whereIn('product_id', $ids)
+            ->selectRaw('
+                product_id,
+                product_variant_id,
+                SUM(CASE
+                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
+                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                    ELSE 0
+                END) as total
+            ')
+            ->groupBy('product_id', 'product_variant_id')
+            ->get();
+
+        foreach ($rows as $r) {
+            $pid   = (int) $r->product_id;
+            $total = (int) $r->total;
+            $this->stockMap[$pid]['total'] = ($this->stockMap[$pid]['total'] ?? 0) + $total;
+            if ($r->product_variant_id) {
+                $vid = (int) $r->product_variant_id;
+                $this->stockMap[$pid]['variants'][$vid] = ($this->stockMap[$pid]['variants'][$vid] ?? 0) + $total;
+            }
+        }
+    }
+
     private function calculateProductStock($productId, $variationId = null)
     {
+        if ($this->stockPreloaded) {
+            $entry = $this->stockMap[(int) $productId] ?? [];
+            $value = $variationId
+                ? ($entry['variants'][(int) $variationId] ?? 0)
+                : ($entry['total'] ?? 0);
+            return max(0, $value);
+        }
+
         $query = Stock::where('product_id', $productId);
 
         if ($variationId) {
@@ -346,6 +397,7 @@ class APIProductController extends Controller
             if ($request->has('limit') && $request->limit != -1) {
                 $limit    = min(max((int) $request->limit, 1), 100);
                 $products = $query->latest()->take($limit)->get();
+                $this->preloadStock($products->pluck('id'));
                 $formatted = $products->map(fn($p) => $this->formatProductData($p))->values();
 
                 return response()->json([
@@ -362,6 +414,7 @@ class APIProductController extends Controller
             // PAGINATED RESPONSE
             $perPage  = min(max((int) $request->input('per_page', 20), 1), 100);
             $products = $query->latest()->paginate($perPage);
+            $this->preloadStock(collect($products->items())->pluck('id'));
             $formatted = collect($products->items())
                 ->map(fn($p) => $this->formatProductData($p))
                 ->values();
