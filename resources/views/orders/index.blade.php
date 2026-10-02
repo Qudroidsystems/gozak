@@ -3,576 +3,204 @@
 @section('title', 'Order Management')
 
 @section('content')
+@php $cur = \App\Support\Money::symbol(); @endphp
 <div class="main-content">
-    <div class="page-content">
-        <div class="container-fluid">
+<div class="page-content">
+<div class="container-fluid">
 
-            <!-- Page Title -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0">Order Management</h4>
-                        <ol class="breadcrumb m-0">
-                            <li class="breadcrumb-item"><a href="javascript:void(0)">Ecommerce</a></li>
-                            <li class="breadcrumb-item active">Orders</li>
-                        </ol>
+    <x-cb.hero title="Orders" icon="ri-shopping-cart-2-line" subtitle="Every GozakMart order, updated live as customers check out.">
+        <x-slot:pills>
+            <span class="cb-meta-pill" id="unattendedBadge" style="{{ $stats['pending'] ? '' : 'display:none;' }}">
+                <i class="ri-alarm-warning-line"></i> <span id="unattendedCount">{{ $stats['pending'] }}</span> pending orders
+            </span>
+            <span class="cb-meta-pill"><i class="ri-checkbox-circle-line"></i> {{ number_format($stats['paid']) }} paid</span>
+            <span class="cb-meta-pill"><i class="ri-time-line"></i> {{ number_format($stats['unpaid']) }} not paid</span>
+        </x-slot:pills>
+        <x-slot:actions>
+            <button type="button" class="cb-hero-btn" onclick="exportOrders('xlsx')"><i class="ri-file-excel-2-line"></i> Export Excel</button>
+            <button type="button" class="cb-hero-btn" onclick="exportOrders('csv')"><i class="ri-file-text-line"></i> Export CSV</button>
+        </x-slot:actions>
+    </x-cb.hero>
+
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6"><x-cb.stat label="Total revenue (paid)" :value="$cur . number_format($analytics['total_revenue'], 2)" icon="ri-money-dollar-circle-line" accent="green" /></div>
+        <div class="col-xl-3 col-md-6"><x-cb.stat label="Total orders" :value="number_format($stats['total'])" icon="ri-shopping-bag-3-line" accent="sky" /></div>
+        <div class="col-xl-3 col-md-6"><x-cb.stat label="Revenue growth (month on month)" :value="($analytics['revenue_growth'] >= 0 ? '+' : '') . $analytics['revenue_growth'] . '%'" icon="ri-line-chart-line" :accent="$analytics['revenue_growth'] >= 0 ? 'teal' : 'rose'" /></div>
+        <div class="col-xl-3 col-md-6"><x-cb.stat label="Average order value" :value="$cur . number_format($analytics['avg_order_value'], 2)" icon="ri-receipt-line" accent="amber" /></div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-xl-8">
+            <x-cb.card title="Revenue — last 30 days" icon="ri-line-chart-line">
+                <div style="height:300px;"><canvas id="salesChart"></canvas></div>
+            </x-cb.card>
+        </div>
+        <div class="col-xl-4">
+            <x-cb.card title="Top sellers — last 30 days" icon="ri-fire-line">
+                @forelse($analytics['top_products'] as $item)
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <span class="text-truncate me-2">{{ $item->product?->title ?? 'Unknown product' }}</span>
+                        <span class="badge bg-primary rounded-pill">{{ $item->total_sold }}</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Analytics Cards -->
-            <div class="row">
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-primary-subtle border-0">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <div class="flex-grow-1 overflow-hidden">
-                                    <p class="text-uppercase fw-medium text-primary mb-0">Total Revenue</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">${{ number_format($analytics['total_revenue'], 2) }}</h4>
-                                </div>
-                                <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title bg-primary rounded-circle fs-3">
-                                        <i class="bi bi-currency-dollar"></i>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-success-subtle border-0">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <div class="flex-grow-1 overflow-hidden">
-                                    <p class="text-uppercase fw-medium text-success mb-0">Total Orders</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">{{ number_format($stats['total']) }}</h4>
-                                </div>
-                                <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title bg-success rounded-circle fs-3">
-                                        <i class="bi bi-cart-check"></i>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate border-0 {{ $analytics['revenue_growth'] >= 0 ? 'bg-info-subtle' : 'bg-danger-subtle' }}">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <div class="flex-grow-1 overflow-hidden">
-                                    <p class="text-uppercase fw-medium {{ $analytics['revenue_growth'] >= 0 ? 'text-info' : 'text-danger' }} mb-0">Revenue Growth</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">
-                                        {{ $analytics['revenue_growth'] >= 0 ? '+' : '' }}{{ $analytics['revenue_growth'] }}%
-                                    </h4>
-                                </div>
-                                <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title {{ $analytics['revenue_growth'] >= 0 ? 'bg-info' : 'bg-danger' }} rounded-circle fs-3">
-                                        <i class="bi bi-graph-up-arrow"></i>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6">
-                    <div class="card card-animate bg-warning-subtle border-0">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <div class="flex-grow-1 overflow-hidden">
-                                    <p class="text-uppercase fw-medium text-warning mb-0">Avg Order Value</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">${{ number_format($analytics['avg_order_value'], 2) }}</h4>
-                                </div>
-                                <div class="avatar-sm flex-shrink-0">
-                                    <span class="avatar-title bg-warning rounded-circle fs-3">
-                                        <i class="bi bi-receipt"></i>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Charts and Top Products -->
-            <div class="row mt-4">
-                <div class="col-xl-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Revenue Overview (Last 30 Days)</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="salesChart" height="300"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-4">
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Top Selling Products (Last 30 Days)</h5>
-                        </div>
-                        <div class="card-body">
-                            @if($analytics['top_products']->count() > 0)
-                                <ul class="list-group list-group-flush">
-                                    @foreach($analytics['top_products'] as $item)
-                                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                                            {{ $item->product?->name ?? 'Unknown Product' }}
-                                            <span class="badge bg-primary rounded-pill">{{ $item->total_sold }}</span>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @else
-                                <p class="text-muted">No sales data.</p>
-                            @endif
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="card-title mb-0">Order Status Distribution</h5>
-                        </div>
-                        <div class="card-body">
-                            <canvas id="statusChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Live Unattended Orders Counter -->
-            <div class="row mb-3">
-                <div class="col-12 text-end">
-                    <span class="badge bg-danger fs-6 px-3 py-2" id="unattendedBadge" style="display: none;">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        <span id="unattendedCount">0</span> Unattended Orders
-                    </span>
-                </div>
-            </div>
-
-            <!-- Filters -->
-            <div class="row mt-4">
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <form action="{{ route('adminorders.index') }}" method="GET" class="row g-3 align-items-end">
-                                <div class="col-md-3">
-                                    <input type="text" name="search" class="form-control" placeholder="Search Invoice / Customer..." value="{{ request('search') }}">
-                                </div>
-                                <div class="col-md-2">
-                                    <select name="status" class="form-select">
-                                        <option value="">All Status</option>
-                                        @foreach(['pending','processing','shipped','delivered','cancelled'] as $s)
-                                            <option value="{{ $s }}" {{ request('status') == $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <select name="payment_status" class="form-select">
-                                        <option value="">Payment Status</option>
-                                        <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>Paid</option>
-                                        <option value="unpaid" {{ request('payment_status') == 'unpaid' ? 'selected' : '' }}>Unpaid</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="date" name="from" class="form-control" value="{{ request('from') }}">
-                                </div>
-                                <div class="col-md-2">
-                                    <input type="date" name="to" class="form-control" value="{{ request('to') }}">
-                                </div>
-                                <div class="col-md-1">
-                                    <button type="submit" class="btn btn-primary w-100">
-                                        <i class="bi bi-funnel"></i> Filter
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Orders Table -->
-            <div class="row mt-4">
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-header d-flex align-items-center justify-content-between">
-                            <h5 class="card-title mb-0">
-                                Orders <span class="badge bg-dark-subtle text-dark ms-1">{{ $orders->total() }}</span>
-                            </h5>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-success" onclick="exportOrders('xlsx')">
-                                    Export Excel
-                                </button>
-                                <button type="button" class="btn btn-info" onclick="exportOrders('csv')">
-                                    Export CSV
-                                </button>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-centered align-middle table-nowrap mb-0" id="ordersTable">
-                                    <thead class="table-active">
-                                        <tr>
-                                            <th>Invoice</th>
-                                            <th>Customer</th>
-                                            <th>Date & Time</th>
-                                            <th>Total</th>
-                                            <th>Payment</th>
-                                            <th>Status</th>
-                                            <th>Items</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse($orders as $order)
-                                        <tr class="order-row"
-                                            data-order-id="{{ $order->id }}"
-                                            data-original-status="{{ $order->status }}"
-                                            data-has-been-updated="{{ $order->status_updated_at ? 'true' : 'false' }}"
-                                            data-is-delivered="{{ $order->status === 'delivered' ? 'true' : 'false' }}">
-                                            <td>
-                                                <a href="{{ route('adminorders.show', $order) }}" class="fw-bold text-primary">
-                                                    {{ $order->invoice_number ?? substr($order->id, 0, 8) }}
-                                                </a>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="avatar-xs me-3">
-                                                        <div class="avatar-title bg-secondary-subtle rounded-circle text-uppercase">
-                                                            {{ Str::substr($order->user->first_name ?? 'G', 0, 1) }}
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <h6 class="mb-0">{{ $order->user->first_name ?? 'Guest' }} {{ $order->user->last_name ?? '' }}</h6>
-                                                        <small class="text-muted">{{ $order->user->email ?? 'N/A' }}</small>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>{{ $order->created_at->format('d M, Y H:i') }}</td>
-                                            <td class="fw-bold text-success">${{ number_format($order->total_amount, 2) }}</td>
-                                            <td>
-                                                <span class="badge {{ $order->payment_status == 'paid' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' }}">
-                                                    {{ ucfirst($order->payment_status) }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <select class="form-select form-select-sm status-select"
-                                                        data-id="{{ $order->id }}"
-                                                        data-current="{{ $order->status }}">
-                                                    @foreach(['pending','processing','shipped','delivered','cancelled'] as $s)
-                                                        <option value="{{ $s }}" {{ $order->status == $s ? 'selected' : '' }}>
-                                                            {{ ucfirst($s) }}
-                                                        </option>
-                                                    @endforeach
-                                                </select>
-                                            </td>
-                                            <td class="text-center">{{ $order->items_count }}</td>
-                                            <td>
-                                                <div class="dropdown">
-                                                    <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
-                                                        <i class="bi bi-three-dots-vertical"></i>
-                                                    </button>
-                                                    <ul class="dropdown-menu dropdown-menu-end">
-                                                        <li><a class="dropdown-item" href="{{ route('adminorders.show', $order) }}">View Details</a></li>
-                                                        <li><a class="dropdown-item" href="{{ route('adminorders.invoice', $order) }}" target="_blank">PDF Invoice</a></li>
-                                                        <li><a class="dropdown-item" href="javascript:void(0)" onclick="emailInvoice('{{ $order->id }}')">Email Invoice</a></li>
-                                                    </ul>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        @empty
-                                        <tr>
-                                            <td colspan="8" class="text-center py-5 text-muted">No orders found.</td>
-                                        </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div class="row mt-4 align-items-center">
-                                <div class="col-sm">
-                                    <div class="text-muted text-center text-sm-start">
-                                        Showing {{ $orders->firstItem() }} to {{ $orders->lastItem() }} of {{ $orders->total() }} entries
-                                    </div>
-                                </div>
-                                <div class="col-sm-auto">
-                                    {!! $orders->appends(request()->query())->links('pagination::bootstrap-5') !!}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+                @empty
+                    <p class="text-muted mb-0">No sales data.</p>
+                @endforelse
+            </x-cb.card>
+            <x-cb.card title="Status distribution" icon="ri-pie-chart-line">
+                <div style="height:200px;"><canvas id="statusChart"></canvas></div>
+            </x-cb.card>
         </div>
     </div>
+
+    <x-cb.card title="All Orders" icon="ri-list-check" :flush="true">
+        <x-slot:tools>
+            <select id="f-status" class="form-select form-select-sm" data-dt-filter="#ordersTable" style="width:auto;">
+                <option value="">All statuses</option>
+                @foreach(['pending','processing','shipped','delivered','cancelled'] as $s)
+                    <option value="{{ $s }}" @selected(request('status') === $s)>{{ ucfirst($s) }} ({{ $stats[$s] ?? 0 }})</option>
+                @endforeach
+            </select>
+            <select id="f-payment" class="form-select form-select-sm" data-dt-filter="#ordersTable" style="width:auto;">
+                <option value="">Any payment</option>
+                <option value="paid">Paid</option>
+                <option value="unpaid">Unpaid</option>
+                <option value="pending">Pending</option>
+            </select>
+            <input type="date" id="f-from" class="form-control form-control-sm" data-dt-filter="#ordersTable" style="width:auto;" title="From">
+            <input type="date" id="f-to" class="form-control form-control-sm" data-dt-filter="#ordersTable" style="width:auto;" title="To">
+        </x-slot:tools>
+        <div class="p-3 gz-dt-wrap">
+            <table id="ordersTable" class="table gz-dt align-middle w-100 mb-0">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Customer</th>
+                        <th>Date &amp; Time</th>
+                        <th>Total</th>
+                        <th>Payment</th>
+                        <th>Status</th>
+                        <th>Items</th>
+                        <th style="width:60px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </x-cb.card>
+
+</div>
 </div>
 
-<!-- Audio Elements for Notifications -->
-<audio id="statusChangeSound" preload="auto">
-    <source src="{{ asset('sounds/notification-ding.mp3') }}" type="audio/mpeg">
-</audio>
-<audio id="newOrderSound" preload="auto">
-    <source src="{{ asset('sounds/cash-register.mp3') }}" type="audio/mpeg">
-</audio>
-
-
-
+<!-- Audio for live notifications -->
+<audio id="statusChangeSound" preload="auto"><source src="{{ asset('sounds/notification-ding.mp3') }}" type="audio/mpeg"></audio>
+<audio id="newOrderSound" preload="auto"><source src="{{ asset('sounds/cash-register.mp3') }}" type="audio/mpeg"></audio>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://unpkg.com/laravel-echo@1.15.3/dist/echo.iife.js"></script>
 <script src="https://js.pusher.com/8.2/pusher.min.js"></script>
-
 <script>
-// ================== GLOBAL VARIABLES ==================
-let unattendedCount = {{ $orders->whereNull('status_updated_at')->where('status', 'pending')->count() }};
+var CUR = @json($cur);
+var ORDER_URLS = {
+    data:   @json(route('adminorders.data')),
+    status: @json(route('adminorders.status', '__ID__')),
+    email:  @json(route('adminorders.emailInvoice', '__ID__')),
+    export: @json(route('adminorders.export'))
+};
+var unattendedCount = {{ (int) $stats['pending'] }};
+var ordersTable;
 
-// ================== BADGE UPDATE FUNCTION ==================
 function updateUnattendedBadge() {
-    const badge = document.getElementById('unattendedBadge');
-    const countEl = document.getElementById('unattendedCount');
-
-    if (!badge || !countEl) return;
-
-    countEl.textContent = unattendedCount;
-    badge.style.display = unattendedCount > 0 ? 'inline-block' : 'none';
+    $('#unattendedCount').text(unattendedCount);
+    $('#unattendedBadge').toggle(unattendedCount > 0);
 }
 
-// ================== ROW HIGHLIGHT FUNCTION ==================
-function applyRowHighlight(row) {
-    row.classList.remove('table-warning', 'table-success');
-
-    if (row.dataset.isDelivered === 'true') {
-        row.classList.add('table-success');
-    } else if (row.dataset.hasBeenUpdated === 'false') {
-        row.classList.add('table-warning');
-    }
+function currentFilters() {
+    return { status: $('#f-status').val(), payment_status: $('#f-payment').val(), from: $('#f-from').val(), to: $('#f-to').val() };
 }
 
-// ================== INITIAL SETUP ==================
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.order-row').forEach(row => applyRowHighlight(row));
-    updateUnattendedBadge();
-});
-
-// ================== ECHO + PUSHER INITIALIZATION ==================
-window.Pusher = Pusher;
-
-window.Echo = new Echo({
-    broadcaster: 'pusher',
-    key: '{{ env('PUSHER_APP_KEY') }}',
-    cluster: '{{ env('PUSHER_APP_CLUSTER') }}',
-    forceTLS: true
-});
-
-// ================== REAL-TIME LISTENERS ==================
-Echo.private('orders')
-    // Status Change Listener
-    .listen('OrderStatusChanged', (e) => {
-        const row = document.querySelector(`tr[data-order-id="${e.order_id}"]`);
-        if (!row) return;
-
-        document.getElementById('statusChangeSound').currentTime = 0;
-        document.getElementById('statusChangeSound').play().catch(() => {});
-
-        const select = row.querySelector('.status-select');
-        if (select) select.value = e.new_status;
-
-        const wasPending = row.dataset.originalStatus === 'pending';
-        row.dataset.originalStatus = e.new_status;
-        row.dataset.isDelivered = (e.new_status === 'delivered') ? 'true' : 'false';
-        row.dataset.hasBeenUpdated = 'true';
-
-        applyRowHighlight(row);
-
-        if (wasPending && e.new_status !== 'pending') {
-            unattendedCount = Math.max(0, unattendedCount - 1);
-            updateUnattendedBadge();
-        }
-
-        Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'info',
-            title: `Order #${e.invoice_number} updated to ${e.new_status}`,
-            showConfirmButton: false,
-            timer: 4000,
-            timerProgressBar: true
-        });
-    })
-
-    // New Order Listener
-    .listen('NewOrderCreated', (e) => {
-        document.getElementById('newOrderSound').currentTime = 0;
-        document.getElementById('newOrderSound').play().catch(() => {});
-
-        unattendedCount++;
-        updateUnattendedBadge();
-
-        const tbody = document.querySelector('#ordersTable tbody');
-        const newRow = document.createElement('tr');
-        newRow.classList.add('order-row', 'table-warning');
-        newRow.dataset.orderId = e.id;
-        newRow.dataset.originalStatus = 'pending';
-        newRow.dataset.hasBeenUpdated = 'false';
-        newRow.dataset.isDelivered = 'false';
-
-        newRow.innerHTML = `
-            <td><a href="{{ url('/adminorders') }}/${e.id}" class="fw-bold text-primary">${e.invoice_number}</a></td>
-            <td>
-                <div class="d-flex align-items-center">
-                    <div class="avatar-xs me-3">
-                        <div class="avatar-title bg-secondary-subtle rounded-circle text-uppercase">
-                            ${e.customer.charAt(0) || 'G'}
-                        </div>
-                    </div>
-                    <div>
-                        <h6 class="mb-0">${e.customer}</h6>
-                        <small class="text-muted">New Customer</small>
-                    </div>
-                </div>
-            </td>
-            <td>${e.created_at}</td>
-            <td class="fw-bold text-success">$${e.total}</td>
-            <td><span class="badge bg-danger-subtle text-danger">Unpaid</span></td>
-            <td>
-                <select class="form-select form-select-sm status-select" data-id="${e.id}" data-current="pending">
-                    <option value="pending" selected>Pending</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-            </td>
-            <td class="text-center">0</td>
-            <td>
-                <div class="dropdown">
-                    <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
-                        <i class="bi bi-three-dots-vertical"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ url('/adminorders') }}/${e.id}">View Details</a></li>
-                        <li><a class="dropdown-item" href="{{ url('/adminorders') }}/${e.id}/invoice" target="_blank">PDF Invoice</a></li>
-                        <li><a class="dropdown-item" href="javascript:void(0)" onclick="emailInvoice('${e.id}')">Email Invoice</a></li>
-                    </ul>
-                </div>
-            </td>
-        `;
-
-        tbody.insertBefore(newRow, tbody.firstChild);
-        newRow.querySelector('.status-select').addEventListener('change', statusChangeHandler);
-
-        Swal.fire({
-            toast: true,
-            position: 'top-end',
-            icon: 'success',
-            title: `New Order Received! #${e.invoice_number} - $${e.total}`,
-            showConfirmButton: false,
-            timer: 6000,
-            timerProgressBar: true
-        });
-    });
-
-// ================== STATUS CHANGE HANDLER ==================
-function statusChangeHandler() {
-    const orderId = this.dataset.id;
-    const newStatus = this.value;
-    const row = this.closest('.order-row');
-    const oldStatus = row.dataset.originalStatus;
-
-    row.dataset.originalStatus = newStatus;
-    row.dataset.isDelivered = newStatus === 'delivered' ? 'true' : 'false';
-    row.dataset.hasBeenUpdated = 'true';
-    applyRowHighlight(row);
-
-    axios.post(`/adminorders/${orderId}/status`, { status: newStatus })
-        .then(() => {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'success',
-                title: 'Status Updated',
-                showConfirmButton: false,
-                timer: 2000
-            });
-        })
-        .catch(() => {
-            Swal.fire('Error', 'Failed to update status', 'error');
-            this.value = oldStatus;
-            row.dataset.originalStatus = oldStatus;
-            row.dataset.isDelivered = oldStatus === 'delivered' ? 'true' : 'false';
-            row.dataset.hasBeenUpdated = row.dataset.hasBeenUpdated || 'false';
-            applyRowHighlight(row);
-        });
-}
-
-document.querySelectorAll('.status-select').forEach(select => {
-    select.addEventListener('change', statusChangeHandler);
-});
-
-// ================== EXPORT FUNCTION ==================
 function exportOrders(format) {
-    const url = new URL('{{ route("adminorders.export") }}');
-    new URLSearchParams(window.location.search).forEach((v, k) => url.searchParams.append(k, v));
+    var url = new URL(ORDER_URLS.export);
+    var f = currentFilters();
+    Object.keys(f).forEach(function (k) { if (f[k]) url.searchParams.append(k, f[k]); });
     url.searchParams.append('format', format);
     window.location = url;
 }
 
-// ================== EMAIL INVOICE FUNCTION ==================
-function emailInvoice(id) {
-    axios.post('{{ route("adminorders.emailInvoice", ":id") }}'.replace(':id', id))
-        .then(() => Swal.fire('Success', 'Invoice sent to customer', 'success'))
-        .catch(() => Swal.fire('Error', 'Failed to send invoice', 'error'));
-}
+function playSound(id) { var a = document.getElementById(id); if (a) { a.currentTime = 0; a.play().catch(function () {}); } }
 
-// ================== CHART INITIALIZATION ==================
 document.addEventListener('DOMContentLoaded', function () {
-    const salesCtx = document.getElementById('salesChart').getContext('2d');
-    new Chart(salesCtx, {
-        type: 'line',
-        data: {
-            labels: @json($analytics['sales_chart']['labels'] ?? []),
-            datasets: [{
-                label: 'Daily Sales ($)',
-                data: @json($analytics['sales_chart']['data'] ?? []),
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13,110,253,0.1)',
-                tension: 0.4,
-                fill: true
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { position: 'top' } },
-            scales: { y: { beginAtZero: true, ticks: { callback: v => '$' + v } } }
-        }
+    ordersTable = GZ.dt('#ordersTable', {
+        url: ORDER_URLS.data,
+        order: [[2, 'desc']],
+        filters: currentFilters,
+        columns: [
+            { data: 'invoice',        name: 'invoice' },
+            { data: 'customer',       name: 'customer' },
+            { data: 'created_at',     name: 'orders.created_at', searchable: false },
+            { data: 'total_amount',   name: 'orders.total_amount', searchable: false },
+            { data: 'payment_status', name: 'orders.payment_status', searchable: false },
+            { data: 'status',         name: 'orders.status', searchable: false },
+            { data: 'items_count',    name: 'items_count', searchable: false },
+            { data: 'action',         name: 'action', orderable: false, searchable: false }
+        ]
     });
 
-    const statusCtx = document.getElementById('statusChart').getContext('2d');
-    new Chart(statusCtx, {
+    // Status change (delegated — works on every page of the table)
+    $('#ordersTable').on('change', '.status-select', function () {
+        var sel = this, row = $(sel).closest('tr'), oldStatus = sel.dataset.current, newStatus = sel.value;
+        $.post(ORDER_URLS.status.replace('__ID__', sel.dataset.id), { status: newStatus })
+            .done(function () {
+                sel.dataset.current = newStatus;
+                row.removeClass('table-warning table-success')
+                   .addClass(newStatus === 'delivered' ? 'table-success' : (newStatus === 'pending' ? 'table-warning' : ''));
+                if (oldStatus === 'pending' && newStatus !== 'pending') { unattendedCount = Math.max(0, unattendedCount - 1); }
+                if (oldStatus !== 'pending' && newStatus === 'pending') { unattendedCount++; }
+                updateUnattendedBadge();
+                GZ.toast('Status updated to ' + newStatus);
+            })
+            .fail(function (x) { sel.value = oldStatus; Swal.fire('Error', GZ.xhrError(x), 'error'); });
+    });
+
+    $('#ordersTable').on('click', '.email-invoice', function () {
+        $.post(ORDER_URLS.email.replace('__ID__', $(this).data('id')))
+            .done(function () { Swal.fire('Success', 'Invoice sent to customer', 'success'); })
+            .fail(function () { Swal.fire('Error', 'Failed to send invoice', 'error'); });
+    });
+
+    // Charts
+    new Chart(document.getElementById('salesChart'), {
+        type: 'line',
+        data: { labels: @json($analytics['sales_chart']['labels'] ?? []), datasets: [{ label: 'Daily sales', data: @json($analytics['sales_chart']['data'] ?? []), borderColor: '#0d9488', backgroundColor: 'rgba(13,148,136,.12)', tension: .4, fill: true }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: function (v) { return CUR + v; } } } } }
+    });
+    new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',
         data: {
             labels: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
-            datasets: [{
-                data: [
-                    {{ $stats['pending'] ?? 0 }},
-                    {{ $stats['processing'] ?? 0 }},
-                    {{ $stats['shipped'] ?? 0 }},
-                    {{ $stats['delivered'] ?? 0 }},
-                    {{ $stats['cancelled'] ?? 0 }}
-                ],
-                backgroundColor: ['#ffc107', '#0dcaf0', '#0d6efd', '#198754', '#dc3545']
-            }]
+            datasets: [{ data: [{{ $stats['pending'] ?? 0 }}, {{ $stats['processing'] ?? 0 }}, {{ $stats['shipped'] ?? 0 }}, {{ $stats['delivered'] ?? 0 }}, {{ $stats['cancelled'] ?? 0 }}], backgroundColor: ['#f59e0b', '#0ea5e9', '#6366f1', '#22c55e', '#f43f5e'] }]
         },
-        options: {
-            responsive: true,
-            plugins: { legend: { position: 'bottom' } }
-        }
+        options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
     });
+
+    // Live updates (Pusher) — reload the table instead of hand-building rows
+    @if(config('broadcasting.connections.pusher.key') || env('PUSHER_APP_KEY'))
+    try {
+        window.Pusher = Pusher;
+        window.Echo = new Echo({ broadcaster: 'pusher', key: @json(env('PUSHER_APP_KEY')), cluster: @json(env('PUSHER_APP_CLUSTER')), forceTLS: true });
+        Echo.private('orders')
+            .listen('OrderStatusChanged', function (e) {
+                playSound('statusChangeSound');
+                ordersTable.ajax.reload(null, false);
+                GZ.toast('Order #' + e.invoice_number + ' updated to ' + e.new_status, 'info');
+            })
+            .listen('NewOrderCreated', function (e) {
+                playSound('newOrderSound');
+                unattendedCount++; updateUnattendedBadge();
+                ordersTable.ajax.reload(null, false);
+                GZ.toast('New order #' + e.invoice_number + ' — ' + CUR + e.total);
+            });
+    } catch (err) { console.warn('Live order updates unavailable', err); }
+    @endif
 });
 </script>
 

@@ -29,7 +29,7 @@
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
                                     <p class="text-uppercase fw-medium text-warning mb-0">Total Deals</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">{{ $deals->total() }}</h4>
+                                    <h4 class="fs-22 fw-semibold mb-0">{{ $dealStats['total'] }}</h4>
                                 </div>
                                 <div class="avatar-sm flex-shrink-0">
                                     <span class="avatar-title bg-warning rounded-circle fs-3 text-white">⚡</span>
@@ -44,7 +44,7 @@
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
                                     <p class="text-uppercase fw-medium text-success mb-0">Active Now</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">{{ $deals->getCollection()->where('is_active', true)->count() }}</h4>
+                                    <h4 class="fs-22 fw-semibold mb-0">{{ $dealStats['active'] }}</h4>
                                 </div>
                                 <div class="avatar-sm flex-shrink-0">
                                     <span class="avatar-title bg-success rounded-circle fs-3">
@@ -61,7 +61,7 @@
                             <div class="d-flex align-items-center">
                                 <div class="flex-grow-1">
                                     <p class="text-uppercase fw-medium text-danger mb-0">Inactive</p>
-                                    <h4 class="fs-22 fw-semibold mb-0">{{ $deals->getCollection()->where('is_active', false)->count() }}</h4>
+                                    <h4 class="fs-22 fw-semibold mb-0">{{ $dealStats['inactive'] }}</h4>
                                 </div>
                                 <div class="avatar-sm flex-shrink-0">
                                     <span class="avatar-title bg-danger rounded-circle fs-3">
@@ -206,151 +206,35 @@
                     </div>
                 </div>
 
-                {{-- ── Right: Deals Table ── --}}
+                {{-- ── Right: Deals Table (server-side DataTable) ── --}}
                 <div class="col-xl-8">
-                    <div class="card">
-                        <div class="card-header d-flex align-items-center justify-content-between">
-                            <h5 class="card-title mb-0">
-                                Current Deals
-                                <span class="badge bg-dark-subtle text-dark ms-1">{{ $deals->total() }}</span>
-                            </h5>
-                            <input type="text" id="dealSearch" class="form-control form-control-sm w-auto"
-                                   placeholder="Filter by product..." style="min-width:200px;">
+                    <x-cb.card title="Current Deals" icon="ri-flashlight-line" :count="$dealStats['total']" :flush="true">
+                        <x-slot:tools>
+                            <select id="f-deal-status" class="form-select form-select-sm" data-dt-filter="#dealsTable" style="width:auto;">
+                                <option value="">All deals</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="expired">Expired</option>
+                            </select>
+                        </x-slot:tools>
+                        <div class="p-3 gz-dt-wrap">
+                            <table class="table gz-dt align-middle w-100 mb-0" id="dealsTable">
+                                <thead>
+                                    <tr>
+                                        <th style="width:36px;">#</th>
+                                        <th>Product</th>
+                                        <th class="text-center">Discount</th>
+                                        <th class="text-center">Deal Price</th>
+                                        <th class="text-center">Stock Left</th>
+                                        <th>Ends At</th>
+                                        <th class="text-center">Active</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
                         </div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table class="table table-centered align-middle table-hover mb-0" id="dealsTable">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th style="width:36px;">#</th>
-                                            <th>Product</th>
-                                            <th class="text-center">Discount</th>
-                                            <th class="text-center">Deal Price</th>
-                                            <th class="text-center">Stock Left</th>
-                                            <th>Ends At</th>
-                                            <th class="text-center">Active</th>
-                                            <th class="text-center">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse($deals as $deal)
-                                        @php
-                                            $discountedPrice = ($deal->product?->price ?? 0) * (1 - $deal->discount_percentage / 100);
-                                            $stockLeft       = $deal->stock_left;
-                                        @endphp
-                                        <tr data-deal-id="{{ $deal->id }}"
-                                            data-search="{{ strtolower($deal->product?->title ?? '') }}">
-                                            <td class="text-muted small">{{ $deal->sort_order }}</td>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    @if($deal->product?->thumbnail)
-                                                        <img src="{{ asset('storage/'.$deal->product->thumbnail) }}"
-                                                             class="rounded me-2 flex-shrink-0"
-                                                             style="width:44px;height:44px;object-fit:cover;">
-                                                    @else
-                                                        <div class="bg-light rounded d-flex align-items-center justify-content-center me-2 flex-shrink-0"
-                                                             style="width:44px;height:44px;">
-                                                            <i class="bi bi-image text-muted"></i>
-                                                        </div>
-                                                    @endif
-                                                    <div>
-                                                        <h6 class="mb-0 small fw-semibold">
-                                                            {{ Str::limit($deal->product?->title ?? 'Unknown', 38) }}
-                                                        </h6>
-                                                        <small class="text-muted">
-                                                            SKU: {{ $deal->product?->sku ?? '-' }}
-                                                            &nbsp;·&nbsp;
-                                                            Original: ₦{{ number_format($deal->product?->price ?? 0, 0) }}
-                                                        </small>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="text-center">
-                                                <span class="badge bg-danger px-2 py-1 fs-6">
-                                                    -{{ $deal->discount_percentage }}%
-                                                </span>
-                                            </td>
-                                            <td class="text-center fw-semibold text-success">
-                                                ₦{{ number_format($discountedPrice, 0) }}
-                                            </td>
-                                            <td class="text-center">
-                                                @if($stockLeft > 10)
-                                                    <span class="badge bg-success-subtle text-success">{{ $stockLeft }}</span>
-                                                @elseif($stockLeft > 0)
-                                                    <span class="badge bg-warning-subtle text-warning">{{ $stockLeft }} low</span>
-                                                @else
-                                                    <span class="badge bg-danger-subtle text-danger">Sold out</span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                @if($deal->ends_at)
-                                                    @php $expired = $deal->ends_at->isPast(); @endphp
-                                                    <span class="{{ $expired ? 'text-danger' : 'text-muted' }} small">
-                                                        <i class="bi bi-clock me-1"></i>
-                                                        {{ $deal->ends_at->format('M d, Y H:i') }}
-                                                        @if($expired)
-                                                            <span class="badge bg-danger-subtle text-danger ms-1">Expired</span>
-                                                        @endif
-                                                    </span>
-                                                @else
-                                                    <span class="text-muted small">No end date</span>
-                                                @endif
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="form-check form-switch d-flex justify-content-center mb-0">
-                                                    <input class="form-check-input toggle-deal" type="checkbox"
-                                                           data-id="{{ $deal->id }}"
-                                                           {{ $deal->is_active ? 'checked' : '' }}>
-                                                </div>
-                                            </td>
-                                            @php
-                                                $dealData = json_encode([
-                                                    'product_id'          => $deal->product_id,
-                                                    'product_title'       => $deal->product?->title,
-                                                    'product_price'       => $deal->product?->price,
-                                                    'product_thumb'       => $deal->product?->thumbnail ? asset('storage/'.$deal->product->thumbnail) : '',
-                                                    'product_sku'         => $deal->product?->sku,
-                                                    'discount_percentage' => $deal->discount_percentage,
-                                                    'stock_limit'         => $deal->stock_limit,
-                                                    'starts_at'           => $deal->starts_at?->format('Y-m-d\TH:i'),
-                                                    'ends_at'             => $deal->ends_at?->format('Y-m-d\TH:i'),
-                                                    'is_active'           => $deal->is_active,
-                                                    'sort_order'          => $deal->sort_order,
-                                                ]);
-                                            @endphp
-                                            <td class="text-center">
-                                                <div class="d-flex justify-content-center gap-1">
-                                                    <button class="btn btn-sm btn-outline-primary edit-deal-btn"
-                                                            title="Edit"
-                                                            data-deal="{{ base64_encode($dealData) }}">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </button>
-                                                    <button class="btn btn-sm btn-outline-danger delete-deal-btn"
-                                                            title="Delete"
-                                                            data-id="{{ $deal->id }}">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        @empty
-                                        <tr>
-                                            <td colspan="8" class="text-center py-5 text-muted">
-                                                <div class="mb-2" style="font-size:2.5rem;">⚡</div>
-                                                No lightning deals yet. Add your first deal using the form on the left.
-                                            </td>
-                                        </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
-                            @if($deals->hasPages())
-                                <div class="p-3 border-top">
-                                    {!! $deals->links('pagination::bootstrap-5') !!}
-                                </div>
-                            @endif
-                        </div>
-                    </div>
+                    </x-cb.card>
                 </div>
 
             </div>
@@ -367,13 +251,13 @@
         'stock' => $p->stock,
         'thumb' => $p->thumbnail ? asset('storage/'.$p->thumbnail) : '',
     ]);
-    $jsDealsProducts = $deals->getCollection()->map(fn($d) => [
-        'id'    => $d->product_id,
-        'title' => $d->product?->title ?? '',
-        'sku'   => $d->product?->sku ?? '',
-        'price' => $d->product?->price ?? 0,
-        'stock' => $d->product?->stock ?? 0,
-        'thumb' => $d->product?->thumbnail ? asset('storage/'.$d->product->thumbnail) : '',
+    $jsDealsProducts = $dealProducts->map(fn($p) => [
+        'id'    => $p->id,
+        'title' => $p->title,
+        'sku'   => $p->sku ?? '',
+        'price' => $p->price,
+        'stock' => $p->stock,
+        'thumb' => $p->thumbnail ? asset('storage/'.$p->thumbnail) : '',
     ]);
     $allProductsJson = $jsProducts->merge($jsDealsProducts)->unique('id')->values()->toJson();
 @endphp
@@ -578,19 +462,28 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!r.isConfirmed) return;
             axios.delete(`/lightning-deals/${id}`)
                 .then(() => {
-                    document.querySelector(`tr[data-deal-id="${id}"]`)?.remove();
+                    window.dealsTable && window.dealsTable.ajax.reload(null, false);
                     Swal.fire({ icon:'success', title:'Removed!', timer:1200, showConfirmButton:false });
                 })
                 .catch(() => Swal.fire('Error','Failed to delete deal','error'));
         });
     });
 
-    // ── Client-side filter ────────────────────────────────────────────────────
-    document.getElementById('dealSearch').addEventListener('input', function () {
-        const term = this.value.toLowerCase();
-        document.querySelectorAll('#dealsTable tbody tr[data-search]').forEach(row => {
-            row.style.display = row.dataset.search.includes(term) ? '' : 'none';
-        });
+    // ── Server-side table ─────────────────────────────────────────────────────
+    window.dealsTable = GZ.dt('#dealsTable', {
+        url: @json(route('lightning-deals.data')),
+        order: [[0, 'asc']],
+        filters: function () { return { status: $('#f-deal-status').val() }; },
+        columns: [
+            { data: 'sort_order',          name: 'lightning_deals.sort_order', searchable: false },
+            { data: 'product',             name: 'product' },
+            { data: 'discount_percentage', name: 'lightning_deals.discount_percentage', searchable: false, className: 'text-center' },
+            { data: 'deal_price',          name: 'deal_price', orderable: false, searchable: false, className: 'text-center' },
+            { data: 'stock_left',          name: 'stock_left', orderable: false, searchable: false, className: 'text-center' },
+            { data: 'ends_at',             name: 'lightning_deals.ends_at', searchable: false },
+            { data: 'is_active',           name: 'lightning_deals.is_active', searchable: false, className: 'text-center' },
+            { data: 'action',              name: 'action', orderable: false, searchable: false, className: 'text-center' }
+        ]
     });
 
 });

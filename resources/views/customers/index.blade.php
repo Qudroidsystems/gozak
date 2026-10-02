@@ -3,136 +3,69 @@
 
 @section('content')
 <div class="main-content">
-    <div class="page-content">
-        <div class="container-fluid">
+<div class="page-content">
+<div class="container-fluid">
 
-            <div class="row">
-                <div class="col-12">
-                    <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0">Customer Management</h4>
-                        <ol class="breadcrumb m-0">
-                            <li class="breadcrumb-item"><a href="javascript:void(0)">Ecommerce</a></li>
-                            <li class="breadcrumb-item active">Customers</li>
-                        </ol>
-                    </div>
-                </div>
-            </div>
+    <x-cb.hero title="Customers" icon="ri-user-heart-line" subtitle="Everyone who has signed up on the GozakMart app, with their order count and lifetime spend.">
+        <x-slot:actions>
+            <a href="{{ route('customers.export') }}" class="cb-hero-btn"><i class="ri-file-excel-2-line"></i> Export Excel</a>
+        </x-slot:actions>
+    </x-cb.hero>
 
-            <!-- Stats -->
-            <div class="row">
-            <div class="col-xl-3 col-md-6">
-                <div class="card card-animate bg-primary-subtle">
-                    <div class="card-body">
-                        <p class="text-uppercase fw-medium text-primary mb-0">Total Customers</p>
-                        <h4 class="fs-22 fw-semibold mb-0">{{ number_format($stats['total']) }}</h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-xl-3 col-md-6">
-                <div class="card card-animate bg-success-subtle">
-                    <div class="card-body">
-                        <p class="text-uppercase fw-medium text-success mb-0">Verified Customers</p>
-                        <h4 class="fs-22 fw-semibold mb-0">{{ number_format($stats['active']) }}</h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-xl-3 col-md-6">
-                <div class="card card-animate bg-secondary-subtle">
-                    <div class="card-body">
-                        <p class="text-uppercase fw-medium text-secondary mb-0">Unverified</p>
-                        <h4 class="fs-22 fw-semibold mb-0">{{ number_format($stats['total'] - $stats['active']) }}</h4>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-xl-3 col-md-6">
-                <div class="card card-animate bg-info-subtle">
-                    <div class="card-body">
-                        <p class="text-uppercase fw-medium text-info mb-0">Total Revenue</p>
-                        <h4 class="fs-22 fw-semibold mb-0">${{ number_format($stats['total_spent'], 2) }}</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-            <!-- Search & Export -->
-            <div class="row mt-4">
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-body">
-                            <form action="{{ route('customers.index') }}" method="GET" class="row g-3">
-                                <div class="col-md-8">
-                                    <input type="text" name="search" class="form-control" placeholder="Search customer..." value="{{ request('search') }}">
-                                </div>
-                                <div class="col-md-4">
-                                    <button type="submit" class="btn btn-primary me-2">Search</button>
-                                    <a href="{{ route('customers.export') }}" class="btn btn-success">Export Excel</a>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Customers Table -->
-            <div class="row mt-4">
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>All Customers</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table align-middle">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Orders</th>
-                                            <th>Total Spent</th>
-                                            <th>Status</th>
-                                            <th>Joined</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @forelse($customers as $customer)
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="avatar-xs me-3">
-                                                        <div class="avatar-title bg-primary-subtle rounded-circle">
-                                                            {{ Str::substr($customer->first_name, 0, 1) }}
-                                                        </div>
-                                                    </div>
-                                                    <div>
-                                                        <h6 class="mb-0">{{ $customer->first_name }} {{ $customer->last_name }}</h6>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>{{ $customer->email }}</td>
-                                            <td>{{ $customer->orders_count }}</td>
-                                            <td>${{ number_format($customer->orders_sum_total_amount ?? 0, 2) }}</td>
-                                            <td>
-                                                <span class="badge {{ $customer->status == 'active' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger' }}">
-                                                    {{ ucfirst($customer->status) }}
-                                                </span>
-                                            </td>
-                                            <td>{{ $customer->created_at->format('d M Y') }}</td>
-                                        </tr>
-                                        @empty
-                                        <tr><td colspan="6" class="text-center py-5">No customers found</td></tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
-                            </div>
-                            {!! $customers->links() !!}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6"><x-cb.stat label="Total customers" :value="number_format($stats['total'])" icon="ri-group-line" accent="sky" /></div>
+        <div class="col-xl-3 col-md-6"><x-cb.stat label="Verified" :value="number_format($stats['active'])" icon="ri-shield-check-line" accent="green" /></div>
+        <div class="col-xl-3 col-md-6"><x-cb.stat label="New this month" :value="number_format($stats['new_month'])" icon="ri-user-add-line" accent="violet" /></div>
+        <div class="col-xl-3 col-md-6"><x-cb.stat label="Lifetime revenue" :value="\App\Support\Money::fmt($stats['total_spent'])" icon="ri-money-dollar-circle-line" accent="amber" /></div>
     </div>
+
+    <x-cb.card title="All Customers" icon="ri-team-line" :flush="true">
+        <x-slot:tools>
+            <select id="f-status" class="form-select form-select-sm" data-dt-filter="#customersTable" style="width:auto;">
+                <option value="">All customers</option>
+                <option value="verified">Verified</option>
+                <option value="unverified">Unverified</option>
+                <option value="buyers">Have ordered</option>
+            </select>
+        </x-slot:tools>
+        <div class="p-3 gz-dt-wrap">
+            <table id="customersTable" class="table gz-dt align-middle w-100 mb-0">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Email</th>
+                        <th>Orders</th>
+                        <th>Total Spent</th>
+                        <th>Status</th>
+                        <th>Joined</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </x-cb.card>
+
 </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var table = GZ.dt('#customersTable', {
+        url: @json(route('customers.data')),
+        order: [[5, 'desc']],
+        filters: function () { return { status: $('#f-status').val() }; },
+        columns: [
+            { data: 'customer',                name: 'customer' },
+            { data: 'email',                   name: 'users.email' },
+            { data: 'orders_count',            name: 'orders_count',            searchable: false },
+            { data: 'orders_sum_total_amount', name: 'orders_sum_total_amount', searchable: false },
+            { data: 'status',                  name: 'users.email_verified_at', searchable: false },
+            { data: 'created_at',              name: 'users.created_at',        searchable: false }
+        ]
+    });
+    // ?search=… (from the ⌘K spotlight) pre-fills the table search
+    var s = new URLSearchParams(location.search).get('search');
+    if (s) { table.search(s).draw(); }
+});
+</script>
 @endsection

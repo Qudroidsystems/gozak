@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Yajra\DataTables\Facades\DataTables;
 use App\Http\Controllers\Controller;
 use Illuminate\Validation\ValidationException;
 
@@ -16,7 +18,7 @@ class UserController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('permission:View user|Create user|Update user|Delete user', ['only' => ['index']]);
+        $this->middleware('permission:View user|Create user|Update user|Delete user', ['only' => ['index', 'data']]);
         $this->middleware('permission:Create user', ['only' => ['create', 'store']]);
         $this->middleware('permission:Update user', ['only' => ['edit', 'update']]);
         $this->middleware('permission:Delete user', ['only' => ['destroy']]);
@@ -26,17 +28,81 @@ class UserController extends Controller
     {
         $pagetitle = "User Management";
 
-        $data = User::latest()->paginate(10);
-        $roles = Role::pluck('name', 'name')->toArray();
+        $roles = Role::orderBy('name')->pluck('name', 'name')->toArray();
 
-        $role_counts = [];
-        foreach ($roles as $role) {
-            $role_counts[$role] = User::role($role)->count();
-        }
+        // One grouped query instead of one count per role
+        $role_counts = Role::withCount('users')->orderBy('name')->pluck('users_count', 'name')->toArray();
         $role_counts['No Role'] = User::doesntHave('roles')->count();
 
-        return view('users.index', compact('data', 'roles', 'pagetitle', 'role_counts'))
-            ->with('i', ($request->input('page', 1) - 1) * 10);
+        $stats = [
+            'total'     => User::count(),
+            'staff'     => User::where(fn ($q) => $q->where('role', '!=', 'user')->orWhereNull('role'))->count(),
+            'customers' => User::where('role', 'user')->count(),
+            'no_role'   => $role_counts['No Role'],
+        ];
+
+        return view('users.index', compact('roles', 'pagetitle', 'role_counts', 'stats'));
+    }
+
+    /** Yajra DataTable endpoint. */
+    public function data(Request $request)
+    {
+        $query = User::query()
+            ->select(['users.id', 'users.first_name', 'users.last_name', 'users.email', 'users.phone_number', 'users.role', 'users.profile_image', 'users.created_at'])
+            ->with('roles:id,name,badge')
+            ->when($request->filled('role'), fn ($q) => $request->role === '__none'
+                ? $q->doesntHave('roles')
+                : $q->whereHas('roles', fn ($r) => $r->where('name', $request->role)))
+            ->when($request->type === 'customer', fn ($q) => $q->where('users.role', 'user'))
+            ->when($request->type === 'staff', fn ($q) => $q->where(fn ($w) => $w->where('users.role', '!=', 'user')->orWhereNull('users.role')));
+
+        $me = $request->user();
+
+        return DataTables::eloquent($query)
+            ->addColumn('checkbox', fn ($u) => $u->id === $me->id ? '' : '<input type="checkbox" class="form-check-input gz-row-check" value="' . $u->id . '">')
+            ->addColumn('user', function ($u) {
+                $initials = strtoupper(substr($u->first_name ?: 'U', 0, 1) . substr($u->last_name ?: '', 0, 1));
+                $src = $u->profile_image ? (str_starts_with($u->profile_image, 'http') ? $u->profile_image : asset('storage/' . $u->profile_image)) : null;
+                $avatar = $src
+                    ? '<img src="' . e($src) . '" class="gz-avatar" style="object-fit:cover;" alt="">'
+                    : '<span class="gz-avatar">' . e($initials) . '</span>';
+                return '<div class="d-flex align-items-center gap-2">' . $avatar
+                    . '<div><a href="' . route('users.show', $u->id) . '" class="fw-semibold text-reset">' . e(trim($u->first_name . ' ' . $u->last_name) ?: '—') . '</a>'
+                    . '<small class="d-block text-muted">' . e($u->phone_number ?? '') . '</small></div></div>';
+            })
+            ->addColumn('roles_list', function ($u) {
+                if ($u->roles->isEmpty()) {
+                    return '<span class="badge bg-secondary-subtle text-secondary">No role</span>';
+                }
+                return $u->roles->map(fn ($r) => '<span class="' . e($r->badge ?: 'badge bg-primary-subtle text-primary') . ' me-1">' . e($r->name) . '</span>')->implode('');
+            })
+            ->addColumn('type', fn ($u) => $u->role === 'user'
+                ? '<span class="status-pill st-info">Customer</span>'
+                : '<span class="status-pill st-violet">' . e(ucfirst($u->role ?: 'staff')) . '</span>')
+            ->editColumn('created_at', fn ($u) => optional($u->created_at)->format('d M Y'))
+            ->addColumn('action', function ($u) use ($me) {
+                $h = '<div class="gz-actions">';
+                if ($me->can('View user')) {
+                    $h .= '<a href="' . route('users.show', $u->id) . '" class="btn btn-sm btn-soft-primary" title="View"><i class="ph-eye"></i></a>';
+                }
+                if ($me->can('Update user')) {
+                    $h .= '<button class="btn btn-sm btn-soft-secondary edit-item-btn" data-id="' . $u->id . '" title="Edit"><i class="ph-pencil"></i></button>';
+                }
+                if ($me->can('Delete user') && $u->id !== $me->id) {
+                    $h .= '<button class="btn btn-sm btn-soft-danger remove-item-btn" data-id="' . $u->id . '" data-name="' . e($u->name) . '" title="Delete"><i class="ph-trash"></i></button>';
+                }
+                return $h . '</div>';
+            })
+            ->filterColumn('user', function ($q, $k) {
+                $q->where(fn ($w) => $w->where('users.first_name', 'like', "%{$k}%")
+                    ->orWhere('users.last_name', 'like', "%{$k}%")
+                    ->orWhere('users.phone_number', 'like', "%{$k}%")
+                    ->orWhereRaw("CONCAT(users.first_name, ' ', users.last_name) LIKE ?", ["%{$k}%"]));
+            })
+            ->filterColumn('roles_list', fn ($q, $k) => $q->whereHas('roles', fn ($r) => $r->where('name', 'like', "%{$k}%")))
+            ->orderColumn('user', 'users.first_name $1, users.last_name $1')
+            ->rawColumns(['checkbox', 'user', 'roles_list', 'type', 'action'])
+            ->toJson();
     }
 
     public function create(): View
@@ -121,13 +187,22 @@ class UserController extends Controller
         }
     }
 
-    public function edit($id): View
+    public function edit(Request $request, $id)
     {
-        $user = User::findOrFail($id);
-        $roles = Role::pluck('name', 'name')->all();
-        $userRole = $user->roles->pluck('name', 'name')->all();
+        $user = User::with('roles:id,name')->findOrFail($id);
 
-        return view('users.edit', compact('user', 'roles', 'userRole'));
+        if ($request->expectsJson()) {
+            return response()->json([
+                'id'           => $user->id,
+                'first_name'   => $user->first_name,
+                'last_name'    => $user->last_name,
+                'email'        => $user->email,
+                'phone_number' => $user->phone_number,
+                'roles'        => $user->roles->pluck('name'),
+            ]);
+        }
+
+        return redirect()->route('users.show', $user->id);
     }
 
     public function update(Request $request, $id): JsonResponse
@@ -178,11 +253,19 @@ class UserController extends Controller
             // Update user
             $user->update($input);
 
-            // Note: Roles are managed separately in your admin user list
-            // If you want to allow role changes here too, uncomment below:
-            // if ($request->has('roles')) {
-            //     $user->syncRoles($request->input('roles'));
-            // }
+            // Role changes from the admin Users table (sent only by that modal)
+            if ($request->has('roles') && (auth()->user()->can('Update user-role') || auth()->user()->can('Update role'))) {
+                $roles = array_values(array_filter((array) $request->input('roles', [])));
+                $known = Role::whereIn('name', $roles)->pluck('name')->all();
+                if (count($known) !== count($roles)) {
+                    return response()->json(['success' => false, 'message' => 'One or more roles do not exist.'], 422);
+                }
+                if ($user->id === auth()->id() && $user->hasRole(['Super Admin', 'Admin'])
+                    && !collect($roles)->intersect(['Super Admin', 'Admin'])->count()) {
+                    return response()->json(['success' => false, 'message' => 'You cannot remove your own admin role.'], 422);
+                }
+                $user->syncRoles($roles);
+            }
 
             // Reload roles for response
             $user->load('roles');
@@ -227,6 +310,10 @@ class UserController extends Controller
     {
         try {
             $user = User::findOrFail($id);
+
+            if ($user->id === auth()->id()) {
+                return response()->json(['success' => false, 'message' => 'You cannot delete your own account.'], 422);
+            }
             $user->roles()->detach();
             $user->delete();
 

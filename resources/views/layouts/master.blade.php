@@ -1218,7 +1218,8 @@
      *     columns:  [ {data:'name', name:'name'}, ... ],
      *     order:    [[1, 'desc']],
      *     filters:  function () { return { status: $('#f-status').val() }; },
-     *     dt:       { ...any extra DataTables options }
+     *     onDraw:   function (settings) { ... }      // runs after every draw (settings.json = last response)
+ *     dt:       { ...any extra DataTables options }
      * })
      * Filter inputs marked with [data-dt-filter="#table"] reload the table on change.
      */
@@ -1263,6 +1264,7 @@
                 if (window.bootstrap) {
                     $t.find('[data-bs-toggle="tooltip"]').each(function () { bootstrap.Tooltip.getOrCreateInstance(this); });
                 }
+                if (typeof opts.onDraw === 'function') { opts.onDraw.call(this, this.api().settings()[0]); }
                 $(document).trigger('gz:dt:draw', [selector]);
             }
         }, opts.dt || {}));
@@ -1630,8 +1632,8 @@
         }
         clearTimeout(ajaxTimer);
         ajaxTimer = setTimeout(function(){
-            if (query.length < 2) return;
-            fetch('{{ route("search.global") }}?q='+encodeURIComponent(query),{
+            if (query.length < 2 || !{{ Route::has('search.global') ? 'true' : 'false' }}) return;
+            fetch('{{ Route::has("search.global") ? route("search.global") : "" }}?q='+encodeURIComponent(query),{
                 headers:{'Accept':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'}
             }).then(function(r){ return r.ok ? r.json() : {results:[]}; })
               .then(function(d){
@@ -1763,20 +1765,18 @@
      (core scripts — bootstrap, app.js, simplebar, plugins — are loaded once above)
      ===================================================== -->
 @if (Route::is('dashboard.index'))                        @include('layouts.pages-assets.js.dashboard-list-js') @endif
-@if (Route::is('users.*'))                                @include('layouts.pages-assets.js.users-list-js') @endif
-@if (Route::is('roles.*'))                                @include('layouts.pages-assets.js.role-list-js') @endif
-@if (Route::is('permissions.*'))                          @include('layouts.pages-assets.js.permissions-list-js') @endif
-@if (Route::is('web.brands.*'))                           @include('layouts.pages-assets.js.brand-list-js') @endif
-@if (Route::is('web.categories.*'))                       @include('layouts.pages-assets.js.category-list-js') @endif
-@if (Route::is('web.banners.*'))                          @include('layouts.pages-assets.js.banner-list-js') @endif
-@if (Route::is('web.promo-banners.*'))                    @include('layouts.pages-assets.js.promobanner-list-js') @endif
-@if (Route::is('web.products.*'))                         @include('layouts.pages-assets.js.product-list-js') @endif
-@if (Route::is('lightning-deals.*'))                      @include('layouts.pages-assets.js.lightning-list-js') @endif
+@if (Route::is('users.*') && !Route::is('users.index'))   @include('layouts.pages-assets.js.users-list-js') @endif
+@if (Route::is('web.brands.*') && !Route::is('web.brands.index')) @include('layouts.pages-assets.js.brand-list-js') @endif
+@if (Route::is('web.categories.*') && !Route::is('web.categories.index')) @include('layouts.pages-assets.js.category-list-js') @endif
+@if (Route::is('web.banners.*') && !Route::is('web.banners.index')) @include('layouts.pages-assets.js.banner-list-js') @endif
+@if (Route::is('web.promo-banners.*') && !Route::is('web.promo-banners.index')) @include('layouts.pages-assets.js.promobanner-list-js') @endif
+@if (Route::is('web.products.*') && !Route::is('web.products.index')) @include('layouts.pages-assets.js.product-list-js') @endif
+@if (Route::is('lightning-deals.*') && !Route::is('lightning-deals.index')) @include('layouts.pages-assets.js.lightning-list-js') @endif
 @if (Route::is('web.reviews.*') && view()->exists('layouts.pages-assets.js.review-list-js')) @include('layouts.pages-assets.js.review-list-js') @endif
-@if (Route::is('inventory.*') || Route::is('stock-locations.*')) @include('layouts.pages-assets.js.inventory-list-js') @endif
-@if (Route::is('adminorders.*'))                          @include('layouts.pages-assets.js.order-list-js') @endif
-@if (Route::is('customers.*'))                            @include('layouts.pages-assets.js.customer-list-js') @endif
-@if (Route::is('adminaddresses.*'))                       @include('layouts.pages-assets.js.address-list-js') @endif
+@if ((Route::is('inventory.*') || Route::is('stock-locations.*')) && !Route::is('inventory.index') && !Route::is('inventory.stock-levels')) @include('layouts.pages-assets.js.inventory-list-js') @endif
+@if (Route::is('adminorders.*') && !Route::is('adminorders.index')) @include('layouts.pages-assets.js.order-list-js') @endif
+@if (Route::is('customers.*') && !Route::is('customers.index')) @include('layouts.pages-assets.js.customer-list-js') @endif
+@if (Route::is('adminaddresses.*') && !Route::is('adminaddresses.index')) @include('layouts.pages-assets.js.address-list-js') @endif
 
 @stack('scripts')
 

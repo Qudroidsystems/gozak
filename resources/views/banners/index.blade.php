@@ -5,333 +5,189 @@
 
 @section('content')
 <div class="main-content">
-    <div class="page-content">
-        <div class="container-fluid">
+<div class="page-content">
+<div class="container-fluid">
 
-            <!-- Page Title -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0">Banners</h4>
-                        <div class="page-title-right">
-                            <ol class="breadcrumb m-0">
-                                <li class="breadcrumb-item"><a href="#">Marketing</a></li>
-                                <li class="breadcrumb-item active">Banners</li>
-                            </ol>
-                        </div>
-                    </div>
+    <x-cb.hero title="Banners" icon="ri-image-2-line" subtitle="Slider banners shown in the GozakMart app, by target screen.">
+        <x-slot:actions>
+            @can('Create banner')
+                <button type="button" class="cb-hero-btn add-btn"><i class="ri-add-circle-line"></i> Add Banner</button>
+            @endcan
+        </x-slot:actions>
+    </x-cb.hero>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-4"><x-cb.stat label="Total banners" :value="number_format($stats['total'])" icon="ri-image-2-line" accent="sky" /></div>
+        <div class="col-md-4"><x-cb.stat label="Active" :value="number_format($stats['active'])" icon="ri-eye-line" accent="green" /></div>
+        <div class="col-md-4"><x-cb.stat label="Inactive" :value="number_format($stats['inactive'])" icon="ri-eye-off-line" accent="rose" /></div>
+    </div>
+
+    <x-cb.card title="All Banners" icon="ri-list-check" :flush="true">
+        <x-slot:tools>
+            <select id="f-screen" class="form-select form-select-sm" data-dt-filter="#bannersTable" style="width:auto;">
+                <option value="">All screens</option>
+                <option value="home">Home Screen</option>
+                <option value="category">Category Page</option>
+                <option value="product">Product Detail</option>
+                <option value="offers">Offers Page</option>
+                <option value="all">All Pages</option>
+            </select>
+            <select id="f-status" class="form-select form-select-sm" data-dt-filter="#bannersTable" style="width:auto;">
+                <option value="">Any status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+            @can('Delete banner')
+                <button class="btn btn-sm btn-danger d-none" id="remove-actions"><i class="ri-delete-bin-2-line me-1"></i> Delete selected</button>
+            @endcan
+        </x-slot:tools>
+        <div class="p-3 gz-dt-wrap">
+            <table id="bannersTable" class="table gz-dt align-middle w-100 mb-0">
+                <thead>
+                    <tr>
+                        <th style="width:36px;"><input type="checkbox" class="form-check-input gz-check-all"></th>
+                        <th>Image</th>
+                        <th>Target Screen</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th style="width:90px;">Action</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </x-cb.card>
+
+</div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal fade" id="showModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form id="bannerForm" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="id" id="banner_id">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Add Banner</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-            </div>
-
-            <!-- Banners Table -->
-            <div class="row">
-                <div class="col-lg-12">
-                    <div class="card">
-                        <div class="card-header d-flex align-items-center">
-                            <h5 class="card-title mb-0 flex-grow-1">All Banners</h5>
-                            <div class="flex-shrink-0">
-                                <div class="d-flex flex-wrap gap-2">
-                                    <button class="btn btn-danger d-none" id="remove-actions" onclick="deleteMultiple()">
-                                        Delete Selected
-                                    </button>
-                                    @can('Create banner')
-                                        <button type="button" class="btn btn-primary add-btn">
-                                            Add Banner
-                                        </button>
-                                    @endcan
-                                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-lg-8">
+                            <div class="mb-3">
+                                <label class="form-label">Banner Image <span class="text-danger" id="img-required">*</span></label>
+                                <input type="file" class="form-control" name="image" accept="image/*">
+                                <small class="text-muted">Recommended: 1200×600px, max 3MB</small>
+                            </div>
+                            <div class="text-center mb-3">
+                                <img id="image_preview" class="rounded shadow" style="max-width:100%; max-height:300px; display:none;" alt="Preview">
                             </div>
                         </div>
-
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th width="50">
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" id="checkAll">
-                                                </div>
-                                            </th>
-                                            <th>#</th>
-                                            <th>Image</th>
-                                            <th>Target Screen</th>
-                                            <th>Status</th>
-                                            <th>Created</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="list form-check-all">
-                                        @forelse($banners as $banner)
-                                        <tr class="border-bottom border-light-subtle">
-                                            <td>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="chk_child" value="{{ $banner->id }}">
-                                                </div>
-                                            </td>
-                                            <td class="fw-medium">{{ $loop->iteration }}</td>
-                                            <td>
-                                                @if($banner->image_url && file_exists(public_path('storage/' . $banner->image_url)))
-                                                    <img src="{{ asset('storage/' . $banner->image_url) }}"
-                                                         class="rounded shadow-sm"
-                                                         style="width: 240px; height: 120px; object-fit: cover;"
-                                                         alt="Banner">
-                                                @else
-                                                    <div class="bg-light rounded d-flex align-items-center justify-content-center"
-                                                         style="width:240px;height:120px;">
-                                                        <i class="bi bi-image text-muted fs-3"></i>
-                                                    </div>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-info-subtle text-info fs-6">
-                                                    {{ ucwords(str_replace('_', ' ', $banner->target_screen)) }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="badge {{ $banner->active ? 'bg-success' : 'bg-secondary' }}">
-                                                    {{ $banner->active ? 'Active' : 'Inactive' }}
-                                                </span>
-                                            </td>
-                                            <td>{{ $banner->created_at->format('d M Y') }}</td>
-                                            <td>
-                                                <div class="hstack gap-2">
-                                                    @can('Update banner')
-                                                        <button class="btn btn-subtle-secondary btn-icon btn-sm edit-item-btn"
-                                                            data-id="{{ $banner->id }}"
-                                                            data-image="{{ $banner->image_url ? asset('storage/' . $banner->image_url) : '' }}"
-                                                            data-screen="{{ $banner->target_screen }}"
-                                                            data-active="{{ $banner->active }}">
-                                                            <i class="ph-pencil"></i>
-                                                        </button>
-                                                    @endcan
-                                                    @can('Delete banner')
-                                                        <button class="btn btn-subtle-danger btn-icon btn-sm remove-item-btn" data-id="{{ $banner->id }}">
-                                                            <i class="ph-trash"></i>
-                                                        </button>
-                                                    @endcan
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        @empty
-                                        <tr>
-                                            <td colspan="7" class="text-center py-5 text-muted">No banners found</td>
-                                        </tr>
-                                        @endforelse
-                                    </tbody>
-                                </table>
+                        <div class="col-lg-4">
+                            <div class="mb-3">
+                                <label class="form-label">Target Screen</label>
+                                <select class="form-select" name="target_screen" id="target_screen" required>
+                                    <option value="home">Home Screen</option>
+                                    <option value="category">Category Page</option>
+                                    <option value="product">Product Detail</option>
+                                    <option value="offers">Offers Page</option>
+                                    <option value="all">All Pages</option>
+                                </select>
                             </div>
-
-                            <!-- Pagination -->
-                            <div class="d-flex justify-content-end mt-4">
-                                <div class="pagination-wrap hstack gap-2">
-                                    <a class="page-item pagination-prev {{ $banners->onFirstPage() ? 'disabled' : '' }}"
-                                       href="{{ $banners->previousPageUrl() }}">Previous</a>
-                                    <span class="px-3 py-2 bg-light rounded">{{ $banners->currentPage() }} / {{ $banners->lastPage() }}</span>
-                                    <a class="page-item pagination-next {{ $banners->hasMorePages() ? '' : 'disabled' }}"
-                                       href="{{ $banners->nextPageUrl() }}">Next</a>
-                                </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" value="1" id="active" checked>
+                                <label class="form-check-label" for="active">Active</label>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Add/Edit Modal -->
-            <div class="modal fade" id="showModal" tabindex="-1">
-                <div class="modal-dialog modal-dialog-centered modal-lg">
-                    <div class="modal-content">
-                        <form id="bannerForm" enctype="multipart/form-data">
-                            @csrf
-                            <input type="hidden" name="id" id="banner_id">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="modalTitle">Add Banner</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="row g-3">
-                                    <div class="col-lg-8">
-                                        <div class="mb-3">
-                                            <label class="form-label">Banner Image <span class="text-danger">*</span></label>
-                                            <input type="file" class="form-control" name="image" accept="image/*">
-                                            <small class="text-muted">Recommended: 1200×600px</small>
-                                        </div>
-                                        <div class="text-center mb-3">
-                                            <img id="image_preview" class="rounded shadow" style="max-width:100%; max-height:300px; display:none;" alt="Preview">
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-4">
-                                        <div class="mb-3">
-                                            <label class="form-label">Target Screen</label>
-                                            <select class="form-select" name="target_screen" id="target_screen" required>
-                                                <option value="home">Home Screen</option>
-                                                <option value="category">Category Page</option>
-                                                <option value="product">Product Detail</option>
-                                                <option value="offers">Offers Page</option>
-                                                <option value="all">All Pages</option>
-                                            </select>
-                                        </div>
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" name="active" value="1" id="active" checked>
-                                            <label class="form-check-label">Active</label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                <button type="submit" class="btn btn-primary" id="submitBtn">Save Banner</button>
-                            </div>
-                        </form>
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Save Banner</button>
                 </div>
-            </div>
-
-            <!-- Delete Modal -->
-            <div class="modal fade" id="deleteRecordModal" tabindex="-1">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-body text-center py-5">
-                            <i class="bi bi-trash text-danger display-4"></i>
-                            <h4 class="mt-4">Delete Banner?</h4>
-                            <p class="text-muted">This action cannot be undone.</p>
-                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-danger" id="confirm-delete">Yes, Delete</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>
 
-<!-- SCRIPTS -->
-<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://cdn.jsdelivr.net/npm/list.js@2.3.1/dist/list.min.js"></script>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    axios.defaults.headers.common['X-CSRF-TOKEN'] = '{{ csrf_token() }}';
+    var URLS = {
+        data:    @json(route('web.banners.data')),
+        store:   @json(route('web.banners.store')),
+        update:  @json(route('web.banners.update', '__ID__')),
+        destroy: @json(route('web.banners.destroy', '__ID__'))
+    };
+    var u = function (k, id) { return URLS[k].replace('__ID__', id); };
 
-    // List.js
-    new List('bannerList', {
-        valueNames: ['target_screen', 'active'],
-        page: 10,
-        pagination: true
+    var table = GZ.dt('#bannersTable', {
+        url: URLS.data,
+        order: [[4, 'desc']],
+        filters: function () { return { screen: $('#f-screen').val(), status: $('#f-status').val() }; },
+        columns: [
+            { data: 'checkbox',      name: 'checkbox', orderable: false, searchable: false },
+            { data: 'image',         name: 'image', orderable: false, searchable: false },
+            { data: 'target_screen', name: 'target_screen' },
+            { data: 'active',        name: 'active', searchable: false },
+            { data: 'created_at',    name: 'created_at', searchable: false },
+            { data: 'action',        name: 'action', orderable: false, searchable: false }
+        ],
+        onDraw: toggleBulk
     });
+    function toggleBulk() { $('#remove-actions').toggleClass('d-none', GZ.selected('#bannersTable').length === 0); }
+    $('#bannersTable').on('change gz:check', '.gz-row-check, .gz-check-all', toggleBulk);
 
-    // Checkbox
-    const checkAll = document.getElementById('checkAll');
-    checkAll?.addEventListener('change', function () {
-        document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-            cb.checked = this.checked;
-            cb.closest('tr')?.classList.toggle('table-active', this.checked);
-        });
-        toggleRemoveBtn();
-    });
+    var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('showModal'));
+    var form = document.getElementById('bannerForm');
+    var preview = document.getElementById('image_preview');
 
-    document.querySelectorAll('input[name="chk_child"]').forEach(cb => {
-        cb.addEventListener('change', () => {
-            cb.closest('tr')?.classList.toggle('table-active', cb.checked);
-            toggleRemoveBtn();
-        });
-    });
-
-    function toggleRemoveBtn() {
-        const count = document.querySelectorAll('input[name="chk_child"]:checked').length;
-        document.getElementById('remove-actions').classList.toggle('d-none', count === 0);
-    }
-
-    const modal = new bootstrap.Modal('#showModal');
-    const form = document.getElementById('bannerForm');
-    const imgPreview = document.getElementById('image_preview');
-
-    // Add button
-    document.querySelector('.add-btn')?.addEventListener('click', () => {
+    $('.add-btn').on('click', function () {
         form.reset();
-        document.getElementById('banner_id').value = '';
-        document.getElementById('modalTitle').textContent = 'Add Banner';
-        document.getElementById('submitBtn').textContent = 'Save Banner';
-        imgPreview.style.display = 'none';
+        $('#banner_id').val(''); $('#active').prop('checked', true); $('#img-required').show();
+        $('#modalTitle').text('Add Banner'); $('#submitBtn').text('Save Banner');
+        preview.style.display = 'none';
         modal.show();
     });
 
-    // Edit
-    document.querySelectorAll('.edit-item-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            document.getElementById('banner_id').value = this.dataset.id;
-            document.getElementById('target_screen').value = this.dataset.screen;
-            document.getElementById('active').checked = this.dataset.active == '1';
-
-            if (this.dataset.image) {
-                imgPreview.src = this.dataset.image;
-                imgPreview.style.display = 'block';
-            } else {
-                imgPreview.style.display = 'none';
-            }
-
-            document.getElementById('modalTitle').textContent = 'Edit Banner';
-            document.getElementById('submitBtn').textContent = 'Update Banner';
-            modal.show();
-        });
+    $('#bannersTable').on('click', '.edit-item-btn', function () {
+        var d = this.dataset;
+        form.reset();
+        $('#banner_id').val(d.id); $('#target_screen').val(d.screen); $('#active').prop('checked', d.active === '1'); $('#img-required').hide();
+        if (d.image) { preview.src = d.image; preview.style.display = 'block'; } else { preview.style.display = 'none'; }
+        $('#modalTitle').text('Edit Banner'); $('#submitBtn').text('Update Banner');
+        modal.show();
     });
 
-    // Image preview
-    form.querySelector('[name="image"]').addEventListener('change', e => {
-        const file = e.target.files[0];
-        if (file) {
-            imgPreview.src = URL.createObjectURL(file);
-            imgPreview.style.display = 'block';
-        }
+    form.querySelector('[name="image"]').addEventListener('change', function (e) {
+        var f = e.target.files[0]; if (f) { preview.src = URL.createObjectURL(f); preview.style.display = 'block'; }
     });
 
-    // Submit
-    form.addEventListener('submit', e => {
+    form.addEventListener('submit', function (e) {
         e.preventDefault();
-        const id = document.getElementById('banner_id').value;
-        const url = id ? `/banners/${id}` : '/banners';
-        const data = new FormData(form);
-        if (id) data.append('_method', 'PUT');
-
-        axios.post(url, data)
-            .then(() => location.reload())
-            .catch(() => Swal.fire('Error!', 'Something went wrong', 'error'));
+        var id = $('#banner_id').val(), fd = new FormData(form), btn = $('#submitBtn').prop('disabled', true);
+        fd.append('active', $('#active').is(':checked') ? '1' : '0');
+        if (id) { fd.append('_method', 'PUT'); }
+        $.ajax({ url: id ? u('update', id) : URLS.store, type: 'POST', data: fd, processData: false, contentType: false })
+            .done(function (r) { modal.hide(); GZ.toast(r.message || 'Saved'); table.ajax.reload(null, false); })
+            .fail(function (x) { Swal.fire({ icon: 'error', title: 'Error', text: GZ.xhrError(x) }); })
+            .always(function () { btn.prop('disabled', false); });
     });
 
-    // Delete
-    document.querySelectorAll('.remove-item-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.dataset.id;
-            Swal.fire({
-                title: 'Delete banner?',
-                icon: 'warning',
-                showCancelButton: true
-            }).then(r => {
-                if (r.isConfirmed) {
-                    axios.delete(`/banners/${id}`).then(() => location.reload());
-                }
-            });
-        });
+    $('#bannersTable').on('click', '.remove-item-btn', function () {
+        GZ.destroy(u('destroy', $(this).data('id')), 'this banner', table);
     });
 
-    // Multiple delete
-    window.deleteMultiple = function() {
-        const ids = Array.from(document.querySelectorAll('input[name="chk_child"]:checked'))
-            .map(cb => cb.value);
+    $('#remove-actions').on('click', function () {
+        var ids = GZ.selected('#bannersTable');
         if (!ids.length) return;
-
-        Swal.fire({
-            title: 'Delete selected?',
-            icon: 'warning',
-            showCancelButton: true
-        }).then(r => {
-            if (r.isConfirmed) {
-                Promise.all(ids.map(id => axios.delete(`/banners/${id}`)))
-                    .then(() => location.reload());
-            }
-        });
-    };
+        Swal.fire({ title: 'Delete ' + ids.length + ' banner(s)?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#e11d48', confirmButtonText: 'Yes, delete' })
+            .then(function (r) {
+                if (!r.isConfirmed) return;
+                $.when.apply($, ids.map(function (id) { return $.ajax({ url: u('destroy', id), type: 'POST', data: { _method: 'DELETE' } }); }))
+                    .always(function () { GZ.toast('Selected banners deleted'); table.ajax.reload(null, false); });
+            });
+    });
 });
 </script>
-@endsection>
+@endsection

@@ -115,295 +115,77 @@
                 </div>
             </div>
 
-            {{-- ─── Category Table ─────────────────────────────────────────────────── --}}
-            <div id="categoryList" class="mt-2">
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="card">
-                            <div class="card-header d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <h5 class="card-title mb-0">
-                                        Categories <span class="badge bg-dark-subtle text-dark ms-1">{{ $categories->total() }}</span>
-                                    </h5>
-                                </div>
-                                <div class="flex-shrink-0">
-                                    <div class="d-flex flex-wrap align-items-start gap-2">
-                                        <!-- Bulk Actions -->
-                                        <div class="btn-group d-none" id="bulkActions">
-                                            <button type="button" class="btn btn-warning dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                                <i class="bi bi-gear me-1"></i> Bulk Actions (<span id="selectedCountBulk">0</span>)
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('featured', 1)">
-                                                    <i class="bi bi-star-fill text-warning me-2"></i> Mark as Featured
-                                                </a></li>
-                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('featured', 0)">
-                                                    <i class="bi bi-star text-muted me-2"></i> Unmark Featured
-                                                </a></li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('nsfw', 1)">
-                                                    <i class="bi bi-exclamation-triangle text-danger me-2"></i> Mark as NSFW
-                                                </a></li>
-                                                <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('nsfw', 0)">
-                                                    <i class="bi bi-check-circle text-success me-2"></i> Mark as Safe
-                                                </a></li>
-                                            </ul>
-                                        </div>
-
-                                        <button class="btn btn-danger d-none" id="remove-actions" onclick="deleteMultiple()">
-                                            <i class="bi bi-trash me-1"></i> Delete Selected (<span id="selectedCount">0</span>)
-                                        </button>
-
-                                        @can('Create category')
-                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal">
-                                                <i class="bi bi-plus-lg me-1"></i> Add Category
-                                            </button>
-                                        @endcan
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Filters --}}
-                            <div class="card-body border-bottom">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <label class="form-label">Search</label>
-                                        <input type="text" class="form-control" id="searchInput" placeholder="Category or parent name..." value="{{ request('search', '') }}">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Level</label>
-                                        <select class="form-control" id="parentFilter">
-                                            <option value="">All</option>
-                                            <option value="top" {{ request('parent_filter') == 'top' ? 'selected' : '' }}>Top-Level Only</option>
-                                            <option value="child" {{ request('parent_filter') == 'child' ? 'selected' : '' }}>Sub-Categories Only</option>
-                                            @foreach($allCategories as $parentOpt)
-                                                <option value="{{ $parentOpt->id }}" {{ request('parent_filter') == $parentOpt->id ? 'selected' : '' }}>
-                                                    Under: {{ $parentOpt->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Featured</label>
-                                        <select class="form-control" id="featuredFilter">
-                                            <option value="">All</option>
-                                            <option value="1" {{ request('featured') === '1' ? 'selected' : '' }}>Featured</option>
-                                            <option value="0" {{ request('featured') === '0' ? 'selected' : '' }}>Regular</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Content</label>
-                                        <select class="form-control" id="nsfwFilter">
-                                            <option value="">All</option>
-                                            <option value="0" {{ request('nsfw') === '0' ? 'selected' : '' }}>Safe Only</option>
-                                            <option value="1" {{ request('nsfw') === '1' ? 'selected' : '' }}>NSFW Only</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Stock</label>
-                                        <select class="form-control" id="stockFilter">
-                                            <option value="">All</option>
-                                            <option value="empty" {{ request('stock_filter') == 'empty' ? 'selected' : '' }}>Empty (0 products)</option>
-                                            <option value="has_stock" {{ request('stock_filter') == 'has_stock' ? 'selected' : '' }}>Has Products</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-1">
-                                        <label class="form-label">Sort By</label>
-                                        <select class="form-control" id="sortFilter">
-                                            <option value="name_asc" {{ request('sort', 'name_asc') == 'name_asc' ? 'selected' : '' }}>Name A-Z</option>
-                                            <option value="name_desc" {{ request('sort') == 'name_desc' ? 'selected' : '' }}>Name Z-A</option>
-                                            <option value="most_products" {{ request('sort') == 'most_products' ? 'selected' : '' }}>Most Products</option>
-                                            <option value="newest" {{ request('sort') == 'newest' ? 'selected' : '' }}>Newest First</option>
-                                            <option value="oldest" {{ request('sort') == 'oldest' ? 'selected' : '' }}>Oldest First</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-12 d-flex justify-content-end gap-2">
-                                        <button type="button" class="btn btn-outline-secondary" id="clearFilters" title="Clear all filters"
-                                            style="{{ request()->except('page', 'per_page') ? '' : 'display: none;' }}">
-                                            <i class="bi bi-x-circle me-1"></i> Clear
-                                        </button>
-                                        <button type="button" class="btn btn-primary" id="applyFilter" title="Apply">
-                                            <i class="bi bi-funnel me-1"></i> Apply Filters
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="card-body">
-                                {{-- Active Filter Badges --}}
-                                @if(request()->except('page', 'per_page'))
-                                <div class="mb-3">
-                                    <div class="d-flex align-items-center flex-wrap gap-2">
-                                        <span class="text-muted me-1">Active filters:</span>
-                                        @if(request('search'))
-                                            <span class="badge bg-primary-subtle text-primary">Search: {{ request('search') }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('search')"></button></span>
-                                        @endif
-                                        @if(request('parent_filter'))
-                                            <span class="badge bg-primary-subtle text-primary">Level: {{ request('parent_filter') == 'top' ? 'Top-Level' : (request('parent_filter') == 'child' ? 'Sub-Categories' : 'Under #' . request('parent_filter')) }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('parent_filter')"></button></span>
-                                        @endif
-                                        @if(request('featured') !== null && request('featured') !== '')
-                                            <span class="badge bg-primary-subtle text-primary">{{ request('featured') === '1' ? 'Featured' : 'Regular' }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('featured')"></button></span>
-                                        @endif
-                                        @if(request('nsfw') !== null && request('nsfw') !== '')
-                                            <span class="badge bg-danger-subtle text-danger">{{ request('nsfw') === '1' ? 'NSFW Only' : 'Safe Only' }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('nsfw')"></button></span>
-                                        @endif
-                                        @if(request('stock_filter'))
-                                            <span class="badge bg-info-subtle text-info">Stock: {{ request('stock_filter') == 'empty' ? 'Empty' : 'Has Products' }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('stock_filter')"></button></span>
-                                        @endif
-                                    </div>
-                                </div>
-                                @endif
-
-                                <div class="table-responsive">
-                                    <table class="table table-centered align-middle table-nowrap mb-0">
-                                        <thead class="table-active">
-                                            <tr>
-                                                <th style="width: 50px;">
-                                                    <input type="checkbox" id="selectAll" class="form-check-input">
-                                                </th>
-                                                <th>Category</th>
-                                                <th>Parent</th>
-                                                <th class="text-center">Children</th>
-                                                <th class="text-center">Products</th>
-                                                <th>Featured</th>
-                                                <th>Visibility</th>
-                                                <th style="width: 90px;">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @forelse($categories as $cat)
-                                            <tr>
-                                                <td>
-                                                    <input type="checkbox" class="row-select form-check-input" value="{{ $cat->id }}">
-                                                </td>
-                                                <td>
-                                                    <div class="d-flex align-items-center">
-                                                        <div class="avatar-sm bg-light rounded p-1 me-3">
-                                                            @if($cat->image && \Storage::disk('public')->exists($cat->image))
-                                                                <img src="{{ asset('storage/' . $cat->image) }}" alt="" class="img-fluid rounded" style="max-height:40px;object-fit:cover;">
-                                                            @else
-                                                                <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
-                                                                    <i class="bi bi-image text-muted fs-5"></i>
-                                                                </div>
-                                                            @endif
-                                                        </div>
-                                                        <div>
-                                                            <h6 class="mb-1">
-                                                                @if(\Illuminate\Support\Facades\Route::has('web.products.index'))
-                                                                    <a href="{{ route('web.products.index', ['category_id' => $cat->id]) }}" class="text-reset">{{ $cat->name }}</a>
-                                                                @else
-                                                                    {{ $cat->name }}
-                                                                @endif
-                                                            </h6>
-                                                            <small class="text-muted">ID: {{ $cat->id }}</small>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    @if($cat->parent)
-                                                        <span class="badge bg-primary-subtle text-primary">{{ $cat->parent->name }}</span>
-                                                    @else
-                                                        <span class="text-muted">— Top Level</span>
-                                                    @endif
-                                                </td>
-                                                <td class="text-center">
-                                                    <span class="badge bg-secondary-subtle text-secondary">{{ $cat->children_count ?? 0 }}</span>
-                                                </td>
-                                                <td class="text-center">
-                                                    @if(($cat->products_count ?? 0) > 0)
-                                                        <span class="badge bg-success-subtle text-success">{{ $cat->products_count }}</span>
-                                                    @else
-                                                        <span class="badge bg-danger-subtle text-danger">Empty</span>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    <span class="badge {{ $cat->is_featured ? 'bg-warning-subtle text-warning' : 'bg-secondary-subtle text-secondary' }}">
-                                                        {{ $cat->is_featured ? 'Featured' : 'Regular' }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    @if($cat->is_nsfw)
-                                                        <span class="badge bg-danger-subtle text-danger">NSFW</span>
-                                                    @else
-                                                        <span class="badge bg-success-subtle text-success">Safe</span>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    <div class="dropdown">
-                                                        <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
-                                                        <ul class="dropdown-menu dropdown-menu-end">
-                                                            @can('Update category')
-                                                                <li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="{{ $cat->id }}">Edit</a></li>
-                                                            @endcan
-                                                            @can('Delete category')
-                                                                <li>
-                                                                    <a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);"
-                                                                       data-id="{{ $cat->id }}"
-                                                                       data-name="{{ $cat->name }}"
-                                                                       data-products="{{ $cat->products_count ?? 0 }}"
-                                                                       data-children="{{ $cat->children_count ?? 0 }}">Delete</a>
-                                                                </li>
-                                                            @endcan
-                                                        </ul>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            @empty
-                                            <tr>
-                                                <td colspan="8" class="text-center py-5 text-muted">
-                                                    @if(request()->except('page', 'per_page'))
-                                                        No categories found matching your filters.<br>
-                                                        <a href="{{ route('web.categories.index') }}" class="btn btn-sm btn-outline-primary mt-2">Clear filters</a>
-                                                    @else
-                                                        No categories found. <a href="javascript:void(0)" class="text-primary" data-bs-toggle="modal" data-bs-target="#showModal">Add your first category</a>
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {{-- ─── PAGINATION WITH PER-PAGE SELECTOR ─────────────────── --}}
-                                <div class="row mt-3 align-items-center">
-                                    <div class="col-sm-6">
-                                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                                            <div class="text-muted">
-                                                Showing {{ $categories->firstItem() ?? 0 }} to {{ $categories->lastItem() ?? 0 }} of {{ $categories->total() }} Results
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-6">
-                                        <div class="d-flex align-items-center justify-content-sm-end gap-3 flex-wrap">
-                                            {{-- Per Page Selector --}}
-                                            <div class="d-flex align-items-center gap-2">
-                                                <label class="text-muted mb-0" style="white-space: nowrap; font-size: 0.9rem;">
-                                                    <i class="bi bi-table me-1"></i> Show:
-                                                </label>
-                                                <select class="form-select form-select-sm" id="perPageSelect" style="width: auto; min-width: 70px;">
-                                                    <option value="10" {{ request('per_page', 15) == 10 ? 'selected' : '' }}>10</option>
-                                                    <option value="15" {{ request('per_page', 15) == 15 ? 'selected' : '' }}>15</option>
-                                                    <option value="25" {{ request('per_page', 15) == 25 ? 'selected' : '' }}>25</option>
-                                                    <option value="50" {{ request('per_page', 15) == 50 ? 'selected' : '' }}>50</option>
-                                                    <option value="100" {{ request('per_page', 15) == 100 ? 'selected' : '' }}>100</option>
-                                                    <option value="250" {{ request('per_page', 15) == 250 ? 'selected' : '' }}>250</option>
-                                                    <option value="500" {{ request('per_page', 15) == 500 ? 'selected' : '' }}>500</option>
-                                                </select>
-                                                <span class="text-muted" style="font-size: 0.85rem;">per page</span>
-                                            </div>
-
-                                            {{-- Pagination Links --}}
-                                            <div>
-                                                {!! $categories->appends(request()->query())->links('pagination::bootstrap-5') !!}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            {{-- ─── Category Table (server-side DataTable) ─────────────────────────── --}}
+            <x-cb.card title="Categories" icon="ri-folders-line" :flush="true" class="mt-2">
+                <x-slot:tools>
+                    <div class="btn-group d-none" id="bulkActions">
+                        <button type="button" class="btn btn-sm btn-warning dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-gear me-1"></i> Bulk Actions (<span id="selectedCountBulk">0</span>)
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('featured', 1)"><i class="bi bi-star-fill text-warning me-2"></i> Mark as Featured</a></li>
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('featured', 0)"><i class="bi bi-star text-muted me-2"></i> Unmark Featured</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('nsfw', 1)"><i class="bi bi-exclamation-triangle text-danger me-2"></i> Mark as NSFW</a></li>
+                            <li><a class="dropdown-item" href="javascript:void(0)" onclick="bulkUpdate('nsfw', 0)"><i class="bi bi-check-circle text-success me-2"></i> Mark as Safe</a></li>
+                        </ul>
                     </div>
+                    <button class="btn btn-sm btn-danger d-none" id="remove-actions" onclick="deleteMultiple()">
+                        <i class="bi bi-trash me-1"></i> Delete Selected (<span id="selectedCount">0</span>)
+                    </button>
+                    @can('Create category')
+                        <button type="button" class="btn btn-sm btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal">
+                            <i class="bi bi-plus-lg me-1"></i> Add Category
+                        </button>
+                    @endcan
+                </x-slot:tools>
+
+                {{-- Filters (reload the table, no page refresh) --}}
+                <div class="gz-filter-bar px-3 pt-3">
+                    <select class="form-select form-select-sm" id="parentFilter" data-dt-filter="#categoriesTable">
+                        <option value="">All levels</option>
+                        <option value="top" @selected(request('parent_filter') == 'top')>Top-Level Only</option>
+                        <option value="child" @selected(request('parent_filter') == 'child')>Sub-Categories Only</option>
+                        @foreach($allCategories as $parentOpt)
+                            <option value="{{ $parentOpt->id }}" @selected(request('parent_filter') == $parentOpt->id)>Under: {{ $parentOpt->name }}</option>
+                        @endforeach
+                    </select>
+                    <select class="form-select form-select-sm" id="featuredFilter" data-dt-filter="#categoriesTable">
+                        <option value="">Featured: any</option>
+                        <option value="1">Featured</option>
+                        <option value="0">Regular</option>
+                    </select>
+                    <select class="form-select form-select-sm" id="nsfwFilter" data-dt-filter="#categoriesTable">
+                        <option value="">Content: any</option>
+                        <option value="0">Safe Only</option>
+                        <option value="1">NSFW Only</option>
+                    </select>
+                    <select class="form-select form-select-sm" id="stockFilter" data-dt-filter="#categoriesTable">
+                        <option value="">Products: any</option>
+                        <option value="empty">Empty (0 products)</option>
+                        <option value="has_stock">Has Products</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearFilters"><i class="bi bi-x-circle me-1"></i> Clear</button>
                 </div>
-            </div>
+
+                <div class="px-3 pb-3 gz-dt-wrap">
+                    <table id="categoriesTable" class="table gz-dt align-middle w-100 mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 36px;"><input type="checkbox" id="selectAll" class="form-check-input"></th>
+                                <th>Category</th>
+                                <th>Parent</th>
+                                <th class="text-center">Children</th>
+                                <th class="text-center">Products</th>
+                                <th>Featured</th>
+                                <th>Visibility</th>
+                                <th style="width: 70px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </x-cb.card>
 
         </div>
     </div>
@@ -601,63 +383,38 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // ==================== SEARCH / FILTERS ====================
-    function performServerSearch() {
-        const params = new URLSearchParams(window.location.search);
-        const s = document.getElementById('searchInput')?.value.trim();
-        s ? params.set('search', s) : params.delete('search');
-
-        const parentFilter = document.getElementById('parentFilter')?.value;
-        parentFilter ? params.set('parent_filter', parentFilter) : params.delete('parent_filter');
-
-        const featuredFilter = document.getElementById('featuredFilter')?.value;
-        (featuredFilter !== '' && featuredFilter !== undefined) ? params.set('featured', featuredFilter) : params.delete('featured');
-
-        const nsfwFilter = document.getElementById('nsfwFilter')?.value;
-        (nsfwFilter !== '' && nsfwFilter !== undefined) ? params.set('nsfw', nsfwFilter) : params.delete('nsfw');
-
-        const stockFilter = document.getElementById('stockFilter')?.value;
-        stockFilter ? params.set('stock_filter', stockFilter) : params.delete('stock_filter');
-
-        const sortFilter = document.getElementById('sortFilter')?.value;
-        sortFilter ? params.set('sort', sortFilter) : params.delete('sort');
-
-        // Preserve per_page if it exists
-        const perPage = document.getElementById('perPageSelect')?.value;
-        if (perPage && perPage !== '15') {
-            params.set('per_page', perPage);
-        } else {
-            params.delete('per_page');
+    // ==================== SERVER-SIDE TABLE ====================
+    window.categoriesTable = GZ.dt('#categoriesTable', {
+        url: @json(route('web.categories.data')),
+        order: [[1, 'asc']],
+        filters: function () {
+            return {
+                parent_filter: $('#parentFilter').val(), featured: $('#featuredFilter').val(),
+                nsfw: $('#nsfwFilter').val(), stock_filter: $('#stockFilter').val()
+            };
+        },
+        columns: [
+            { data: 'checkbox',       name: 'checkbox', orderable: false, searchable: false },
+            { data: 'category',       name: 'category' },
+            { data: 'parent',         name: 'parent' },
+            { data: 'children_count', name: 'children_count', searchable: false, className: 'text-center' },
+            { data: 'products_count', name: 'products_count', searchable: false, className: 'text-center' },
+            { data: 'is_featured',    name: 'categories.is_featured', searchable: false },
+            { data: 'is_nsfw',        name: 'categories.is_nsfw', searchable: false },
+            { data: 'action',         name: 'action', orderable: false, searchable: false }
+        ],
+        onDraw: function () {
+            var all = document.getElementById('selectAll'); if (all) all.checked = false;
+            updateSelectedCount();
         }
+    });
+    var reloadTable = function () { window.categoriesTable.ajax.reload(null, false); };
+    var initialSearch = @json(request('search', ''));
+    if (initialSearch) { window.categoriesTable.search(initialSearch).draw(); }
 
-        params.delete('page');
-        window.location.href = `${window.location.pathname}?${params.toString()}`;
-    }
-
-    document.getElementById('applyFilter')?.addEventListener('click', performServerSearch);
-    document.getElementById('searchInput')?.addEventListener('keyup', e => { if (e.key === 'Enter') performServerSearch(); });
-    document.getElementById('clearFilters')?.addEventListener('click', () => window.location.href = window.location.pathname);
-
-    window.removeFilter = function (filterName) {
-        const params = new URLSearchParams(window.location.search);
-        params.delete(filterName);
-        params.delete('page');
-        window.location.href = `${window.location.pathname}?${params.toString()}`;
-    };
-
-    // ==================== PER PAGE SELECTOR ====================
-    document.getElementById('perPageSelect')?.addEventListener('change', function() {
-        const params = new URLSearchParams(window.location.search);
-        const perPage = this.value;
-
-        if (perPage && perPage !== '15') {
-            params.set('per_page', perPage);
-        } else {
-            params.delete('per_page');
-        }
-
-        params.delete('page'); // Reset to first page when changing per page
-        window.location.href = `${window.location.pathname}?${params.toString()}`;
+    document.getElementById('clearFilters')?.addEventListener('click', function () {
+        ['parentFilter', 'featuredFilter', 'nsfwFilter', 'stockFilter'].forEach(function (id) { document.getElementById(id).value = ''; });
+        window.categoriesTable.search('').ajax.reload();
     });
 
     // ==================== BULK SELECT ====================
@@ -735,9 +492,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         text: `${response.data.updated} categories updated successfully.`,
                         timer: 2000,
                         showConfirmButton: true
-                    }).then(() => {
-                        location.reload();
                     });
+                    reloadTable();
                 }
             })
             .catch(err => {
@@ -764,14 +520,15 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(results => {
                 const failed = results.filter(r => r.status === 'rejected');
                 if (failed.length === 0) {
-                    Swal.fire('Deleted!', 'Categories removed.', 'success').then(() => location.reload());
+                    Swal.fire('Deleted!', 'Categories removed.', 'success'); reloadTable();
                 } else {
                     const firstError = extractErrorMessage(failed[0].reason, 'Unknown error');
                     Swal.fire(
                         'Partially completed',
                         `${results.length - failed.length} deleted, ${failed.length} failed. First error: ${firstError}`,
                         'warning'
-                    ).then(() => location.reload());
+                    );
+                    reloadTable();
                 }
             });
         });
@@ -979,7 +736,7 @@ document.addEventListener('DOMContentLoaded', function () {
         axios.delete(categoryRoutes.destroy(deleteId))
             .then(() => {
                 deleteModal.hide();
-                Swal.fire('Deleted!', 'Category has been deleted', 'success').then(() => location.reload());
+                GZ.toast('Category deleted'); reloadTable();
             })
             .catch(err => {
                 deleteModal.hide();

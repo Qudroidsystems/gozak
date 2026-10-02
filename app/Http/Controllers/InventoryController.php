@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Yajra\DataTables\Facades\DataTables;
 use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use App\Models\Category;
@@ -73,43 +74,6 @@ class InventoryController extends Controller
     {
         $pagetitle = "Inventory Management";
 
-        $query = Stock::with(['product', 'user', 'stockLocation', 'destinationLocation'])
-            ->latest('transaction_date');
-
-        if ($request->filled('type')) {
-            $query->where('type', $request->type);
-        }
-
-        if ($request->filled('product_id')) {
-            $query->where('product_id', $request->product_id);
-        }
-
-        if ($request->filled('location_id')) {
-            $query->where('stock_location_id', $request->location_id);
-        }
-
-        if ($request->filled('date_from')) {
-            $query->whereDate('transaction_date', '>=', $request->date_from);
-        }
-
-        if ($request->filled('date_to')) {
-            $query->whereDate('transaction_date', '<=', $request->date_to);
-        }
-
-        if ($request->filled('reference_type')) {
-            $query->where('reference_type', $request->reference_type);
-        }
-
-        if ($request->filled('reference_number')) {
-            $query->where('reference_number', 'like', "%{$request->reference_number}%");
-        }
-
-        if ($request->filled('user_id')) {
-            $query->where('user_id', $request->user_id);
-        }
-
-        $transactions = $query->paginate(25)->withQueryString();
-
         $products = Product::orderBy('title')->get(['id', 'title', 'sku', 'price']);
         $locations = StockLocation::orderBy('name')->get();
 
@@ -136,13 +100,67 @@ class InventoryController extends Controller
 
         return view('inventory.index', compact(
             'pagetitle',
-            'transactions',
             'products',
             'locations',
             'users',
             'summary',
             'recentActivity'
         ));
+    }
+
+    /** Yajra DataTable endpoint — inventory transactions (filters as the old GET form). */
+    public function transactionsData(Request $request)
+    {
+        $query = Stock::query()
+            ->with(['product:id,title,sku,thumbnail', 'user:id,first_name,last_name', 'stockLocation:id,name', 'destinationLocation:id,name'])
+            ->select('stocks.*')
+            ->when($request->filled('type'), fn ($q) => $q->where('stocks.type', $request->type))
+            ->when($request->filled('product_id'), fn ($q) => $q->where('stocks.product_id', $request->product_id))
+            ->when($request->filled('location_id'), fn ($q) => $q->where('stocks.stock_location_id', $request->location_id))
+            ->when($request->filled('date_from'), fn ($q) => $q->whereDate('stocks.transaction_date', '>=', $request->date_from))
+            ->when($request->filled('date_to'), fn ($q) => $q->whereDate('stocks.transaction_date', '<=', $request->date_to))
+            ->when($request->filled('user_id'), fn ($q) => $q->where('stocks.user_id', $request->user_id));
+
+        $colors = ['in' => 'success', 'out' => 'danger', 'adjustment' => 'warning', 'transfer' => 'info', 'transfer_in' => 'info', 'return' => 'primary', 'damage' => 'dark'];
+        $labels = ['in' => 'Stock In', 'out' => 'Stock Out', 'adjustment' => 'Adjustment', 'transfer' => 'Transfer', 'transfer_in' => 'Transfer In', 'return' => 'Return', 'damage' => 'Damage'];
+        $user = $request->user();
+
+        return DataTables::eloquent($query)
+            ->editColumn('transaction_date', fn ($t) => optional($t->transaction_date)->format('M d, Y h:i A'))
+            ->editColumn('type', function ($t) use ($colors, $labels) {
+                $c = $colors[$t->type] ?? 'secondary';
+                return '<span class="badge bg-' . $c . '-subtle text-' . $c . ' border border-' . $c . '-subtle">' . e($labels[$t->type] ?? ucfirst($t->type)) . '</span>';
+            })
+            ->addColumn('product', function ($t) {
+                $p = $t->product;
+                if (!$p) {
+                    return '<span class="text-muted">Deleted product</span>';
+                }
+                return '<div class="d-flex align-items-center gap-2">'
+                    . ($p->thumbnail ? '<img src="' . e(asset('storage/' . $p->thumbnail)) . '" class="gz-thumb" alt="">' : '')
+                    . '<div><div class="fw-semibold">' . e($p->title) . '</div><small class="text-muted">' . e($p->sku) . '</small></div></div>';
+            })
+            ->addColumn('location', fn ($t) => '<div class="fw-semibold">' . e($t->stockLocation->name ?? '—') . '</div>'
+                . ($t->type === 'transfer' && $t->destinationLocation ? '<small class="text-muted">→ ' . e($t->destinationLocation->name) . '</small>' : ''))
+            ->editColumn('quantity', function ($t) {
+                $plus = in_array($t->type, ['in', 'adjustment', 'return', 'transfer_in'], true);
+                return '<span class="fw-bold ' . ($plus ? 'text-success' : 'text-danger') . '">' . ($plus ? '+' : '-') . abs($t->quantity) . '</span>';
+            })
+            ->addColumn('reference', fn ($t) => '<div>' . e($t->reference_number) . '</div>'
+                . ($t->adjustment_reason ? '<small class="text-muted">' . e($t->adjustment_reason) . '</small>' : ''))
+            ->addColumn('user_name', fn ($t) => e($t->user->name ?? 'System'))
+            ->addColumn('action', function ($t) use ($user) {
+                $h = '<div class="dropdown"><button class="btn btn-soft-secondary btn-sm" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button><ul class="dropdown-menu dropdown-menu-end">'
+                    . '<li><a class="dropdown-item view-transaction-btn" href="javascript:void(0);" data-id="' . $t->id . '"><i class="bi bi-eye me-2"></i> View Details</a></li>';
+                if ($user->can('Manage inventory') && ($t->created_at?->diffInHours(now()) <= 24 || $user->hasRole('Admin'))) {
+                    $h .= '<li><a class="dropdown-item text-danger delete-transaction-btn" href="javascript:void(0);" data-id="' . $t->id . '"><i class="bi bi-trash me-2"></i> Delete</a></li>';
+                }
+                return $h . '</ul></div>';
+            })
+            ->filterColumn('product', fn ($q, $k) => $q->whereHas('product', fn ($p) => $p->where('title', 'like', "%{$k}%")->orWhere('sku', 'like', "%{$k}%")))
+            ->filterColumn('reference', fn ($q, $k) => $q->where('stocks.reference_number', 'like', "%{$k}%"))
+            ->rawColumns(['type', 'product', 'location', 'quantity', 'reference', 'action'])
+            ->toJson();
     }
 
     public function dashboard()
@@ -206,254 +224,212 @@ class InventoryController extends Controller
     }
 
 
-    public function stockLevels(Request $request)
-{
-    $pagetitle = "Stock Levels Report";
+    /** SQL fragment: signed quantity of a stock row (in/adjustment/transfer_in/return add, out/damage/transfer subtract). */
+    private const SIGNED_QTY = "CASE WHEN type IN ('in','adjustment','transfer_in','return') THEN quantity WHEN type IN ('out','damage','transfer') THEN -quantity ELSE 0 END";
 
-    // Generate a unique cache key based on all request parameters
-    $cacheKey = 'stock_levels_' . md5(serialize([
-        'category_id' => $request->category_id,
-        'brand_id' => $request->brand_id,
-        'stock_status' => $request->stock_status,
-        'search' => $request->search,
-        'sort_by' => $request->sort_by,
-        'sort_order' => $request->sort_order,
-        'page' => $request->page,
-        'user_id' => auth()->id() // Include user ID for permission-based caching
-    ]));
-
-    $cacheTime = 300; // 5 minutes - adjust based on your needs
-
-    // Check if we have cached results
-    if (Cache::has($cacheKey)) {
-        return Cache::get($cacheKey);
-    }
-
-    // Base query for products
-    $query = Product::with(['category', 'brand'])->select('products.*');
-
-    // Apply filters
-    if ($request->filled('category_id')) {
-        $query->where('category_id', $request->category_id);
-    }
-
-    if ($request->filled('brand_id')) {
-        $query->where('brand_id', $request->brand_id);
-    }
-
-    if ($request->filled('search')) {
-        $search = $request->search;
-        $query->where(function($q) use ($search) {
-            $q->where('title', 'like', "%{$search}%")
-              ->orWhere('sku', 'like', "%{$search}%")
-              ->orWhere('barcode', 'like', "%{$search}%")
-              ->orWhereHas('category', function($q) use ($search) {
-                  $q->where('name', 'like', "%{$search}%");
-              })
-              ->orWhereHas('brand', function($q) use ($search) {
-                  $q->where('name', 'like', "%{$search}%");
-              });
-        });
-    }
-
-    // Get all filtered products (without stock status filter yet)
-    $allProducts = $query->get();
-
-    // Cache stock calculations for all products to avoid N+1 queries
-    $productIds = $allProducts->pluck('id')->toArray();
-    $stockCalculationsCache = [];
-
-    // Pre-calculate stock for all products using a single query
-    $stockSums = Stock::whereIn('product_id', $productIds)
-        ->selectRaw('
-            product_id,
-            SUM(CASE
-                WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
-                WHEN type IN ("out", "damage", "transfer") THEN -quantity
-                ELSE 0
-            END) as total_stock
-        ')
-        ->groupBy('product_id')
-        ->pluck('total_stock', 'product_id')
-        ->toArray();
-
-    // Process products with calculated values
-    $productsWithStock = $allProducts->map(function($product) use ($stockSums) {
-        $totalStock = $stockSums[$product->id] ?? 0;
-        $totalStock = max(0, $totalStock); // Ensure no negative stock
-
-        // Calculate profit margin
-        $costPrice = $product->cost_price ?? 0;
-        $sellingPrice = $product->sale_price ?? $product->price ?? 0;
-        $marginPercent = 0;
-
-        if ($costPrice > 0 && $sellingPrice > 0) {
-            $marginPercent = (($sellingPrice - $costPrice) / $costPrice) * 100;
+    /**
+     * Products joined with their computed stock (total + one column per location).
+     * Shared by the Stock Levels page, its DataTable and its totals.
+     */
+    private function stockLevelsQuery(Request $request, $locations)
+    {
+        $sub = Stock::query()->selectRaw('product_id, SUM(' . self::SIGNED_QTY . ') as total_stock');
+        foreach ($locations as $loc) {
+            $sub->selectRaw('SUM(CASE WHEN stock_location_id = ? THEN ' . self::SIGNED_QTY . ' ELSE 0 END) as loc_' . (int) $loc->id, [$loc->id]);
         }
+        $sub->groupBy('product_id');
+
+        $stockExpr = 'GREATEST(COALESCE(st.total_stock, 0), 0)';
+
+        $query = Product::query()
+            ->leftJoinSub($sub, 'st', 'st.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+            ->leftJoin('brands', 'brands.id', '=', 'products.brand_id')
+            ->select('products.*', 'categories.name as category_name', 'brands.name as brand_name')
+            ->selectRaw("{$stockExpr} as total_stock")
+            ->when($request->filled('category_id'), fn ($q) => $q->where('products.category_id', $request->category_id))
+            ->when($request->filled('brand_id'), fn ($q) => $q->where('products.brand_id', $request->brand_id))
+            ->when($request->stock_status === 'in_stock', fn ($q) => $q->whereRaw("{$stockExpr} > 10"))
+            ->when($request->stock_status === 'low_stock', fn ($q) => $q->whereRaw("{$stockExpr} BETWEEN 1 AND 10"))
+            ->when($request->stock_status === 'out_of_stock', fn ($q) => $q->whereRaw("{$stockExpr} = 0"));
+
+        foreach ($locations as $loc) {
+            $query->selectRaw('GREATEST(COALESCE(st.loc_' . (int) $loc->id . ', 0), 0) as loc_' . (int) $loc->id);
+        }
+
+        return $query;
+    }
+
+    /** Totals for the value cards / margin chart over the whole filtered set (not just one page). */
+    private function stockLevelsTotals($query): array
+    {
+        $sell   = 'COALESCE(NULLIF(products.sale_price, 0), products.price, 0)';
+        $cost   = 'COALESCE(products.cost_price, 0)';
+        $stock  = 'GREATEST(COALESCE(st.total_stock, 0), 0)';
+        $margin = "CASE WHEN {$cost} > 0 THEN (({$sell} - {$cost}) / {$cost}) * 100 ELSE 0 END";
+
+        $row = DB::query()->fromSub($query->toBase()->cloneWithout(['columns', 'orders'])->cloneWithoutBindings(['select', 'order'])->select('products.*')
+                ->selectRaw("{$stock} as s_stock, {$sell} as s_sell, {$cost} as s_cost, {$margin} as s_margin"), 't')
+            ->selectRaw('COUNT(*) as products')
+            ->selectRaw('SUM(s_stock) as total_stock')
+            ->selectRaw('SUM(s_stock * s_cost) as cost_value')
+            ->selectRaw('SUM(s_stock * s_sell) as selling_value')
+            ->selectRaw('AVG(CASE WHEN s_cost > 0 THEN s_margin END) as avg_margin')
+            ->selectRaw('SUM(CASE WHEN s_margin > 50 THEN 1 ELSE 0 END) as m_high')
+            ->selectRaw('SUM(CASE WHEN s_margin >= 30 AND s_margin <= 50 THEN 1 ELSE 0 END) as m_good')
+            ->selectRaw('SUM(CASE WHEN s_margin >= 20 AND s_margin < 30 THEN 1 ELSE 0 END) as m_avg')
+            ->selectRaw('SUM(CASE WHEN s_margin >= 10 AND s_margin < 20 THEN 1 ELSE 0 END) as m_low')
+            ->selectRaw('SUM(CASE WHEN s_margin > 0 AND s_margin < 10 THEN 1 ELSE 0 END) as m_vlow')
+            ->selectRaw('SUM(CASE WHEN s_margin = 0 THEN 1 ELSE 0 END) as m_none')
+            ->selectRaw('SUM(CASE WHEN s_margin < 0 THEN 1 ELSE 0 END) as m_loss')
+            ->first();
 
         return [
-            'product' => $product,
-            'total_stock' => $totalStock,
-            'margin_percent' => $marginPercent,
-            'price' => $product->price,
-            'sale_price' => $product->sale_price,
-            'cost_price' => $product->cost_price,
-            'title' => $product->title,
-            'sku' => $product->sku,
-            'category_name' => $product->category->name ?? '',
-            'brand_name' => $product->brand->name ?? ''
+            'products'      => (int) ($row->products ?? 0),
+            'total_stock'   => (int) ($row->total_stock ?? 0),
+            'cost_value'    => (float) ($row->cost_value ?? 0),
+            'selling_value' => (float) ($row->selling_value ?? 0),
+            'profit'        => (float) ($row->selling_value ?? 0) - (float) ($row->cost_value ?? 0),
+            'avg_margin'    => round((float) ($row->avg_margin ?? 0), 2),
+            'margin_ranges' => [
+                'High (>50%)'      => (int) $row->m_high,
+                'Good (30-50%)'    => (int) $row->m_good,
+                'Average (20-30%)' => (int) $row->m_avg,
+                'Low (10-20%)'     => (int) $row->m_low,
+                'Very Low (<10%)'  => (int) $row->m_vlow,
+                'No Margin'        => (int) $row->m_none,
+                'Loss'             => (int) $row->m_loss,
+            ],
         ];
-    });
-
-    // Apply stock status filter
-    if ($request->filled('stock_status')) {
-        $productsWithStock = $productsWithStock->filter(function($item) use ($request) {
-            $stock = $item['total_stock'];
-
-            switch ($request->stock_status) {
-                case 'in_stock':
-                    return $stock > 10;
-                case 'low_stock':
-                    return $stock > 0 && $stock <= 10;
-                case 'out_of_stock':
-                    return $stock == 0;
-                case 'negative_stock':
-                    return $stock < 0;
-                default:
-                    return true;
-            }
-        });
     }
 
-    // Apply sorting
-    $sortBy = $request->get('sort_by', 'title');
-    $sortOrder = $request->get('sort_order', 'asc');
+    public function stockLevels(Request $request)
+    {
+        $pagetitle = "Stock Levels Report";
 
-    $productsWithStock = $productsWithStock->sortBy(function($item) use ($sortBy) {
-        switch ($sortBy) {
-            case 'total_stock':
-                return $item['total_stock'];
-            case 'margin_percent':
-                return $item['margin_percent'];
-            case 'price':
-                return $item['price'];
-            case 'sale_price':
-                return $item['sale_price'];
-            case 'cost_price':
-                return $item['cost_price'];
-            case 'sku':
-                return $item['sku'];
-            case 'title':
-            default:
-                return $item['title'];
-        }
-    }, SORT_REGULAR, $sortOrder === 'desc');
+        $locations  = StockLocation::orderBy('name')->get();
+        $categories = Category::orderBy('name')->get();
+        $brands     = Brand::orderBy('name')->get();
 
-    // Create pagination
-    $page = $request->get('page', 1);
-    $perPage = 25;
-    $offset = ($page - 1) * $perPage;
+        // Status counts over all products (cheap: one grouped query)
+        $base = $this->stockLevelsQuery(new Request(), $locations);
+        $counts = DB::query()->fromSub($base->toBase(), 'x')
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN total_stock > 10 THEN 1 ELSE 0 END) as in_stock')
+            ->selectRaw('SUM(CASE WHEN total_stock BETWEEN 1 AND 10 THEN 1 ELSE 0 END) as low_stock')
+            ->selectRaw('SUM(CASE WHEN total_stock = 0 THEN 1 ELSE 0 END) as out_of_stock')
+            ->first();
 
-    $paginatedProducts = new \Illuminate\Pagination\LengthAwarePaginator(
-        $productsWithStock->slice($offset, $perPage)->values(),
-        $productsWithStock->count(),
-        $perPage,
-        $page,
-        ['path' => $request->url(), 'query' => $request->query()]
-    );
+        $summary = [
+            'total_products' => (int) ($counts->total ?? 0),
+            'in_stock'       => (int) ($counts->in_stock ?? 0),
+            'low_stock'      => (int) ($counts->low_stock ?? 0),
+            'out_of_stock'   => (int) ($counts->out_of_stock ?? 0),
+        ];
 
-    $products = $paginatedProducts;
+        // Stock per location for the bar chart / table footer
+        $locationStockTotals = Stock::query()
+            ->selectRaw('stock_location_id, SUM(' . self::SIGNED_QTY . ') as total')
+            ->groupBy('stock_location_id')
+            ->pluck('total', 'stock_location_id')
+            ->map(fn ($v) => max(0, (int) $v))
+            ->toArray();
 
-    // Get all locations
-    $locations = StockLocation::orderBy('name')->get();
-
-    // Cache location stock calculations
-    $locationStockCache = [];
-    $locationStockData = [];
-
-    // Pre-calculate stock for all product-location combinations
-    if (count($productIds) > 0 && count($locations) > 0) {
-        $locationStockSums = Stock::whereIn('product_id', $productIds)
-            ->whereIn('stock_location_id', $locations->pluck('id'))
-            ->selectRaw('
-                product_id,
-                stock_location_id,
-                SUM(CASE
-                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
-                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
-                    ELSE 0
-                END) as location_stock
-            ')
-            ->groupBy('product_id', 'stock_location_id')
-            ->get()
-            ->groupBy('product_id');
-
-        // Build location stock data array
-        foreach ($products as $data) {
-            $product = $data['product'];
-            $productStocks = $locationStockSums[$product->id] ?? collect();
-
-            foreach ($locations as $location) {
-                $stock = $productStocks->where('stock_location_id', $location->id)->first();
-                $locationStockData[$product->id][$location->id] = $stock ? max(0, $stock->location_stock) : 0;
-            }
-        }
+        return view('inventory.stock-levels', compact(
+            'pagetitle', 'locations', 'categories', 'brands', 'summary', 'locationStockTotals'
+        ));
     }
 
-    // Calculate summary statistics
-    $summaryCounts = [
-        'total_products' => $productsWithStock->count(),
-        'in_stock_count' => $productsWithStock->filter(fn($item) => $item['total_stock'] > 10)->count(),
-        'low_stock_count' => $productsWithStock->filter(fn($item) => $item['total_stock'] > 0 && $item['total_stock'] <= 10)->count(),
-        'out_of_stock_count' => $productsWithStock->filter(fn($item) => $item['total_stock'] == 0)->count()
-    ];
+    /** Yajra DataTable endpoint for the Stock Levels page. Totals ride along in the JSON. */
+    public function stockLevelsData(Request $request)
+    {
+        $locations = StockLocation::orderBy('name')->get();
+        $query     = $this->stockLevelsQuery($request, $locations);
+        $totals    = $this->stockLevelsTotals($this->stockLevelsQuery($request, $locations));
+        $naira     = fn ($v) => '₦' . number_format((float) $v, 2);
+        $canManage = $request->user()->can('Manage inventory');
 
-    $summary = [
-        'total_products' => $summaryCounts['total_products'],
-        'in_stock'       => $summaryCounts['in_stock_count'],
-        'low_stock'      => $summaryCounts['low_stock_count'],
-        'out_of_stock'   => $summaryCounts['out_of_stock_count'],
-    ];
-
-    // Calculate total stock per location for bar chart
-    $locationStockTotals = [];
-    if (isset($locationStockSums)) {
-        foreach ($locations as $location) {
-            $total = 0;
-            // Sum across all products for this location
-            foreach ($locationStockSums as $productId => $stocks) {
-                $locationStock = $stocks->where('stock_location_id', $location->id)->first();
-                if ($locationStock) {
-                    $total += max(0, $locationStock->location_stock);
+        $dt = DataTables::eloquent($query)
+            ->addColumn('checkbox', fn ($p) => '<input type="checkbox" class="form-check-input product-checkbox" value="' . $p->id . '">')
+            ->addColumn('product', fn ($p) => '<div class="d-flex align-items-center gap-2">'
+                . ($p->thumbnail ? '<img src="' . e(asset('storage/' . $p->thumbnail)) . '" class="gz-thumb" alt="">' : '')
+                . '<div><div class="fw-semibold">' . e($p->title) . '</div>'
+                . ($p->barcode ? '<small class="text-muted">Barcode: ' . e($p->barcode) . '</small>' : '') . '</div></div>')
+            ->addColumn('category', fn ($p) => e($p->category_name ?? '-'))
+            ->addColumn('brand', fn ($p) => e($p->brand_name ?? '-'))
+            ->editColumn('cost_price', fn ($p) => $p->cost_price > 0 ? '<span class="fw-bold text-info">' . $naira($p->cost_price) . '</span>' : '<span class="text-muted">-</span>')
+            ->editColumn('price', fn ($p) => ($p->sale_price && $p->sale_price < $p->price)
+                ? '<del class="text-muted small">' . $naira($p->price) . '</del>'
+                : '<span class="fw-bold">' . $naira($p->price) . '</span>')
+            ->addColumn('selling', function ($p) use ($naira) {
+                $sell = ($p->sale_price ?: $p->price) ?? 0;
+                return '<span class="fw-bold ' . (($p->sale_price && $p->sale_price < $p->price) ? 'text-danger' : 'text-success') . '">' . $naira($sell) . '</span>';
+            })
+            ->addColumn('discount', function ($p) use ($naira) {
+                if (!($p->sale_price && $p->sale_price < $p->price && $p->price > 0)) {
+                    return '<span class="badge bg-secondary-subtle text-secondary">No discount</span>';
                 }
-            }
-            $locationStockTotals[$location->id] = $total;
+                $pct = round((($p->price - $p->sale_price) / $p->price) * 100, 1);
+                $c = $pct >= 20 ? 'danger' : ($pct >= 10 ? 'warning' : 'info');
+                return '<span class="badge bg-' . $c . '-subtle text-' . $c . '">-' . $pct . '%</span><br><small class="text-muted">Save ' . $naira($p->price - $p->sale_price) . '</small>';
+            })
+            ->addColumn('profit', function ($p) use ($naira) {
+                $m = (($p->sale_price ?: $p->price) ?? 0) - ($p->cost_price ?? 0);
+                return '<span class="fw-bold ' . ($m > 0 ? 'text-primary' : ($m < 0 ? 'text-danger' : 'text-muted')) . '">' . $naira($m) . '</span>';
+            })
+            ->addColumn('margin', function ($p) {
+                $cost = (float) ($p->cost_price ?? 0);
+                $pct  = $cost > 0 ? round(((($p->sale_price ?: $p->price) - $cost) / $cost) * 100, 1) : 0;
+                $c = $pct >= 50 ? 'success' : ($pct >= 20 ? 'warning' : ($pct >= 10 ? 'info' : 'danger'));
+                return '<span class="badge bg-' . $c . '-subtle text-' . $c . '">' . number_format($pct, 1) . '%</span>';
+            })
+            ->editColumn('total_stock', function ($p) {
+                $s = (int) $p->total_stock;
+                return '<span class="fw-bold ' . ($s > 10 ? 'text-success' : ($s > 0 ? 'text-warning' : 'text-secondary')) . '">' . $s . '</span>';
+            })
+            ->addColumn('stock_value', function ($p) use ($naira) {
+                $sell = ($p->sale_price ?: $p->price) ?? 0;
+                $value = $p->total_stock * $sell;
+                $cost  = $p->total_stock * ($p->cost_price ?? 0);
+                return '<div class="text-end"><div class="fw-bold text-success">' . $naira($value) . '</div>'
+                    . '<small class="text-muted">Cost: ' . $naira($cost) . '</small>'
+                    . '<div class="small ' . ($value - $cost >= 0 ? 'text-primary' : 'text-danger') . '">Profit: ' . $naira($value - $cost) . '</div></div>';
+            })
+            ->addColumn('status', function ($p) {
+                $s = (int) $p->total_stock;
+                [$c, $t] = $s > 10 ? ['success', 'In Stock'] : ($s > 0 ? ['warning', 'Low Stock'] : ['danger', 'Out of Stock']);
+                return '<span class="badge bg-' . $c . '-subtle text-' . $c . '">' . $t . '</span>';
+            })
+            ->addColumn('action', function ($p) use ($canManage) {
+                $h = '<div class="dropdown"><button class="btn btn-soft-secondary btn-sm" type="button" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button><ul class="dropdown-menu dropdown-menu-end">'
+                    . '<li><a class="dropdown-item" href="' . route('web.products.show', $p->id) . '"><i class="bi bi-eye me-2"></i> View Product</a></li>'
+                    . '<li><a class="dropdown-item" href="#" onclick="showStockHistory(' . $p->id . ');return false;"><i class="bi bi-clock-history me-2"></i> View History</a></li>';
+                if ($canManage) {
+                    $h .= '<li><a class="dropdown-item" href="#" onclick="quickAdjust(' . $p->id . ', ' . e(json_encode($p->title)) . ');return false;"><i class="bi bi-plus-slash-minus me-2"></i> Adjust Stock</a></li>';
+                }
+                return $h . '</ul></div>';
+            })
+            ->filterColumn('product', fn ($q, $k) => $q->where(fn ($w) => $w->where('products.title', 'like', "%{$k}%")->orWhere('products.barcode', 'like', "%{$k}%")))
+            ->filterColumn('category', fn ($q, $k) => $q->where('categories.name', 'like', "%{$k}%"))
+            ->filterColumn('brand', fn ($q, $k) => $q->where('brands.name', 'like', "%{$k}%"))
+            ->orderColumn('product', 'products.title $1')
+            ->orderColumn('total_stock', 'total_stock $1')
+            ->orderColumn('selling', 'COALESCE(NULLIF(products.sale_price, 0), products.price) $1');
+
+        $raw = ['checkbox', 'product', 'cost_price', 'price', 'selling', 'discount', 'profit', 'margin', 'total_stock', 'stock_value', 'status', 'action'];
+        foreach ($locations as $loc) {
+            $col = 'loc_' . (int) $loc->id;
+            $dt->editColumn($col, function ($p) use ($col) {
+                $s = (int) $p->$col;
+                $c = $s > 10 ? 'success' : ($s > 0 ? 'warning' : 'secondary');
+                return '<span class="badge bg-' . $c . '-subtle text-' . $c . '">' . $s . '</span>';
+            });
+            $dt->orderColumn($col, $col . ' $1');
+            $raw[] = $col;
         }
+
+        return $dt->rawColumns($raw)->with('totals', $totals)->toJson();
     }
-
-    $categories = Category::orderBy('name')->get();
-    $brands = Brand::orderBy('name')->get();
-
-    // Prepare view data
-    $viewData = compact(
-        'pagetitle',
-        'products',
-        'locations',
-        'locationStockData',
-        'categories',
-        'brands',
-        'summary',
-        'locationStockTotals'
-    );
-
-    // Render the view
-    $view = view('inventory.stock-levels', $viewData)->render();
-
-    // Cache the rendered view
-    Cache::put($cacheKey, $view, $cacheTime);
-
-    return $view;
-}
 
     public function stockHistory($id)
     {

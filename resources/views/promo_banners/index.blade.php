@@ -95,379 +95,74 @@
                 </div>
             </div>
 
-            {{-- ─── Banner Table ──────────────────────────────────────────────────── --}}
-            <div id="bannerList" class="mt-4">
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="card">
-                            <div class="card-header d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <h5 class="card-title mb-0">
-                                        Promo Banners <span class="badge bg-dark-subtle text-dark ms-1" id="totalBanners">{{ $banners->total() }}</span>
-                                    </h5>
-                                </div>
-                                <div class="flex-shrink-0">
-                                    <div class="d-flex flex-wrap align-items-start gap-2">
-                                        <!-- Bulk Actions Dropdown -->
-                                        <div class="dropdown me-2" id="bulkActionsDropdown" style="display: none;">
-                                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                                Bulk Actions (<span id="selectedCount">0</span>)
-                                            </button>
-                                            <ul class="dropdown-menu">
-                                                <li><a class="dropdown-item bulk-action" href="#" data-action="activate">Activate</a></li>
-                                                <li><a class="dropdown-item bulk-action" href="#" data-action="deactivate">Deactivate</a></li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li><a class="dropdown-item bulk-action text-danger" href="#" data-action="delete">Delete Selected</a></li>
-                                            </ul>
-                                        </div>
-
-                                        <div class="input-group input-group-sm me-2" style="width: 250px;">
-                                            <input type="text" class="form-control" id="searchInput" placeholder="Search banners..." value="{{ request('search', '') }}">
-                                            <button class="btn btn-outline-secondary" type="button" id="searchButton"><i class="bi bi-search"></i></button>
-                                            <button class="btn btn-outline-secondary" type="button" id="clearSearch" style="display: {{ request('search') ? 'inline-block' : 'none' }};"><i class="bi bi-x"></i></button>
-                                        </div>
-                                        @can('Create promo_banner')
-                                            <button type="button" class="btn btn-primary add-btn" onclick="resetForm()">
-                                                <i class="bi bi-plus-lg me-1"></i> Add Banner
-                                            </button>
-                                        @endcan
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Advanced Filters --}}
-                            <div class="card-body border-bottom">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <label class="form-label">Search</label>
-                                        <input type="text" class="form-control" id="searchInput2" placeholder="Title, Badge..." value="{{ request('search', '') }}">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Screen</label>
-                                        <select class="form-control" id="screenFilter">
-                                            <option value="">All Screens</option>
-                                            <option value="all" {{ request('screen') == 'all' ? 'selected' : '' }}>All Pages</option>
-                                            <option value="home" {{ request('screen') == 'home' ? 'selected' : '' }}>Home</option>
-                                            <option value="category" {{ request('screen') == 'category' ? 'selected' : '' }}>Category</option>
-                                            <option value="product" {{ request('screen') == 'product' ? 'selected' : '' }}>Product</option>
-                                            <option value="offers" {{ request('screen') == 'offers' ? 'selected' : '' }}>Offers</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Style</label>
-                                        <select class="form-control" id="styleFilter">
-                                            <option value="">All Styles</option>
-                                            <option value="coupon" {{ request('display_style') == 'coupon' ? 'selected' : '' }}>Coupon Ticket</option>
-                                            <option value="voucher" {{ request('display_style') == 'voucher' ? 'selected' : '' }}>Gift Voucher</option>
-                                            <option value="gradient" {{ request('display_style') == 'gradient' ? 'selected' : '' }}>Gradient</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Status</label>
-                                        <select class="form-control" id="statusFilter">
-                                            <option value="">All Status</option>
-                                            <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active</option>
-                                            <option value="inactive" {{ request('status') == 'inactive' ? 'selected' : '' }}>Inactive</option>
-                                            <option value="scheduled" {{ request('status') == 'scheduled' ? 'selected' : '' }}>Scheduled</option>
-                                            <option value="expired" {{ request('status') == 'expired' ? 'selected' : '' }}>Expired</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Sort By</label>
-                                        <select class="form-control" id="sortFilter">
-                                            <option value="sort_order" {{ request('sort') == 'sort_order' ? 'selected' : '' }}>Sort Order</option>
-                                            <option value="created_at" {{ request('sort') == 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                            <option value="starts_at" {{ request('sort') == 'starts_at' ? 'selected' : '' }}>Start Date</option>
-                                            <option value="title" {{ request('sort') == 'title' ? 'selected' : '' }}>Title</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-1 d-flex align-items-end gap-2">
-                                        <select class="form-control d-none" id="orderFilter">
-                                            <option value="asc" {{ request('order') == 'asc' ? 'selected' : '' }}>Ascending</option>
-                                            <option value="desc" {{ request('order') == 'desc' ? 'selected' : '' }}>Descending</option>
-                                        </select>
-                                        <button type="button" class="btn btn-primary w-100" id="applyFilter">
-                                            <i class="bi bi-funnel"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary" id="clearFilters"
-                                            style="{{ request()->except('page') ? '' : 'display: none;' }}">
-                                            <i class="bi bi-x-circle"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="card-body">
-                                {{-- Active Filter Badges --}}
-                                @if(request()->except('page'))
-                                <div class="mb-3">
-                                    <div class="d-flex align-items-center flex-wrap gap-2">
-                                        <span class="text-muted me-1">Active filters:</span>
-                                        @if(request('search'))
-                                            <span class="badge bg-primary-subtle text-primary">Search: {{ request('search') }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('search')"></button></span>
-                                        @endif
-                                        @if(request('screen'))
-                                            <span class="badge bg-primary-subtle text-primary">Screen: {{ ucfirst(request('screen')) }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('screen')"></button></span>
-                                        @endif
-                                        @if(request('display_style'))
-                                            <span class="badge bg-primary-subtle text-primary">Style: {{ ucfirst(request('display_style')) }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('display_style')"></button></span>
-                                        @endif
-                                        @if(request('status'))
-                                            <span class="badge bg-primary-subtle text-primary">Status: {{ ucfirst(request('status')) }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('status')"></button></span>
-                                        @endif
-                                    </div>
-                                </div>
-                                @endif
-
-                                <div class="table-responsive">
-                                    <table class="table table-centered align-middle table-nowrap mb-0">
-                                        <thead class="table-active">
-                                            <tr>
-                                                <th style="width: 50px;">
-                                                    <input type="checkbox" id="selectAll" class="form-check-input">
-                                                </th>
-                                                <th style="width: 60px;">#</th>
-                                                <th>Preview</th>
-                                                <th>Badge / Title</th>
-                                                <th>Style</th>
-                                                <th>Screen</th>
-                                                <th>Schedule</th>
-                                                <th>Status</th>
-                                                <th>Sort Order</th>
-                                                <th style="width: 120px;">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="sortable-body">
-                                            @forelse($banners as $banner)
-                                            <tr class="sortable-row" data-id="{{ $banner->id }}">
-                                                <td class="text-center">
-                                                    <input type="checkbox" class="row-select form-check-input" value="{{ $banner->id }}">
-                                                </td>
-                                                <td class="fw-medium text-muted">{{ $loop->iteration }}</td>
-                                                <td>
-                                                    @if($banner->image_url)
-                                                        <img src="{{ $banner->full_image_url }}" alt="{{ $banner->title }}"
-                                                             class="img-fluid rounded" style="width: 120px; height: 67px; object-fit: cover;">
-                                                    @else
-                                                        <div class="banner-card-preview"
-                                                             style="background: linear-gradient(135deg, {{ $banner->gradient_start }}, {{ $banner->gradient_end }});
-                                                                    width: 120px; height: 67px; border-radius: 8px; display: flex;
-                                                                    align-items: center; justify-content: center; font-size: 10px;
-                                                                    padding: 4px; text-align: center; color: #fff;">
-                                                            <span>{{ Str::limit($banner->badge_text, 15) }}</span>
-                                                        </div>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    <div class="d-flex flex-column">
-                                                        <span class="badge bg-dark-subtle text-dark d-inline-block mb-1" style="font-size: 10px;">
-                                                            {{ $banner->badge_text }}
-                                                        </span>
-                                                        <span class="fw-semibold">{{ Str::limit($banner->title, 40) }}</span>
-                                                        <small class="text-muted">{{ Str::limit($banner->subtitle, 50) }}</small>
-                                                        <small class="text-primary">
-                                                            <i class="bi bi-arrow-right-circle me-1"></i>{{ $banner->cta_text }}
-                                                            @if($banner->cta_route)
-                                                                <span class="badge bg-info-subtle text-info ms-1">{{ $banner->cta_route }}</span>
-                                                            @endif
-                                                        </small>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    @php
-                                                        $styleLabels = [
-                                                            'coupon' => ['Coupon', 'bg-warning-subtle text-warning', 'bi-ticket-perforated'],
-                                                            'voucher' => ['Voucher', 'bg-info-subtle text-info', 'bi-award'],
-                                                            'gradient' => ['Gradient', 'bg-primary-subtle text-primary', 'bi-palette'],
-                                                        ];
-                                                        [$styleName, $styleClass, $styleIcon] = $styleLabels[$banner->display_style] ?? ['Auto-cycle', 'bg-secondary-subtle text-secondary', 'bi-shuffle'];
-                                                    @endphp
-                                                    <span class="badge {{ $styleClass }} d-inline-flex align-items-center gap-1">
-                                                        <i class="bi {{ $styleIcon }}"></i> {{ $styleName }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span class="badge bg-info-subtle text-info">
-                                                        <i class="bi bi-device-desktop me-1"></i>
-                                                        {{ ucfirst($banner->target_screen) }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    @if($banner->starts_at || $banner->ends_at)
-                                                        <div class="d-flex flex-column">
-                                                            <small class="text-muted">
-                                                                <i class="bi bi-calendar3 me-1"></i>
-                                                                From: {{ $banner->starts_at?->format('d M Y H:i') ?? '—' }}
-                                                            </small>
-                                                            <small class="text-muted">
-                                                                <i class="bi bi-calendar3 me-1"></i>
-                                                                To: {{ $banner->ends_at?->format('d M Y H:i') ?? '—' }}
-                                                            </small>
-                                                            @if($banner->show_once_daily)
-                                                                <span class="badge bg-secondary-subtle text-secondary mt-1" style="font-size: 9px;">
-                                                                    <i class="bi bi-repeat me-1"></i> Once daily
-                                                                </span>
-                                                            @endif
-                                                        </div>
-                                                    @else
-                                                        <span class="text-muted small">
-                                                            <i class="bi bi-infinity me-1"></i> Always
-                                                        </span>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    @php
-                                                        $statusClass = 'bg-success-subtle text-success';
-                                                        $statusIcon = 'bi-check-circle';
-                                                        $statusText = 'Active';
-
-                                                        if (!$banner->active) {
-                                                            $statusClass = 'bg-secondary-subtle text-secondary';
-                                                            $statusIcon = 'bi-slash-circle';
-                                                            $statusText = 'Inactive';
-                                                        } elseif ($banner->starts_at && $banner->starts_at > now()) {
-                                                            $statusClass = 'bg-warning-subtle text-warning';
-                                                            $statusIcon = 'bi-clock';
-                                                            $statusText = 'Scheduled';
-                                                        } elseif ($banner->ends_at && $banner->ends_at < now()) {
-                                                            $statusClass = 'bg-danger-subtle text-danger';
-                                                            $statusIcon = 'bi-clock-history';
-                                                            $statusText = 'Expired';
-                                                        }
-                                                    @endphp
-                                                    <span class="badge {{ $statusClass }} d-inline-flex align-items-center gap-1">
-                                                        <i class="bi {{ $statusIcon }}"></i>
-                                                        {{ $statusText }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span class="badge bg-secondary-subtle text-secondary">
-                                                        {{ $banner->sort_order }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <div class="dropdown">
-                                                        <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown">
-                                                            <i class="bi bi-three-dots-vertical"></i>
-                                                        </button>
-                                                        <ul class="dropdown-menu dropdown-menu-end">
-                                                            <li>
-                                                                <a class="dropdown-item view-btn" href="javascript:void(0);"
-                                                                   data-id="{{ $banner->id }}"
-                                                                   data-badge="{{ $banner->badge_text }}"
-                                                                   data-title="{{ $banner->title }}"
-                                                                   data-subtitle="{{ $banner->subtitle }}"
-                                                                   data-cta-text="{{ $banner->cta_text }}"
-                                                                   data-cta-route="{{ $banner->cta_route }}"
-                                                                   data-gradient-start="{{ $banner->gradient_start }}"
-                                                                   data-gradient-end="{{ $banner->gradient_end }}"
-                                                                   data-accent="{{ $banner->accent_color }}"
-                                                                   data-screen="{{ $banner->target_screen }}"
-                                                                   data-style="{{ $banner->display_style }}"
-                                                                   data-amount="{{ $banner->amount_text }}"
-                                                                   data-masked-user="{{ $banner->masked_user }}"
-                                                                   data-from-label="{{ $banner->from_label }}"
-                                                                   data-type-label="{{ $banner->type_label }}"
-                                                                   data-date-label="{{ $banner->date_label }}"
-                                                                   data-conditions="{{ $banner->conditions_text }}"
-                                                                   data-announcement="{{ $banner->announcement_text }}"
-                                                                   data-image="{{ $banner->full_image_url }}">
-                                                                    <i class="bi bi-eye me-1"></i> View
-                                                                </a>
-                                                            </li>
-                                                            @can('Update promo_banner')
-                                                                <li>
-                                                                    <a class="dropdown-item edit-btn" href="javascript:void(0);"
-                                                                       data-id="{{ $banner->id }}"
-                                                                       data-badge="{{ $banner->badge_text }}"
-                                                                       data-title="{{ $banner->title }}"
-                                                                       data-subtitle="{{ $banner->subtitle }}"
-                                                                       data-cta-text="{{ $banner->cta_text }}"
-                                                                       data-cta-route="{{ $banner->cta_route }}"
-                                                                       data-gradient-start="{{ $banner->gradient_start }}"
-                                                                       data-gradient-end="{{ $banner->gradient_end }}"
-                                                                       data-accent="{{ $banner->accent_color }}"
-                                                                       data-screen="{{ $banner->target_screen }}"
-                                                                       data-active="{{ $banner->active ? '1' : '0' }}"
-                                                                       data-starts="{{ $banner->starts_at?->format('Y-m-d\TH:i') }}"
-                                                                       data-ends="{{ $banner->ends_at?->format('Y-m-d\TH:i') }}"
-                                                                       data-image="{{ $banner->full_image_url }}"
-                                                                       data-lottie="{{ $banner->lottie_asset }}"
-                                                                       data-show-once="{{ $banner->show_once_daily ? '1' : '0' }}"
-                                                                       data-sort="{{ $banner->sort_order }}"
-                                                                       data-style="{{ $banner->display_style }}"
-                                                                       data-amount="{{ $banner->amount_text }}"
-                                                                       data-masked-user="{{ $banner->masked_user }}"
-                                                                       data-from-label="{{ $banner->from_label }}"
-                                                                       data-type-label="{{ $banner->type_label }}"
-                                                                       data-date-label="{{ $banner->date_label }}"
-                                                                       data-conditions="{{ $banner->conditions_text }}"
-                                                                       data-announcement="{{ $banner->announcement_text }}">
-                                                                        <i class="bi bi-pencil me-1"></i> Edit
-                                                                    </a>
-                                                                </li>
-                                                            @endcan
-                                                            <li>
-                                                                <a class="dropdown-item toggle-status-btn" href="javascript:void(0);"
-                                                                   data-id="{{ $banner->id }}"
-                                                                   data-status="{{ $banner->active ? 'active' : 'inactive' }}">
-                                                                    <i class="bi bi-arrow-repeat me-1"></i>
-                                                                    {{ $banner->active ? 'Deactivate' : 'Activate' }}
-                                                                </a>
-                                                            </li>
-                                                            @can('Delete promo_banner')
-                                                                <li><hr class="dropdown-divider"></li>
-                                                                <li>
-                                                                    <a class="dropdown-item text-danger remove-item-btn" href="javascript:void(0);"
-                                                                       data-id="{{ $banner->id }}"
-                                                                       data-title="{{ $banner->title }}">
-                                                                        <i class="bi bi-trash me-1"></i> Delete
-                                                                    </a>
-                                                                </li>
-                                                            @endcan
-                                                        </ul>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            @empty
-                                            <tr id="noResultsRow">
-                                                <td colspan="10" class="text-center py-5 text-muted">
-                                                    @if(request()->except('page'))
-                                                        No promo banners found matching your filters.<br>
-                                                        <a href="{{ route('web.promo-banners.index') }}" class="btn btn-sm btn-outline-primary mt-2">Clear filters</a>
-                                                    @else
-                                                        <i class="bi bi-images display-1 d-block mb-3 text-muted"></i>
-                                                        No promo banners found.
-                                                        @can('Create promo_banner')
-                                                            <a href="javascript:void(0)" class="text-primary add-btn" onclick="resetForm()">Add your first banner</a>
-                                                        @endcan
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div class="row mt-3 align-items-center">
-                                    <div class="col-sm">
-                                        <div class="text-muted text-center text-sm-start">
-                                            Showing {{ $banners->firstItem() }} to {{ $banners->lastItem() }} of {{ $banners->total() }} Results
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-auto mt-3 mt-sm-0">
-                                        {!! $banners->appends(request()->query())->links('pagination::bootstrap-5') !!}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            {{-- ─── Banner Table (server-side DataTable) ─────────────────────────── --}}
+            <x-cb.card title="Promo Banners" icon="ri-megaphone-line" :flush="true" class="mt-4">
+                <x-slot:tools>
+                    <div class="dropdown" id="bulkActionsDropdown" style="display: none;">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            Bulk Actions (<span id="selectedCount">0</span>)
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item bulk-action" href="#" data-action="activate">Activate</a></li>
+                            <li><a class="dropdown-item bulk-action" href="#" data-action="deactivate">Deactivate</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item bulk-action text-danger" href="#" data-action="delete">Delete Selected</a></li>
+                        </ul>
                     </div>
+                    @can('Create promo_banner')
+                        <button type="button" class="btn btn-sm btn-primary add-btn" onclick="resetForm()"><i class="bi bi-plus-lg me-1"></i> Add Banner</button>
+                    @endcan
+                </x-slot:tools>
+
+                <div class="gz-filter-bar px-3 pt-3">
+                    <select class="form-select form-select-sm" id="screenFilter" data-dt-filter="#promoBannersTable">
+                        <option value="">All Screens</option>
+                        <option value="all">All Pages</option>
+                        <option value="home">Home</option>
+                        <option value="category">Category</option>
+                        <option value="product">Product</option>
+                        <option value="offers">Offers</option>
+                    </select>
+                    <select class="form-select form-select-sm" id="styleFilter" data-dt-filter="#promoBannersTable">
+                        <option value="">All Styles</option>
+                        <option value="coupon">Coupon Ticket</option>
+                        <option value="voucher">Gift Voucher</option>
+                        <option value="gradient">Gradient</option>
+                    </select>
+                    <select class="form-select form-select-sm" id="statusFilter" data-dt-filter="#promoBannersTable">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="expired">Expired</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearFilters"><i class="bi bi-x-circle me-1"></i> Clear</button>
+                    <small class="text-muted ms-auto"><i class="bi bi-arrows-move me-1"></i>Drag the <i class="bi bi-grip-vertical"></i> handle to reorder (when sorted by Sort Order)</small>
                 </div>
-            </div>
+
+                <div class="px-3 pb-3 gz-dt-wrap">
+                    <table id="promoBannersTable" class="table gz-dt align-middle w-100 mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 36px;"><input type="checkbox" id="selectAll" class="form-check-input"></th>
+                                <th style="width: 30px;"></th>
+                                <th>Preview</th>
+                                <th>Badge / Title</th>
+                                <th>Style</th>
+                                <th>Screen</th>
+                                <th>Schedule</th>
+                                <th>Status</th>
+                                <th>Sort Order</th>
+                                <th style="width: 70px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sortable-body"></tbody>
+                    </table>
+                </div>
+            </x-cb.card>
 
         </div>
     </div>
-</div>
 
 {{-- ─── Add / Edit Banner Modal ───────────────────────────────────────── --}}
 <div class="modal fade" id="showModal" tabindex="-1" data-bs-backdrop="static">
@@ -768,6 +463,12 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 
 <script>
+var PB_URLS = {
+    data:   @json(route('web.promo-banners.data')),
+    bulk:   @json(route('web.promo-banners.bulk')),
+    toggle: @json(route('web.promo-banners.toggle-status', '__ID__'))
+};
+function reloadBanners() { if (window.promoTable) { window.promoTable.ajax.reload(null, false); } }
 document.addEventListener('DOMContentLoaded', function() {
     // Get CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]');
@@ -864,75 +565,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function bulkAction(action, value = null) {
         try {
-            const response = await axios.post('/web/promo-banners/bulk', {
+            const response = await axios.post(PB_URLS.bulk, {
                 ids: selectedBanners,
                 action: action,
                 value: value
             });
 
-            Swal.fire('Success', response.data.message, 'success')
-                .then(() => location.reload());
+            Swal.fire('Success', response.data.message, 'success');
+            reloadBanners();
         } catch (error) {
             Swal.fire('Error', error.response?.data?.message || 'Failed to perform action', 'error');
         }
     }
 
-    // ==================== SEARCH / FILTER ====================
-    function initializeSearch() {
-        const searchInput = document.getElementById('searchInput');
-        const searchButton = document.getElementById('searchButton');
-        const clearSearch = document.getElementById('clearSearch');
-        const applyFilter = document.getElementById('applyFilter');
-        const clearFilters = document.getElementById('clearFilters');
-        const screenFilter = document.getElementById('screenFilter');
-        const styleFilter = document.getElementById('styleFilter');
-        const statusFilter = document.getElementById('statusFilter');
-        const sortFilter = document.getElementById('sortFilter');
-        const orderFilter = document.getElementById('orderFilter');
-
-        function performServerSearch() {
-            const params = new URLSearchParams(window.location.search);
-            const s = searchInput?.value.trim();
-            s ? params.set('search', s) : params.delete('search');
-            screenFilter?.value ? params.set('screen', screenFilter.value) : params.delete('screen');
-            styleFilter?.value ? params.set('display_style', styleFilter.value) : params.delete('display_style');
-            statusFilter?.value ? params.set('status', statusFilter.value) : params.delete('status');
-            sortFilter?.value ? params.set('sort', sortFilter.value) : params.delete('sort');
-            orderFilter?.value ? params.set('order', orderFilter.value) : params.delete('order');
-            params.delete('page');
-            window.location.href = `${window.location.pathname}?${params.toString()}`;
+    // ==================== SERVER-SIDE TABLE ====================
+    window.promoTable = GZ.dt('#promoBannersTable', {
+        url: PB_URLS.data,
+        order: [[8, 'asc']],
+        filters: function () {
+            return { screen: $('#screenFilter').val(), display_style: $('#styleFilter').val(), status: $('#statusFilter').val() };
+        },
+        columns: [
+            { data: 'checkbox',   name: 'checkbox', orderable: false, searchable: false },
+            { data: 'handle',     name: 'handle',   orderable: false, searchable: false },
+            { data: 'preview',    name: 'preview',  orderable: false, searchable: false },
+            { data: 'content',    name: 'content' },
+            { data: 'style',      name: 'display_style', searchable: false },
+            { data: 'screen',     name: 'target_screen', searchable: false },
+            { data: 'schedule',   name: 'starts_at', searchable: false },
+            { data: 'status',     name: 'active', searchable: false },
+            { data: 'sort_order', name: 'sort_order', searchable: false },
+            { data: 'action',     name: 'action', orderable: false, searchable: false }
+        ],
+        dt: { createdRow: function (row, data) { row.classList.add('sortable-row'); row.dataset.id = data.id; } },
+        onDraw: function () {
+            var all = document.getElementById('selectAll'); if (all) all.checked = false;
+            updateSelectedCount();
+            // drag-and-drop only makes sense when the table is in sort-order order
+            var ord = window.promoTable ? window.promoTable.order() : [[8, 'asc']];
+            $('#promoBannersTable').toggleClass('pb-drag-enabled', ord.length && ord[0][0] === 8 && ord[0][1] === 'asc');
         }
-
-        if (searchButton) searchButton.addEventListener('click', performServerSearch);
-        if (applyFilter) applyFilter.addEventListener('click', performServerSearch);
-
-        // Enter key support
-        if (searchInput) {
-            searchInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') performServerSearch();
-            });
-        }
-
-        if (clearFilters) {
-            clearFilters.addEventListener('click', () => window.location.href = window.location.pathname);
-        }
-
-        if (clearSearch) {
-            clearSearch.addEventListener('click', () => {
-                if (searchInput) searchInput.value = '';
-                performServerSearch();
-            });
-        }
-    }
-    initializeSearch();
-
-    // ==================== REMOVE FILTER ====================
-    window.removeFilter = function(filterName) {
-        const params = new URLSearchParams(window.location.search);
-        params.delete(filterName);
-        params.delete('page');
-        window.location.href = `${window.location.pathname}?${params.toString()}`;
-    };
+    });
+    var initialSearch = @json(request('search', ''));
+    if (initialSearch) { window.promoTable.search(initialSearch).draw(); }
+    document.getElementById('clearFilters')?.addEventListener('click', function () {
+        ['screenFilter', 'styleFilter', 'statusFilter'].forEach(function (id) { document.getElementById(id).value = ''; });
+        window.promoTable.search('').ajax.reload();
+    });
 
     // ==================== STYLE-DEPENDENT FIELD VISIBILITY ====================
     function updateStyleVisibility() {
@@ -1038,8 +717,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelector('.add-btn')?.addEventListener('click', resetForm);
 
     // Edit button
-    document.querySelectorAll('.edit-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+    // delegated: rows are drawn by the DataTable
+    $(document).on('click', '.edit-btn', function() {
             const d = this.dataset;
             document.getElementById('banner_id').value = d.id;
             document.getElementById('form_method').value = 'PUT';
@@ -1084,11 +763,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
             modal.show();
         });
-    });
 
     // View button
-    document.querySelectorAll('.view-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+    // delegated: rows are drawn by the DataTable
+    $(document).on('click', '.view-btn', function() {
             const d = this.dataset;
             const body = document.getElementById('viewModalBody');
             const style = d.style || '';
@@ -1175,11 +853,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
             modal.show();
         });
-    });
 
     // Toggle status
-    document.querySelectorAll('.toggle-status-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+    // delegated: rows are drawn by the DataTable
+    $(document).on('click', '.toggle-status-btn', function() {
             const id = this.dataset.id;
             const currentStatus = this.dataset.status;
             const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
@@ -1193,17 +870,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmButtonText: `Yes, ${action}`
             }).then(result => {
                 if (result.isConfirmed) {
-                    axios.patch(`/web/promo-banners/${id}/toggle-status`)
-                        .then(() => location.reload())
+                    axios.patch(PB_URLS.toggle.replace('__ID__', id))
+                        .then(() => { GZ.toast('Status updated'); reloadBanners(); })
                         .catch(() => Swal.fire('Error', 'Failed to update status', 'error'));
                 }
             });
         });
-    });
 
     // Delete single
-    document.querySelectorAll('.remove-item-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+    // delegated: rows are drawn by the DataTable
+    $(document).on('click', '.remove-item-btn', function() {
             const id = this.dataset.id;
             const title = this.dataset.title || 'this banner';
 
@@ -1217,12 +893,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }).then(result => {
                 if (result.isConfirmed) {
                     axios.delete(`/web/promo-banners/${id}`)
-                        .then(() => location.reload())
+                        .then(() => { GZ.toast('Banner deleted'); reloadBanners(); })
                         .catch(() => Swal.fire('Error', 'Failed to delete', 'error'));
                 }
             });
         });
-    });
 
     // ==================== FORM SUBMIT ====================
     const bannerForm = document.getElementById('bannerForm');
@@ -1252,8 +927,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
             .then(res => {
-                Swal.fire({ icon: 'success', title: 'Success!', text: res.data.message || 'Banner saved', showConfirmButton: false, timer: 1500 })
-                    .then(() => location.reload());
+                Swal.fire({ icon: 'success', title: 'Success!', text: res.data.message || 'Banner saved', showConfirmButton: false, timer: 1500 });
+                bootstrap.Modal.getInstance(document.getElementById('showModal'))?.hide();
+                reloadBanners();
             })
             .catch(err => {
                 let msg = 'An error occurred';
@@ -1276,12 +952,20 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tbody) {
         Sortable.create(tbody, {
             animation: 150,
-            handle: '.sortable-row',
+            handle: '.pb-drag-handle',
+            filter: '.dataTables_empty',
+            onStart(evt) {
+                if (!document.getElementById('promoBannersTable').classList.contains('pb-drag-enabled')) {
+                    GZ.toast('Sort by "Sort Order" (ascending) to drag-reorder', 'info');
+                }
+            },
             onEnd() {
+                if (!document.getElementById('promoBannersTable').classList.contains('pb-drag-enabled')) { reloadBanners(); return; }
                 const ids = Array.from(tbody.querySelectorAll('tr[data-id]'))
                                  .map(tr => tr.dataset.id);
-                axios.post('/web/promo-banners/reorder', { ids })
+                axios.post('/web/promo-banners/reorder', { ids, offset: window.promoTable ? window.promoTable.page.info().start : 0 })
                      .then(() => {
+                         reloadBanners();
                          // Show a subtle success toast
                          Swal.fire({
                              icon: 'success',
@@ -1295,7 +979,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      })
                      .catch(() => {
                          Swal.fire('Error', 'Failed to save reorder', 'error');
-                         location.reload();
+                         reloadBanners();
                      });
             },
         });
@@ -1353,6 +1037,8 @@ window.copyText = function(text) {
 .banner-card-preview {
     transition: background 0.3s ease;
 }
+.pb-drag-handle { cursor: grab; color: #94a3b8; }
+#promoBannersTable:not(.pb-drag-enabled) .pb-drag-handle { opacity: .3; cursor: not-allowed; }
 .sortable-row {
     cursor: grab;
 }

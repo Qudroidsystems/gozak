@@ -71,7 +71,6 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Users Management
-    Route::get('/users/data', [UserController::class, 'data'])->name('users.data');
     Route::resource('users', UserController::class);
     Route::prefix('users')->name('users.')->group(function () {
         Route::get('/all', [UserController::class, 'allUsers'])->name('all');
@@ -87,14 +86,6 @@ Route::middleware(['auth'])->group(function () {
 
     // Web Resources Management (with consistent naming)
     Route::prefix('web')->name('web.')->group(function () {
-        // Server-side DataTables endpoints (must be registered before the resources)
-        Route::get('banners/data', [BannerController::class, 'data'])->name('banners.data');
-        Route::get('brands/data', [BrandController::class, 'data'])->name('brands.data');
-        Route::get('categories/data', [CategoryController::class, 'data'])->name('categories.data');
-        Route::get('products/data', [ProductController::class, 'data'])->name('products.data');
-        Route::get('reviews/data', [ProductReviewController::class, 'data'])->name('reviews.data');
-        Route::get('promo-banners/data', [PromoBannerController::class, 'data'])->name('promo-banners.data');
-
         // Banner Management
         Route::resource('banners', BannerController::class)->except(['show']);
         Route::get('banners/{banner}/edit', [BannerController::class, 'edit'])->name('banners.edit');
@@ -107,9 +98,10 @@ Route::middleware(['auth'])->group(function () {
 
         // Drag-and-drop reorder endpoint
         Route::post('promo-banners/reorder', [PromoBannerController::class, 'reorder'])->name('promo-banners.reorder');
-        // Fixed: these were registered as /web/web/... (double prefix) so the page's AJAX calls 404'd
-        Route::post('promo-banners/bulk', [PromoBannerController::class, 'bulkAction'])->name('promo-banners.bulk');
-        Route::patch('promo-banners/{id}/toggle-status', [PromoBannerController::class, 'toggleStatus'])->name('promo-banners.toggle-status');
+        // web.php
+        Route::post('web/promo-banners/bulk', [PromoBannerController::class, 'bulkAction'])->name('web.promo-banners.bulk');
+        // web.php
+        Route::patch('web/promo-banners/{id}/toggle-status', [PromoBannerController::class, 'toggleStatus'])->name('web.promo-banners.toggle-status');
 
         // Category Management
        Route::resource('categories', CategoryController::class)->except(['show']);
@@ -175,10 +167,6 @@ Route::middleware(['auth'])->group(function () {
     // ===================================================================
     // Inventory Management Routes
     Route::prefix('inventory')->group(function () {
-        // Server-side DataTables endpoints (before the /{id} routes below)
-        Route::get('/transactions/data', [InventoryController::class, 'transactionsData'])->name('inventory.transactions.data');
-        Route::get('/stock-levels/data', [InventoryController::class, 'stockLevelsData'])->name('inventory.stock-levels.data');
-
         // Main inventory routes
         Route::get('/', [InventoryController::class, 'index'])->name('inventory.index');
         Route::get('/dashboard', [InventoryController::class, 'dashboard'])->name('inventory.dashboard');
@@ -232,7 +220,6 @@ Route::middleware(['auth'])->group(function () {
     // ===================================================================
     Route::prefix('adminorders')->name('adminorders.')->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
-        Route::get('/data', [OrderController::class, 'data'])->name('data');
         Route::get('/export', [OrderController::class, 'export'])->name('export');
 
         Route::prefix('{order}')->group(function () {
@@ -247,14 +234,11 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Address Management
-    Route::get('/adminaddresses/data', [AddressController::class, 'data'])->name('adminaddresses.data');
-    Route::get('/adminaddresses/customers', [AddressController::class, 'customers'])->name('adminaddresses.customers');
     Route::resource('adminaddresses', AddressController::class);
 
     // Customer Management
     Route::prefix('customers')->name('customers.')->group(function () {
         Route::get('/', [CustomerController::class, 'index'])->name('index');
-        Route::get('/data', [CustomerController::class, 'data'])->name('data');
         Route::get('/export', [CustomerController::class, 'export'])->name('export');
     });
 
@@ -271,7 +255,6 @@ Route::middleware(['auth'])->group(function () {
 
     Route::prefix('lightning-deals')->name('lightning-deals.')->group(function () {
         Route::get('/',              [ProductController::class, 'lightningDealsIndex'])->name('index');
-        Route::get('/data',          [ProductController::class, 'lightningDealsData'])->name('data');
         Route::post('/',             [ProductController::class, 'lightningDealStore'])->name('store');
         Route::patch('{id}/toggle',  [ProductController::class, 'lightningDealToggle'])->name('toggle');
         Route::delete('{id}',        [ProductController::class, 'lightningDealDestroy'])->name('destroy');

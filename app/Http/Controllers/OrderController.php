@@ -17,6 +17,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Maatwebsite\Excel\Facades\Excel;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use App\Support\Money;
+use Yajra\DataTables\Facades\DataTables;
 
 class OrderController extends Controller
 {
@@ -26,37 +28,13 @@ class OrderController extends Controller
     {
         $this->orderNotificationService = $orderNotificationService;
 
-        $this->middleware('permission:View order|Manage order', ['only' => ['index', 'show']]);
+        $this->middleware('permission:View order|Manage order', ['only' => ['index', 'show', 'data']]);
         $this->middleware('permission:Manage order', ['only' => ['updateStatus']]);
     }
 
     public function index(Request $request)
     {
         $pagetitle = "Order Management";
-
-        $query = Order::with(['user:id,first_name,last_name,email', 'items.product', 'shippingAddress'])
-            ->withCount('items')
-            ->latest();
-
-        if ($request->filled('status'))         $query->where('status', $request->status);
-        if ($request->filled('payment_status')) $query->where('payment_status', $request->payment_status);
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('invoice_number', 'like', "%{$search}%")
-                  ->orWhere('id', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn($q) =>
-                      $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                        ->orWhere('email', 'like', "%{$search}%")
-                  );
-            });
-        }
-
-        if ($request->filled('from')) $query->whereDate('created_at', '>=', $request->from);
-        if ($request->filled('to'))   $query->whereDate('created_at', '<=', $request->to);
-
-        $orders = $query->paginate(15)->appends($request->all());
 
         $now        = Carbon::now();
         $last30Days = $now->clone()->subDays(30);
@@ -108,7 +86,7 @@ class OrderController extends Controller
             'delivered'  => Order::where('status', 'delivered')->count(),
             'cancelled'  => Order::where('status', 'cancelled')->count(),
             'paid'       => $paidOrders,
-            'unpaid'     => Order::where('payment_status', 'unpaid')->count(),
+            'unpaid'     => Order::where('payment_status', '!=', 'paid')->count(),
         ];
 
         $analytics = [
@@ -120,11 +98,63 @@ class OrderController extends Controller
             'sales_chart'     => ['labels' => $labels, 'data' => $data],
         ];
 
-        if ($request->ajax()) {
-            return view('orders.partials.table', compact('orders'))->render();
-        }
+        return view('orders.index', compact('pagetitle', 'stats', 'analytics'));
+    }
 
-        return view('orders.index', compact('orders', 'pagetitle', 'stats', 'analytics'));
+    /** Yajra DataTable endpoint (filters: status, payment_status, from, to). */
+    public function data(Request $request)
+    {
+        $statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+
+        $query = Order::query()
+            ->leftJoin('users', 'users.id', '=', 'orders.user_id')
+            ->select('orders.*', 'users.first_name', 'users.last_name', 'users.email as user_email')
+            ->withCount('items')
+            ->when($request->filled('status'), fn ($q) => $q->where('orders.status', $request->status))
+            ->when($request->filled('payment_status'), fn ($q) => $q->where('orders.payment_status', $request->payment_status))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('orders.created_at', '>=', $request->from))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('orders.created_at', '<=', $request->to));
+
+        $canManage = $request->user()->can('Manage order');
+
+        return DataTables::eloquent($query)
+            ->setRowClass(fn ($o) => $o->status === 'delivered' ? 'table-success' : ($o->status === 'pending' ? 'table-warning' : ''))
+            ->setRowAttr(['data-order-id' => fn ($o) => $o->id, 'data-status' => fn ($o) => $o->status])
+            ->addColumn('invoice', fn ($o) => '<a href="' . route('adminorders.show', $o->id) . '" class="fw-bold text-primary">' . e($o->invoice_number ?? ('#' . $o->id)) . '</a>')
+            ->addColumn('customer', function ($o) {
+                $name = trim($o->first_name . ' ' . $o->last_name) ?: 'Guest';
+                return '<div class="d-flex align-items-center gap-2"><span class="gz-avatar">' . e(strtoupper(substr($name, 0, 1))) . '</span>'
+                    . '<div><span class="fw-semibold">' . e($name) . '</span><small class="d-block text-muted">' . e($o->user_email ?? 'N/A') . '</small></div></div>';
+            })
+            ->editColumn('created_at', fn ($o) => optional($o->created_at)->format('d M Y, H:i'))
+            ->editColumn('total_amount', fn ($o) => '<span class="fw-bold text-success">' . e(Money::fmt($o->total_amount)) . '</span>')
+            ->editColumn('payment_status', fn ($o) => $o->payment_status === 'paid'
+                ? '<span class="status-pill st-paid">Paid</span>'
+                : '<span class="status-pill st-unpaid">' . e(ucfirst($o->payment_status ?? 'unpaid')) . '</span>')
+            ->editColumn('status', function ($o) use ($statuses, $canManage) {
+                if (!$canManage) {
+                    return '<span class="status-pill st-' . e($o->status) . '">' . e(ucfirst($o->status)) . '</span>';
+                }
+                $opts = collect($statuses)->map(fn ($s) => '<option value="' . $s . '"' . ($o->status === $s ? ' selected' : '') . '>' . ucfirst($s) . '</option>')->implode('');
+                return '<select class="form-select form-select-sm status-select" style="min-width:130px" data-id="' . $o->id . '" data-current="' . e($o->status) . '">' . $opts . '</select>';
+            })
+            ->editColumn('items_count', fn ($o) => '<span class="badge bg-primary-subtle text-primary">' . (int) $o->items_count . '</span>')
+            ->addColumn('action', fn ($o) => '<div class="dropdown"><button class="btn btn-soft-secondary btn-sm" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>'
+                . '<ul class="dropdown-menu dropdown-menu-end">'
+                . '<li><a class="dropdown-item" href="' . route('adminorders.show', $o->id) . '">View Details</a></li>'
+                . '<li><a class="dropdown-item" href="' . route('adminorders.invoice', $o->id) . '" target="_blank">PDF Invoice</a></li>'
+                . '<li><a class="dropdown-item" href="' . route('adminorders.packing-slip', $o->id) . '" target="_blank">Packing Slip</a></li>'
+                . '<li><a class="dropdown-item email-invoice" href="javascript:void(0)" data-id="' . $o->id . '">Email Invoice</a></li>'
+                . '</ul></div>')
+            ->filterColumn('invoice', fn ($q, $k) => $q->where(fn ($w) => $w->where('orders.invoice_number', 'like', "%{$k}%")->orWhere('orders.id', ltrim($k, '#'))))
+            ->filterColumn('customer', function ($q, $k) {
+                $q->where(fn ($w) => $w->whereRaw("CONCAT(users.first_name, ' ', users.last_name) LIKE ?", ["%{$k}%"])
+                    ->orWhere('users.email', 'like', "%{$k}%"));
+            })
+            ->orderColumn('invoice', 'orders.id $1')
+            ->orderColumn('customer', 'users.first_name $1')
+            ->rawColumns(['invoice', 'customer', 'total_amount', 'payment_status', 'status', 'items_count', 'action'])
+            ->toJson();
     }
 
     public function export(Request $request)

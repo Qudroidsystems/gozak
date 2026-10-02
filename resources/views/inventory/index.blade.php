@@ -94,217 +94,107 @@
                 </div>
             </div>
 
-            <!-- FILTERS AND ACTIONS -->
-            <div class="card mt-4">
-                <div class="card-body">
-                    <form method="GET" id="filterForm">
-                        <div class="row g-3 align-items-center">
-                            <div class="col-md-3">
-                                <label class="form-label">Transaction Type</label>
-                                <select class="form-control" name="type">
-                                    <option value="">All Types</option>
-                                    <option value="in" {{ request('type') == 'in' ? 'selected' : '' }}>Stock In</option>
-                                    <option value="out" {{ request('type') == 'out' ? 'selected' : '' }}>Stock Out</option>
-                                    <option value="adjustment" {{ request('type') == 'adjustment' ? 'selected' : '' }}>Adjustment</option>
-                                    <option value="transfer" {{ request('type') == 'transfer' ? 'selected' : '' }}>Transfer</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Product</label>
-                                <select class="form-control" name="product_id">
-                                    <option value="">All Products</option>
-                                    @foreach($products as $product)
-                                        <option value="{{ $product->id }}" {{ request('product_id') == $product->id ? 'selected' : '' }}>
-                                            {{ $product->title }} ({{ $product->sku }})
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Location</label>
-                                <select class="form-control" name="location_id">
-                                    <option value="">All Locations</option>
-                                    @foreach($locations as $location)
-                                        <option value="{{ $location->id }}" {{ request('location_id') == $location->id ? 'selected' : '' }}>
-                                            {{ $location->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Date Range</label>
-                                <div class="input-group">
-                                    <input type="date" class="form-control" name="date_from" value="{{ request('date_from') }}">
-                                    <span class="input-group-text">to</span>
-                                    <input type="date" class="form-control" name="date_to" value="{{ request('date_to') }}">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-12 d-flex justify-content-between">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-funnel me-1"></i> Apply Filters
-                                </button>
-                                <div>
-                                    @can('Manage inventory')
-                                        <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#adjustStockModal">
-                                            <i class="bi bi-plus-circle me-1"></i> Adjust Stock
-                                        </button>
-                                        <button type="button" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#transferStockModal">
-                                            <i class="bi bi-arrow-left-right me-1"></i> Transfer Stock
-                                        </button>
-                                    @endcan
-                                    <a href="{{ route('inventory.stock-levels') }}" class="btn btn-warning">
-                                        <i class="bi bi-box-seam me-1"></i> View Stock Levels
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            <!-- TRANSACTIONS (server-side DataTable) -->
+            <x-cb.card title="Inventory Transactions" icon="ri-exchange-box-line" :flush="true" class="mt-4">
+                <x-slot:tools>
+                    @can('Manage inventory')
+                        <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#adjustStockModal"><i class="bi bi-plus-circle me-1"></i> Adjust Stock</button>
+                        <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#transferStockModal"><i class="bi bi-arrow-left-right me-1"></i> Transfer Stock</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="exportTransactions"><i class="bi bi-download me-1"></i> Export</button>
+                    @endcan
+                    <a href="{{ route('inventory.stock-levels') }}" class="btn btn-sm btn-warning"><i class="bi bi-box-seam me-1"></i> Stock Levels</a>
+                </x-slot:tools>
 
-            <!-- TRANSACTIONS TABLE -->
-            <div class="card mt-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Inventory Transactions</h5>
-                    <div>
-                        @can('Manage inventory')
-                            <a href="{{ route('inventory.export.transactions') }}?{{ http_build_query(request()->query()) }}" class="btn btn-outline-primary btn-sm me-2">
-                                <i class="bi bi-download me-1"></i> Export
-                            </a>
-                        @endcan
+                <div class="gz-filter-bar px-3 pt-3" id="filterForm">
+                    <select class="form-select form-select-sm" id="f-type" data-dt-filter="#transactionsTable">
+                        <option value="">All Types</option>
+                        <option value="in" @selected(request('type') == 'in')>Stock In</option>
+                        <option value="out" @selected(request('type') == 'out')>Stock Out</option>
+                        <option value="adjustment" @selected(request('type') == 'adjustment')>Adjustment</option>
+                        <option value="transfer" @selected(request('type') == 'transfer')>Transfer</option>
+                        <option value="return" @selected(request('type') == 'return')>Return</option>
+                        <option value="damage" @selected(request('type') == 'damage')>Damage</option>
+                    </select>
+                    <div style="min-width:260px;">
+                        <select class="form-select form-select-sm" id="f-product">
+                            <option value="">All Products</option>
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}" @selected(request('product_id') == $product->id)>{{ $product->title }} ({{ $product->sku }})</option>
+                            @endforeach
+                        </select>
                     </div>
+                    <select class="form-select form-select-sm" id="f-location" data-dt-filter="#transactionsTable">
+                        <option value="">All Locations</option>
+                        @foreach($locations as $location)
+                            <option value="{{ $location->id }}" @selected(request('location_id') == $location->id)>{{ $location->name }}</option>
+                        @endforeach
+                    </select>
+                    <select class="form-select form-select-sm" id="f-user" data-dt-filter="#transactionsTable">
+                        <option value="">All Users</option>
+                        @foreach($users as $u)
+                            <option value="{{ $u->id }}">{{ $u->name }}</option>
+                        @endforeach
+                    </select>
+                    <input type="date" class="form-control form-control-sm" id="f-from" data-dt-filter="#transactionsTable" value="{{ request('date_from') }}" title="From" style="max-width:150px;">
+                    <input type="date" class="form-control form-control-sm" id="f-to" data-dt-filter="#transactionsTable" value="{{ request('date_to') }}" title="To" style="max-width:150px;">
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-centered align-middle table-nowrap mb-0" id="transactionsTable">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Type</th>
-                                    <th>Product</th>
-                                    <th>Location</th>
-                                    <th>Quantity</th>
-                                    <th>Reference</th>
-                                    <th>User</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($transactions as $transaction)
-                                    <tr>
-                                        <td>{{ $transaction->transaction_date->format('M d, Y h:i A') }}</td>
-                                        <td>
-                                            @php
-                                                $typeColors = [
-                                                    'in' => 'success',
-                                                    'out' => 'danger',
-                                                    'adjustment' => 'warning',
-                                                    'transfer' => 'info',
-                                                    'return' => 'primary',
-                                                    'damage' => 'dark'
-                                                ];
-                                                $typeLabels = [
-                                                    'in' => 'Stock In',
-                                                    'out' => 'Stock Out',
-                                                    'adjustment' => 'Adjustment',
-                                                    'transfer' => 'Transfer',
-                                                    'return' => 'Return',
-                                                    'damage' => 'Damage'
-                                                ];
-                                            @endphp
-                                            <span class="badge bg-{{ $typeColors[$transaction->type] ?? 'secondary' }}-subtle text-{{ $typeColors[$transaction->type] ?? 'secondary' }} border border-{{ $typeColors[$transaction->type] ?? 'secondary' }}-subtle">
-                                                {{ $typeLabels[$transaction->type] ?? ucfirst($transaction->type) }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                @if($transaction->product->thumbnail)
-                                                    <img src="{{ asset('storage/' . $transaction->product->thumbnail) }}" class="rounded me-2" width="40" height="40" alt="{{ $transaction->product->title }}">
-                                                @endif
-                                                <div>
-                                                    <div class="fw-semibold">{{ $transaction->product->title }}</div>
-                                                    <small class="text-muted">{{ $transaction->product->sku }}</small>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div>
-                                                <div class="fw-semibold">{{ $transaction->stockLocation->name }}</div>
-                                                @if($transaction->type === 'transfer' && $transaction->destinationLocation)
-                                                    <small class="text-muted">→ {{ $transaction->destinationLocation->name }}</small>
-                                                @endif
-                                            </div>
-                                        </td>
-                                        <td>
-                                            @php
-                                                $quantityClass = in_array($transaction->type, ['in', 'adjustment', 'return']) ? 'text-success' : 'text-danger';
-                                                $sign = in_array($transaction->type, ['in', 'adjustment', 'return']) ? '+' : '-';
-                                            @endphp
-                                            <span class="fw-bold {{ $quantityClass }}">
-                                                {{ $sign }}{{ abs($transaction->quantity) }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div>{{ $transaction->reference_number }}</div>
-                                            @if($transaction->adjustment_reason)
-                                                <small class="text-muted">{{ $transaction->adjustment_reason }}</small>
-                                            @endif
-                                        </td>
-                                        <td>{{ $transaction->user->name ?? 'System' }}</td>
-                                        <td>
-                                            <div class="dropdown">
-                                                <button class="btn btn-subtle-secondary btn-sm btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <i class="bi bi-three-dots-vertical"></i>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    <li>
-                                                        <a class="dropdown-item view-transaction-btn" href="javascript:void(0);" data-id="{{ $transaction->id }}">
-                                                            <i class="bi bi-eye me-2"></i> View Details
-                                                        </a>
-                                                    </li>
-                                                    @can('Manage inventory')
-                                                        @if($transaction->created_at->diffInHours(now()) <= 24 || auth()->user()->hasRole('Admin'))
-                                                            <li>
-                                                                <a class="dropdown-item text-danger delete-transaction-btn" href="javascript:void(0);" data-id="{{ $transaction->id }}">
-                                                                    <i class="bi bi-trash me-2"></i> Delete
-                                                                </a>
-                                                            </li>
-                                                        @endif
-                                                    @endcan
-                                                </ul>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="8" class="text-center py-5 text-muted">
-                                            <i class="bi bi-inbox fs-1"></i>
-                                            <p class="mt-2">No inventory transactions found</p>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
 
-                    <div class="row mt-3 align-items-center">
-                        <div class="col-sm">
-                            <div class="text-muted text-center text-sm-start">
-                                Showing {{ $transactions->firstItem() }} to {{ $transactions->lastItem() }} of {{ $transactions->total() }} Transactions
-                            </div>
-                        </div>
-                        <div class="col-sm-auto mt-3 mt-sm-0">
-                            {!! $transactions->appends(request()->query())->links('pagination::bootstrap-5') !!}
-                        </div>
-                    </div>
+                <div class="px-3 pb-3 gz-dt-wrap">
+                    <table class="table gz-dt align-middle w-100 mb-0" id="transactionsTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Product</th>
+                                <th>Location</th>
+                                <th>Quantity</th>
+                                <th>Reference</th>
+                                <th>User</th>
+                                <th style="width:60px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
-            </div>
+            </x-cb.card>
 
         </div>
     </div>
-</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function invFilters() {
+        return {
+            type: $('#f-type').val(), product_id: $('#f-product').val(), location_id: $('#f-location').val(),
+            user_id: $('#f-user').val(), date_from: $('#f-from').val(), date_to: $('#f-to').val()
+        };
+    }
+    window.transactionsTable = GZ.dt('#transactionsTable', {
+        url: @json(route('inventory.transactions.data')),
+        order: [[0, 'desc']],
+        filters: invFilters,
+        columns: [
+            { data: 'transaction_date', name: 'stocks.transaction_date', searchable: false },
+            { data: 'type',             name: 'stocks.type', searchable: false },
+            { data: 'product',          name: 'product', orderable: false },
+            { data: 'location',         name: 'location', orderable: false, searchable: false },
+            { data: 'quantity',         name: 'stocks.quantity', searchable: false },
+            { data: 'reference',        name: 'reference', orderable: false },
+            { data: 'user_name',        name: 'user_name', orderable: false, searchable: false },
+            { data: 'action',           name: 'action', orderable: false, searchable: false }
+        ]
+    });
+    $('#f-product').select2({ width: '100%', placeholder: 'All Products', allowClear: true })
+        .on('change', function () { window.transactionsTable.ajax.reload(); });
+
+    $('#exportTransactions').on('click', function () {
+        var f = invFilters(), q = new URLSearchParams();
+        Object.keys(f).forEach(function (k) { if (f[k]) q.append(k, f[k]); });
+        window.location = @json(route('inventory.export.transactions')) + '?' + q.toString();
+    });
+});
+</script>
+
 
 <!-- ADJUST STOCK MODAL -->
 <div class="modal fade" id="adjustStockModal" tabindex="-1" data-bs-backdrop="static">

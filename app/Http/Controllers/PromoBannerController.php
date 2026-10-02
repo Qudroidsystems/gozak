@@ -3,6 +3,8 @@
 
 namespace App\Http\Controllers;
 
+use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Str;
 use App\Models\PromoBanner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -16,9 +18,9 @@ class PromoBannerController extends Controller
      */
     public function __construct()
     {
-        $this->middleware('permission:View promo_banner|Create promo_banner|Update promo_banner|Delete promo_banner', ['only' => ['index']]);
+        $this->middleware('permission:View promo_banner|Create promo_banner|Update promo_banner|Delete promo_banner', ['only' => ['index', 'data']]);
         $this->middleware('permission:Create promo_banner', ['only' => ['store']]);
-        $this->middleware('permission:Update promo_banner', ['only' => ['update', 'toggleStatus']]);
+        $this->middleware('permission:Update promo_banner', ['only' => ['update', 'toggleStatus', 'reorder']]);
         $this->middleware('permission:Delete promo_banner', ['only' => ['destroy', 'bulkAction']]);
     }
 
@@ -28,73 +30,6 @@ class PromoBannerController extends Controller
     public function index(Request $request)
     {
         $pagetitle = 'Promo Banners';
-
-        $query = PromoBanner::query();
-
-        // ─── Search ────────────────────────────────────────────────────────────
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('badge_text', 'like', "%{$search}%")
-                  ->orWhere('subtitle', 'like', "%{$search}%")
-                  ->orWhere('cta_text', 'like', "%{$search}%");
-            });
-        }
-
-        // ─── Screen Filter ────────────────────────────────────────────────────
-        if ($request->filled('screen')) {
-            $query->where('target_screen', $request->screen);
-        }
-
-        // ─── Style Filter ─────────────────────────────────────────────────────
-        if ($request->filled('display_style')) {
-            $query->where('display_style', $request->display_style);
-        }
-
-        // ─── Status Filter ────────────────────────────────────────────────────
-        if ($request->filled('status')) {
-            $now = now();
-            switch ($request->status) {
-                case 'active':
-                    $query->where('active', true)
-                          ->where(function ($q) use ($now) {
-                              $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now);
-                          })
-                          ->where(function ($q) use ($now) {
-                              $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now);
-                          });
-                    break;
-                case 'inactive':
-                    $query->where('active', false);
-                    break;
-                case 'scheduled':
-                    $query->where('active', true)
-                          ->whereNotNull('starts_at')
-                          ->where('starts_at', '>', $now);
-                    break;
-                case 'expired':
-                    $query->where('active', true)
-                          ->whereNotNull('ends_at')
-                          ->where('ends_at', '<', $now);
-                    break;
-            }
-        }
-
-        // ─── Sort Order ──────────────────────────────────────────────────────
-        $sortField = $request->input('sort', 'sort_order');
-        $sortDirection = $request->input('order', 'asc');
-
-        // Validate sort field to prevent SQL injection
-        $allowedSortFields = ['sort_order', 'created_at', 'starts_at', 'ends_at', 'title', 'badge_text'];
-        if (!in_array($sortField, $allowedSortFields)) {
-            $sortField = 'sort_order';
-        }
-
-        $query->orderBy($sortField, $sortDirection);
-
-        // ─── Paginate ────────────────────────────────────────────────────────
-        $banners = $query->paginate(12)->withQueryString();
 
         // ─── Analytics ────────────────────────────────────────────────────────
         $now = now();
@@ -118,7 +53,80 @@ class PromoBannerController extends Controller
                 ->count(),
         ];
 
-        return view('promo_banners.index', compact('banners', 'pagetitle', 'analytics'));
+        return view('promo_banners.index', compact('pagetitle', 'analytics'));
+    }
+
+    /** Yajra DataTable endpoint (filters: screen, display_style, status). */
+    public function data(Request $request)
+    {
+        $now = now();
+        $query = PromoBanner::query()
+            ->when($request->filled('screen'), fn ($q) => $q->where('target_screen', $request->screen))
+            ->when($request->filled('display_style'), fn ($q) => $q->where('display_style', $request->display_style))
+            ->when($request->status === 'active', fn ($q) => $q->where('active', true)
+                ->where(fn ($w) => $w->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
+                ->where(fn ($w) => $w->whereNull('ends_at')->orWhere('ends_at', '>=', $now)))
+            ->when($request->status === 'inactive', fn ($q) => $q->where('active', false))
+            ->when($request->status === 'scheduled', fn ($q) => $q->where('active', true)->whereNotNull('starts_at')->where('starts_at', '>', $now))
+            ->when($request->status === 'expired', fn ($q) => $q->where('active', true)->whereNotNull('ends_at')->where('ends_at', '<', $now));
+
+        return DataTables::eloquent($query)
+            ->addColumn('checkbox', fn ($b) => '<input type="checkbox" class="row-select form-check-input" value="' . $b->id . '">')
+            ->addColumn('handle', fn ($b) => '<i class="bi bi-grip-vertical fs-5 pb-drag-handle" title="Drag to reorder"></i>')
+            ->addColumn('preview', function ($b) {
+                if ($b->image_url) {
+                    return '<img src="' . e($b->full_image_url) . '" alt="" class="img-fluid rounded" style="width:120px;height:67px;object-fit:cover;">';
+                }
+                return '<div style="background:linear-gradient(135deg,' . e($b->gradient_start) . ',' . e($b->gradient_end) . ');width:120px;height:67px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;padding:4px;text-align:center;color:#fff;">'
+                    . '<span>' . e(Str::limit($b->badge_text, 15)) . '</span></div>';
+            })
+            ->addColumn('content', fn ($b) => '<div class="d-flex flex-column">'
+                . '<span class="badge bg-dark-subtle text-dark d-inline-block mb-1 align-self-start" style="font-size:10px;">' . e($b->badge_text) . '</span>'
+                . '<span class="fw-semibold">' . e(Str::limit($b->title, 40)) . '</span>'
+                . '<small class="text-muted">' . e(Str::limit($b->subtitle, 50)) . '</small>'
+                . '<small class="text-primary"><i class="bi bi-arrow-right-circle me-1"></i>' . e($b->cta_text)
+                . ($b->cta_route ? ' <span class="badge bg-info-subtle text-info ms-1">' . e($b->cta_route) . '</span>' : '') . '</small></div>')
+            ->addColumn('style', function ($b) {
+                [$name, $cls, $icon] = [
+                    'coupon'   => ['Coupon', 'bg-warning-subtle text-warning', 'bi-ticket-perforated'],
+                    'voucher'  => ['Voucher', 'bg-info-subtle text-info', 'bi-award'],
+                    'gradient' => ['Gradient', 'bg-primary-subtle text-primary', 'bi-palette'],
+                ][$b->display_style] ?? ['Auto-cycle', 'bg-secondary-subtle text-secondary', 'bi-shuffle'];
+                return '<span class="badge ' . $cls . ' d-inline-flex align-items-center gap-1"><i class="bi ' . $icon . '"></i> ' . $name . '</span>';
+            })
+            ->addColumn('screen', fn ($b) => '<span class="badge bg-info-subtle text-info"><i class="bi bi-phone me-1"></i>' . e(ucfirst($b->target_screen)) . '</span>')
+            ->addColumn('schedule', function ($b) {
+                if (!$b->starts_at && !$b->ends_at) {
+                    return '<span class="text-muted small"><i class="bi bi-infinity me-1"></i> Always</span>';
+                }
+                return '<div class="d-flex flex-column">'
+                    . '<small class="text-muted"><i class="bi bi-calendar3 me-1"></i>From: ' . e($b->starts_at?->format('d M Y H:i') ?? '—') . '</small>'
+                    . '<small class="text-muted"><i class="bi bi-calendar3 me-1"></i>To: ' . e($b->ends_at?->format('d M Y H:i') ?? '—') . '</small>'
+                    . ($b->show_once_daily ? '<span class="badge bg-secondary-subtle text-secondary mt-1 align-self-start" style="font-size:9px;"><i class="bi bi-repeat me-1"></i> Once daily</span>' : '')
+                    . '</div>';
+            })
+            ->addColumn('status', function ($b) use ($now) {
+                [$cls, $icon, $text] = ['bg-success-subtle text-success', 'bi-check-circle', 'Active'];
+                if (!$b->active) {
+                    [$cls, $icon, $text] = ['bg-secondary-subtle text-secondary', 'bi-slash-circle', 'Inactive'];
+                } elseif ($b->starts_at && $b->starts_at > $now) {
+                    [$cls, $icon, $text] = ['bg-warning-subtle text-warning', 'bi-clock', 'Scheduled'];
+                } elseif ($b->ends_at && $b->ends_at < $now) {
+                    [$cls, $icon, $text] = ['bg-danger-subtle text-danger', 'bi-clock-history', 'Expired'];
+                }
+                return '<span class="badge ' . $cls . ' d-inline-flex align-items-center gap-1"><i class="bi ' . $icon . '"></i> ' . $text . '</span>';
+            })
+            ->editColumn('sort_order', fn ($b) => '<span class="badge bg-secondary-subtle text-secondary">' . (int) $b->sort_order . '</span>')
+            ->addColumn('action', fn ($banner) => view('promo_banners.partials.actions', compact('banner'))->render())
+            ->filterColumn('content', function ($q, $k) {
+                $q->where(fn ($w) => $w->where('title', 'like', "%{$k}%")
+                    ->orWhere('badge_text', 'like', "%{$k}%")
+                    ->orWhere('subtitle', 'like', "%{$k}%")
+                    ->orWhere('cta_text', 'like', "%{$k}%"));
+            })
+            ->orderColumn('content', 'title $1')
+            ->rawColumns(['checkbox', 'handle', 'preview', 'content', 'style', 'screen', 'schedule', 'status', 'sort_order', 'action'])
+            ->toJson();
     }
 
     /**
@@ -234,8 +242,11 @@ class PromoBannerController extends Controller
                 'ids.*' => 'integer|exists:promo_banners,id'
             ]);
 
+            // offset = position of the first row on the current DataTable page,
+            // so reordering page 2 doesn't collide with page 1
+            $offset = max(0, (int) $request->input('offset', 0));
             foreach ($request->ids as $order => $id) {
-                PromoBanner::where('id', $id)->update(['sort_order' => $order]);
+                PromoBanner::where('id', $id)->update(['sort_order' => $offset + $order]);
             }
 
             return response()->json([

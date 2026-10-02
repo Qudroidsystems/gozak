@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Money;
+use Yajra\DataTables\Facades\DataTables;
 use App\Models\Brand;
 use App\Models\Product;
 use App\Models\Category;
@@ -23,7 +25,7 @@ class ProductController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('permission:View product|Create product|Update product|Delete product', ['only' => ['index', 'show']]);
+        $this->middleware('permission:View product|Create product|Update product|Delete product', ['only' => ['index', 'show', 'data']]);
         $this->middleware('permission:Create product', ['only' => ['store']]);
         $this->middleware('permission:Update product', ['only' => ['edit', 'update', 'updateFlags', 'bulkUpdateFlags']]);
         $this->middleware('permission:Delete product', ['only' => ['destroy']]);
@@ -33,48 +35,6 @@ class ProductController extends Controller
     {
         $pagetitle = "Product Management";
 
-        $query = Product::with(['brand', 'category', 'images', 'units'])
-            ->withCount('variations')
-            ->latest();
-
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('sku', 'like', "%{$search}%")
-                  ->orWhere('barcode', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhereHas('brand', fn($q) => $q->where('name', 'like', "%{$search}%"))
-                  ->orWhereHas('category', fn($q) => $q->where('name', 'like', "%{$search}%"));
-            });
-        }
-
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        if ($request->filled('brand_id')) {
-            $query->where('brand_id', $request->brand_id);
-        }
-
-        if ($request->filled('stock')) {
-            switch ($request->stock) {
-                case 'in_stock':     $query->where('stock', '>', 10); break;
-                case 'low_stock':    $query->whereBetween('stock', [1, 10]); break;
-                case 'out_of_stock': $query->where('stock', 0); break;
-            }
-        }
-
-        if ($request->filled('app_filter')) {
-            switch ($request->app_filter) {
-                case 'new':       $query->where('is_new', true); break;
-                case 'trending':  $query->where('is_trending', true); break;
-                case 'top_rated': $query->where('is_top_rated', true); break;
-                case 'on_sale':   $query->whereNotNull('sale_price')->where('sale_price', '>', 0)->whereColumn('sale_price', '<', 'price'); break;
-            }
-        }
-
-        $products  = $query->paginate(12)->appends($request->all());
         $brands    = Brand::orderBy('name')->get();
         $categories = Category::whereNull('parent_id')->with('children')->orderBy('name')->get();
         $units     = Unit::orderBy('name')->get();
@@ -87,7 +47,105 @@ class ProductController extends Controller
             'top_products'     => Product::orderBy('sold_quantity', 'desc')->limit(5)->get(),
         ];
 
-        return view('products.index', compact('products', 'brands', 'categories', 'units', 'pagetitle', 'analytics'));
+        return view('products.index', compact('brands', 'categories', 'units', 'pagetitle', 'analytics'));
+    }
+
+    /** Yajra DataTable endpoint (filters: category_id, brand_id, stock, app_filter). */
+    public function data(Request $request)
+    {
+        $query = Product::query()
+            ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
+            ->leftJoin('brands', 'brands.id', '=', 'products.brand_id')
+            ->select('products.*', 'categories.name as category_name', 'brands.name as brand_name')
+            ->withSum('orderItems as sold_total', 'quantity')
+            ->when($request->filled('category_id'), function ($q) use ($request) {
+                // include the chosen category's sub-categories
+                $ids = Category::where('id', $request->category_id)->orWhere('parent_id', $request->category_id)->pluck('id');
+                $q->whereIn('products.category_id', $ids);
+            })
+            ->when($request->filled('brand_id'), fn ($q) => $q->where('products.brand_id', $request->brand_id))
+            ->when($request->stock === 'in_stock', fn ($q) => $q->where('products.stock', '>', 10))
+            ->when($request->stock === 'low_stock', fn ($q) => $q->whereBetween('products.stock', [1, 10]))
+            ->when($request->stock === 'out_of_stock', fn ($q) => $q->where('products.stock', '<=', 0))
+            ->when($request->app_filter === 'new', fn ($q) => $q->where('products.is_new', true))
+            ->when($request->app_filter === 'trending', fn ($q) => $q->where('products.is_trending', true))
+            ->when($request->app_filter === 'top_rated', fn ($q) => $q->where('products.is_top_rated', true))
+            ->when($request->app_filter === 'on_sale', fn ($q) => $q->where('products.sale_price', '>', 0)->whereColumn('products.sale_price', '<', 'products.price'))
+            ->when($request->app_filter === 'featured', fn ($q) => $q->where('products.is_featured', true));
+
+        $user = $request->user();
+        $canUpdate = $user->can('Update product');
+
+        return DataTables::eloquent($query)
+            ->addColumn('checkbox', fn ($p) => '<input type="checkbox" class="row-select form-check-input" value="' . $p->id . '">')
+            ->addColumn('product', function ($p) {
+                $img = $p->thumbnail
+                    ? '<img src="' . e(asset('storage/' . $p->thumbnail)) . '" class="gz-thumb" alt="">'
+                    : '<span class="gz-thumb d-inline-flex align-items-center justify-content-center"><i class="bi bi-image text-muted"></i></span>';
+                return '<div class="d-flex align-items-center gap-2">' . $img . '<div>'
+                    . '<a href="' . route('web.products.show', $p->id) . '" class="fw-semibold text-reset">' . e(Str::limit($p->title, 50)) . '</a>'
+                    . '<small class="d-block text-muted">SKU: <span class="fw-semibold">' . e($p->sku) . '</span> · ' . ($p->product_type === 'variable' ? 'Variable' : 'Simple')
+                    . ($p->brand_name ? ' · ' . e($p->brand_name) : '') . '</small></div></div>';
+            })
+            ->editColumn('barcode', fn ($p) => $p->barcode
+                ? '<span class="badge bg-info-subtle text-info">' . e($p->barcode) . '</span> <button class="btn btn-sm btn-link p-0 ms-1" onclick="copyBarcode(\'' . e($p->barcode) . '\')" title="Copy barcode"><i class="bi bi-copy"></i></button>'
+                : '<span class="text-muted small">Auto-generated</span>')
+            ->addColumn('category', fn ($p) => e($p->category_name ?? 'Uncategorized'))
+            ->editColumn('cost_price', fn ($p) => $p->cost_price ? '<span class="fw-bold">' . e(Money::fmt($p->cost_price)) . '</span>' : '<span class="text-muted">-</span>')
+            ->editColumn('price', function ($p) {
+                if ($p->sale_price && $p->sale_price < $p->price && $p->price > 0) {
+                    $d = round((($p->price - $p->sale_price) / $p->price) * 100);
+                    return '<del class="text-muted small">' . e(Money::fmt($p->price)) . '</del><br><span class="text-danger fw-bold">' . e(Money::fmt($p->sale_price)) . '</span> <span class="badge bg-danger">-' . $d . '%</span>';
+                }
+                return '<span class="fw-bold">' . e(Money::fmt($p->price)) . '</span>';
+            })
+            ->addColumn('margin', function ($p) {
+                if (!$p->cost_price || $p->cost_price <= 0) {
+                    return '<span class="text-muted">-</span>';
+                }
+                $pct = ((($p->sale_price ?: $p->price) - $p->cost_price) / $p->cost_price) * 100;
+                $cls = $pct >= 50 ? 'bg-success-subtle text-success' : ($pct >= 20 ? 'bg-warning-subtle text-warning' : 'bg-danger-subtle text-danger');
+                return '<span class="badge ' . $cls . '">' . number_format($pct, 1) . '%</span>';
+            })
+            ->editColumn('stock', function ($p) {
+                $s = $p->current_stock;
+                if ($s > 10) return '<span class="badge bg-success-subtle text-success">' . $s . ' units</span>';
+                if ($s > 0)  return '<span class="badge bg-warning-subtle text-warning">' . $s . ' units (low)</span>';
+                return '<span class="badge bg-danger-subtle text-danger">Out of stock</span>';
+            })
+            ->addColumn('sold', fn ($p) => '<span class="fw-semibold">' . (int) ($p->sold_total ?? 0) . '</span>')
+            ->addColumn('flags', function ($p) use ($canUpdate) {
+                $dis = $canUpdate ? '' : ' disabled';
+                $f = fn ($flag, $label, $cls) => '<div class="form-check form-switch mb-0"><input class="form-check-input flag-toggle" type="checkbox" data-id="' . $p->id . '" data-flag="' . $flag . '" id="' . $flag . '_' . $p->id . '"' . ($p->$flag ? ' checked' : '') . $dis . '>'
+                    . '<label class="form-check-label small fw-semibold ' . $cls . '" for="' . $flag . '_' . $p->id . '">' . $label . '</label></div>';
+                return '<div class="d-flex flex-wrap gap-2 align-items-center">' . $f('is_new', 'New', 'text-success') . $f('is_trending', '🔥 Hot', 'text-danger') . $f('is_top_rated', '⭐ Top', 'text-warning') . '</div>';
+            })
+            ->editColumn('is_featured', fn ($p) => $p->is_featured
+                ? '<span class="badge bg-primary-subtle text-primary"><i class="bi bi-star-fill text-warning me-1"></i>Featured</span>'
+                : '<span class="badge bg-secondary-subtle text-secondary">Regular</span>')
+            ->addColumn('action', function ($p) use ($user) {
+                $h = '<div class="dropdown"><button class="btn btn-soft-secondary btn-sm" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button><ul class="dropdown-menu dropdown-menu-end">'
+                    . '<li><a class="dropdown-item" href="' . route('web.products.show', $p->id) . '">View</a></li>';
+                if ($user->can('Update product')) {
+                    $h .= '<li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="' . $p->id . '">Edit</a></li>';
+                }
+                if ($user->can('Delete product')) {
+                    $h .= '<li><a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);" data-id="' . $p->id . '">Delete</a></li>';
+                }
+                return $h . '</ul></div>';
+            })
+            ->filterColumn('product', function ($q, $k) {
+                $q->where(fn ($w) => $w->where('products.title', 'like', "%{$k}%")
+                    ->orWhere('products.sku', 'like', "%{$k}%")
+                    ->orWhere('products.barcode', 'like', "%{$k}%")
+                    ->orWhere('brands.name', 'like', "%{$k}%"));
+            })
+            ->filterColumn('category', fn ($q, $k) => $q->where('categories.name', 'like', "%{$k}%"))
+            ->orderColumn('product', 'products.title $1')
+            ->orderColumn('category', 'categories.name $1')
+            ->orderColumn('sold', 'sold_total $1')
+            ->rawColumns(['checkbox', 'product', 'barcode', 'cost_price', 'price', 'margin', 'stock', 'sold', 'flags', 'is_featured', 'action'])
+            ->toJson();
     }
 
     public function create()
@@ -856,17 +914,87 @@ class ProductController extends Controller
     {
         $pagetitle = 'Lightning Deals';
 
-        $deals = LightningDeal::with(['product:id,title,sku,thumbnail,price,stock'])
-            ->orderBy('sort_order')
-            ->orderByDesc('created_at')
-            ->paginate(20);
-
         $availableProducts = Product::whereDoesntHave('lightningDeal')
             ->select('id', 'title', 'sku', 'price', 'stock', 'thumbnail')
             ->orderBy('title')
             ->get();
 
-        return view('products.lightning-deals', compact('deals', 'availableProducts', 'pagetitle'));
+        // Products already on a deal (needed so "Edit" can show the product card)
+        $dealProducts = Product::whereHas('lightningDeal')
+            ->select('id', 'title', 'sku', 'price', 'stock', 'thumbnail')
+            ->get();
+
+        $dealStats = [
+            'total'    => LightningDeal::count(),
+            'active'   => LightningDeal::where('is_active', true)->count(),
+            'inactive' => LightningDeal::where('is_active', false)->count(),
+        ];
+
+        return view('products.lightning-deals', compact('availableProducts', 'dealProducts', 'dealStats', 'pagetitle'));
+    }
+
+    /** Yajra DataTable endpoint for lightning deals. */
+    public function lightningDealsData(Request $request)
+    {
+        $query = LightningDeal::query()
+            ->leftJoin('products', 'products.id', '=', 'lightning_deals.product_id')
+            ->select('lightning_deals.*', 'products.title as product_title', 'products.sku as product_sku',
+                     'products.price as product_price', 'products.thumbnail as product_thumbnail')
+            ->with('product:id,title,sku,thumbnail,price,stock')
+            ->when($request->status === 'active', fn ($q) => $q->where('lightning_deals.is_active', true))
+            ->when($request->status === 'inactive', fn ($q) => $q->where('lightning_deals.is_active', false))
+            ->when($request->status === 'expired', fn ($q) => $q->whereNotNull('lightning_deals.ends_at')->where('lightning_deals.ends_at', '<', now()));
+
+        return DataTables::eloquent($query)
+            ->setRowAttr(['data-deal-id' => fn ($d) => $d->id])
+            ->editColumn('sort_order', fn ($d) => '<span class="text-muted small">' . (int) $d->sort_order . '</span>')
+            ->addColumn('product', function ($d) {
+                $img = $d->product_thumbnail
+                    ? '<img src="' . e(asset('storage/' . $d->product_thumbnail)) . '" class="gz-thumb" alt="">'
+                    : '<span class="gz-thumb d-inline-flex align-items-center justify-content-center"><i class="bi bi-image text-muted"></i></span>';
+                return '<div class="d-flex align-items-center gap-2">' . $img . '<div>'
+                    . '<div class="small fw-semibold">' . e(Str::limit($d->product_title ?? 'Unknown', 38)) . '</div>'
+                    . '<small class="text-muted">SKU: ' . e($d->product_sku ?? '-') . ' · Original: ₦' . number_format($d->product_price ?? 0, 0) . '</small></div></div>';
+            })
+            ->editColumn('discount_percentage', fn ($d) => '<span class="badge bg-danger px-2 py-1">-' . e($d->discount_percentage) . '%</span>')
+            ->addColumn('deal_price', fn ($d) => '<span class="fw-semibold text-success">₦' . number_format(($d->product_price ?? 0) * (1 - $d->discount_percentage / 100), 0) . '</span>')
+            ->addColumn('stock_left', function ($d) {
+                $s = $d->stock_left;
+                if ($s > 10) return '<span class="badge bg-success-subtle text-success">' . $s . '</span>';
+                if ($s > 0)  return '<span class="badge bg-warning-subtle text-warning">' . $s . ' low</span>';
+                return '<span class="badge bg-danger-subtle text-danger">Sold out</span>';
+            })
+            ->editColumn('ends_at', function ($d) {
+                if (!$d->ends_at) {
+                    return '<span class="text-muted small">No end date</span>';
+                }
+                $expired = $d->ends_at->isPast();
+                return '<span class="small ' . ($expired ? 'text-danger' : 'text-muted') . '"><i class="bi bi-clock me-1"></i>' . $d->ends_at->format('M d, Y H:i')
+                    . ($expired ? ' <span class="badge bg-danger-subtle text-danger ms-1">Expired</span>' : '') . '</span>';
+            })
+            ->editColumn('is_active', fn ($d) => '<div class="form-check form-switch d-flex justify-content-center mb-0"><input class="form-check-input toggle-deal" type="checkbox" data-id="' . $d->id . '"' . ($d->is_active ? ' checked' : '') . '></div>')
+            ->addColumn('action', function ($d) {
+                $data = base64_encode(json_encode([
+                    'product_id'          => $d->product_id,
+                    'product_title'       => $d->product_title,
+                    'product_price'       => $d->product_price,
+                    'product_thumb'       => $d->product_thumbnail ? asset('storage/' . $d->product_thumbnail) : '',
+                    'product_sku'         => $d->product_sku,
+                    'discount_percentage' => $d->discount_percentage,
+                    'stock_limit'         => $d->stock_limit,
+                    'starts_at'           => $d->starts_at?->format('Y-m-d\TH:i'),
+                    'ends_at'             => $d->ends_at?->format('Y-m-d\TH:i'),
+                    'is_active'           => $d->is_active,
+                    'sort_order'          => $d->sort_order,
+                ]));
+                return '<div class="d-flex justify-content-center gap-1">'
+                    . '<button class="btn btn-sm btn-soft-primary edit-deal-btn" title="Edit" data-deal="' . e($data) . '"><i class="bi bi-pencil"></i></button>'
+                    . '<button class="btn btn-sm btn-soft-danger delete-deal-btn" title="Delete" data-id="' . $d->id . '"><i class="bi bi-trash"></i></button></div>';
+            })
+            ->filterColumn('product', fn ($q, $k) => $q->where(fn ($w) => $w->where('products.title', 'like', "%{$k}%")->orWhere('products.sku', 'like', "%{$k}%")))
+            ->orderColumn('product', 'products.title $1')
+            ->rawColumns(['sort_order', 'product', 'discount_percentage', 'deal_price', 'stock_limit', 'stock_left', 'ends_at', 'is_active', 'action'])
+            ->toJson();
     }
 
     public function lightningDealStore(Request $request)

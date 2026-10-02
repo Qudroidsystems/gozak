@@ -6,12 +6,14 @@ use Illuminate\Http\Request;
 use App\Models\ProductReview;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Yajra\DataTables\Facades\DataTables;
 
 class ProductReviewController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('permission:View review', ['only' => ['index', 'show']]);
+        $this->middleware('permission:View review', ['only' => ['index', 'show', 'data', 'edit']]);
         $this->middleware('permission:Create review', ['only' => ['store']]);
         $this->middleware('permission:Update review', ['only' => ['update', 'addCompanyComment']]);
         $this->middleware('permission:Delete review', ['only' => ['destroy']]);
@@ -20,44 +22,60 @@ class ProductReviewController extends Controller
     public function index(Request $request)
     {
         $pagetitle = "Reviews Management";
-        
-        $query = ProductReview::with([
-            'product' => function($q) {
-                $q->select('id', 'title', 'thumbnail');
-            },
-            'user' => function($q) {
-                $q->select('id', 'first_name', 'last_name', 'email');
-            }
-        ])->orderBy('created_at', 'desc');
 
-        // Apply filters
-        if ($request->has('product_id') && !empty($request->product_id)) {
-            $query->where('product_id', $request->product_id);
-        }
+        $stats = [
+            'total'      => ProductReview::count(),
+            'average'    => round((float) ProductReview::avg('rating'), 1),
+            'unanswered' => ProductReview::whereNull('company_comment')->count(),
+            'low'        => ProductReview::where('rating', '<=', 2)->count(),
+        ];
+        $breakdown = ProductReview::selectRaw('FLOOR(rating) as stars, COUNT(*) as total')
+            ->groupBy('stars')->pluck('total', 'stars');
 
-        if ($request->has('rating') && !empty($request->rating)) {
-            $query->where('rating', $request->rating);
-        }
+        return view('reviews.index', compact('pagetitle', 'stats', 'breakdown'));
+    }
 
-        if ($request->has('search') && !empty($request->search)) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('comment', 'like', "%{$search}%")
-                  ->orWhere('user_name', 'like', "%{$search}%")
-                  ->orWhereHas('product', function($q) use ($search) {
-                      $q->where('title', 'like', "%{$search}%");
-                  })
-                  ->orWhereHas('user', function($q) use ($search) {
-                      $q->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                  });
-            });
-        }
+    /** Yajra DataTable endpoint. */
+    public function data(Request $request)
+    {
+        $query = ProductReview::query()
+            ->leftJoin('products', 'products.id', '=', 'product_reviews.product_id')
+            ->select('product_reviews.*', 'products.title as product_title', 'products.thumbnail as product_thumbnail')
+            ->when($request->filled('rating'), fn ($q) => $q->whereRaw('FLOOR(product_reviews.rating) = ?', [(int) $request->rating]))
+            ->when($request->reply === 'answered', fn ($q) => $q->whereNotNull('product_reviews.company_comment'))
+            ->when($request->reply === 'unanswered', fn ($q) => $q->whereNull('product_reviews.company_comment'))
+            ->when($request->filled('product_id'), fn ($q) => $q->where('product_reviews.product_id', $request->product_id));
 
-        $reviews = $query->paginate(20)->appends($request->all());
+        $user = $request->user();
 
-        return view('reviews.index', compact('reviews', 'pagetitle'));
+        return DataTables::eloquent($query)
+            ->addColumn('product', function ($r) {
+                $img = $r->product_thumbnail
+                    ? '<img src="' . e(asset('storage/' . $r->product_thumbnail)) . '" class="gz-thumb" alt="">'
+                    : '<span class="gz-avatar"><i class="ri-box-3-line"></i></span>';
+                return '<div class="d-flex align-items-center gap-2">' . $img . '<span class="fw-semibold">' . e(Str::limit($r->product_title ?? 'Deleted product', 40)) . '</span></div>';
+            })
+            ->editColumn('user_name', fn ($r) => e($r->user_name ?: '—') . ($r->location ? '<small class="d-block text-muted">' . e($r->location) . '</small>' : ''))
+            ->editColumn('rating', function ($r) {
+                $n = (int) round($r->rating);
+                return '<span class="text-warning" title="' . e($r->rating) . '">' . str_repeat('★', $n) . '<span class="text-muted">' . str_repeat('☆', max(0, 5 - $n)) . '</span></span>';
+            })
+            ->editColumn('comment', fn ($r) => '<span title="' . e($r->comment) . '">' . e(Str::limit($r->comment, 80)) . '</span>')
+            ->addColumn('reply', fn ($r) => $r->company_comment
+                ? '<span class="status-pill st-success">Replied</span>'
+                : '<span class="status-pill st-warning">Awaiting reply</span>')
+            ->editColumn('created_at', fn ($r) => optional($r->created_at)->format('d M Y'))
+            ->addColumn('action', function ($r) use ($user) {
+                $h = '<div class="gz-actions"><button class="btn btn-sm btn-soft-info view-btn" data-id="' . $r->id . '" title="View / reply"><i class="ph-chat-circle-text"></i></button>';
+                if ($user->can('Delete review')) {
+                    $h .= '<button class="btn btn-sm btn-soft-danger delete-btn" data-id="' . $r->id . '" title="Delete"><i class="ph-trash"></i></button>';
+                }
+                return $h . '</div>';
+            })
+            ->filterColumn('product', fn ($q, $k) => $q->where('products.title', 'like', "%{$k}%"))
+            ->orderColumn('product', 'products.title $1')
+            ->rawColumns(['product', 'user_name', 'rating', 'comment', 'reply', 'action'])
+            ->toJson();
     }
 
     public function store(Request $request)

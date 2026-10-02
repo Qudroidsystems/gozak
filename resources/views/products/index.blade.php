@@ -158,305 +158,88 @@
                 </div>
             </div>
 
-            {{-- ─── Product Table ──────────────────────────────────────────────────── --}}
-            <div id="productList" class="mt-4">
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="card">
-                            <div class="card-header d-flex align-items-center">
-                                <div class="flex-grow-1">
-                                    <h5 class="card-title mb-0">
-                                        Products <span class="badge bg-dark-subtle text-dark ms-1" id="totalProducts">{{ $products->total() }}</span>
-                                    </h5>
-                                </div>
-                                <div class="flex-shrink-0">
-                                    <div class="d-flex flex-wrap align-items-start gap-2">
-                                        <div class="dropdown me-2" id="bulkActionsDropdown" style="display: none;">
-                                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                                Bulk Actions (<span id="selectedCount">0</span>)
-                                            </button>
-                                            <ul class="dropdown-menu">
-                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_new" data-value="1">Mark as New</a></li>
-                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_new" data-value="0">Remove New</a></li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_trending" data-value="1">Mark as Trending</a></li>
-                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_trending" data-value="0">Remove Trending</a></li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_top_rated" data-value="1">Mark as Top Rated</a></li>
-                                                <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_top_rated" data-value="0">Remove Top Rated</a></li>
-                                            </ul>
-                                        </div>
-
-                                        <div class="input-group input-group-sm me-2" style="width: 250px;">
-                                            <input type="text" class="form-control" id="searchInput" placeholder="Search products..." value="{{ request('search', '') }}">
-                                            <button class="btn btn-outline-secondary" type="button" id="searchButton"><i class="bi bi-search"></i></button>
-                                            <button class="btn btn-outline-secondary" type="button" id="clearSearch" style="display: {{ request('search') ? 'inline-block' : 'none' }};"><i class="bi bi-x"></i></button>
-                                        </div>
-                                        @can('Create product')
-                                            <button type="button" class="btn btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">Add Product</button>
-                                        @endcan
-                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">Import CSV</button>
-                                        <a href="{{ route('web.products.export') }}" class="btn btn-info">Export CSV</a>
-                                        <a href="{{ route('lightning-deals.index') }}" class="btn btn-warning">
-                                            <i class="bi bi-lightning-fill me-1"></i> Lightning Deals
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Advanced Filters --}}
-                            <div class="card-body border-bottom">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <label class="form-label">Search</label>
-                                        <input type="text" class="form-control" id="searchInput2" placeholder="Name, SKU, barcode..." value="{{ request('search', '') }}">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Category</label>
-                                        <select class="form-control" id="categoryFilter">
-                                            <option value="">All Categories</option>
-                                            @foreach($categories as $cat)
-                                                <option value="{{ $cat->id }}" {{ request('category_id') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Brand</label>
-                                        <select class="form-control" id="brandFilter">
-                                            <option value="">All Brands</option>
-                                            @foreach($brands as $brand)
-                                                <option value="{{ $brand->id }}" {{ request('brand_id') == $brand->id ? 'selected' : '' }}>{{ $brand->name }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Stock Status</label>
-                                        <select class="form-control" id="stockFilter">
-                                            <option value="">All</option>
-                                            <option value="in_stock"      {{ request('stock') == 'in_stock' ? 'selected' : '' }}>In Stock</option>
-                                            <option value="low_stock"     {{ request('stock') == 'low_stock' ? 'selected' : '' }}>Low Stock</option>
-                                            <option value="out_of_stock"  {{ request('stock') == 'out_of_stock' ? 'selected' : '' }}>Out of Stock</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">App Filter</label>
-                                        <select class="form-control" id="appFilterFilter">
-                                            <option value="">All</option>
-                                            <option value="new"       {{ request('app_filter') == 'new' ? 'selected' : '' }}>New</option>
-                                            <option value="trending"  {{ request('app_filter') == 'trending' ? 'selected' : '' }}>Trending</option>
-                                            <option value="top_rated" {{ request('app_filter') == 'top_rated' ? 'selected' : '' }}>Top Rated</option>
-                                            <option value="on_sale"   {{ request('app_filter') == 'on_sale' ? 'selected' : '' }}>On Sale</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-1 d-flex align-items-end gap-2">
-                                        <button type="button" class="btn btn-primary w-100" id="applyFilter">
-                                            <i class="bi bi-funnel"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary" id="clearFilters" title="Clear all filters"
-                                            style="{{ request()->except('page') ? '' : 'display: none;' }}">
-                                            <i class="bi bi-x-circle"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="card-body">
-                                {{-- Active Filter Badges --}}
-                                @if(request()->except('page'))
-                                <div class="mb-3">
-                                    <div class="d-flex align-items-center flex-wrap gap-2">
-                                        <span class="text-muted me-1">Active filters:</span>
-                                        @if(request('search'))
-                                            <span class="badge bg-primary-subtle text-primary">Search: {{ request('search') }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('search')"></button></span>
-                                        @endif
-                                        @if(request('category_id'))
-                                            @php $category = $categories->firstWhere('id', request('category_id')); @endphp
-                                            <span class="badge bg-primary-subtle text-primary">Category: {{ $category->name ?? 'Unknown' }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('category_id')"></button></span>
-                                        @endif
-                                        @if(request('brand_id'))
-                                            @php $brand = $brands->firstWhere('id', request('brand_id')); @endphp
-                                            <span class="badge bg-primary-subtle text-primary">Brand: {{ $brand->name ?? 'Unknown' }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('brand_id')"></button></span>
-                                        @endif
-                                        @if(request('stock'))
-                                            <span class="badge bg-primary-subtle text-primary">Stock: {{ ucfirst(str_replace('_', ' ', request('stock'))) }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('stock')"></button></span>
-                                        @endif
-                                        @if(request('app_filter'))
-                                            <span class="badge bg-info-subtle text-info">App Filter: {{ ucfirst(str_replace('_', ' ', request('app_filter'))) }} <button type="button" class="btn-close btn-close-sm ms-1" onclick="removeFilter('app_filter')"></button></span>
-                                        @endif
-                                    </div>
-                                </div>
-                                @endif
-
-                                <div class="table-responsive">
-                                    <table class="table table-centered align-middle table-nowrap mb-0">
-                                        <thead class="table-active">
-                                            <tr>
-                                                <th style="width: 50px;">
-                                                    <input type="checkbox" id="selectAll" class="form-check-input">
-                                                </th>
-                                                <th>Product</th>
-                                                <th>Barcode</th>
-                                                <th>Category</th>
-                                                <th>Cost Price</th>
-                                                <th>Price</th>
-                                                <th>Margin</th>
-                                                <th>Stock</th>
-                                                <th>Sold</th>
-                                                <th class="text-center" style="min-width:180px;">App Flags</th>
-                                                <th>Featured</th>
-                                                <th>Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="productTableBody">
-                                            @forelse($products as $product)
-                                            <tr>
-                                                <td class="text-center">
-                                                    <input type="checkbox" class="row-select form-check-input" value="{{ $product->id }}">
-                                                </td>
-                                                <td>
-                                                    <div class="d-flex align-items-center">
-                                                        <div class="avatar-sm bg-light rounded p-1 me-3">
-                                                            @if($product->thumbnail)
-                                                                <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="" class="img-fluid rounded" style="max-height:40px;">
-                                                            @else
-                                                                <div class="bg-secondary-subtle rounded d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
-                                                                    <i class="bi bi-image text-muted fs-5"></i>
-                                                                </div>
-                                                            @endif
-                                                        </div>
-                                                        <div>
-                                                            <h6 class="mb-1"><a href="{{ route('web.products.show', $product->id) }}" class="text-reset">{{ Str::limit($product->title, 50) }}</a></h6>
-                                                            <small class="text-muted d-block">
-                                                                SKU: <span class="fw-semibold">{{ $product->sku }}</span><br>
-                                                                <i class="bi bi-box-seam me-1"></i>{{ $product->product_type === 'variable' ? 'Variable' : 'Simple' }}
-                                                            </small>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    @if($product->barcode)
-                                                        <div class="d-flex align-items-center">
-                                                            <span class="badge bg-info-subtle text-info">{{ $product->barcode }}</span>
-                                                            <button class="btn btn-sm btn-outline-secondary ms-1" onclick="copyBarcode('{{ $product->barcode }}')" title="Copy barcode"><i class="bi bi-copy"></i></button>
-                                                        </div>
-                                                    @else
-                                                        <span class="text-muted small">Auto-generated</span>
-                                                    @endif
-                                                </td>
-                                                <td>{{ $product->category?->name ?? 'Uncategorized' }}</td>
-                                                <td>
-                                                    @if($product->cost_price)
-                                                        <span class="fw-bold">${{ number_format($product->cost_price, 2) }}</span>
-                                                    @else
-                                                        <span class="text-muted">-</span>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    @if($product->sale_price && $product->sale_price < $product->price)
-                                                        @php $discount = round((($product->price - $product->sale_price) / $product->price) * 100); @endphp
-                                                        <del class="text-muted small">${{ number_format($product->price, 2) }}</del><br>
-                                                        <span class="text-danger fw-bold">${{ number_format($product->sale_price, 2) }}</span>
-                                                        <span class="badge bg-danger position-relative" style="top:-8px;right:-32px;font-size:0.65rem;">-{{ $discount }}%</span>
-                                                    @else
-                                                        <span class="fw-bold">${{ number_format($product->price, 2) }}</span>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    @if($product->cost_price && $product->cost_price > 0)
-                                                        @php
-                                                            $sellingPrice   = $product->sale_price ?? $product->price;
-                                                            $margin         = $sellingPrice - $product->cost_price;
-                                                            $marginPercent  = ($margin / $product->cost_price) * 100;
-                                                        @endphp
-                                                        <span class="badge {{ $marginPercent >= 50 ? 'bg-success-subtle text-success' : ($marginPercent >= 20 ? 'bg-warning-subtle text-warning' : 'bg-danger-subtle text-danger') }}">
-                                                            {{ number_format($marginPercent, 1) }}%
-                                                        </span>
-                                                    @else
-                                                        <span class="text-muted">-</span>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    @php
-                                                        $currentStock = $product->current_stock;
-                                                    @endphp
-                                                    @if($currentStock > 10)
-                                                        <span class="badge bg-success-subtle text-success">{{ $currentStock }} units</span>
-                                                    @elseif($currentStock > 0)
-                                                        <span class="badge bg-warning-subtle text-warning">{{ $currentStock }} units (low)</span>
-                                                    @else
-                                                        <span class="badge bg-danger-subtle text-danger">Out of stock</span>
-                                                    @endif
-                                                </td>
-                                                <td class="text-center"><span class="fw-semibold">{{ $product->total_sold ?? 0 }}</span></td>
-                                                <td>
-                                                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-center">
-                                                        <div class="form-check form-switch mb-0">
-                                                            <input class="form-check-input flag-toggle" type="checkbox" data-id="{{ $product->id }}" data-flag="is_new" id="isNew_{{ $product->id }}" {{ $product->is_new ? 'checked' : '' }}>
-                                                            <label class="form-check-label small text-success fw-semibold" for="isNew_{{ $product->id }}">New</label>
-                                                        </div>
-                                                        <div class="form-check form-switch mb-0">
-                                                            <input class="form-check-input flag-toggle" type="checkbox" data-id="{{ $product->id }}" data-flag="is_trending" id="isTrending_{{ $product->id }}" {{ $product->is_trending ? 'checked' : '' }}>
-                                                            <label class="form-check-label small text-danger fw-semibold" for="isTrending_{{ $product->id }}">🔥 Hot</label>
-                                                        </div>
-                                                        <div class="form-check form-switch mb-0">
-                                                            <input class="form-check-input flag-toggle" type="checkbox" data-id="{{ $product->id }}" data-flag="is_top_rated" id="isTopRated_{{ $product->id }}" {{ $product->is_top_rated ? 'checked' : '' }}>
-                                                            <label class="form-check-label small text-warning fw-semibold" for="isTopRated_{{ $product->id }}">⭐ Top</label>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    @if($product->is_featured)
-                                                        <span class="badge bg-primary-subtle text-primary"><i class="bi bi-star-fill text-warning me-1"></i> Featured</span>
-                                                    @else
-                                                        <span class="badge bg-secondary-subtle text-secondary">Regular</span>
-                                                    @endif
-                                                </td>
-                                                <td>
-                                                    <div class="dropdown">
-                                                        <button class="btn btn-subtle-secondary btn-sm btn-icon" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
-                                                        <ul class="dropdown-menu dropdown-menu-end">
-                                                            <li><a class="dropdown-item" href="{{ route('web.products.show', $product->id) }}">View</a></li>
-                                                            @can('Update product')
-                                                                <li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="{{ $product->id }}">Edit</a></li>
-                                                            @endcan
-                                                            @can('Delete product')
-                                                                <li><a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);" data-id="{{ $product->id }}">Delete</a></li>
-                                                            @endcan
-                                                        </ul>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            @empty
-                                            <tr id="noResultsRow">
-                                                <td colspan="12" class="text-center py-5 text-muted">
-                                                    @if(request()->except('page'))
-                                                        No products found matching your filters.<br>
-                                                        <a href="{{ route('web.products.index') }}" class="btn btn-sm btn-outline-primary mt-2">Clear filters</a>
-                                                    @else
-                                                        No products found. <a href="javascript:void(0)" class="text-primary" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()">Add your first product</a>
-                                                    @endif
-                                                </td>
-                                            </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <div class="row mt-3 align-items-center">
-                                    <div class="col-sm">
-                                        <div class="text-muted text-center text-sm-start">
-                                            Showing {{ $products->firstItem() }} to {{ $products->lastItem() }} of {{ $products->total() }} Results
-                                        </div>
-                                    </div>
-                                    <div class="col-sm-auto mt-3 mt-sm-0">
-                                        {!! $products->appends(request()->query())->links('pagination::bootstrap-5') !!}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            {{-- ─── Product Table (server-side DataTable) ─────────────────────────── --}}
+            <x-cb.card title="Products" icon="ri-shopping-bag-3-line" :flush="true" class="mt-4">
+                <x-slot:tools>
+                    <div class="dropdown" id="bulkActionsDropdown" style="display: none;">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            Bulk Actions (<span id="selectedCount">0</span>)
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_new" data-value="1">Mark as New</a></li>
+                            <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_new" data-value="0">Remove New</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_trending" data-value="1">Mark as Trending</a></li>
+                            <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_trending" data-value="0">Remove Trending</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_top_rated" data-value="1">Mark as Top Rated</a></li>
+                            <li><a class="dropdown-item flag-bulk-action" href="#" data-flag="is_top_rated" data-value="0">Remove Top Rated</a></li>
+                        </ul>
                     </div>
+                    @can('Create product')
+                        <button type="button" class="btn btn-sm btn-primary add-btn" data-bs-toggle="modal" data-bs-target="#showModal" onclick="resetForm()"><i class="ri-add-line me-1"></i>Add Product</button>
+                    @endcan
+                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#importModal">Import CSV</button>
+                    <a href="{{ route('web.products.export') }}" class="btn btn-sm btn-info">Export CSV</a>
+                    <a href="{{ route('lightning-deals.index') }}" class="btn btn-sm btn-warning"><i class="bi bi-lightning-fill me-1"></i>Lightning Deals</a>
+                </x-slot:tools>
+
+                {{-- Filters (reload the table, no page refresh) --}}
+                <div class="gz-filter-bar px-3 pt-3">
+                    <select class="form-select form-select-sm" id="categoryFilter" data-dt-filter="#productsTable">
+                        <option value="">All Categories</option>
+                        @foreach($categories as $cat)
+                            <option value="{{ $cat->id }}" @selected(request('category_id') == $cat->id)>{{ $cat->name }}</option>
+                            @foreach($cat->children ?? [] as $child)
+                                <option value="{{ $child->id }}" @selected(request('category_id') == $child->id)>&nbsp;&nbsp;↳ {{ $child->name }}</option>
+                            @endforeach
+                        @endforeach
+                    </select>
+                    <select class="form-select form-select-sm" id="brandFilter" data-dt-filter="#productsTable">
+                        <option value="">All Brands</option>
+                        @foreach($brands as $brand)
+                            <option value="{{ $brand->id }}" @selected(request('brand_id') == $brand->id)>{{ $brand->name }}</option>
+                        @endforeach
+                    </select>
+                    <select class="form-select form-select-sm" id="stockFilter" data-dt-filter="#productsTable">
+                        <option value="">Any stock</option>
+                        <option value="in_stock" @selected(request('stock') == 'in_stock')>In Stock</option>
+                        <option value="low_stock" @selected(request('stock') == 'low_stock')>Low Stock</option>
+                        <option value="out_of_stock" @selected(request('stock') == 'out_of_stock')>Out of Stock</option>
+                    </select>
+                    <select class="form-select form-select-sm" id="appFilterFilter" data-dt-filter="#productsTable">
+                        <option value="">Any app flag</option>
+                        <option value="new" @selected(request('app_filter') == 'new')>New</option>
+                        <option value="trending" @selected(request('app_filter') == 'trending')>Trending</option>
+                        <option value="top_rated" @selected(request('app_filter') == 'top_rated')>Top Rated</option>
+                        <option value="on_sale" @selected(request('app_filter') == 'on_sale')>On Sale</option>
+                        <option value="featured" @selected(request('app_filter') == 'featured')>Featured</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="clearFilters" title="Clear all filters"><i class="bi bi-x-circle me-1"></i>Clear</button>
                 </div>
-            </div>
+
+                <div class="px-3 pb-3 gz-dt-wrap">
+                    <table id="productsTable" class="table gz-dt align-middle w-100 mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 36px;"><input type="checkbox" id="selectAll" class="form-check-input"></th>
+                                <th>Product</th>
+                                <th>Barcode</th>
+                                <th>Category</th>
+                                <th>Cost Price</th>
+                                <th>Price</th>
+                                <th>Margin</th>
+                                <th>Stock</th>
+                                <th>Sold</th>
+                                <th style="min-width:180px;">App Flags</th>
+                                <th>Featured</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productTableBody"></tbody>
+                    </table>
+                </div>
+            </x-cb.card>
 
             {{-- ─── Import Modal ───────────────────────────────────────────────────── --}}
             <div class="modal fade" id="importModal" tabindex="-1">
@@ -788,10 +571,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('sale_price')?.addEventListener('keyup', updateDiscountFromPrices);
 
     // ==================== TOGGLE FLAGS ====================
+    // Delegated so it keeps working on every DataTable page
     function initializeFlagToggles() {
-        document.querySelectorAll('.flag-toggle').forEach(toggle => {
-            toggle.removeEventListener('change', handleFlagChange);
-            toggle.addEventListener('change', handleFlagChange);
+        document.addEventListener('change', function (e) {
+            if (e.target.classList.contains('flag-toggle')) { handleFlagChange(e); }
         });
     }
 
@@ -866,7 +649,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         flag: flag,
                         value: value
                     }).then(res => {
-                        Swal.fire('Success', res.data.message, 'success').then(() => location.reload());
+                        Swal.fire('Success', res.data.message, 'success'); window.productsTable && window.productsTable.ajax.reload(null, false);
                     }).catch(err => {
                         Swal.fire('Error', err.response?.data?.message || 'Failed to update', 'error');
                     });
@@ -882,47 +665,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    window.removeFilter = function(filterName) {
-        const params = new URLSearchParams(window.location.search);
-        params.delete(filterName);
-        params.delete('page');
-        window.location.href = `${window.location.pathname}?${params.toString()}`;
-    };
-
-    function initializeSearch() {
-        const searchInput = document.getElementById('searchInput');
-        const searchButton = document.getElementById('searchButton');
-        const clearSearch = document.getElementById('clearSearch');
-        const applyFilter = document.getElementById('applyFilter');
-        const clearFilters = document.getElementById('clearFilters');
-        const categoryFilter = document.getElementById('categoryFilter');
-        const brandFilter = document.getElementById('brandFilter');
-        const stockFilter = document.getElementById('stockFilter');
-        const appFilterFilter = document.getElementById('appFilterFilter');
-
-        function performServerSearch() {
-            const params = new URLSearchParams(window.location.search);
-            const s = searchInput?.value.trim();
-            s ? params.set('search', s) : params.delete('search');
-            categoryFilter?.value ? params.set('category_id', categoryFilter.value) : params.delete('category_id');
-            brandFilter?.value ? params.set('brand_id', brandFilter.value) : params.delete('brand_id');
-            stockFilter?.value ? params.set('stock', stockFilter.value) : params.delete('stock');
-            appFilterFilter?.value ? params.set('app_filter', appFilterFilter.value) : params.delete('app_filter');
-            params.delete('page');
-            window.location.href = `${window.location.pathname}?${params.toString()}`;
+    // ==================== SERVER-SIDE TABLE ====================
+    window.productsTable = GZ.dt('#productsTable', {
+        url: @json(route('web.products.data')),
+        order: [[1, 'asc']],
+        filters: function () {
+            return {
+                category_id: $('#categoryFilter').val(), brand_id: $('#brandFilter').val(),
+                stock: $('#stockFilter').val(), app_filter: $('#appFilterFilter').val()
+            };
+        },
+        columns: [
+            { data: 'checkbox',    name: 'checkbox',    orderable: false, searchable: false },
+            { data: 'product',     name: 'product' },
+            { data: 'barcode',     name: 'products.barcode' },
+            { data: 'category',    name: 'category' },
+            { data: 'cost_price',  name: 'products.cost_price', searchable: false },
+            { data: 'price',       name: 'products.price',      searchable: false },
+            { data: 'margin',      name: 'margin',      orderable: false, searchable: false },
+            { data: 'stock',       name: 'products.stock',      searchable: false },
+            { data: 'sold',        name: 'sold',                searchable: false },
+            { data: 'flags',       name: 'flags',       orderable: false, searchable: false },
+            { data: 'is_featured', name: 'products.is_featured', searchable: false },
+            { data: 'action',      name: 'action',      orderable: false, searchable: false }
+        ],
+        onDraw: function () {
+            var all = document.getElementById('selectAll'); if (all) all.checked = false;
+            updateSelectedCount();
         }
+    });
+    var initialSearch = @json(request('search', ''));
+    if (initialSearch) { window.productsTable.search(initialSearch).draw(); }
 
-        if (searchButton) searchButton.addEventListener('click', performServerSearch);
-        if (applyFilter) applyFilter.addEventListener('click', performServerSearch);
-        if (clearFilters) clearFilters.addEventListener('click', () => window.location.href = window.location.pathname);
-        if (clearSearch) {
-            clearSearch.addEventListener('click', () => {
-                if (searchInput) searchInput.value = '';
-                performServerSearch();
-            });
-        }
-    }
-    initializeSearch();
+    document.getElementById('clearFilters')?.addEventListener('click', function () {
+        ['categoryFilter', 'brandFilter', 'stockFilter', 'appFilterFilter'].forEach(function (id) { document.getElementById(id).value = ''; });
+        window.productsTable.search('').ajax.reload();
+    });
 
     // ==================== RESET FORM ====================
     window.resetForm = function() {
@@ -1162,7 +940,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }).then(result => {
                 if (result.isConfirmed) {
                     axios.delete(`/web/products/${id}`)
-                        .then(() => Swal.fire('Deleted!', 'Product has been deleted', 'success').then(() => location.reload()))
+                        .then(() => { GZ.toast('Product deleted'); window.productsTable && window.productsTable.ajax.reload(null, false); })
                         .catch(() => Swal.fire('Error', 'Failed to delete', 'error'));
                 }
             });

@@ -1,511 +1,312 @@
 @extends('layouts.master')
-
+@section('title', $role->name . ' — Role')
 @section('content')
-<?php
-use Spatie\Permission\Models\Role;
-use App\Models\User;
-use Spatie\Permission\Models\Permission;
-?>
+@include('roles.partials.styles')
 
 <div class="main-content">
-    <div class="page-content">
-        <div class="container-fluid">
-            <!-- Start page title -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="page-title-box d-sm-flex align-items-center justify-content-between">
-                        <h4 class="mb-sm-0">Role Management</h4>
-                        <div class="page-title-right">
-                            <ol class="breadcrumb m-0">
-                                <li class="breadcrumb-item"><a href="javascript: void(0);">Role Management</a></li>
-                                <li class="breadcrumb-item active">Role Details</li>
-                            </ol>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <!-- End page title -->
+<div class="page-content">
+<div class="container-fluid">
 
-            <!-- Error and success messages -->
-            @if ($errors->any())
-                <div class="alert alert-danger">
-                    <strong>Whoops!</strong> There were some problems with your input.<br><br>
-                    <ul>
-                        @foreach ($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-            @if (session('status'))
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    {{ session('status') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            @endif
-            @if (session('success'))
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    {{ session('success') }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            @endif
-
-            <!-- Back button -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="row align-items-center g-2">
-                        <div class="col-lg-3 me-auto"></div>
-                        <div class="col-lg-auto">
-                            <div class="hstack gap-2">
-                                <a href="{{ route('roles.index') }}" class="btn btn-secondary"><< Back</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-12">
-                    <h5 class="text-decoration-underline mb-3 pb-1">View Role Details</h5>
-                </div>
-            </div>
-
-            <div class="row">
-                <!-- Role permissions -->
-                <div class="col-xl-3 col-lg-6">
-                    <div class="card" id="networks">
-                        <div class="card-header d-flex">
-                            <h5 class="card-title mb-0 flex-grow-1 {{ $role->badge }}">{{ $role->name }}</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table align-middle mb-0">
-                                    <tbody class="list">
-                                        @foreach ($rolePermissions as $rm)
-                                            <tr>
-                                                <td>---</td>
-                                                <td class="click text-center">{{ $rm->name }}</td>
-                                            </tr>
-                                        @endforeach
-                                        <tr>
-                                            <td colspan="2">
-                                                <button type="button" class="btn btn-light btn-active-primary" data-bs-toggle="modal" data-bs-target="#editRoleModalgrid">Edit Role</button>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Users assigned to role -->
-                <div class="col-xxl-8 col-lg-8">
-                    <div class="card">
-                        <div class="card-header d-flex align-items-center">
-                            <h4 class="card-title mb-0 flex-grow-1">Users Assigned: ({{ $userRoleCount }})</h4>
-                            <div class="flex-shrink-0">
-                                <div class="nav nav-pills gap-1" id="popularProperty" role="tablist" aria-orientation="vertical">
-                                    @can('Update user-role')
-                                        <button type="button" class="btn btn-light btn-sm btn-active-success my-1" data-bs-toggle="modal" data-bs-target="#addUserModalgrid">Add User</button>
-                                    @endcan
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="tab-content" id="popularPropertyContent">
-                                <div class="card-body">
-                                    <div class="table-responsive">
-                                        <table class="table table-centered align-middle table-nowrap mb-0" id="userList">
-                                            <thead class="table-active">
-                                                <tr>
-                                                    <th>
-                                                        <div class="form-check">
-                                                            <input class="form-check-input" type="checkbox" value="option" id="checkAll">
-                                                            <label class="form-check-label" for="checkAll"></label>
-                                                        </div>
-                                                    </th>
-                                                    <th class="sort cursor-pointer" data-sort="name">User</th>
-                                                    <th class="sort cursor-pointer" data-sort="datereg">Joined Date</th>
-                                                    <th>Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody class="list form-check-all">
-                                                @forelse ($usersWithRole as $user)
-                                                    <tr data-id="{{ $user->id }}">
-                                                        <td class="id" data-id="{{ $user->id }}">
-                                                            <div class="form-check">
-                                                                <input class="form-check-input" type="checkbox" name="chk_child">
-                                                                <label class="form-check-label"></label>
-                                                            </div>
-                                                        </td>
-                                                        <td class="name">
-                                                            <div class="d-flex align-items-center">
-                                                                <div>
-                                                                    <h6 class="mb-0">
-                                                                        <a href="{{ route('users.show', $user->id) }}" class="text-reset products">{{ $user->username }}</a>
-                                                                    </h6>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td class="datereg">{{ $user->created_at->format('Y-m-d') }}</td>
-                                                        <td>
-                                                            <ul class="d-flex gap-2 list-unstyled mb-0">
-                                                                @can('Remove user-role')
-                                                                    <li>
-                                                                        <a class="dropdown-item remove-item-btn" href="javascript:void(0);" 
-                                                                           data-bs-toggle="modal" 
-                                                                           data-bs-target="#deleteRecordModal"
-                                                                           data-url="{{ route('roles.removeuserrole', ['userid' => $user->id, 'roleid' => $role->id]) }}">
-                                                                            <i class="bi bi-trash3 me-1 align-baseline"></i> Remove User
-                                                                        </a>
-                                                                    </li>
-                                                                @endcan
-                                                            </ul>
-                                                        </td>
-                                                    </tr>
-                                                @empty
-                                                    <tr>
-                                                        <td colspan="4" class="noresult" style="display: block;">No results found</td>
-                                                    </tr>
-                                                @endforelse
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <div class="row mt-3 align-items-center" id="pagination-element">
-                                        <div class="col-sm">
-                                            <div class="text-muted text-center text-sm-start">
-                                                Showing <span class="fw-semibold">{{ $usersWithRole->count() }}</span> of <span class="fw-semibold">{{ $usersWithRole->total() }}</span> Results
-                                            </div>
-                                        </div>
-                                        <div class="col-sm-auto mt-3 mt-sm-0">
-                                            <div class="pagination-wrap hstack gap-2 justify-content-center">
-                                                <a class="page-item pagination-prev {{ $usersWithRole->onFirstPage() ? 'disabled' : '' }}" href="javascript:void(0);" data-url="{{ $usersWithRole->previousPageUrl() }}">
-                                                    <i class="mdi mdi-chevron-left align-middle"></i>
-                                                </a>
-                                                <ul class="pagination listjs-pagination mb-0">
-                                                    @foreach ($usersWithRole->links()->elements[0] as $page => $url)
-                                                        <li class="page-item {{ $usersWithRole->currentPage() == $page ? 'active' : '' }}">
-                                                            <a class="page-link" href="javascript:void(0);" data-url="{{ $url }}">{{ $page }}</a>
-                                                        </li>
-                                                    @endforeach
-                                                </ul>
-                                                <a class="page-item pagination-next {{ $usersWithRole->hasMorePages() ? '' : 'disabled' }}" href="javascript:void(0);" data-url="{{ $usersWithRole->nextPageUrl() }}">
-                                                    <i class="mdi mdi-chevron-right align-middle"></i>
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Delete confirmation modal -->
-            <div id="deleteRecordModal" class="modal fade zoomIn" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <button type="button" class="btn-close" id="deleteRecord-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body p-md-5">
-                            <div class="text-center">
-                                <div class="text-danger">
-                                    <i class="bi bi-trash display-4"></i>
-                                </div>
-                                <div class="mt-4">
-                                    <h3 class="mb-2">Are you sure?</h3>
-                                    <p class="text-muted fs-lg mx-3 mb-0">Are you sure you want to remove this user from the role?</p>
-                                </div>
-                            </div>
-                            <div class="d-flex gap-2 justify-content-center mt-4 mb-2">
-                                <button type="button" class="btn w-sm btn-light btn-hover" data-bs-dismiss="modal">Close</button>
-                                <button type="button" class="btn w-sm btn-danger btn-hover" id="delete-record">Yes, Remove It!</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Add user modal -->
-            <div class="modal fade" id="addUserModalgrid" tabindex="-1" aria-labelledby="addUserModalLabel" aria-modal="true">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="addUserModalLabel">Add Users to {{ $role->name }} Role</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <form id="addUserRoleForm" class="form" action="{{ route('roles.updateuserrole') }}" method="POST">
-                                @csrf
-                                <div class="row g-3">
-                                    <div class="col-lg-12">
-                                        <label class="form-label">Role</label>
-                                        <input type="hidden" name="roleid" value="{{ $role->id }}" />
-                                        <input type="text" class="form-control" readonly value="{{ $role->name }}">
-                                    </div>
-                                    <div class="col-lg-12">
-                                        <label class="form-label">Select Users</label>
-                                        <div class="d-flex flex-wrap gap-3 mb-3">
-                                            <div class="form-check form-check-outline form-check-primary">
-                                                <input class="form-check-input" type="checkbox" value="" id="kt_users_select_all">
-                                                <label class="form-check-label" for="kt_users_select_all">Select all</label>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex flex-wrap gap-3">
-                                            @php
-                                                $users = User::whereDoesntHave('roles', function ($q) use ($role) {
-                                                    $q->where('name', $role->name);
-                                                })->get();
-                                            @endphp
-                                            @foreach ($users as $user)
-                                                <div class="form-check form-check-outline form-check-primary">
-                                                    <input class="form-check-input" type="checkbox" value="{{ $user->id }}" name="users[]">
-                                                    <label class="form-check-label">{{ $user->name }}</label>
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-12">
-                                        <div class="hstack gap-2 justify-content-end">
-                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
-                                            <button type="submit" class="btn btn-primary">Add Users</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Edit role modal -->
-            <div class="modal fade" id="editRoleModalgrid" tabindex="-1" aria-labelledby="exampleModalgridLabel" aria-modal="true">
-                <div class="modal-dialog modal-xl">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="exampleModalgridLabel">Edit Role</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <form action="{{ route('roles.update', $role->id) }}" method="POST" class="form" id="kt_modal_update_role_form">
-                                @csrf
-                                @method('PATCH')
-                                <div class="row g-3">
-                                    <div class="col-xxl-6">
-                                        <label for="name" class="form-label">Role Name</label>
-                                        <input type="text" class="form-control" placeholder="Enter a role name" name="name" value="{{ old('name', $role->name) }}" required>
-                                    </div>
-                                    <div class="col-xxl-6">
-                                        <label for="badge" class="form-label">Role Badge</label>
-                                        <select name="badge" class="form-control" data-kt-select2="true" data-placeholder="Select option" data-allow-clear="true">
-                                            <option></option>
-                                            <option value="badge bg-light" {{ $role->badge == 'badge bg-light' ? 'selected' : '' }}>Light grey</option>
-                                            <option value="badge bg-dark" {{ $role->badge == 'badge bg-dark' ? 'selected' : '' }}>Dark</option>
-                                            <option value="badge bg-primary" {{ $role->badge == 'badge bg-primary' ? 'selected' : '' }}>Blue</option>
-                                            <option value="badge bg-secondary" {{ $role->badge == 'badge bg-secondary' ? 'selected' : '' }}>Light blue</option>
-                                            <option value="badge bg-success" {{ $role->badge == 'badge bg-success' ? 'selected' : '' }}>Light green</option>
-                                            <option value="badge bg-info" {{ $role->badge == 'badge bg-info' ? 'selected' : '' }}>Purple</option>
-                                            <option value="badge bg-warning" {{ $role->badge == 'badge bg-warning' ? 'selected' : '' }}>Yellow</option>
-                                            <option value="badge bg-danger" {{ $role->badge == 'badge bg-danger' ? 'selected' : '' }}>Red</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-lg-12">
-                                        <div class="table-responsive">
-                                            <table class="table align-middle table-row-dashed fs-6 gy-5">
-                                                <tbody class="text-gray-600 fw-semibold">
-                                                    <tr>
-                                                        <td class="text-gray-800">
-                                                            Administrator Access
-                                                            <span class="ms-2" data-bs-toggle="popover" data-bs-trigger="hover" data-bs-html="true" data-bs-content="Allows a full access to the system">
-                                                                <i class="ki-duotone ki-information fs-7"><span class="path1"></span><span class="path2"></span><span class="path3"></span></i>
-                                                            </span>
-                                                        </td>
-                                                        <td>
-                                                            <label class="form-check form-check-custom form-check-solid me-9">
-                                                                <input class="form-check-input" type="checkbox" value="" id="kt_roles_select_all" />
-                                                                <span class="form-check-label" for="kt_roles_select_all">Select all</span>
-                                                            </label>
-                                                        </td>
-                                                    </tr>
-                                                    @foreach (array_unique($perm_title) as $value)
-                                                        @php
-                                                            $permission = \Spatie\Permission\Models\Permission::where('title', $value)->get();
-                                                        @endphp
-                                                        <tr>
-                                                            <td class="text-gray-800">{{ $value }}</td>
-                                                            @foreach ($permission as $v)
-                                                                @php
-                                                                    $word = '';
-                                                                    if (str_contains($v->name, 'View ')) {
-                                                                        $word = 'View';
-                                                                    } elseif (str_contains($v->name, 'Create ')) {
-                                                                        $word = 'Create';
-                                                                    } elseif (str_contains($v->name, 'Update ')) {
-                                                                        $word = 'Edit';
-                                                                    } elseif (str_contains($v->name, 'Delete ')) {
-                                                                        $word = 'Delete';
-                                                                    } elseif (str_contains($v->name, 'Update user-role')) {
-                                                                        $word = 'Update user role';
-                                                                    } elseif (str_contains($v->name, 'Add user-role')) {
-                                                                        $word = 'Add user role';
-                                                                    } elseif (str_contains($v->name, 'Remove user-role')) {
-                                                                        $word = 'Remove user role';
-                                                                    }
-                                                                @endphp
-                                                                <td>
-                                                                    <div class="d-flex">
-                                                                        <div class="form-check form-check-outline form-check-primary mb-3">
-                                                                            <input class="form-check-input" type="checkbox" value="{{ $v->id }}" name="permission[]"
-                                                                                {{ $role->hasPermissionTo($v->name) ? 'checked' : '' }}>
-                                                                            <label class="form-check-label">{{ $word }}</label>
-                                                                        </div>
-                                                                    </div>
-                                                                </td>
-                                                            @endforeach
-                                                        </tr>
-                                                    @endforeach
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                    <div class="col-lg-12">
-                                        <div class="hstack gap-2 justify-content-end">
-                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
-                                            <button type="submit" class="btn btn-primary">Submit</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- JavaScript for handling modals and form submission -->
-            <script>
-                document.addEventListener("DOMContentLoaded", function () {
-                    // Select All for Permissions in Edit Role Modal
-                    const selectAllCheckbox = document.getElementById("kt_roles_select_all");
-                    const permissionCheckboxes = document.querySelectorAll('input[name="permission[]"]');
-
-                    if (selectAllCheckbox && permissionCheckboxes.length > 0) {
-                        selectAllCheckbox.addEventListener("change", function () {
-                            permissionCheckboxes.forEach((checkbox) => {
-                                checkbox.checked = this.checked;
-                            });
-                        });
-
-                        function updateSelectAllState() {
-                            const allChecked = Array.from(permissionCheckboxes).every(checkbox => checkbox.checked);
-                            const someChecked = Array.from(permissionCheckboxes).some(checkbox => checkbox.checked);
-                            selectAllCheckbox.checked = allChecked;
-                            selectAllCheckbox.indeterminate = someChecked && !allChecked;
-                        }
-
-                        permissionCheckboxes.forEach((checkbox) => {
-                            checkbox.addEventListener("change", updateSelectAllState);
-                        });
-
-                        updateSelectAllState();
-                    }
-
-                    // Select All for Users in Add User Modal
-                    const addUserModal = document.getElementById('addUserModalgrid');
-                    if (addUserModal) {
-                        addUserModal.addEventListener('shown.bs.modal', function () {
-                            const selectAllUsersCheckbox = document.getElementById("kt_users_select_all");
-                            const userCheckboxes = document.querySelectorAll('input[name="users[]"]');
-
-                            console.log('User checkboxes found:', userCheckboxes.length); // Debugging
-
-                            if (selectAllUsersCheckbox && userCheckboxes.length > 0) {
-                                // Toggle all user checkboxes when "Select all" is changed
-                                selectAllUsersCheckbox.addEventListener("change", function () {
-                                    console.log('Select all toggled:', this.checked); // Debugging
-                                    userCheckboxes.forEach((checkbox) => {
-                                        checkbox.checked = this.checked;
-                                    });
-                                    updateSelectAllUsersState();
-                                });
-
-                                // Update "Select all" state when individual checkboxes change
-                                function updateSelectAllUsersState() {
-                                    const allChecked = Array.from(userCheckboxes).every(checkbox => checkbox.checked);
-                                    const someChecked = Array.from(userCheckboxes).some(checkbox => checkbox.checked);
-                                    selectAllUsersCheckbox.checked = allChecked;
-                                    selectAllUsersCheckbox.indeterminate = someChecked && !allChecked;
-                                    console.log('Select all state:', { allChecked, someChecked, indeterminate: selectAllUsersCheckbox.indeterminate }); // Debugging
-                                }
-
-                                // Attach change listeners to individual checkboxes
-                                userCheckboxes.forEach((checkbox) => {
-                                    checkbox.addEventListener("change", function () {
-                                        console.log('Individual checkbox toggled:', this.value, this.checked); // Debugging
-                                        updateSelectAllUsersState();
-                                    });
-                                });
-
-                                // Initial state update
-                                updateSelectAllUsersState();
-                            } else {
-                                console.warn('No user checkboxes found or select all checkbox missing'); // Debugging
-                                if (selectAllUsersCheckbox) {
-                                    selectAllUsersCheckbox.disabled = true; // Disable if no checkboxes
-                                }
-                            }
-                        });
-                    }
-
-                    // Form submission validation for Add User Modal
-                    const addUserForm = document.getElementById("addUserRoleForm");
-                    if (addUserForm) {
-                        addUserForm.addEventListener("submit", function (e) {
-                            const userCheckboxes = document.querySelectorAll('input[name="users[]"]');
-                            if (!Array.from(userCheckboxes).some(checkbox => checkbox.checked)) {
-                                e.preventDefault();
-                                alert("Please select at least one user.");
-                            }
-                        });
-                    }
-
-                    // Delete Record Modal Handling
-                    const deleteRecordModal = document.getElementById('deleteRecordModal');
-                    const deleteRecordButton = document.getElementById('delete-record');
-                    if (deleteRecordModal && deleteRecordButton) {
-                        deleteRecordModal.addEventListener('show.bs.modal', function (event) {
-                            const button = event.relatedTarget;
-                            const url = button.getAttribute('data-url');
-                            deleteRecordButton.onclick = function () {
-                                console.log('Sending DELETE request to:', url); // Debugging
-                                fetch(url, {
-                                    method: 'DELETE',
-                                    headers: {
-                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                                        'Accept': 'application/json',
-                                    },
-                                })
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.success) {
-                                        alert(data.message);
-                                        location.reload();
-                                    } else {
-                                        alert(data.message || 'Failed to remove user from role.');
-                                    }
-                                })
-                                .catch(error => {
-                                    console.error('Error:', error);
-                                    alert('An error occurred while removing the user from the role.');
-                                });
-                            };
-                        });
-                    }
-                });
-            </script>
-        </div><!-- End Page-content -->
+    {{-- Hero --}}
+    <div class="rol-hero">
+        <h1><i class="bi bi-shield-fill-check me-2"></i>{{ $role->name }} — Role Details</h1>
+        <p>Manage the permissions and users assigned to this role.</p>
+        <div class="rol-hero-actions">
+            <a href="{{ route('roles.index') }}" class="rol-btn rol-btn-back">
+                <i class="bi bi-arrow-left"></i> Back to Roles
+            </a>
+            @canany(['Update user-role', 'Add user-role'])
+            <button type="button" class="rol-btn rol-btn-success" data-bs-toggle="modal" data-bs-target="#addUserModalgrid">
+                <i class="bi bi-person-plus-fill"></i> Add Users
+            </button>
+            @endcanany
+        </div>
     </div>
+
+    {{-- Alerts --}}
+    @if ($errors->any())
+    <div class="rol-alert-danger mb-3">
+        <strong>Whoops!</strong>
+        <ul class="mb-0 mt-1">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
+    </div>
+    @endif
+    @if (session('success') || session('status'))
+    <div class="rol-alert-success mb-3">
+        <i class="bi bi-check-circle-fill me-2"></i>{{ session('success') ?? session('status') }}
+    </div>
+    @endif
+
+    <div class="row g-3">
+
+        {{-- ── Permissions sidebar ── --}}
+        <div class="col-xl-3 col-lg-4">
+            <div class="rol-card">
+                <div class="rol-card-header">
+                    <h5><i class="bi bi-key-fill me-2" style="color:var(--rol-accent)"></i>Permissions</h5>
+                    <span class="rol-perm-tag m-0">{{ $rolePermissions->count() }}</span>
+                </div>
+                <div class="rol-card-body">
+                    @can('Update role')
+                    <button type="button" class="edit-role-btn" data-bs-toggle="modal" data-bs-target="#editRoleModalgrid">
+                        <i class="bi bi-pencil-square"></i> Edit Role &amp; Permissions
+                    </button>
+                    @endcan
+                    <div class="perm-list-scroll">
+                        @forelse($rolePermissions->groupBy(fn ($p) => $p->title ?: 'Other')->sortKeys() as $group => $perms)
+                            <div class="text-uppercase fw-bold mt-2 mb-1" style="font-size:10.5px;color:var(--rol-muted);letter-spacing:.5px;">{{ $group }}</div>
+                            @foreach($perms as $rm)
+                                <div class="perm-list-item">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    <span>{{ $rm->name }}</span>
+                                </div>
+                            @endforeach
+                        @empty
+                            <p style="font-size:13px;color:var(--rol-muted);text-align:center;padding:20px 0;">No permissions assigned</p>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- ── Users DataTable ── --}}
+        <div class="col-xl-9 col-lg-8">
+            <div class="rol-card">
+                <div class="rol-card-header">
+                    <h5>
+                        <i class="bi bi-people-fill me-2" style="color:var(--rol-accent)"></i>
+                        Assigned Users <span class="rol-count" id="totalUsersCount">{{ $userRoleCount }}</span>
+                    </h5>
+                    <div class="d-flex gap-2 align-items-center">
+                        <select class="form-select form-select-sm" id="f-user-type" data-dt-filter="#roleUsersTable" style="width:auto;">
+                            <option value="">All users</option>
+                            <option value="staff">Staff</option>
+                            <option value="customer">Customers</option>
+                        </select>
+                        @canany(['Remove user-role', 'Delete role'])
+                        <button type="button" class="rol-btn rol-btn-danger" id="bulkRemoveBtn" style="display:none;padding:7px 14px;font-size:12.5px;">
+                            <i class="bi bi-person-x-fill"></i> Remove Selected
+                        </button>
+                        @endcanany
+                    </div>
+                </div>
+                <div class="rol-card-body gz-dt-wrap">
+                    <table id="roleUsersTable" class="table gz-dt align-middle w-100 mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:36px;"><input type="checkbox" class="form-check-input gz-check-all"></th>
+                                <th>User</th>
+                                <th>Email</th>
+                                <th>Type</th>
+                                <th>Joined</th>
+                                <th style="width:70px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ════ ADD USERS MODAL (AJAX search — works with thousands of customers) ════ --}}
+    @canany(['Update user-role', 'Add user-role'])
+    <div class="modal fade rol-modal" id="addUserModalgrid" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus-fill me-2"></i>Add Users to "{{ $role->name }}"</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="addUserRoleForm" action="{{ route('roles.updateuserrole') }}" method="POST">
+                    @csrf
+                    <input type="hidden" name="roleid" value="{{ $role->id }}">
+                    <div class="modal-body" style="min-height:320px;">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="rol-form-label">Search in</label>
+                                <select id="candidate-type" class="rol-form-control">
+                                    <option value="staff">Staff</option>
+                                    <option value="customer">Customers</option>
+                                    <option value="">Everyone</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="rol-form-label">Users <span class="text-danger">*</span></label>
+                                <select id="candidate-users" name="users[]" multiple="multiple" class="rol-form-control"></select>
+                            </div>
+                        </div>
+                        <div class="rol-info-banner mt-3 mb-0">
+                            <i class="bi bi-info-circle-fill me-1"></i>
+                            Type a name, email or phone number. Only users who don't already have this role are listed.
+                            Selected: <strong id="selected-count">0</strong>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="rol-btn rol-btn-primary" id="submit-add-btn">
+                            <i class="bi bi-person-check-fill"></i> Add Selected Users
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endcanany
+
+    {{-- ════ EDIT ROLE MODAL ════ --}}
+    @can('Update role')
+    <div class="modal fade rol-modal" id="editRoleModalgrid" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit Role: {{ $role->name }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="{{ route('roles.update', $role->id) }}" method="POST">
+                    @csrf @method('PATCH')
+                    <div class="modal-body">
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="rol-form-label">Role Name</label>
+                                <input type="text" class="rol-form-control" name="name" value="{{ old('name', $role->name) }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="rol-form-label">Badge Colour</label>
+                                <select name="badge" class="rol-form-control">
+                                    <option value="">None</option>
+                                    @foreach(['badge bg-light' => 'Light Grey', 'badge bg-dark' => 'Dark', 'badge bg-primary' => 'Blue', 'badge bg-secondary' => 'Light Blue', 'badge bg-success' => 'Green', 'badge bg-info' => 'Purple', 'badge bg-warning' => 'Yellow', 'badge bg-danger' => 'Red'] as $val => $label)
+                                        <option value="{{ $val }}" @selected($role->badge === $val)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+
+                        <label class="rol-form-label mb-2">Permissions Assignment</label>
+                        <div class="rol-info-banner" style="background:#f0f4ff;border-color:#c7d2fe;color:#3730a3;">
+                            <i class="bi bi-info-circle-fill me-1"></i> Tick the permissions for this role. A group's checkbox selects everything under it at once.
+                        </div>
+
+                        @include('roles.partials.permission-picker', ['pickerId' => 'editPermPicker', 'checkedIds' => $role->permissions->pluck('id')->all()])
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="rol-btn rol-btn-primary">
+                            <i class="bi bi-check-circle"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    @endcan
+
 </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var roleId    = @json($role->id);
+    var roleName  = @json($role->name);
+    var tableSel  = '#roleUsersTable';
+
+    // ── Users DataTable (server-side) ─────────────────────────────
+    var table = GZ.dt(tableSel, {
+        url: @json(route('roles.users', $role->id)),
+        order: [[4, 'desc']],
+        filters: function () { return { type: $('#f-user-type').val() }; },
+        columns: [
+            { data: 'checkbox',   name: 'checkbox',   orderable: false, searchable: false },
+            { data: 'user_info',  name: 'user_info' },
+            { data: 'email',      name: 'users.email' },
+            { data: 'type',       name: 'users.role', searchable: false },
+            { data: 'created_at', name: 'users.created_at', searchable: false },
+            { data: 'action',     name: 'action',     orderable: false, searchable: false }
+        ],
+        onDraw: function (s) {
+            if (s.json) { $('#totalUsersCount').text(s.json.recordsFiltered); }
+            updateBulkBtn();
+        }
+    });
+
+    // ── Single remove ─────────────────────────────────────────────
+    $(tableSel).on('click', '.remove-user-btn', function () {
+        var url = $(this).data('url'), name = $(this).data('name');
+        Swal.fire({
+            title: 'Remove user?', html: 'Remove <b>' + $('<i>').text(name).html() + '</b> from <b>' + $('<i>').text(roleName).html() + '</b>?',
+            icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444',
+            confirmButtonText: 'Yes, remove', reverseButtons: true
+        }).then(function (r) {
+            if (!r.isConfirmed) return;
+            $.ajax({ url: url, type: 'POST', data: { _method: 'DELETE' } })
+                .done(function (d) { GZ.toast(d.message || 'Removed'); table.ajax.reload(null, false); })
+                .fail(function (x) { GZ.toast(GZ.xhrError(x), 'error'); });
+        });
+    });
+
+    // ── Bulk remove ───────────────────────────────────────────────
+    function updateBulkBtn() {
+        var n = GZ.selected(tableSel).length, btn = $('#bulkRemoveBtn');
+        btn.toggle(n > 0).html('<i class="bi bi-person-x-fill"></i> Remove Selected (' + n + ')');
+    }
+    $(tableSel).on('change gz:check', '.gz-row-check, .gz-check-all', updateBulkBtn);
+
+    $('#bulkRemoveBtn').on('click', function () {
+        var ids = GZ.selected(tableSel);
+        if (!ids.length) return;
+        Swal.fire({
+            title: 'Remove ' + ids.length + ' user(s)?', text: 'They will lose every permission granted by "' + roleName + '".',
+            icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444',
+            confirmButtonText: 'Remove all', reverseButtons: true
+        }).then(function (r) {
+            if (!r.isConfirmed) return;
+            $.post(@json(route('roles.bulkremoveusers')), { role_id: roleId, selected_users: ids })
+                .done(function (d) { GZ.toast(d.message, d.success ? 'success' : 'info'); table.ajax.reload(null, false); })
+                .fail(function (x) { GZ.toast(GZ.xhrError(x), 'error'); });
+        });
+    });
+
+    // ── Add users (Select2 AJAX) ──────────────────────────────────
+    var $cand = $('#candidate-users');
+    if ($cand.length) {
+        $cand.select2({
+            dropdownParent: $('#addUserModalgrid'),
+            placeholder: 'Search users…',
+            minimumInputLength: 0,
+            closeOnSelect: false,
+            ajax: {
+                url: @json(route('roles.candidates', $role->id)),
+                dataType: 'json', delay: 250,
+                data: function (p) { return { q: p.term || '', page: p.page || 1, type: $('#candidate-type').val() }; },
+                processResults: function (d) { return d; }
+            },
+            templateResult: function (u) {
+                if (!u.id) return u.text;
+                return $('<span>').text(u.text).append(u.type ? $('<small class="ms-2 text-muted">').text('· ' + u.type) : '');
+            }
+        }).on('change', function () { $('#selected-count').text(($cand.val() || []).length); });
+
+        $('#candidate-type').on('change', function () { $cand.val(null).trigger('change'); });
+
+        $('#addUserRoleForm').on('submit', function (e) {
+            if (!($cand.val() || []).length) {
+                e.preventDefault();
+                Swal.fire({ icon: 'warning', title: 'No users selected', text: 'Please select at least one user.', confirmButtonColor: '#6366f1' });
+                return;
+            }
+            $('#submit-add-btn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Adding…');
+        });
+
+        // Opened from the roles list ("Add Users") → /roles/{id}?add=1
+        if (new URLSearchParams(location.search).get('add') === '1') {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('addUserModalgrid')).show();
+        }
+    }
+
+    // Re-open the edit modal after a validation error
+    @if ($errors->has('name') || $errors->has('permission'))
+        var em = document.getElementById('editRoleModalgrid');
+        if (em) { bootstrap.Modal.getOrCreateInstance(em).show(); }
+    @endif
+});
+</script>
 @endsection

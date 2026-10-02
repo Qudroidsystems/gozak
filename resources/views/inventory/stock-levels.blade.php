@@ -227,333 +227,69 @@
                 </div>
             </div>
 
-            <!-- FILTERS -->
-            <div class="card mt-4">
-                <div class="card-body">
-                    <form method="GET" id="stockLevelsForm">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label class="form-label">Stock Status</label>
-                                <select name="stock_status" class="form-control" onchange="this.form.submit()">
-                                    <option value="">All Status</option>
-                                    <option value="in_stock" {{ request('stock_status') == 'in_stock' ? 'selected' : '' }}>In Stock (>10)</option>
-                                    <option value="low_stock" {{ request('stock_status') == 'low_stock' ? 'selected' : '' }}>Low Stock (1-10)</option>
-                                    <option value="out_of_stock" {{ request('stock_status') == 'out_of_stock' ? 'selected' : '' }}>Out of Stock</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Category</label>
-                                <select name="category_id" class="form-control" onchange="this.form.submit()">
-                                    <option value="">All Categories</option>
-                                    @foreach($categories as $category)
-                                        <option value="{{ $category->id }}" {{ request('category_id') == $category->id ? 'selected' : '' }}>
-                                            {{ $category->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Brand</label>
-                                <select name="brand_id" class="form-control" onchange="this.form.submit()">
-                                    <option value="">All Brands</option>
-                                    @foreach($brands as $brand)
-                                        <option value="{{ $brand->id }}" {{ request('brand_id') == $brand->id ? 'selected' : '' }}>
-                                            {{ $brand->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Search</label>
-                                <div class="input-group">
-                                    <input type="text" name="search" class="form-control" value="{{ request('search') }}" placeholder="Search products...">
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-search"></i>
-                                    </button>
-                                    <a href="{{ route('inventory.stock-levels') }}" class="btn btn-secondary">
-                                        <i class="bi bi-arrow-clockwise"></i>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-12">
-                                <label class="form-label">Sort By</label>
-                                <div class="input-group">
-                                    <select name="sort_by" class="form-control" onchange="this.form.submit()">
-                                        <option value="total_stock" {{ request('sort_by') == 'total_stock' ? 'selected' : '' }}>Stock Quantity</option>
-                                        <option value="title" {{ request('sort_by') == 'title' ? 'selected' : '' }}>Product Name</option>
-                                        <option value="sku" {{ request('sort_by') == 'sku' ? 'selected' : '' }}>SKU</option>
-                                        <option value="price" {{ request('sort_by') == 'price' ? 'selected' : '' }}>Base Price</option>
-                                        <option value="sale_price" {{ request('sort_by') == 'sale_price' ? 'selected' : '' }}>Selling Price</option>
-                                        <option value="cost_price" {{ request('sort_by') == 'cost_price' ? 'selected' : '' }}>Cost Price</option>
-                                        <option value="margin_percent" {{ request('sort_by') == 'margin_percent' ? 'selected' : '' }}>Margin %</option>
-                                    </select>
-                                    <select name="sort_order" class="form-control" onchange="this.form.submit()">
-                                        <option value="asc" {{ request('sort_order') == 'asc' ? 'selected' : '' }}>Ascending</option>
-                                        <option value="desc" {{ request('sort_order') == 'desc' ? 'selected' : '' }}>Descending</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
+            <!-- STOCK LEVELS (server-side DataTable) -->
+            <x-cb.card title="Stock Levels by Location" icon="ri-stack-line" :flush="true" class="mt-4">
+                <x-slot:tools>
+                    @can('Manage inventory')
+                        <button type="button" class="btn btn-sm btn-info" onclick="openBulkAdjustModal()"><i class="bi bi-plus-slash-minus me-1"></i> Bulk Adjust (<span id="selectedCountBadge">0</span>)</button>
+                    @endcan
+                    <button type="button" class="btn btn-sm btn-success" onclick="exportStock('csv')"><i class="bi bi-download me-1"></i> Export CSV</button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="exportStock('pdf')"><i class="bi bi-file-earmark-pdf me-1"></i> Export PDF</button>
+                </x-slot:tools>
+
+                <div class="gz-filter-bar px-3 pt-3" id="stockLevelsForm">
+                    <select id="f-stock_status" class="form-select form-select-sm" data-dt-filter="#stockLevelsTable">
+                        <option value="">All Status</option>
+                        <option value="in_stock" @selected(request('stock_status') == 'in_stock')>In Stock (&gt;10)</option>
+                        <option value="low_stock" @selected(request('stock_status') == 'low_stock')>Low Stock (1-10)</option>
+                        <option value="out_of_stock" @selected(request('stock_status') == 'out_of_stock')>Out of Stock</option>
+                    </select>
+                    <select id="f-category_id" class="form-select form-select-sm" data-dt-filter="#stockLevelsTable">
+                        <option value="">All Categories</option>
+                        @foreach($categories as $category)
+                            <option value="{{ $category->id }}" @selected(request('category_id') == $category->id)>{{ $category->name }}</option>
+                        @endforeach
+                    </select>
+                    <select id="f-brand_id" class="form-select form-select-sm" data-dt-filter="#stockLevelsTable">
+                        <option value="">All Brands</option>
+                        @foreach($brands as $brand)
+                            <option value="{{ $brand->id }}" @selected(request('brand_id') == $brand->id)>{{ $brand->name }}</option>
+                        @endforeach
+                    </select>
+                    <small class="text-muted ms-auto">Value cards and the margin chart reflect the filtered products.</small>
                 </div>
-            </div>
 
-            <!-- STOCK LEVELS TABLE -->
-            <div class="card mt-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">Stock Levels by Location</h5>
-                    <div>
-                        @can('Manage inventory')
-                            <button type="button" class="btn btn-info me-2" onclick="openBulkAdjustModal()">
-                                <i class="bi bi-plus-slash-minus me-1"></i> Bulk Adjust
-                            </button>
-                        @endcan
-                        <a href="{{ route('inventory.export.stock-levels') }}?{{ http_build_query(request()->query()) }}" class="btn btn-success me-2">
-                            <i class="bi bi-download me-1"></i> Export CSV
-                        </a>
-                        <a href="{{ route('inventory.export.stock-levels.pdf') }}?{{ http_build_query(request()->query()) }}" class="btn btn-danger" target="_blank">
-                            <i class="bi bi-file-earmark-pdf me-1"></i> Export PDF
-                        </a>
-                    </div>
+                <div class="px-3 pb-3 gz-dt-wrap">
+                    <table class="table gz-dt align-middle w-100 mb-0" id="stockLevelsTable">
+                        <thead>
+                            <tr>
+                                <th style="width:36px;"><input type="checkbox" class="form-check-input" id="selectAll"></th>
+                                <th>Product</th>
+                                <th>SKU</th>
+                                <th>Category</th>
+                                <th>Brand</th>
+                                <th>Cost Price</th>
+                                <th>Base Price</th>
+                                <th>Selling Price</th>
+                                <th>Discount</th>
+                                <th>Profit Margin</th>
+                                <th>Profit %</th>
+                                @foreach($locations as $location)
+                                    <th class="text-center">{{ $location->name }}</th>
+                                @endforeach
+                                <th>Total Stock</th>
+                                <th>Stock Value</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
                 </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-centered align-middle table-nowrap mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th><input type="checkbox" id="selectAll"></th>
-                                    <th>Product</th>
-                                    <th>SKU</th>
-                                    <th>Category</th>
-                                    <th>Brand</th>
-                                    <th>Cost Price</th>
-                                    <th>Base Price</th>
-                                    <th>Selling Price</th>
-                                    <th>Discount</th>
-                                    <th>Profit Margin</th>
-                                    <th>Profit %</th>
-                                    @foreach($locations as $location)
-                                        <th class="text-center">{{ $location->name }}</th>
-                                    @endforeach
-                                    <th>Total Stock</th>
-                                    <th>Stock Value</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($products as $data)
-                                    @php
-                                        // Handle both array format and object format
-                                        if (is_array($data) && isset($data['product'])) {
-                                            $product = $data['product'];
-                                            $totalStock = $data['total_stock'] ?? 0;
-                                        } else {
-                                            $product = $data;
-                                            // Calculate total stock from locationStockData
-                                            $totalStock = 0;
-                                            if (isset($locationStockData[$product->id])) {
-                                                foreach($locations as $location) {
-                                                    $stock = $locationStockData[$product->id][$location->id] ?? 0;
-                                                    $totalStock += $stock;
-                                                }
-                                            }
-                                        }
-
-                                        $costPrice = $product->cost_price ?? 0;
-                                        $basePrice = $product->price ?? 0;
-                                        $sellingPrice = $product->sale_price ?? $product->price ?? 0;
-                                        $discount = 0;
-                                        $discountPercent = 0;
-                                        if ($product->sale_price && $product->sale_price < $basePrice) {
-                                            $discount = $basePrice - $sellingPrice;
-                                            $discountPercent = $basePrice > 0 ? round(($discount / $basePrice) * 100, 1) : 0;
-                                        }
-                                        $profitMargin = $sellingPrice - $costPrice;
-                                        $marginPercent = $costPrice > 0 ? round(($profitMargin / $costPrice) * 100, 1) : 0;
-                                        $stockValue = $totalStock * $sellingPrice;
-                                        $costValue = $totalStock * $costPrice;
-                                        $potentialProfit = $stockValue - $costValue;
-
-                                        // Stock status based on calculated totalStock
-                                        if ($totalStock > 10) {
-                                            $statusClass = 'success';
-                                            $statusText = 'In Stock';
-                                        } elseif ($totalStock > 0) {
-                                            $statusClass = 'warning';
-                                            $statusText = 'Low Stock';
-                                        } elseif ($totalStock == 0) {
-                                            $statusClass = 'danger';
-                                            $statusText = 'Out of Stock';
-                                        } else {
-                                            $statusClass = 'secondary';
-                                            $statusText = 'Negative';
-                                        }
-
-                                        if ($marginPercent >= 50) $marginClass = 'success';
-                                        elseif ($marginPercent >= 20) $marginClass = 'warning';
-                                        elseif ($marginPercent >= 10) $marginClass = 'info';
-                                        else $marginClass = 'danger';
-
-                                        $discountClass = $discountPercent >= 20 ? 'danger' : ($discountPercent >= 10 ? 'warning' : 'info');
-                                    @endphp
-                                    <tr>
-                                        <td>
-                                            <input type="checkbox" class="product-checkbox" value="{{ $product->id }}">
-                                        </td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                @if($product->thumbnail)
-                                                    <img src="{{ asset('storage/' . $product->thumbnail) }}" class="rounded me-2" width="40" height="40" alt="{{ $product->title }}">
-                                                @endif
-                                                <div>
-                                                    <div class="fw-semibold">{{ $product->title }}</div>
-                                                    @if($product->barcode)
-                                                        <small class="text-muted">Barcode: {{ $product->barcode }}</small>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>{{ $product->sku }}</td>
-                                        <td>{{ $product->category?->name ?? '-' }}</td>
-                                        <td>{{ $product->brand?->name ?? '-' }}</td>
-                                        <td>
-                                            @if($costPrice > 0)
-                                                <span class="fw-bold text-info">₦{{ number_format($costPrice, 2) }}</span>
-                                            @else
-                                                <span class="text-muted">-</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($product->sale_price && $product->sale_price < $basePrice)
-                                                <del class="text-muted small">₦{{ number_format($basePrice, 2) }}</del>
-                                            @else
-                                                <span class="fw-bold">₦{{ number_format($basePrice, 2) }}</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($product->sale_price && $product->sale_price < $basePrice)
-                                                <span class="fw-bold text-danger">₦{{ number_format($sellingPrice, 2) }}</span>
-                                            @else
-                                                <span class="fw-bold text-success">₦{{ number_format($sellingPrice, 2) }}</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($discountPercent > 0)
-                                                <span class="badge bg-{{ $discountClass }}-subtle text-{{ $discountClass }} border border-{{ $discountClass }}-subtle">
-                                                    -{{ $discountPercent }}%
-                                                </span>
-                                                <br>
-                                                <small class="text-muted">Save ₦{{ number_format($discount, 2) }}</small>
-                                            @else
-                                                <span class="badge bg-secondary-subtle text-secondary">No discount</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if($profitMargin > 0)
-                                                <span class="fw-bold text-primary">₦{{ number_format($profitMargin, 2) }}</span>
-                                            @elseif($profitMargin == 0)
-                                                <span class="text-muted">₦0.00</span>
-                                            @else
-                                                <span class="fw-bold text-danger">₦{{ number_format($profitMargin, 2) }}</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-{{ $marginClass }}-subtle text-{{ $marginClass }} border border-{{ $marginClass }}-subtle">
-                                                {{ number_format($marginPercent, 1) }}%
-                                            </span>
-                                        </td>
-                                        @foreach($locations as $location)
-                                            @php
-                                                $stock = $locationStockData[$product->id][$location->id] ?? 0;
-                                                $stockClass = $stock > 10 ? 'success' : ($stock > 0 ? 'warning' : ($stock == 0 ? 'secondary' : 'danger'));
-                                            @endphp
-                                            <td class="text-center">
-                                                <span class="badge bg-{{ $stockClass }}-subtle text-{{ $stockClass }} border border-{{ $stockClass }}-subtle">
-                                                    {{ $stock }}
-                                                </span>
-                                            </td>
-                                        @endforeach
-                                        <td>
-                                            <span class="fw-bold {{ $totalStock > 10 ? 'text-success' : ($totalStock > 0 ? 'text-warning' : ($totalStock == 0 ? 'text-secondary' : 'text-danger')) }}">
-                                                {{ $totalStock }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="text-end">
-                                                <div class="fw-bold {{ $product->sale_price && $product->sale_price < $basePrice ? 'text-danger' : 'text-success' }}">
-                                                    ₦{{ number_format($stockValue, 2) }}
-                                                </div>
-                                                <small class="text-muted">Cost: ₦{{ number_format($costValue, 2) }}</small>
-                                                <div class="small {{ $potentialProfit >= 0 ? 'text-primary' : 'text-danger' }}">
-                                                    Profit: ₦{{ number_format($potentialProfit, 2) }}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-{{ $statusClass }}-subtle text-{{ $statusClass }} border border-{{ $statusClass }}-subtle">
-                                                {{ $statusText }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div class="dropdown">
-                                                <button class="btn btn-subtle-secondary btn-sm btn-icon" type="button" data-bs-toggle="dropdown">
-                                                    <i class="bi bi-three-dots-vertical"></i>
-                                                </button>
-                                                <ul class="dropdown-menu dropdown-menu-end">
-                                                    <li><a class="dropdown-item" href="{{ route('web.products.show', $product->id) }}"><i class="bi bi-eye me-2"></i> View Product</a></li>
-                                                    <li><a class="dropdown-item" href="#" onclick="showStockHistory({{ $product->id }})"><i class="bi bi-clock-history me-2"></i> View History</a></li>
-                                                    @can('Manage inventory')
-                                                        <li><a class="dropdown-item" href="#" onclick="quickAdjust({{ $product->id }}, '{{ addslashes($product->title) }}')"><i class="bi bi-plus-slash-minus me-2"></i> Adjust Stock</a></li>
-                                                    @endcan
-                                                </ul>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="{{ 15 + count($locations) }}" class="text-center py-5 text-muted">
-                                            <i class="bi bi-box-seam fs-1"></i>
-                                            <p class="mt-2">No products found</p>
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                            <tfoot class="table-light">
-                                <tr>
-                                    <th colspan="6" class="text-end">TOTALS:</th>
-                                    <th>₦<span id="footerTotalBase">0.00</span></th>
-                                    <th>₦<span id="footerTotalSelling">0.00</span></th>
-                                    <th><span id="footerProductsOnSale">0</span> on sale</th>
-                                    <th>₦<span id="footerTotalMargin">0.00</span></th>
-                                    <th><span id="footerAvgMargin">0.0</span>%</th>
-                                    @foreach($locations as $location)
-                                        <th class="text-center">{{ $locationStockTotals[$location->id] ?? 0 }}</th>
-                                    @endforeach
-                                    <th><span id="footerTotalStock">0</span></th>
-                                    <th>₦<span id="footerTotalValue">0.00</span></th>
-                                    <th colspan="2"></th>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                    <div class="row mt-3 align-items-center">
-                        <div class="col-sm">
-                            <div class="text-muted text-center text-sm-start">
-                                Showing {{ $products->firstItem() }} to {{ $products->lastItem() }} of {{ $products->total() }} Products
-                            </div>
-                        </div>
-                        <div class="col-sm-auto mt-3 mt-sm-0">
-                            {!! $products->appends(request()->query())->links('pagination::bootstrap-5') !!}
-                        </div>
-                    </div>
-                </div>
-            </div>
+            </x-cb.card>
         </div>
     </div>
-</div>
+
 
 <!-- STOCK HISTORY MODAL -->
 <div class="modal fade" id="stockHistoryModal" tabindex="-1">
@@ -678,7 +414,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info">
-                        <strong>{{ $products->total() }}</strong> products match current filters.
+                        <strong id="matchCount">0</strong> products match current filters.
                         <span id="selectedCount">0</span> selected for adjustment.
                     </div>
                     <div class="mb-3">
@@ -738,95 +474,15 @@
 <script>
 let currentProductId = null;
 
-// Calculate totals on page load and after filters
-function calculateTotals() {
-    let totalCostValue = 0;
-    let totalSellingValue = 0;
-    let totalPotentialProfit = 0;
-    let totalStock = 0;
-    let marginCount = 0;
-    let marginPercentTotal = 0;
-    let discountProducts = 0;
-    let totalDiscountPercent = 0;
-
-    const marginRanges = {
-        'High (>50%)': 0,
-        'Good (30-50%)': 0,
-        'Average (20-30%)': 0,
-        'Low (10-20%)': 0,
-        'Very Low (<10%)': 0,
-        'No Margin': 0,
-        'Loss': 0
-    };
-
-    const rows = document.querySelectorAll('tbody tr');
-    rows.forEach(row => {
-        const cells = row.querySelectorAll('td');
-        if (cells.length < 15) return;
-
-        const costPriceText = cells[5].querySelector('.fw-bold')?.textContent?.replace('₦', '').replace(/,/g, '') ||
-                            cells[5].textContent.replace('₦', '').replace(/,/g, '');
-        const costPrice = parseFloat(costPriceText) || 0;
-
-        // Check for discounted price (strikethrough)
-        const basePriceCell = cells[6];
-        const hasDiscount = basePriceCell.querySelector('del');
-        let basePrice = 0;
-        if (hasDiscount) {
-            basePrice = parseFloat(hasDiscount.textContent?.replace('₦', '').replace(/,/g, '') || 0);
-        } else {
-            basePrice = parseFloat(basePriceCell.querySelector('.fw-bold')?.textContent?.replace('₦', '').replace(/,/g, '') || 0);
-        }
-
-        const sellingPrice = parseFloat(cells[7].querySelector('.fw-bold')?.textContent?.replace('₦', '').replace(/,/g, '') || 0);
-        const marginPercentText = cells[10].querySelector('.badge')?.textContent?.replace('%', '') || '0';
-        const marginPercent = parseFloat(marginPercentText) || 0;
-
-        // Get total stock from the stock column (second last column before actions)
-        const totalStockCell = cells[cells.length - 5];
-        const stockText = totalStockCell.querySelector('.fw-bold')?.textContent || '0';
-        const stock = parseInt(stockText.replace(/,/g, '')) || 0;
-
-        // Get stock value from the value column
-        const stockValueCell = cells[cells.length - 4];
-        const stockValueText = stockValueCell.querySelector('.fw-bold')?.textContent?.replace('₦', '').replace(/,/g, '') || '0';
-        const stockValue = parseFloat(stockValueText) || 0;
-
-        const costValue = stock * costPrice;
-        const sellingValue = stock * sellingPrice;
-        const potentialProfit = sellingValue - costValue;
-
-        totalCostValue += costValue;
-        totalSellingValue += sellingValue;
-        totalPotentialProfit += potentialProfit;
-        totalStock += stock;
-
-        if (costPrice > 0) {
-            marginCount++;
-            marginPercentTotal += marginPercent;
-        }
-
-        // Categorize margin
-        if (marginPercent > 50) marginRanges['High (>50%)']++;
-        else if (marginPercent >= 30) marginRanges['Good (30-50%)']++;
-        else if (marginPercent >= 20) marginRanges['Average (20-30%)']++;
-        else if (marginPercent >= 10) marginRanges['Low (10-20%)']++;
-        else if (marginPercent > 0) marginRanges['Very Low (<10%)']++;
-        else if (marginPercent === 0) marginRanges['No Margin']++;
-        else marginRanges['Loss']++;
-    });
-
-    const avgMarginPercent = marginCount > 0 ? (marginPercentTotal / marginCount) : 0;
-
-    document.getElementById('totalCostValue').textContent = formatNaira(totalCostValue);
-    document.getElementById('totalSellingValue').textContent = formatNaira(totalSellingValue);
-    document.getElementById('totalPotentialProfit').textContent = formatNaira(totalPotentialProfit);
-    document.getElementById('avgMarginPercent').textContent = avgMarginPercent.toFixed(2);
-
-    document.getElementById('footerTotalStock').textContent = totalStock.toLocaleString('en-NG');
-    document.getElementById('footerTotalValue').textContent = formatNaira(totalSellingValue);
-
-    updateMarginChart(marginRanges);
+// Totals for the value cards come from the DataTable response (whole filtered set)
+function applyTotals(t) {
+    if (!t) return;
+    document.getElementById('totalCostValue').textContent = formatNaira(t.cost_value);
+    document.getElementById('totalSellingValue').textContent = formatNaira(t.selling_value);
+    document.getElementById('totalPotentialProfit').textContent = formatNaira(t.profit);
+    document.getElementById('avgMarginPercent').textContent = Number(t.avg_margin || 0).toFixed(2);
+    updateMarginChart(t.margin_ranges || {});
+    var mc = document.getElementById('matchCount'); if (mc) mc.textContent = t.products;
 }
 
 function formatNaira(amount) {
@@ -882,8 +538,57 @@ function updateMarginChart(marginRanges) {
     });
 }
 
+var STOCK_URLS = {
+    data: @json(route('inventory.stock-levels.data')),
+    csv:  @json(route('inventory.export.stock-levels')),
+    pdf:  @json(route('inventory.export.stock-levels.pdf'))
+};
+function stockFilters() {
+    return { stock_status: $('#f-stock_status').val(), category_id: $('#f-category_id').val(), brand_id: $('#f-brand_id').val() };
+}
+function exportStock(kind) {
+    var f = stockFilters(), q = new URLSearchParams();
+    Object.keys(f).forEach(function (k) { if (f[k]) q.append(k, f[k]); });
+    if (kind === 'pdf') { window.open(STOCK_URLS.pdf + '?' + q.toString(), '_blank'); } else { window.location = STOCK_URLS.csv + '?' + q.toString(); }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
-    calculateTotals();
+    var cols = [
+        { data: 'checkbox',   name: 'checkbox', orderable: false, searchable: false },
+        { data: 'product',    name: 'product' },
+        { data: 'sku',        name: 'products.sku' },
+        { data: 'category',   name: 'category' },
+        { data: 'brand',      name: 'brand' },
+        { data: 'cost_price', name: 'products.cost_price', searchable: false },
+        { data: 'price',      name: 'products.price', searchable: false },
+        { data: 'selling',    name: 'selling', searchable: false },
+        { data: 'discount',   name: 'discount', orderable: false, searchable: false },
+        { data: 'profit',     name: 'profit', orderable: false, searchable: false },
+        { data: 'margin',     name: 'margin', orderable: false, searchable: false }
+    ];
+    @foreach($locations as $location)
+    cols.push({ data: 'loc_{{ (int) $location->id }}', name: 'loc_{{ (int) $location->id }}', searchable: false, className: 'text-center' });
+    @endforeach
+    cols.push(
+        { data: 'total_stock', name: 'total_stock', searchable: false },
+        { data: 'stock_value', name: 'stock_value', orderable: false, searchable: false },
+        { data: 'status',      name: 'status', orderable: false, searchable: false },
+        { data: 'action',      name: 'action', orderable: false, searchable: false }
+    );
+
+    window.stockLevelsTable = GZ.dt('#stockLevelsTable', {
+        url: STOCK_URLS.data,
+        order: [[1, 'asc']],
+        filters: stockFilters,
+        columns: cols,
+        onDraw: function (settings) {
+            if (settings.json) { applyTotals(settings.json.totals); }
+            var all = document.getElementById('selectAll'); if (all) all.checked = false;
+            updateBulkCount();
+        }
+    });
+    var initialSearch = @json(request('search', ''));
+    if (initialSearch) { window.stockLevelsTable.search(initialSearch).draw(); }
 
     // Stock Status Chart
     const statusCtx = document.getElementById('stockStatusChart');
@@ -942,15 +647,16 @@ document.addEventListener('DOMContentLoaded', function () {
         updateBulkCount();
     });
 
-    document.querySelectorAll('.product-checkbox').forEach(cb => {
-        cb.addEventListener('change', updateBulkCount);
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('product-checkbox')) { updateBulkCount(); }
     });
 });
 
 function updateBulkCount() {
     const checked = document.querySelectorAll('.product-checkbox:checked').length;
-    document.getElementById('selectedCount').textContent = checked;
-    document.getElementById('applyCount').textContent = checked;
+    ['selectedCount', 'applyCount', 'selectedCountBadge'].forEach(function (id) {
+        var el = document.getElementById(id); if (el) el.textContent = checked;
+    });
 }
 
 function openBulkAdjustModal() {

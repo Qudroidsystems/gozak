@@ -10,12 +10,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Throwable;
+use Yajra\DataTables\Facades\DataTables;
 
 class CategoryController extends Controller
 {
     public function __construct(private CategoryTreeService $tree)
     {
-        $this->middleware('permission:View category|Create category|Update category|Delete category', ['only' => ['index']]);
+        $this->middleware('permission:View category|Create category|Update category|Delete category', ['only' => ['index', 'data']]);
         $this->middleware('permission:Create category', ['only' => ['store']]);
         $this->middleware('permission:Update category', ['only' => ['edit', 'update']]);
         $this->middleware('permission:Delete category', ['only' => ['destroy']]);
@@ -24,65 +25,6 @@ class CategoryController extends Controller
     public function index(Request $request)
     {
         $pagetitle = 'Category Management';
-
-        $query = Category::with('parent')->withCount(['products', 'children']);
-
-        // Search filter
-        if ($request->filled('search')) {
-            $search = str_replace(['%', '_'], ['\%', '\_'], $request->search);
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhereHas('parent', fn ($q2) => $q2->where('name', 'like', "%{$search}%"));
-            });
-        }
-
-        // Parent filter
-        if ($request->filled('parent_filter')) {
-            match ($request->parent_filter) {
-                'top'   => $query->whereNull('parent_id'),
-                'child' => $query->whereNotNull('parent_id'),
-                default => $query->where('parent_id', $request->parent_filter),
-            };
-        }
-
-        // Featured filter
-        if ($request->filled('featured')) {
-            $query->where('is_featured', $request->boolean('featured'));
-        }
-
-        // NSFW filter
-        if ($request->filled('nsfw')) {
-            $query->where('is_nsfw', $request->boolean('nsfw'));
-        }
-
-        // Stock filter
-        if ($request->filled('stock_filter')) {
-            match ($request->stock_filter) {
-                'empty'     => $query->doesntHave('products'),
-                'has_stock' => $query->has('products'),
-                default     => null,
-            };
-        }
-
-        // Sort
-        match ($request->get('sort', 'name_asc')) {
-            'name_desc'     => $query->orderByDesc('name'),
-            'most_products' => $query->orderByDesc('products_count'),
-            'newest'        => $query->latest(),
-            'oldest'        => $query->oldest(),
-            default         => $query->orderBy('name'),
-        };
-
-        // Get per_page from request or default to 15
-        $perPage = $request->get('per_page', 15);
-
-        // Validate per_page to prevent abuse (allow only specific values)
-        $allowedPerPage = [10, 15, 25, 50, 100, 250, 500];
-        if (!in_array((int)$perPage, $allowedPerPage)) {
-            $perPage = 15;
-        }
-
-        $categories = $query->paginate((int)$perPage)->appends($request->query());
 
         $analytics = [
             'total_categories' => Category::count(),
@@ -99,13 +41,69 @@ class CategoryController extends Controller
         $allCategories = Category::whereNull('parent_id')->orderBy('name')->get();
 
         return view('categories.index', [
-            'categories'    => $categories,
             'allCategories' => $allCategories,
             'pagetitle'     => $pagetitle,
             'analytics'     => $analytics,
             'chart_labels'  => $chartData->pluck('name'),
             'chart_data'    => $chartData->pluck('products_count'),
         ]);
+    }
+
+    /** Yajra DataTable endpoint (filters: parent_filter, featured, nsfw, stock_filter). */
+    public function data(Request $request)
+    {
+        $query = Category::query()
+            ->leftJoin('categories as parent', 'parent.id', '=', 'categories.parent_id')
+            ->select('categories.*', 'parent.name as parent_name')
+            ->withCount(['products', 'children'])
+            ->when($request->parent_filter === 'top', fn ($q) => $q->whereNull('categories.parent_id'))
+            ->when($request->parent_filter === 'child', fn ($q) => $q->whereNotNull('categories.parent_id'))
+            ->when(is_numeric($request->parent_filter), fn ($q) => $q->where('categories.parent_id', $request->parent_filter))
+            ->when($request->filled('featured'), fn ($q) => $q->where('categories.is_featured', $request->boolean('featured')))
+            ->when($request->filled('nsfw'), fn ($q) => $q->where('categories.is_nsfw', $request->boolean('nsfw')))
+            ->when($request->stock_filter === 'empty', fn ($q) => $q->doesntHave('products'))
+            ->when($request->stock_filter === 'has_stock', fn ($q) => $q->has('products'));
+
+        $user = $request->user();
+
+        return DataTables::eloquent($query)
+            ->addColumn('checkbox', fn ($c) => '<input type="checkbox" class="row-select form-check-input" value="' . $c->id . '">')
+            ->addColumn('category', function ($c) {
+                $img = ($c->image && Storage::disk('public')->exists($c->image))
+                    ? '<img src="' . e(asset('storage/' . $c->image)) . '" class="gz-thumb" alt="">'
+                    : '<span class="gz-thumb d-inline-flex align-items-center justify-content-center"><i class="bi bi-image text-muted"></i></span>';
+                return '<div class="d-flex align-items-center gap-2">' . $img . '<div>'
+                    . '<a href="' . route('web.products.index', ['category_id' => $c->id]) . '" class="fw-semibold text-reset">' . e($c->name) . '</a>'
+                    . '<small class="d-block text-muted">ID: ' . $c->id . '</small></div></div>';
+            })
+            ->addColumn('parent', fn ($c) => $c->parent_name
+                ? '<span class="badge bg-primary-subtle text-primary">' . e($c->parent_name) . '</span>'
+                : '<span class="text-muted">— Top Level</span>')
+            ->editColumn('children_count', fn ($c) => '<span class="badge bg-secondary-subtle text-secondary">' . (int) $c->children_count . '</span>')
+            ->editColumn('products_count', fn ($c) => $c->products_count > 0
+                ? '<span class="badge bg-success-subtle text-success">' . (int) $c->products_count . '</span>'
+                : '<span class="badge bg-danger-subtle text-danger">Empty</span>')
+            ->editColumn('is_featured', fn ($c) => '<span class="badge ' . ($c->is_featured ? 'bg-warning-subtle text-warning">Featured' : 'bg-secondary-subtle text-secondary">Regular') . '</span>')
+            ->editColumn('is_nsfw', fn ($c) => $c->is_nsfw
+                ? '<span class="badge bg-danger-subtle text-danger">NSFW</span>'
+                : '<span class="badge bg-success-subtle text-success">Safe</span>')
+            ->addColumn('action', function ($c) use ($user) {
+                $h = '<div class="dropdown"><button class="btn btn-soft-secondary btn-sm" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button><ul class="dropdown-menu dropdown-menu-end">';
+                if ($user->can('Update category')) {
+                    $h .= '<li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="' . $c->id . '">Edit</a></li>';
+                }
+                if ($user->can('Delete category')) {
+                    $h .= '<li><a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);" data-id="' . $c->id . '" data-name="' . e($c->name) . '"'
+                        . ' data-products="' . (int) $c->products_count . '" data-children="' . (int) $c->children_count . '">Delete</a></li>';
+                }
+                return $h . '</ul></div>';
+            })
+            ->filterColumn('category', fn ($q, $k) => $q->where('categories.name', 'like', "%{$k}%"))
+            ->filterColumn('parent', fn ($q, $k) => $q->where('parent.name', 'like', "%{$k}%"))
+            ->orderColumn('category', 'categories.name $1')
+            ->orderColumn('parent', 'parent.name $1')
+            ->rawColumns(['checkbox', 'category', 'parent', 'children_count', 'products_count', 'is_featured', 'is_nsfw', 'action'])
+            ->toJson();
     }
 
     public function edit($id)
