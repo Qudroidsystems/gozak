@@ -160,9 +160,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Payments ──────────────────────────────────────────────────────────────
     Route::post('/payment/initialize',              [PaymentController::class, 'initializePayment'])->name('payment.initialize');
-    Route::post('/payment/charge',                  [PaymentController::class, 'chargeCard'])->name('payment.charge');
-    Route::post('/payment/submit-otp',              [PaymentController::class, 'submitOtp'])->name('payment.otp');
-    Route::post('/payment/submit-pin',              [PaymentController::class, 'submitPin'])->name('payment.pin');
+    // Direct card charging is switched off: it sent raw card numbers, CVV and PIN
+    // through this server (PCI-DSS scope). The app pays through the gateway's own
+    // hosted checkout (/payment/initialize → authorization_url) instead.
+    // Route::post('/payment/charge',     [PaymentController::class, 'chargeCard'])->name('payment.charge');
+    // Route::post('/payment/submit-otp', [PaymentController::class, 'submitOtp'])->name('payment.otp');
+    // Route::post('/payment/submit-pin', [PaymentController::class, 'submitPin'])->name('payment.pin');
     Route::post('/payment/verify',                  [PaymentController::class, 'verifyPayment'])->name('payment.verify');
     Route::get('/payment/public-key',               [PaymentController::class, 'getPublicKey'])->name('payment.public-key');
     Route::get('/payment/history',                  [PaymentController::class, 'getPaymentHistory'])->name('payment.history');

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\LightningDeal;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\StoreSetting;
@@ -13,7 +14,9 @@ use Illuminate\Validation\ValidationException;
  * the app sends. The app's prices are only used to tell the customer when
  * something changed since they loaded the product.
  *
- *   unit price = sale_price when > 0, else price (variation first, then product)
+ *   unit price = sale_price when > 0, else price (variation first, then product);
+ *                a live lightning deal with units left gives price × (1 − deal %)
+ *                when that is lower (same as the app's deal price)
  *   shipping   = shipping_fee, or 0 when subtotal >= free_shipping_threshold (> 0)
  *   tax        = subtotal × tax_rate %
  *   total      = subtotal + shipping + tax
@@ -67,8 +70,9 @@ class OrderPricingService
             ? ProductVariation::whereIn('id', $variationIds)->get()->keyBy('id')
             : collect();
 
-        $priced   = [];
-        $subtotal = 0.0;
+        $priced    = [];
+        $subtotal  = 0.0;
+        $dealCache = [];
         $changed  = false;
 
         foreach ($items as $i => $item) {
@@ -87,6 +91,18 @@ class OrderPricingService
 
             $unit = $this->unitPrice($product, $variation);
             $qty  = max(1, (int) $item['quantity']);
+
+            // Lightning deal: price × (1 − %) on the regular price, if cheaper.
+            if (!array_key_exists($product->id, $dealCache)) {
+                $dealCache[$product->id] = LightningDeal::liveDealFor($product->id);
+            }
+            if ($deal = $dealCache[$product->id]) {
+                $base = (float) (($variation && (float) $variation->price > 0) ? $variation->price : $product->price);
+                $dealUnit = round($base * (1 - ((int) $deal->discount_percentage) / 100), 2);
+                if ($dealUnit > 0 && $dealUnit < $unit) {
+                    $unit = $dealUnit;
+                }
+            }
 
             if (isset($item['price']) && abs((float) $item['price'] - $unit) >= 0.01) {
                 $changed = true;

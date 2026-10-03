@@ -412,8 +412,19 @@ class APIProductController extends Controller
             }
 
             // PAGINATED RESPONSE
-            $perPage  = min(max((int) $request->input('per_page', 20), 1), 100);
-            $products = $query->latest()->paginate($perPage);
+            $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
+
+            // ?sort=random&seed=N — the app's endless "For you" feed (Temu/Jumia
+            // style). The same seed gives the same shuffled order on every page,
+            // so loading more never repeats or skips products; a new seed (pull to
+            // refresh / next app launch) gives a fresh mix.
+            if ($request->input('sort') === 'random') {
+                $seed = abs((int) $request->input('seed', crc32(now()->toDateString()))) % 2147483647;
+                $query->inRandomOrder($seed)->orderBy('id');
+            } else {
+                $query->latest();
+            }
+            $products = $query->paginate($perPage);
             $this->preloadStock(collect($products->items())->pluck('id'));
             $formatted = collect($products->items())
                 ->map(fn($p) => $this->formatProductData($p))
@@ -528,57 +539,45 @@ class APIProductController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     // LIGHTNING DEALS
     // ─────────────────────────────────────────────────────────────────────────
-    public function lightningDeals()
+    /**
+     * GET /api/products/lightning-deals
+     *   ?limit=N              max deals (default 50)
+     *   ?include_upcoming=1   also return deals starting in the next 48h (status "upcoming")
+     *
+     * Each deal carries its OWN starts_at / ends_at (ISO-8601 with the Lagos
+     * offset), how many units were claimed and how many are left, so the app
+     * can show a per-product countdown and "x% claimed" bar. `server_time`
+     * lets the app correct for a wrong phone clock.
+     */
+    public function lightningDeals(Request $request)
     {
         try {
-            $now = now()->timezone('Africa/Lagos');
+            $limit = min(max((int) $request->input('limit', 50), 1), 100);
 
-            Log::info('🔥 Lightning Deals Request Started', [
-                'now' => $now->toDateTimeString(),
-            ]);
+            $with = ['product' => fn ($q) => $q->select('id', 'title', 'price', 'thumbnail')];
 
-            $total  = LightningDeal::count();
-            $active = LightningDeal::where('is_active', 1)->count();
+            $live = LightningDeal::with($with)->live()
+                ->orderBy('sort_order')->orderBy('ends_at')
+                ->take($limit)->get();
 
-            Log::info('📊 Deals in DB', ['total' => $total, 'active' => $active]);
+            $upcoming = $request->boolean('include_upcoming')
+                ? LightningDeal::with($with)->upcoming(48)->orderBy('starts_at')->take($limit)->get()
+                : collect();
 
-            // Debug individual deal time windows
-            LightningDeal::where('is_active', 1)->get()->each(function ($deal) use ($now) {
-                Log::info('⏰ Deal Time Check', [
-                    'deal_id'  => $deal->id,
-                    'starts_at'=> $deal->starts_at,
-                    'ends_at'  => $deal->ends_at,
-                    'now'      => $now,
-                    'is_valid' => ($deal->starts_at <= $now && $deal->ends_at >= $now) ? 'YES' : 'NO',
-                ]);
-            });
-
-            $deals = LightningDeal::with(['product' => function ($q) {
-                    $q->select('id', 'title', 'price', 'thumbnail');
-                }])
-                ->where('is_active', 1)
-                ->where('starts_at', '<=', $now)
-                ->where('ends_at', '>=', $now)
-                ->orderBy('sort_order', 'asc')
-                ->get();
-
-            Log::info('📦 Filtered deals count', ['count' => $deals->count()]);
-
-            $mapped = $deals->map(function ($deal) {
+            $map = function (LightningDeal $deal, string $status) {
                 if (!$deal->product) {
-                    Log::warning('⚠️ Missing product', [
-                        'deal_id'    => $deal->id,
-                        'product_id' => $deal->product_id,
-                    ]);
                     return null;
                 }
-
                 $price      = (float) $deal->product->price;
-                $discounted = $deal->discount_percentage > 0
-                    ? $price - (($deal->discount_percentage / 100) * $price)
-                    : $price;
+                $pct        = (int) $deal->discount_percentage;
+                $discounted = $pct > 0 ? $price - ($pct / 100) * $price : $price;
+
+                $sold  = $status === 'live' ? $deal->soldCount() : 0;
+                $limit = $deal->stock_limit !== null ? (int) $deal->stock_limit : null;
+                $left  = $limit !== null ? max(0, $limit - $sold) : null;
 
                 return [
+                    'deal_id'             => $deal->id,
                     'id'                  => $deal->id,
                     'product_id'          => $deal->product_id,
                     'title'               => $deal->product->title ?? '',
@@ -587,26 +586,30 @@ class APIProductController extends Controller
                         : null,
                     'original_price'      => round($price, 2),
                     'discounted_price'    => round($discounted, 2),
-                    'discount_percentage' => (int) $deal->discount_percentage,
-                    'stock_left'          => (int) $deal->stock_limit,
-                    'starts_at'           => $deal->starts_at,
-                    'ends_at'             => $deal->ends_at,
+                    'discount_percentage' => $pct,
+                    'stock_limit'         => $limit,
+                    'sold_count'          => $sold,
+                    'stock_left'          => $left ?? 0,
+                    'unlimited_stock'     => $limit === null,
+                    'claimed_percent'     => $limit ? (int) min(100, round($sold / max(1, $limit) * 100)) : null,
+                    'starts_at'           => $deal->startsAtLagos()?->toIso8601String(),
+                    'ends_at'             => $deal->endsAtLagos()?->toIso8601String(),
+                    'status'              => ($status === 'live' && $left === 0) ? 'sold_out' : $status,
                 ];
-            })->filter()->values();
+            };
 
-            Log::info('✅ Final response count', ['count' => $mapped->count()]);
+            $data = $live->map(fn ($d) => $map($d, 'live'))
+                ->concat($upcoming->map(fn ($d) => $map($d, 'upcoming')))
+                ->filter()->values();
 
             return response()->json([
-                'success' => true,
-                'data'    => $mapped,
-                'count'   => $mapped->count(),
+                'success'     => true,
+                'data'        => $data,
+                'count'       => $data->count(),
+                'server_time' => now()->toIso8601String(),
             ]);
-
         } catch (\Exception $e) {
-            Log::error('❌ Lightning Deals Error', [
-                'message' => $e->getMessage(),
-                'line'    => $e->getLine(),
-            ]);
+            Log::error('Lightning deals error', ['message' => $e->getMessage(), 'line' => $e->getLine()]);
 
             return response()->json([
                 'success' => false,
