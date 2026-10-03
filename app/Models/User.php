@@ -75,6 +75,11 @@ class User extends Authenticatable implements MustVerifyEmail
 
     // ── Relationships ─────────────────────────────────────────────────────────
 
+    public function bankAccounts()
+    {
+        return $this->hasMany(UserBankAccount::class)->orderByDesc('is_default')->latest();
+    }
+
     public function addresses()
     {
         return $this->hasMany(Address::class);

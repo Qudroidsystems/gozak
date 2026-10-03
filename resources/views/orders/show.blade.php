@@ -150,6 +150,26 @@
                                 </div>
 
                                 <div id="manualFields" class="row g-2 mb-3" style="display:none;">
+                                    @php $gzBanks = $order->user ? $order->user->bankAccounts()->get() : collect(); @endphp
+                                    <div class="col-12">
+                                        <div class="border rounded p-2 small" style="background:var(--cb-surface-2,#f8fafc);">
+                                            <div class="fw-semibold mb-1"><i class="ri-bank-line me-1"></i>Customer's bank account{{ $gzBanks->count() > 1 ? 's' : '' }}</div>
+                                            @forelse($gzBanks as $acct)
+                                                <div class="d-flex justify-content-between align-items-center gap-2 py-1 {{ !$loop->last ? 'border-bottom' : '' }}">
+                                                    <div>
+                                                        <div><b>{{ $acct->account_name }}</b>
+                                                            @if($acct->is_default)<span class="badge bg-success-subtle text-success ms-1">default</span>@endif
+                                                            @unless($acct->name_matches)<span class="badge bg-warning-subtle text-warning ms-1" title="The bank name doesn't look like the customer's name">name differs</span>@endunless
+                                                        </div>
+                                                        <div class="text-muted">{{ $acct->bank_name }} · <span class="font-monospace">{{ $acct->account_number }}</span></div>
+                                                    </div>
+                                                    <button type="button" class="btn btn-sm btn-light" onclick="navigator.clipboard && navigator.clipboard.writeText('{{ $acct->account_number }}'); this.innerText='Copied';">Copy</button>
+                                                </div>
+                                            @empty
+                                                <div class="text-muted">No bank account saved. Ask the customer to add one in the app (Account → Bank Accounts).</div>
+                                            @endforelse
+                                        </div>
+                                    </div>
                                     <div class="col-6">
                                         <label class="form-label small mb-1">Refunded via</label>
                                         <select name="channel" class="form-select form-select-sm">

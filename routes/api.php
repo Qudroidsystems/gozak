@@ -14,6 +14,7 @@ use App\Http\Controllers\APIUploadController;
 use App\Http\Controllers\APIUserController;
 use App\Http\Controllers\FcmTestController;
 use App\Http\Controllers\APIChatController;
+use App\Http\Controllers\APIBankAccountController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PrivacyPolicyController;
 use Illuminate\Http\Request;
@@ -124,6 +125,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Auth ─────────────────────────────────────────────────────────────────
     Route::post('/logout',                          [APIAuthController::class, 'logout'])->name('auth.logout');
     Route::post('/email/verification-notification', [APIAuthController::class, 'sendEmailVerificationNotification'])->name('verification.send');
+
+    // ── Bank accounts for refunds (account name verified with Paystack) ──────
+    Route::get('/banks',                              [APIBankAccountController::class, 'banks'])->name('banks.index');
+    Route::post('/bank-accounts/resolve',             [APIBankAccountController::class, 'resolve'])->middleware('throttle:10,1')->name('bank-accounts.resolve');
+    Route::get('/bank-accounts',                      [APIBankAccountController::class, 'index'])->name('bank-accounts.index');
+    Route::post('/bank-accounts',                     [APIBankAccountController::class, 'store'])->middleware('throttle:10,1')->name('bank-accounts.store');
+    Route::patch('/bank-accounts/{id}/default',       [APIBankAccountController::class, 'makeDefault'])->whereNumber('id')->name('bank-accounts.default');
+    Route::delete('/bank-accounts/{id}',              [APIBankAccountController::class, 'destroy'])->whereNumber('id')->name('bank-accounts.destroy');
 
     // ── Live chat with support agents ────────────────────────────────────────
     Route::prefix('chat')->name('chat.')->group(function () {

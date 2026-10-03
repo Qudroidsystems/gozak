@@ -409,6 +409,49 @@ class PaystackService
     }
 
     /** GET /refund/:id — current state of a refund. */
+    /**
+     * Nigerian banks Paystack can resolve / pay to. Cached for a day.
+     * Returns [['name' => 'Access Bank', 'code' => '044', 'slug' => 'access-bank'], …]
+     */
+    public function listBanks(): array
+    {
+        return \Illuminate\Support\Facades\Cache::remember('paystack:banks:ng', now()->addDay(), function () {
+            $response = Http::withToken($this->secretKey)->acceptJson()->timeout(20)
+                ->get($this->baseUrl . '/bank', ['country' => 'nigeria', 'currency' => 'NGN', 'perPage' => 200]);
+
+            if (!$response->successful() || !$response->json('status')) {
+                throw new \RuntimeException($response->json('message') ?: 'Could not load the list of banks.');
+            }
+
+            return collect($response->json('data', []))
+                ->filter(fn ($b) => ($b['active'] ?? true) && !($b['is_deleted'] ?? false) && !empty($b['code']))
+                ->map(fn ($b) => ['name' => trim($b['name']), 'code' => (string) $b['code'], 'slug' => $b['slug'] ?? null])
+                ->unique('code')
+                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values()
+                ->all();
+        });
+    }
+
+    /**
+     * Look up the account holder's name. Returns ['account_name' => …, 'account_number' => …].
+     * Throws with Paystack's message when the account can't be found.
+     */
+    public function resolveAccount(string $accountNumber, string $bankCode): array
+    {
+        $response = Http::withToken($this->secretKey)->acceptJson()->timeout(20)
+            ->get($this->baseUrl . '/bank/resolve', ['account_number' => $accountNumber, 'bank_code' => $bankCode]);
+
+        if (!$response->successful() || !$response->json('status')) {
+            throw new \RuntimeException($response->json('message') ?: 'We could not verify that account number.');
+        }
+
+        return [
+            'account_name'   => (string) $response->json('data.account_name'),
+            'account_number' => (string) $response->json('data.account_number'),
+        ];
+    }
+
     public function fetchRefund(string $refundId): array
     {
         $response = Http::withToken($this->secretKey)->acceptJson()->timeout(30)
