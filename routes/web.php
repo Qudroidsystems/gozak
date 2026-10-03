@@ -22,6 +22,7 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StockLocationController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ChatController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -265,6 +266,25 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/adminaddresses/data', [AddressController::class, 'data'])->name('adminaddresses.data');
     Route::get('/adminaddresses/customers', [AddressController::class, 'customers'])->name('adminaddresses.customers');
     Route::resource('adminaddresses', AddressController::class);
+
+    // Live chat inbox — permission: Chat with customers | Manage chat
+    Route::prefix('admin/chat')->name('admin.chat.')->group(function () {
+        Route::get('/',                                         [ChatController::class, 'index'])->name('index');
+        Route::get('/summary',                                  [ChatController::class, 'summary'])->name('summary');
+        Route::get('/agents',                                   [ChatController::class, 'agents'])->name('agents');
+        Route::post('/presence',                                [ChatController::class, 'presence'])->name('presence');
+        Route::post('/pusher/auth',                             [ChatController::class, 'pusherAuth'])->name('pusher-auth');
+        Route::get('/conversations',                            [ChatController::class, 'conversations'])->name('conversations');
+        Route::get('/conversations/{conversation}',             [ChatController::class, 'show'])->name('show');
+        Route::get('/conversations/{conversation}/messages',    [ChatController::class, 'messages'])->name('messages');
+        Route::post('/conversations/{conversation}/messages',   [ChatController::class, 'send'])->name('send');
+        Route::post('/conversations/{conversation}/order-card', [ChatController::class, 'sendOrder'])->name('order-card');
+        Route::post('/conversations/{conversation}/take',       [ChatController::class, 'take'])->name('take');
+        Route::post('/conversations/{conversation}/assign',     [ChatController::class, 'assign'])->name('assign');
+        Route::post('/conversations/{conversation}/close',      [ChatController::class, 'close'])->name('close');
+        Route::post('/conversations/{conversation}/read',       [ChatController::class, 'read'])->name('read');
+        Route::post('/conversations/{conversation}/typing',     [ChatController::class, 'typing'])->name('typing');
+    });
 
     // Customer Management
     Route::prefix('customers')->name('customers.')->group(function () {

@@ -598,7 +598,7 @@
                     @endcan
 
                     {{-- SALES --}}
-                    @canany(['View order', 'View customer', 'View addresses'])
+                    @canany(['View order', 'View customer', 'View addresses', 'Chat with customers', 'Manage chat'])
                         <li class="menu-title"><i class="ri-more-fill"></i> <span>SALES</span></li>
                     @endcanany
 
@@ -609,6 +609,15 @@
                             </a>
                         </li>
                     @endcan
+
+                    @canany(['Chat with customers', 'Manage chat'])
+                        <li class="nav-item">
+                            <a href="{{ route('admin.chat.index') }}" class="nav-link menu-link {{ Route::is('admin.chat.*') ? 'active' : '' }}">
+                                <i class="ph-chats-circle"></i> <span>Live Chat</span>
+                                <span class="badge rounded-pill bg-danger ms-auto" id="gzChatBadge" style="display:none;"></span>
+                            </a>
+                        </li>
+                    @endcanany
 
                     @can('View customer')
                         <li class="nav-item">
@@ -1405,6 +1414,9 @@
         @can('View order')
         {title:'Orders',                    url:'{{ route("adminorders.index") }}',            icon:'mdi-cart',               category:'Sales',              keywords:['order','invoice','payment','paystack','delivery']},
         @endcan
+        @canany(['Chat with customers', 'Manage chat'])
+        {title:'Live Chat',                 url:'{{ route("admin.chat.index") }}',             icon:'mdi-chat-processing',    category:'Sales',              keywords:['chat','support','message','agent','inbox','help']},
+        @endcanany
         @can('View customer')
         {title:'Customers',                 url:'{{ route("customers.index") }}',              icon:'mdi-account-multiple',   category:'Sales',              keywords:['customer','buyer','client','walk-in']},
         @endcan
@@ -1791,6 +1803,36 @@
 @if (Route::is('adminaddresses.*') && !Route::is('adminaddresses.index')) @include('layouts.pages-assets.js.address-list-js') @endif
 
 @stack('scripts')
+
+@auth
+@canany(['Chat with customers', 'Manage chat'])
+<script>
+/* Live chat: sidebar badge + keeps the agent's "online" presence fresh on every admin page */
+(function () {
+    var badge = document.getElementById('gzChatBadge');
+    window.GZChatBadge = function (c) {
+        if (!badge || !c) return;
+        var n = (c.unread || 0) + (c.waiting || 0);
+        badge.textContent = n > 99 ? '99+' : n;
+        badge.style.display = n > 0 ? '' : 'none';
+        badge.title = (c.waiting || 0) + ' waiting · ' + (c.unread || 0) + ' unread';
+    };
+    var csrf = document.querySelector('meta[name="csrf-token"]').content;
+    function ping() {
+        if (document.hidden) return;
+        fetch(@json(route('admin.chat.presence')), { method: 'POST', credentials: 'same-origin',
+            headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'Content-Type': 'application/json' }, body: '{}' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (j) { if (j) window.GZChatBadge(j.counts); })
+            .catch(function () {});
+    }
+    ping();
+    setInterval(ping, 60000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) ping(); });
+})();
+</script>
+@endcanany
+@endauth
 
 <script>
 /* Expired session on an AJAX / fetch call (HTTP 419) → go to the login page

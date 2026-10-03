@@ -13,6 +13,7 @@ use App\Http\Controllers\APISettingsController;
 use App\Http\Controllers\APIUploadController;
 use App\Http\Controllers\APIUserController;
 use App\Http\Controllers\FcmTestController;
+use App\Http\Controllers\APIChatController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PrivacyPolicyController;
 use Illuminate\Http\Request;
@@ -123,6 +124,22 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Auth ─────────────────────────────────────────────────────────────────
     Route::post('/logout',                          [APIAuthController::class, 'logout'])->name('auth.logout');
     Route::post('/email/verification-notification', [APIAuthController::class, 'sendEmailVerificationNotification'])->name('verification.send');
+
+    // ── Live chat with support agents ────────────────────────────────────────
+    Route::prefix('chat')->name('chat.')->group(function () {
+        Route::get('/status',                         [APIChatController::class, 'status'])->name('status');
+        Route::get('/unread-count',                   [APIChatController::class, 'unreadCount'])->name('unread');
+        Route::post('/pusher/auth',                   [APIChatController::class, 'pusherAuth'])->name('pusher-auth');
+        Route::get('/conversations',                  [APIChatController::class, 'index'])->name('index');
+        Route::post('/conversations',                 [APIChatController::class, 'store'])->middleware('throttle:10,1')->name('store');
+        Route::get('/conversations/{id}',             [APIChatController::class, 'show'])->whereNumber('id')->name('show');
+        Route::get('/conversations/{id}/messages',    [APIChatController::class, 'messages'])->whereNumber('id')->name('messages');
+        Route::post('/conversations/{id}/messages',   [APIChatController::class, 'send'])->whereNumber('id')->middleware('throttle:40,1')->name('send');
+        Route::post('/conversations/{id}/read',       [APIChatController::class, 'read'])->whereNumber('id')->name('read');
+        Route::post('/conversations/{id}/typing',     [APIChatController::class, 'typing'])->whereNumber('id')->middleware('throttle:60,1')->name('typing');
+        Route::post('/conversations/{id}/close',      [APIChatController::class, 'close'])->whereNumber('id')->name('close');
+        Route::post('/conversations/{id}/rate',       [APIChatController::class, 'rate'])->whereNumber('id')->name('rate');
+    });
 
     // ── User Profile ──────────────────────────────────────────────────────────
     Route::get('/user',                             [APIUserController::class, 'show'])->name('user.show');
