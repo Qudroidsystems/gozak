@@ -20,10 +20,11 @@ class APIUserController extends Controller
 {
     function __construct()
     {
-        $this->middleware('permission:user-list|user-create|user-edit|user-delete', ['only' => ['index', 'store']]);
-        $this->middleware('permission:user-create', ['only' => ['create', 'store']]);
-        $this->middleware('permission:user-edit', ['only' => ['edit', 'update']]);
-        $this->middleware('permission:user-delete', ['only' => ['destroy']]);
+        // These are the signed-in user's OWN profile endpoints (/api/user).
+        // Customers have the "App Users" role; the old admin permission names
+        // stay accepted so staff using the app aren't locked out.
+        $this->middleware('permission:Update own profile|user-edit', ['only' => ['update', 'updateField', 'uploadProfilePicture']]);
+        $this->middleware('permission:Delete own account|user-delete', ['only' => ['destroy']]);
     }
 
     public function show(Request $request)

@@ -11,6 +11,7 @@ use App\Models\OrderItem;
 use App\Models\Refund;
 use App\Models\User;
 use App\Services\OrderNotificationService;
+use App\Services\Payment\RefundService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -30,6 +31,7 @@ class OrderController extends Controller
 
         $this->middleware('permission:View order|Manage order', ['only' => ['index', 'show', 'data']]);
         $this->middleware('permission:Manage order', ['only' => ['updateStatus']]);
+        $this->middleware('permission:Refund order', ['only' => ['refund', 'refundStatus']]);
     }
 
     public function index(Request $request)
@@ -128,9 +130,11 @@ class OrderController extends Controller
             })
             ->editColumn('created_at', fn ($o) => optional($o->created_at)->format('d M Y, H:i'))
             ->editColumn('total_amount', fn ($o) => '<span class="fw-bold text-success">' . e(Money::fmt($o->total_amount)) . '</span>')
-            ->editColumn('payment_status', fn ($o) => $o->payment_status === 'paid'
-                ? '<span class="status-pill st-paid">Paid</span>'
-                : '<span class="status-pill st-unpaid">' . e(ucfirst($o->payment_status ?? 'unpaid')) . '</span>')
+            ->editColumn('payment_status', fn ($o) => match ($o->payment_status) {
+                'paid'     => '<span class="status-pill st-paid">Paid</span>',
+                'refunded' => '<span class="status-pill st-violet">Refunded</span>',
+                default    => '<span class="status-pill st-unpaid">' . e(ucfirst($o->payment_status ?? 'unpaid')) . '</span>',
+            })
             ->editColumn('status', function ($o) use ($statuses, $canManage) {
                 if (!$canManage) {
                     return '<span class="status-pill st-' . e($o->status) . '">' . e(ucfirst($o->status)) . '</span>';
@@ -288,25 +292,80 @@ public function show($id)
         return back()->with('success', 'Note added');
     }
 
-    public function refund(Request $request, $id)
+    /**
+     * Refund an order — automatically through Paystack (money goes back to the
+     * customer's card/bank) or record a refund you made yourself.
+     * Permission: "Refund order".
+     */
+    public function refund(Request $request, $id, RefundService $refunds)
     {
-        $order  = Order::findOrFail($id);
-        $amount = $request->amount;
+        $order = Order::findOrFail($id);
 
-        if ($amount > $order->refundableAmount()) {
-            return back()->with('error', 'Refund amount too high');
-        }
-
-        Refund::create([
-            'order_id'     => $order->id,
-            'user_id'      => auth()->id(),
-            'amount'       => $amount,
-            'reason'       => $request->reason,
-            'status'       => 'processed',
-            'processed_at' => now(),
+        $data = $request->validate([
+            'amount'           => 'required|numeric|min:1',
+            'reason'           => 'required|string|max:100',
+            'note'             => 'nullable|string|max:500',
+            'method'           => 'required|in:gateway,manual',
+            'channel'          => 'nullable|required_if:method,manual|in:cash,bank_transfer,opay,paystack',
+            'manual_reference' => 'nullable|string|max:120',
+        ], [
+            'channel.required_if' => 'Choose how you refunded the customer.',
         ]);
 
-        return back()->with('success', 'Refund processed');
+        $reason = trim($data['reason'] . (!empty($data['note']) ? ' — ' . $data['note'] : ''));
+
+        try {
+            $refund = $refunds->refund(
+                $order,
+                (float) $data['amount'],
+                $reason,
+                $data['method'],
+                (int) auth()->id(),
+                $data['channel'] ?? null,
+                $data['manual_reference'] ?? null
+            );
+        } catch (\InvalidArgumentException|\RuntimeException $e) {
+            return $request->expectsJson()
+                ? response()->json(['success' => false, 'message' => $e->getMessage()], 422)
+                : back()->withInput()->with('error', $e->getMessage());
+        }
+
+        $money = '₦' . number_format((float) $refund->amount, 2);
+        $msg = match ($refund->status) {
+            'processed'  => "Refund of {$money} recorded.",
+            'failed'     => "Paystack could not refund {$money}: " . ($refund->failure_reason ?? 'unknown error'),
+            default      => "Refund of {$money} sent to Paystack. It usually completes within a few minutes to a few days — use \"Check status\" to update it.",
+        };
+
+        try {
+            if (in_array($refund->status, ['processed', 'pending', 'processing'], true)) {
+                $order->notes()->create([
+                    'user_id' => auth()->id(),
+                    'note'    => "Refund {$money} ({$refund->method_label}) — {$reason}",
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // notes are optional
+        }
+
+        return $request->expectsJson()
+            ? response()->json(['success' => $refund->status !== 'failed', 'message' => $msg, 'refund' => $refund])
+            : back()->with($refund->status === 'failed' ? 'error' : 'success', $msg);
+    }
+
+    /** "Check status" for a Paystack refund that is still pending/processing. */
+    public function refundStatus(Request $request, $id, $refundId, RefundService $refunds)
+    {
+        $order  = Order::findOrFail($id);
+        $refund = $order->refunds()->whereKey($refundId)->firstOrFail();
+
+        try {
+            $refund = $refunds->refreshStatus($refund);
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Could not reach Paystack: ' . $e->getMessage());
+        }
+
+        return back()->with('success', 'Refund status: ' . ucfirst($refund->status) . '.');
     }
 
     public function packingSlip($id)

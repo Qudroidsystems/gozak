@@ -256,6 +256,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/email-invoice', [OrderController::class, 'emailInvoice'])->name('emailInvoice');
             Route::post('/note', [OrderController::class, 'addNote'])->name('note');
             Route::post('/refund', [OrderController::class, 'refund'])->name('refund');
+            Route::post('/refunds/{refund}/status', [OrderController::class, 'refundStatus'])->name('refund-status');
             Route::get('/packing-slip', [OrderController::class, 'packingSlip'])->name('packing-slip');
         });
     });

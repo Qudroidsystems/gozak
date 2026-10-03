@@ -738,6 +738,9 @@ class PaymentController extends Controller
                 $this->handleChargeSuccess($event['data']);
             } elseif ($event['event'] === 'charge.failed') {
                 $this->handleChargeFailed($event['data']);
+            } elseif (str_starts_with((string) ($event['event'] ?? ''), 'refund.')) {
+                // refund.pending / refund.processing / refund.processed / refund.failed
+                app(\App\Services\Payment\RefundService::class)->handlePaystackWebhook($event['data'] ?? []);
             }
 
             return response()->json(['message' => 'Webhook processed successfully'], 200);

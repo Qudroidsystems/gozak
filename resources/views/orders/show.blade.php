@@ -8,6 +8,26 @@
     <div class="page-content">
         <div class="container-fluid">
 
+            {{-- Result of refunds / notes / status changes --}}
+            @if(session('success'))
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="ri-checkbox-circle-line me-1"></i>{{ session('success') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="ri-error-warning-line me-1"></i>{{ session('error') }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+            @if($errors->any())
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    {{ $errors->first() }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            @endif
+
             <div class="row">
                 <div class="col-12">
                     <div class="page-title-box d-sm-flex align-items-center justify-content-between">
@@ -59,51 +79,196 @@
                         </div>
                     </div>
 
-                    <!-- Refund Section -->
-                    @if($order->refundableAmount() > 0)
-                    <div class="card border-danger">
-                        <div class="card-header bg-danger-subtle">
-                            <h5 class="text-danger mb-0">Request Refund</h5>
+                    <!-- Refunds -->
+                    @php
+                        $rs = app(\App\Services\Payment\RefundService::class)->summary($order);
+                        $canRefund = auth()->user()?->can('Refund order');
+                        $refundReasons = ['Customer cancelled', 'Item out of stock', 'Damaged item', 'Wrong item sent', 'Late delivery', 'Duplicate payment', 'Price adjustment', 'Other'];
+                    @endphp
+                    @if($canRefund && $rs['paid'] && ($rs['refundable'] > 0 || $order->refunds->count()))
+                    <div class="card border-0 shadow-sm" id="refunds">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="ri-refund-2-line me-1"></i>Refunds</h5>
+                            @if($order->payment_status === 'refunded')
+                                <span class="badge bg-info-subtle text-info">Fully refunded</span>
+                            @endif
                         </div>
                         <div class="card-body">
-                            <form action="{{ route('adminorders.refund', $order->id) }}" method="POST">
-                                @csrf
-                                <div class="mb-3">
-                                    <label>Amount (Max: ₦{{ number_format($order->refundableAmount(), 2) }})</label>
-                                    <input type="number" step="0.01" name="amount" class="form-control" max="{{ $order->refundableAmount() }}" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label>Reason</label>
-                                    <textarea name="reason" class="form-control" rows="3" required></textarea>
-                                </div>
-                                <button type="submit" class="btn btn-danger w-100">Process Refund</button>
-                            </form>
-                        </div>
-                    </div>
-                    @endif
-
-                    <!-- Refund History -->
-                    @if($order->refunds->count())
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>Refund History</h5>
-                        </div>
-                        <div class="card-body p-0">
-                            @foreach($order->refunds as $refund)
-                            <div class="p-3 border-bottom">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <strong>₦{{ number_format($refund->amount, 2) }}</strong>
-                                        <small class="d-block text-muted">{{ $refund->reason }}</small>
+                            {{-- Summary --}}
+                            <div class="row g-2 text-center mb-3">
+                                <div class="col-4">
+                                    <div class="p-2 rounded bg-light">
+                                        <div class="small text-muted">Paid</div>
+                                        <div class="fw-bold">₦{{ number_format($order->total_amount, 2) }}</div>
                                     </div>
-                                    <span class="badge {{ $refund->status == 'processed' ? 'bg-success' : 'bg-warning' }}-subtle">
-                                        {{ ucfirst($refund->status) }}
-                                    </span>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 rounded bg-light">
+                                        <div class="small text-muted">Refunded{{ $rs['pending'] > 0 ? ' / pending' : '' }}</div>
+                                        <div class="fw-bold text-danger">₦{{ number_format($rs['refunded'], 2) }}@if($rs['pending'] > 0)<span class="text-warning"> / ₦{{ number_format($rs['pending'], 2) }}</span>@endif</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 rounded bg-light">
+                                        <div class="small text-muted">Can refund</div>
+                                        <div class="fw-bold text-success">₦{{ number_format($rs['refundable'], 2) }}</div>
+                                    </div>
                                 </div>
                             </div>
+                            @if($rs['transaction'])
+                                <p class="small text-muted mb-3">
+                                    Paid with <strong>{{ ucfirst($rs['gateway']) }}</strong> · ref <code>{{ $rs['transaction']->reference }}</code>
+                                    @if($rs['transaction']->paid_at) · {{ $rs['transaction']->paid_at->format('d M Y, H:i') }}@endif
+                                </p>
+                            @endif
+
+                            @if($rs['refundable'] > 0)
+                            <form action="{{ route('adminorders.refund', $order->id) }}" method="POST" id="refundForm">
+                                @csrf
+                                <label class="form-label fw-semibold">How should the customer get the money back?</label>
+                                <div class="d-grid gap-2 mb-3">
+                                    <label class="border rounded p-2 d-flex gap-2 align-items-start {{ $rs['can_auto_refund'] ? '' : 'opacity-50' }}">
+                                        <input class="form-check-input mt-1" type="radio" name="method" value="gateway" {{ $rs['can_auto_refund'] ? 'checked' : 'disabled' }}>
+                                        <span>
+                                            <strong>Refund automatically via Paystack</strong>
+                                            <small class="d-block text-muted">
+                                                @if($rs['can_auto_refund'])
+                                                    Money goes back to the card / bank account the customer paid with. Usually takes a few minutes to a few working days.
+                                                @else
+                                                    Only for orders paid with Paystack{{ $rs['gateway'] ? ' (this one was paid with ' . ucfirst($rs['gateway']) . ')' : '' }}.
+                                                @endif
+                                            </small>
+                                        </span>
+                                    </label>
+                                    <label class="border rounded p-2 d-flex gap-2 align-items-start">
+                                        <input class="form-check-input mt-1" type="radio" name="method" value="manual" {{ $rs['can_auto_refund'] ? '' : 'checked' }}>
+                                        <span>
+                                            <strong>I already refunded the customer</strong>
+                                            <small class="d-block text-muted">Cash, bank transfer, or from the OPay / Paystack dashboard — just record it here.</small>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div id="manualFields" class="row g-2 mb-3" style="display:none;">
+                                    <div class="col-6">
+                                        <label class="form-label small mb-1">Refunded via</label>
+                                        <select name="channel" class="form-select form-select-sm">
+                                            <option value="bank_transfer">Bank transfer</option>
+                                            <option value="cash">Cash</option>
+                                            <option value="opay" {{ $rs['gateway'] === 'opay' ? 'selected' : '' }}>OPay dashboard</option>
+                                            <option value="paystack">Paystack dashboard</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small mb-1">Reference (optional)</label>
+                                        <input type="text" name="manual_reference" class="form-control form-control-sm" placeholder="Transfer / receipt no.">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold d-flex justify-content-between">
+                                        <span>Amount</span>
+                                        <small class="text-muted">max ₦{{ number_format($rs['refundable'], 2) }}</small>
+                                    </label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">₦</span>
+                                        <input type="number" step="0.01" min="1" max="{{ $rs['refundable'] }}" name="amount" id="refundAmount"
+                                               class="form-control" value="{{ old('amount') }}" required>
+                                        <button class="btn btn-outline-secondary" type="button" id="refundFull" data-amount="{{ $rs['refundable'] }}">Full</button>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-semibold">Reason</label>
+                                    <select name="reason" class="form-select" required>
+                                        @foreach($refundReasons as $r)
+                                            <option value="{{ $r }}">{{ $r }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <textarea name="note" class="form-control" rows="2" maxlength="500" placeholder="Note (optional) — shown in the order history"></textarea>
+                                </div>
+                                <button type="submit" class="btn btn-danger w-100" id="refundSubmit">
+                                    <i class="ri-refund-2-line me-1"></i><span>Refund</span>
+                                </button>
+                            </form>
+                            @endif
+                        </div>
+
+                        {{-- History --}}
+                        @if($order->refunds->count())
+                        <div class="border-top">
+                            @foreach($order->refunds as $refund)
+                                @php
+                                    $badge = [
+                                        'processed'  => 'bg-success-subtle text-success',
+                                        'pending'    => 'bg-warning-subtle text-warning',
+                                        'processing' => 'bg-warning-subtle text-warning',
+                                        'failed'     => 'bg-danger-subtle text-danger',
+                                        'rejected'   => 'bg-secondary-subtle text-secondary',
+                                    ][$refund->status] ?? 'bg-light text-dark';
+                                @endphp
+                                <div class="p-3 border-bottom">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <strong>₦{{ number_format($refund->amount, 2) }}</strong>
+                                            <span class="text-muted small">· {{ $refund->method_label }}</span>
+                                            <small class="d-block text-muted">{{ $refund->reason }}</small>
+                                            <small class="d-block text-muted">
+                                                {{ $refund->created_at?->format('d M Y, H:i') }}
+                                                @if($refund->admin) · by {{ trim($refund->admin->first_name . ' ' . $refund->admin->last_name) }}@endif
+                                                @if($refund->manual_reference) · ref {{ $refund->manual_reference }}@endif
+                                                @if($refund->gateway_refund_id) · Paystack #{{ $refund->gateway_refund_id }}@endif
+                                            </small>
+                                            @if($refund->status === 'failed' && $refund->failure_reason)
+                                                <small class="d-block text-danger">{{ $refund->failure_reason }}</small>
+                                            @endif
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge {{ $badge }}">{{ ucfirst($refund->status) }}</span>
+                                            @if($canRefund && $refund->isOpen() && $refund->method === 'gateway' && $refund->gateway_refund_id)
+                                                <form action="{{ route('adminorders.refund-status', [$order->id, $refund->id]) }}" method="POST" class="mt-1">
+                                                    @csrf
+                                                    <button class="btn btn-link btn-sm p-0">Check status</button>
+                                                </form>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
                             @endforeach
                         </div>
+                        @endif
                     </div>
+
+                    @push('scripts')
+                    <script>
+                    (function () {
+                        const form = document.getElementById('refundForm');
+                        if (!form) return;
+                        const manual = document.getElementById('manualFields');
+                        const amount = document.getElementById('refundAmount');
+                        const btn = document.getElementById('refundSubmit');
+                        const sync = () => {
+                            const m = form.querySelector('input[name="method"]:checked')?.value;
+                            manual.style.display = m === 'manual' ? '' : 'none';
+                            btn.querySelector('span').textContent = m === 'gateway' ? 'Refund via Paystack' : 'Record refund';
+                        };
+                        form.querySelectorAll('input[name="method"]').forEach(r => r.addEventListener('change', sync));
+                        document.getElementById('refundFull').addEventListener('click', e => { amount.value = e.currentTarget.dataset.amount; });
+                        sync();
+                        form.addEventListener('submit', e => {
+                            const m = form.querySelector('input[name="method"]:checked')?.value;
+                            const v = Number(amount.value || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 });
+                            const msg = m === 'gateway'
+                                ? `Send ₦${v} back to the customer through Paystack? This cannot be undone.`
+                                : `Record a refund of ₦${v} that you already paid to the customer?`;
+                            if (!confirm(msg)) { e.preventDefault(); return; }
+                            btn.disabled = true;
+                            btn.querySelector('span').textContent = 'Processing…';
+                        });
+                    })();
+                    </script>
+                    @endpush
                     @endif
                 </div>
 

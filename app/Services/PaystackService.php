@@ -372,6 +372,55 @@ class PaystackService
     }
 
     /**
+     * Refund a transaction (full or partial) — POST /refund.
+     * Paystack processes refunds asynchronously: the response status is
+     * usually "pending"/"processing"; the final result arrives by webhook
+     * (refund.processed / refund.failed) or via fetchRefund().
+     *
+     * @param  string     $transactionReference  the original payment reference
+     * @param  float|null $amount                naira; null = full refund
+     */
+    public function createRefund(string $transactionReference, ?float $amount = null, ?string $merchantNote = null, ?string $customerNote = null): array
+    {
+        $payload = array_filter([
+            'transaction'   => $transactionReference,
+            'amount'        => $amount !== null ? (int) round($amount * 100) : null,
+            'currency'      => 'NGN',
+            'merchant_note' => $merchantNote ? mb_substr($merchantNote, 0, 250) : null,
+            'customer_note' => $customerNote ? mb_substr($customerNote, 0, 250) : null,
+        ], fn ($v) => $v !== null);
+
+        $response = Http::withToken($this->secretKey)->acceptJson()->timeout(30)
+            ->post($this->baseUrl . '/refund', $payload);
+        $body = $response->json() ?? [];
+
+        Log::info('Paystack: refund requested', [
+            'reference' => $transactionReference,
+            'amount'    => $amount,
+            'http'      => $response->status(),
+            'status'    => $body['data']['status'] ?? null,
+            'message'   => $body['message'] ?? null,
+        ]);
+
+        if (!$response->successful() || ($body['status'] ?? false) !== true) {
+            throw new \Exception($body['message'] ?? ('Paystack refused the refund (HTTP ' . $response->status() . ').'));
+        }
+        return $body;
+    }
+
+    /** GET /refund/:id — current state of a refund. */
+    public function fetchRefund(string $refundId): array
+    {
+        $response = Http::withToken($this->secretKey)->acceptJson()->timeout(30)
+            ->get($this->baseUrl . '/refund/' . urlencode($refundId));
+        $body = $response->json() ?? [];
+        if (!$response->successful() || ($body['status'] ?? false) !== true) {
+            throw new \Exception($body['message'] ?? ('Could not check the refund (HTTP ' . $response->status() . ').'));
+        }
+        return $body;
+    }
+
+    /**
      * Generate a unique payment reference
      */
     public function generateReference()

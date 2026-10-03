@@ -26,7 +26,7 @@ use Yajra\DataTables\Facades\DataTables;
 class RoleController extends Controller
 {
     /** Roles that may never be deleted from the UI. */
-    protected const PROTECTED_ROLES = ['Super Admin', 'Admin'];
+    protected const PROTECTED_ROLES = ['Super Admin', 'Admin', 'App Users'];
 
     public function __construct()
     {

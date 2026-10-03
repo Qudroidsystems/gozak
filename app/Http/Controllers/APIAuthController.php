@@ -69,6 +69,8 @@ class APIAuthController extends Controller
                 'email_notifications_enabled'       => true,
             ]);
 
+            $user->ensureAppUserRole(); // default customer role
+
             try {
                 event(new Registered($user));
                 Log::info('Verification email sent successfully for user: ' . $user->email);
@@ -136,6 +138,7 @@ class APIAuthController extends Controller
                 ], 403);
             }
 
+            $user->ensureAppUserRole(); // older accounts get the customer role on next sign-in
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([
@@ -214,6 +217,7 @@ class APIAuthController extends Controller
                 Log::info('Existing user logged in via Google: ' . $user->email);
             }
 
+            $user->ensureAppUserRole(); // older accounts get the customer role on next sign-in
             $token = $user->createToken('auth_token')->plainTextToken;
 
             return response()->json([

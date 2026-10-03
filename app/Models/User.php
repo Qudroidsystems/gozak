@@ -213,4 +213,28 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $this->notify(new VerifyEmail);
     }
+
+    // ── App customer role ────────────────────────────────────────────────────
+
+    /** Default role for mobile-app customers (self-service permissions only). */
+    public const APP_ROLE = 'App Users';
+
+    /**
+     * Give this user the "App Users" role if they have no role yet.
+     * Staff accounts (anyone who already has a role) are never touched.
+     */
+    public function ensureAppUserRole(): void
+    {
+        try {
+            if ($this->roles()->exists()) {
+                return;
+            }
+            $role = \Spatie\Permission\Models\Role::where('name', self::APP_ROLE)->where('guard_name', 'web')->first();
+            if ($role) {
+                $this->assignRole($role);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Could not assign App Users role', ['user' => $this->id, 'error' => $e->getMessage()]);
+        }
+    }
 }

@@ -300,7 +300,7 @@ class APIOrderController extends Controller
         }
         return $user->getRoleNames()
             ->map(fn ($r) => strtolower($r))
-            ->diff(['customer', 'user'])
+            ->diff(['customer', 'user', 'app users', 'app user'])
             ->isNotEmpty();
     }
 

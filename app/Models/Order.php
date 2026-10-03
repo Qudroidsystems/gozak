@@ -185,9 +185,22 @@ class Order extends Model
         return $this->refunds()->where('status', 'processed')->sum('amount');
     }
 
+    /** Refunds still in progress at the gateway (they already reserve money). */
+    public function pendingRefunds()
+    {
+        return $this->refunds()->whereIn('status', ['pending', 'processing'])->sum('amount');
+    }
+
+    /** What can still be refunded: paid total − processed − in-progress refunds. */
     public function refundableAmount()
     {
-        return $this->total_amount - $this->totalRefunded();
+        return max(0, round($this->total_amount - $this->totalRefunded() - $this->pendingRefunds(), 2));
+    }
+
+    /** The latest successful payment for this order (used for gateway refunds). */
+    public function latestSuccessfulTransaction()
+    {
+        return $this->transactions()->where('status', 'success')->latest()->first();
     }
 
     /**
