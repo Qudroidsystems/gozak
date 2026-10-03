@@ -16,6 +16,10 @@ class Address extends Model
         'phone_number',
         'name',
         'is_default', // Added is_default
+        'lga',
+        'landmark',
+        'address_type',
+        'alternate_phone',
     ];
 
     public function user()

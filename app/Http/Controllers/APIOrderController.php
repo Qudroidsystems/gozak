@@ -57,6 +57,10 @@ class APIOrderController extends Controller
                 'shipping_address.street'          => 'required|string|max:255',
                 'shipping_address.city'            => 'required|string|max:255',
                 'shipping_address.state'           => 'nullable|string|max:255',
+                'shipping_address.lga'             => 'nullable|string|max:255',
+                'shipping_address.landmark'        => 'nullable|string|max:255',
+                'shipping_address.address_type'    => 'nullable|string|max:20',
+                'shipping_address.alternate_phone' => 'nullable|string|max:50',
                 'shipping_address.postal_code'     => 'nullable|string|max:20',
                 'shipping_address.country'         => 'required|string|max:255',
                 'shipping_address.phone_number'    => 'nullable|string|max:50',
@@ -65,6 +69,8 @@ class APIOrderController extends Controller
                 'billing_address.street'           => 'required_if:billing_address_same_as_shipping,false|string|max:255',
                 'billing_address.city'             => 'required_if:billing_address_same_as_shipping,false|string|max:255',
                 'billing_address.state'            => 'nullable|string|max:255',
+                'billing_address.lga'              => 'nullable|string|max:255',
+                'billing_address.landmark'         => 'nullable|string|max:255',
                 'billing_address.postal_code'      => 'nullable|string|max:20',
                 'billing_address.country'          => 'required_if:billing_address_same_as_shipping,false|string|max:255',
                 'billing_address.phone_number'     => 'nullable|string|max:50',
@@ -219,18 +225,19 @@ class APIOrderController extends Controller
             'city'    => trim((string) ($a['city'] ?? '')),
             'country' => trim((string) ($a['country'] ?? '')),
         ];
-        $address = Address::firstOrCreate($match, [
-            'state'        => $a['state'] ?? null,
-            'postal_code'  => $a['postal_code'] ?? null,
-            'phone_number' => $a['phone_number'] ?? null,
-            'is_default'   => false,
-        ]);
-        // Keep phone / state current if the customer edited them.
-        $address->fill(array_filter([
-            'state'        => $a['state'] ?? null,
-            'postal_code'  => $a['postal_code'] ?? null,
-            'phone_number' => $a['phone_number'] ?? null,
-        ], fn ($v) => $v !== null && $v !== ''));
+        $extra = array_filter([
+            'state'           => $a['state'] ?? null,
+            'lga'             => $a['lga'] ?? null,
+            'landmark'        => $a['landmark'] ?? null,
+            'address_type'    => $a['address_type'] ?? null,
+            'postal_code'     => $a['postal_code'] ?? null,
+            'phone_number'    => $a['phone_number'] ?? null,
+            'alternate_phone' => $a['alternate_phone'] ?? null,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $address = Address::firstOrCreate($match, $extra + ['is_default' => false]);
+        // Keep phone / LGA / landmark current if the customer edited them.
+        $address->fill($extra);
         if ($address->isDirty()) {
             $address->save();
         }

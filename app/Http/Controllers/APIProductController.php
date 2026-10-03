@@ -33,10 +33,10 @@ class APIProductController extends Controller
      * meant dozens of queries per /products call, which made the app slow.
      * product_id => ['total' => int, 'variants' => [variant_id => int]]
      */
-    private array $stockMap = [];
-    private bool $stockPreloaded = false;
+    protected array $stockMap = [];
+    protected bool $stockPreloaded = false;
 
-    private function preloadStock($productIds): void
+    protected function preloadStock($productIds): void
     {
         $ids = collect($productIds)->filter()->unique()->values();
         $this->stockMap       = [];
@@ -69,7 +69,7 @@ class APIProductController extends Controller
         }
     }
 
-    private function calculateProductStock($productId, $variationId = null)
+    protected function calculateProductStock($productId, $variationId = null)
     {
         if ($this->stockPreloaded) {
             $entry = $this->stockMap[(int) $productId] ?? [];
@@ -96,14 +96,14 @@ class APIProductController extends Controller
         return max(0, $totalStock);
     }
 
-    private function getStockStatus($stock)
+    protected function getStockStatus($stock)
     {
         if ($stock > 10) return 'in_stock';
         if ($stock > 0)  return 'low_stock';
         return 'out_of_stock';
     }
 
-    private function formatProductAttributes($attributes)
+    protected function formatProductAttributes($attributes)
     {
         if (!$attributes || $attributes->isEmpty()) {
             return [];
@@ -118,7 +118,7 @@ class APIProductController extends Controller
         })->toArray();
     }
 
-    private function formatAttributeValues($values)
+    protected function formatAttributeValues($values)
     {
         if (is_string($values)) {
             try {
@@ -137,7 +137,7 @@ class APIProductController extends Controller
         return [];
     }
 
-    private function extractAttributesFromVariations($variations)
+    protected function extractAttributesFromVariations($variations)
     {
         if (!$variations || $variations->isEmpty()) {
             return [];
@@ -177,7 +177,7 @@ class APIProductController extends Controller
         })->values()->toArray();
     }
 
-    private function formatProductVariations($variations, $productId)
+    protected function formatProductVariations($variations, $productId)
     {
         if (!$variations || $variations->isEmpty()) {
             return [];
@@ -226,7 +226,7 @@ class APIProductController extends Controller
      * so that $product->reviews_avg_rating and $product->reviews_count
      * are available without extra queries per product.
      */
-    private function formatProductData($product)
+    protected function formatProductData($product)
     {
         $realStock = $this->calculateProductStock($product->id);
 
@@ -303,7 +303,7 @@ class APIProductController extends Controller
     // Centralises the with() + withAvg() + withCount() so every action
     // (index, show, related) automatically includes rating data.
     // ─────────────────────────────────────────────────────────────────────────
-    private function baseQuery()
+    protected function baseQuery()
     {
         return Product::query()
             ->with([
@@ -327,7 +327,7 @@ class APIProductController extends Controller
     // checked or products attached only via the pivot table (e.g. many
     // subcategories) will silently return zero results.
     // ─────────────────────────────────────────────────────────────────────────
-    private function applyCategoryFilter($query, $categoryId)
+    protected function applyCategoryFilter($query, $categoryId)
     {
         return $query->where(function ($q) use ($categoryId) {
             $q->where('category_id', $categoryId)

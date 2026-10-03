@@ -66,9 +66,14 @@ class APIUserController extends Controller
                 'last_name'    => 'sometimes|string|max:255',
                 'username'     => 'sometimes|string|unique:users,username,' . $request->user()->id,
                 'email'        => 'sometimes|email|unique:users,email,' . $request->user()->id,
-                'phone_number' => 'nullable|string|max:20',
-                'gender'       => 'nullable|string|in:Male,Female,Other',
-                'date_of_birth'=> 'nullable|date',
+                'phone_number'    => ['nullable', 'string', 'max:20', 'regex:/^(\+?234|0)[789][01]\d{8}$|^\+?[1-9]\d{7,14}$/'],
+                'alternate_phone' => ['nullable', 'string', 'max:20', 'regex:/^(\+?234|0)[789][01]\d{8}$|^\+?[1-9]\d{7,14}$/'],
+                'gender'          => 'nullable|string|in:Male,Female,Other',
+                'date_of_birth'   => 'nullable|date|before:today|after:1900-01-01',
+            ], [
+                'phone_number.regex'    => 'Enter a valid phone number, e.g. 0803 123 4567.',
+                'alternate_phone.regex' => 'Enter a valid phone number, e.g. 0803 123 4567.',
+                'date_of_birth.before'  => 'Date of birth must be in the past.',
             ]);
 
             $user = $request->user();
@@ -100,7 +105,7 @@ class APIUserController extends Controller
     {
         try {
             $validated = $request->validate([
-                'field' => 'required|string|in:first_name,last_name,username,email,phone_number,profile_image,gender,date_of_birth',
+                'field' => 'required|string|in:first_name,last_name,username,email,phone_number,alternate_phone,profile_image,gender,date_of_birth',
                 'value' => 'required',
             ]);
 
@@ -376,6 +381,7 @@ class APIUserController extends Controller
             'username'                          => $user->username,
             'email'                             => $user->email,
             'phone_number'                      => $user->phone_number,
+            'alternate_phone'                   => $user->alternate_phone,
             'profile_image'                     => $user->profile_image,
             'social_provider'                   => $user->social_provider,
             'gender'                            => $user->gender,
@@ -391,6 +397,27 @@ class APIUserController extends Controller
             'updated_at'                        => $user->updated_at?->toIso8601String(),
             'addresses'                         => $user->addresses ?? [],
             'settings'                          => $userSettings,
+            'stats'                             => $this->userStats($user),
         ];
+    }
+
+    /** Small account summary for the profile screen. */
+    private function userStats(User $user): array
+    {
+        try {
+            $orders = \App\Models\Order::where('user_id', $user->id);
+            return [
+                'orders'          => (clone $orders)->count(),
+                'active_orders'   => (clone $orders)->whereIn('status', ['pending', 'processing', 'shipped'])->count(),
+                'delivered'       => (clone $orders)->where('status', 'delivered')->count(),
+                'total_spent'     => round((float) (clone $orders)->where('payment_status', 'paid')->sum('total_amount'), 2),
+                'addresses'       => $user->addresses()->count(),
+                'reviews'         => \Illuminate\Support\Facades\Schema::hasTable('product_reviews')
+                    ? \Illuminate\Support\Facades\DB::table('product_reviews')->where('user_id', $user->id)->count()
+                    : 0,
+            ];
+        } catch (\Throwable $e) {
+            return [];
+        }
     }
 }

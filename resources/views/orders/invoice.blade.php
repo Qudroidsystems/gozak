@@ -131,7 +131,8 @@
                     @if($bill)
                         <p><strong>{{ $bill->name ?: $custName }}</strong></p>
                         <p>{{ $bill->street }}</p>
-                        <p>{{ collect([$bill->city, $bill->state, $bill->postal_code])->filter()->implode(', ') }}</p>
+                        @if(!empty($bill->landmark))<p>Landmark: {{ $bill->landmark }}</p>@endif
+                        <p>{{ collect([$bill->city, $bill->lga ?? null, $bill->state, $bill->postal_code])->filter()->implode(', ') }}</p>
                         <p>{{ $bill->country }}</p>
                         @if($bill->phone_number)<p>Tel: {{ $bill->phone_number }}</p>@endif
                     @else
@@ -148,7 +149,8 @@
                     @if($ship)
                         <p><strong>{{ $ship->name ?: $custName }}</strong></p>
                         <p>{{ $ship->street }}</p>
-                        <p>{{ collect([$ship->city, $ship->state, $ship->postal_code])->filter()->implode(', ') }}</p>
+                        @if(!empty($ship->landmark))<p>Landmark: {{ $ship->landmark }}</p>@endif
+                        <p>{{ collect([$ship->city, $ship->lga ?? null, $ship->state, $ship->postal_code])->filter()->implode(', ') }}</p>
                         <p>{{ $ship->country }}</p>
                         @if($ship->phone_number)<p>Tel: {{ $ship->phone_number }}</p>@endif
                     @else

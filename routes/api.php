@@ -49,6 +49,11 @@ Route::post('promo-banners/mark-shown', [APIPromoBannerController::class, 'markS
 
 // Products — IMPORTANT: specific routes BEFORE wildcard {id} route
 Route::get('/products/lightning-deals',            [APIProductController::class, 'lightningDeals']);
+// Search & recommendations (public; personalised when a token is sent)
+Route::get('/search',                             [\App\Http\Controllers\APISearchController::class, 'search'])->name('search');
+Route::get('/search/suggest',                     [\App\Http\Controllers\APISearchController::class, 'suggest'])->name('search.suggest');
+Route::get('/search/trending',                    [\App\Http\Controllers\APISearchController::class, 'trending'])->name('search.trending');
+Route::get('/products/recommendations',           [\App\Http\Controllers\APISearchController::class, 'recommendations'])->name('products.recommendations');
 Route::get('/products',                            [APIProductController::class, 'index'])->name('products.index');
 Route::get('/products/{id}',                       [APIProductController::class, 'show'])->name('products.show');
 Route::get('/products/{id}/related',               [APIProductController::class, 'related'])->name('products.related');

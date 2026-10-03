@@ -45,8 +45,10 @@
                 @if($addr)
                     {{ $addr->name ?: $custName }}<br>
                     {{ $addr->street }}<br>
-                    {{ collect([$addr->city, $addr->state])->filter()->implode(', ') }}{{ $addr->country ? ', ' . $addr->country : '' }}<br>
+                    @if(!empty($addr->landmark))<em>Landmark: {{ $addr->landmark }}</em><br>@endif
+                    {{ collect([$addr->city, $addr->lga ?? null, $addr->state])->filter()->implode(', ') }}{{ $addr->country ? ', ' . $addr->country : '' }}<br>
                     @if($addr->phone_number)Tel: {{ $addr->phone_number }}@endif
+                    @if(!empty($addr->alternate_phone)) / {{ $addr->alternate_phone }}@endif
                 @else
                     {{ $custName }}<br>
                     <em>No delivery address (pickup)</em><br>

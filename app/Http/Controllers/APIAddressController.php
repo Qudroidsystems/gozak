@@ -128,16 +128,7 @@ class APIAddressController extends Controller
     public function store(Request $request)
     {
         try {
-            $validated = $request->validate([
-                'name' => 'nullable|string|max:255',
-                'street' => 'required|string|max:255',
-                'city' => 'required|string|max:255',
-                'state' => 'required|string|max:255',
-                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/',
-                'country' => 'required|string|max:255',
-                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/',
-                'is_default' => 'boolean',
-            ]);
+            $validated = $this->validateAddress($request);
 
             $user = $request->user();
             if ($validated['is_default'] ?? false) {
@@ -198,16 +189,7 @@ class APIAddressController extends Controller
         try {
             $address = Address::where('id', $id)->where('user_id', $request->user()->id)->firstOrFail();
 
-            $validated = $request->validate([
-                'name' => 'nullable|string|max:255',
-                'street' => 'required|string|max:255',
-                'city' => 'required|string|max:255',
-                'state' => 'required|string|max:255',
-                'postal_code' => 'required|string|regex:/^\d{5}(-\d{4})?$/',
-                'country' => 'required|string|max:255',
-                'phone_number' => 'required|string|regex:/^\+?[1-9]\d{1,14}$/',
-                'is_default' => 'boolean',
-            ]);
+            $validated = $this->validateAddress($request);
 
             if ($validated['is_default'] ?? false) {
                 $this->setDefaultAddress($request->user(), $id);
@@ -333,5 +315,45 @@ class APIAddressController extends Controller
                 'message' => 'Failed to delete address: ' . $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Nigerian address rules (shared by store/update):
+     *  - phone: 0803 123 4567 / +234 803 123 4567 (spaces and dashes allowed)
+     *  - state + LGA, city/town and street required; landmark, postal code,
+     *    alternate phone optional; country defaults to Nigeria.
+     * Older app builds that don't send `lga` still work (it's nullable here;
+     * the current app requires it).
+     */
+    protected function validateAddress(Request $request): array
+    {
+        foreach (['phone_number', 'alternate_phone'] as $f) {
+            if ($request->filled($f)) {
+                $request->merge([$f => preg_replace('/[\s\-()]/', '', (string) $request->input($f))]);
+            }
+        }
+        if (!$request->filled('country')) {
+            $request->merge(['country' => 'Nigeria']);
+        }
+
+        $phone = 'regex:/^(\+?234|0)[789][01]\d{8}$|^\+?[1-9]\d{7,14}$/';
+
+        return $request->validate([
+            'name'            => 'nullable|string|max:255',
+            'street'          => 'required|string|max:255',
+            'city'            => 'required|string|max:255',
+            'state'           => 'required|string|max:255',
+            'lga'             => 'nullable|string|max:255',
+            'landmark'        => 'nullable|string|max:255',
+            'address_type'    => 'nullable|in:home,work,other',
+            'postal_code'     => 'nullable|string|max:20',
+            'country'         => 'required|string|max:255',
+            'phone_number'    => ['required', 'string', $phone],
+            'alternate_phone' => ['nullable', 'string', $phone],
+            'is_default'      => 'boolean',
+        ], [
+            'phone_number.regex'    => 'Enter a valid phone number, e.g. 0803 123 4567.',
+            'alternate_phone.regex' => 'Enter a valid alternate phone number, e.g. 0803 123 4567.',
+        ]);
     }
 }
