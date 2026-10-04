@@ -45,6 +45,10 @@ class CreditService
     public function isOfferedTo(User $user): bool
     {
         $s = $this->settings();
+        // Staff can always see and test Gozak Credit, even while it is switched off.
+        if ($this->isStaff($user)) {
+            return true;
+        }
         if (!$s->enabled) {
             return false;
         }
