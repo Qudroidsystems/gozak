@@ -15,6 +15,7 @@ use App\Http\Controllers\APIUserController;
 use App\Http\Controllers\FcmTestController;
 use App\Http\Controllers\APIChatController;
 use App\Http\Controllers\APIBankAccountController;
+use App\Http\Controllers\APICreditController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PrivacyPolicyController;
 use Illuminate\Http\Request;
@@ -125,6 +126,24 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Auth ─────────────────────────────────────────────────────────────────
     Route::post('/logout',                          [APIAuthController::class, 'logout'])->name('auth.logout');
     Route::post('/email/verification-notification', [APIAuthController::class, 'sendEmailVerificationNotification'])->name('verification.send');
+
+    // ── Gozak Credit (buy now, pay at the end of the month) ──────────────────
+    Route::prefix('credit')->name('credit.')->group(function () {
+        Route::get('/',                         [APICreditController::class, 'summary'])->name('summary');
+        Route::post('/apply',                   [APICreditController::class, 'apply'])->middleware('throttle:5,1')->name('apply');
+        Route::post('/quote',                   [APICreditController::class, 'quote'])->name('quote');
+        Route::post('/pay-order',               [APICreditController::class, 'payOrder'])->middleware('throttle:20,1')->name('pay-order');
+        Route::get('/statements',               [APICreditController::class, 'statements'])->name('statements');
+        Route::get('/statements/{id}',          [APICreditController::class, 'statement'])->whereNumber('id')->name('statement');
+        Route::get('/transactions',             [APICreditController::class, 'transactions'])->name('transactions');
+        Route::post('/mandates/bank',           [APICreditController::class, 'linkBank'])->middleware('throttle:10,1')->name('link-bank');
+        Route::post('/mandates/card',           [APICreditController::class, 'linkCard'])->middleware('throttle:10,1')->name('link-card');
+        Route::post('/mandates/check',          [APICreditController::class, 'checkMandates'])->middleware('throttle:30,1')->name('check-mandates');
+        Route::post('/mandates/{id}/primary',   [APICreditController::class, 'makePrimary'])->whereNumber('id')->name('mandate-primary');
+        Route::delete('/mandates/{id}',         [APICreditController::class, 'removeMandate'])->whereNumber('id')->name('mandate-remove');
+        Route::post('/repay',                   [APICreditController::class, 'repay'])->middleware('throttle:10,1')->name('repay');
+        Route::post('/repay/verify',            [APICreditController::class, 'verifyRepay'])->middleware('throttle:30,1')->name('repay-verify');
+    });
 
     // ── Bank accounts for refunds (account name verified with Paystack) ──────
     Route::get('/banks',                              [APIBankAccountController::class, 'banks'])->name('banks.index');

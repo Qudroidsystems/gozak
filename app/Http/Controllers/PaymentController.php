@@ -734,6 +734,11 @@ class PaymentController extends Controller
         ]);
 
         try {
+            // Gozak Credit mandates, card links, auto-debits and in-app repayments.
+            if (app(\App\Services\Credit\CreditGateway::class)->handleWebhook($event)) {
+                return response()->json(['message' => 'Webhook processed successfully'], 200);
+            }
+
             if ($event['event'] === 'charge.success') {
                 $this->handleChargeSuccess($event['data']);
             } elseif ($event['event'] === 'charge.failed') {

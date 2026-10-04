@@ -598,7 +598,7 @@
                     @endcan
 
                     {{-- SALES --}}
-                    @canany(['View order', 'View customer', 'View addresses', 'Chat with customers', 'Manage chat'])
+                    @canany(['View order', 'View customer', 'View addresses', 'Chat with customers', 'Manage chat', 'View credit', 'Manage credit'])
                         <li class="menu-title"><i class="ri-more-fill"></i> <span>SALES</span></li>
                     @endcanany
 
@@ -609,6 +609,16 @@
                             </a>
                         </li>
                     @endcan
+
+                    @canany(['View credit', 'Manage credit', 'Review credit applications', 'Manage credit settings'])
+                        @php try { $gzcPendingNav = \App\Models\Credit\CreditApplication::where('status', 'pending')->count(); } catch (\Throwable $e) { $gzcPendingNav = 0; } @endphp
+                        <li class="nav-item">
+                            <a href="{{ route('admin.credit.dashboard') }}" class="nav-link menu-link {{ Route::is('admin.credit.*') ? 'active' : '' }}">
+                                <i class="ph-credit-card"></i> <span>Gozak Credit</span>
+                                @if($gzcPendingNav)<span class="badge rounded-pill bg-danger ms-auto" title="Applications waiting">{{ $gzcPendingNav }}</span>@endif
+                            </a>
+                        </li>
+                    @endcanany
 
                     @canany(['Chat with customers', 'Manage chat'])
                         <li class="nav-item">
@@ -1414,6 +1424,10 @@
         @can('View order')
         {title:'Orders',                    url:'{{ route("adminorders.index") }}',            icon:'mdi-cart',               category:'Sales',              keywords:['order','invoice','payment','paystack','delivery']},
         @endcan
+        @canany(['View credit', 'Manage credit', 'Review credit applications'])
+        {title:'Gozak Credit',              url:'{{ route("admin.credit.dashboard") }}',      icon:'mdi-credit-card-clock',  category:'Sales',              keywords:['credit','bnpl','pay later','loan','statement','debit','mandate']},
+        {title:'Credit applications',       url:'{{ route("admin.credit.applications") }}',   icon:'mdi-account-check',      category:'Sales',              keywords:['credit','application','approve','limit']},
+        @endcanany
         @canany(['Chat with customers', 'Manage chat'])
         {title:'Live Chat',                 url:'{{ route("admin.chat.index") }}',             icon:'mdi-chat-processing',    category:'Sales',              keywords:['chat','support','message','agent','inbox','help']},
         @endcanany

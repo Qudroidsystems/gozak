@@ -14,3 +14,14 @@ Artisan::command('chat:close-stale', function () {
 })->purpose('Close inactive live chats');
 
 \Illuminate\Support\Facades\Schedule::command('chat:close-stale')->hourly()->withoutOverlapping();
+
+// Gozak Credit: statements, reminders, automatic debits + retries, late fees, suspensions.
+Artisan::command('credit:run', function () {
+    $r = app(\App\Services\Credit\CreditBillingService::class)->run();
+    cache(['credit:last_cron' => now()->toDateTimeString()], now()->addDays(7));
+    foreach ($r as $step => $n) {
+        $this->line(str_pad($step, 18) . ' ' . (is_scalar($n) ? $n : json_encode($n)));
+    }
+})->purpose('Run the Gozak Credit billing cycle');
+
+\Illuminate\Support\Facades\Schedule::command('credit:run')->hourlyAt(5)->withoutOverlapping(30);

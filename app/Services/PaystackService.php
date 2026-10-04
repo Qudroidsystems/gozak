@@ -439,17 +439,111 @@ class PaystackService
      */
     public function resolveAccount(string $accountNumber, string $bankCode): array
     {
+        // Successful look-ups are cached for a day, so "check" + "save" (and
+        // retries) cost Paystack a single call. Test keys only allow a few
+        // resolves per day.
+        $cacheKey = 'paystack:resolve:' . hash('sha256', $bankCode . '|' . $accountNumber . '|' . config('app.key'));
+        if ($hit = \Illuminate\Support\Facades\Cache::get($cacheKey)) {
+            return $hit;
+        }
+
         $response = Http::withToken($this->secretKey)->acceptJson()->timeout(20)
             ->get($this->baseUrl . '/bank/resolve', ['account_number' => $accountNumber, 'bank_code' => $bankCode]);
 
         if (!$response->successful() || !$response->json('status')) {
-            throw new \RuntimeException($response->json('message') ?: 'We could not verify that account number.');
+            $raw = (string) ($response->json('message') ?: '');
+            Log::info('Paystack bank resolve failed', ['status' => $response->status(), 'message' => $raw, 'bank_code' => $bankCode, 'test_mode' => $this->isTestMode()]);
+            throw new \RuntimeException($raw ?: 'We could not verify that account number.');
         }
 
-        return [
+        $result = [
             'account_name'   => (string) $response->json('data.account_name'),
             'account_number' => (string) $response->json('data.account_number'),
         ];
+        \Illuminate\Support\Facades\Cache::put($cacheKey, $result, now()->addDay());
+        return $result;
+    }
+
+    // ── Gozak Credit: mandates, saved cards, automatic debits ──────────────────
+
+    protected function credit(string $method, string $path, array $data = []): array
+    {
+        $req = Http::withToken($this->secretKey)->acceptJson()->timeout(30);
+        $response = $method === 'get' ? $req->get($this->baseUrl . $path, $data) : $req->post($this->baseUrl . $path, $data);
+        $json = $response->json() ?? [];
+        if (!$response->successful() || empty($json['status'])) {
+            $e = new \RuntimeException($json['message'] ?? ('Paystack error ' . $response->status()));
+            throw $e;
+        }
+        return $json;
+    }
+
+    /** Start a direct-debit mandate on the customer's bank account (hosted consent page). */
+    public function initializeDirectDebit(string $email, string $callbackUrl, ?string $accountNumber = null, ?string $bankCode = null, array $address = []): array
+    {
+        $body = ['email' => $email, 'channel' => 'direct_debit', 'callback_url' => $callbackUrl];
+        if ($accountNumber && $bankCode) {
+            $body['account'] = ['number' => $accountNumber, 'bank_code' => $bankCode];
+        }
+        if ($address) {
+            $body['address'] = $address;
+        }
+        return $this->credit('post', '/customer/authorization/initialize', $body)['data'] ?? [];
+    }
+
+    public function verifyAuthorization(string $reference): array
+    {
+        return $this->credit('get', '/customer/authorization/verify/' . rawurlencode($reference))['data'] ?? [];
+    }
+
+    public function deactivateAuthorization(string $authorizationCode): bool
+    {
+        $this->credit('post', '/customer/authorization/deactivate', ['authorization_code' => $authorizationCode]);
+        return true;
+    }
+
+    /**
+     * Debit a saved authorization (direct-debit mandate or reusable card).
+     * Direct debits usually come back "processing"; the webhook settles them.
+     */
+    public function chargeAuthorization(string $authorizationCode, string $email, float $amount, string $reference, array $metadata = []): array
+    {
+        return $this->credit('post', '/transaction/charge_authorization', [
+            'authorization_code' => $authorizationCode,
+            'email'              => $email,
+            'amount'             => (int) round($amount * 100),
+            'currency'           => 'NGN',
+            'reference'          => $reference,
+            'metadata'           => $metadata,
+        ])['data'] ?? [];
+    }
+
+    /** Hosted checkout with an explicit callback + channels (used for card linking and "Pay now"). */
+    public function initializeCheckout(string $email, float $amount, string $reference, string $callbackUrl, array $metadata = [], ?array $channels = null): array
+    {
+        $body = [
+            'email'        => $email,
+            'amount'       => (int) round($amount * 100),
+            'currency'     => 'NGN',
+            'reference'    => $reference,
+            'callback_url' => $callbackUrl,
+            'metadata'     => $metadata,
+        ];
+        if ($channels) {
+            $body['channels'] = $channels;
+        }
+        return $this->credit('post', '/transaction/initialize', $body)['data'] ?? [];
+    }
+
+    public function verifyTransactionData(string $reference): array
+    {
+        return $this->credit('get', '/transaction/verify/' . rawurlencode($reference))['data'] ?? [];
+    }
+
+    /** True when using a Paystack test secret key (sk_test_…). */
+    public function isTestMode(): bool
+    {
+        return str_starts_with((string) $this->secretKey, 'sk_test_');
     }
 
     public function fetchRefund(string $refundId): array

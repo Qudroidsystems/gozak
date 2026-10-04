@@ -42,7 +42,7 @@ class RefundService
             'paid'            => ($order->payment_status ?? '') === 'paid' || ($order->payment_status ?? '') === 'refunded' || (bool) $tx,
             'transaction'     => $tx,
             'gateway'         => $gateway,
-            'can_auto_refund' => $tx && $gateway === 'paystack',
+            'can_auto_refund' => $tx && in_array($gateway, ['paystack', 'gozak_credit'], true),
             'refunded'        => (float) $order->totalRefunded(),
             'pending'         => (float) $order->pendingRefunds(),
             'refundable'      => (float) $order->refundableAmount(),
@@ -70,6 +70,23 @@ class RefundService
 
             if ($method === 'gateway') {
                 $tx = $order->latestSuccessfulTransaction();
+                if ($tx && $tx->payment_method === 'gozak_credit') {
+                    // Paid with Gozak Credit → give the money back to the credit balance (instant).
+                    $refund = Refund::create([
+                        'order_id'              => $order->id,
+                        'user_id'               => $adminId,
+                        'amount'                => $amount,
+                        'reason'                => $reason,
+                        'method'                => 'gateway',
+                        'gateway'               => 'gozak_credit',
+                        'transaction_reference' => $tx->reference,
+                        'status'                => 'processed',
+                        'processed_at'          => now(),
+                    ]);
+                    app(\App\Services\Credit\CreditService::class)->refundOrder($order, $amount, $adminId, 'Refund: ' . $reason);
+                    $this->syncOrderPaymentStatus($order);
+                    return $refund->fresh();
+                }
                 if (!$tx || $tx->payment_method !== 'paystack') {
                     throw new \InvalidArgumentException('Automatic refunds are only available for orders paid with Paystack. Refund the customer yourself, then record it as a manual refund.');
                 }

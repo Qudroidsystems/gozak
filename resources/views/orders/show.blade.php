@@ -94,6 +94,15 @@
                             @endif
                         </div>
                         <div class="card-body">
+                            @if(($rs['gateway'] ?? null) === 'gozak_credit')
+                                @php $gzcPurchase = \App\Models\Credit\CreditLedgerEntry::where('order_id', $order->id)->where('type', 'purchase')->first(); @endphp
+                                <div class="alert alert-info small d-flex justify-content-between align-items-center">
+                                    <span><i class="ri-bank-card-2-line"></i> Paid with <b>Gozak Credit</b>
+                                        @if($order->credit_fee) · credit fee ₦{{ number_format($order->credit_fee, 2) }}@endif.
+                                        Refunds go back to the customer's credit balance instantly.</span>
+                                    @if($gzcPurchase)<a href="{{ route('admin.credit.account', $gzcPurchase->credit_account_id) }}" class="btn btn-sm btn-light">Credit account</a>@endif
+                                </div>
+                            @endif
                             {{-- Summary --}}
                             <div class="row g-2 text-center mb-3">
                                 <div class="col-4">

@@ -18,6 +18,7 @@ class Order extends Model
         'user_id',
         'status',
         'total_amount',
+        'credit_fee',
         'shipping_cost',
         'tax_cost',
         'order_date',

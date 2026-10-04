@@ -161,7 +161,11 @@ class APIBankAccountController extends Controller
         if (str_contains($m, 'could not resolve') || str_contains($m, 'invalid account') || str_contains($m, 'unknown bank')) {
             return 'We could not find that account. Check the number and the bank.';
         }
-        if (str_contains($m, 'limit')) {
+        if (str_contains($m, 'limit') || str_contains($m, 'too many') || str_contains($m, 'exceeded')) {
+            if (rescue(fn () => app(PaystackService::class)->isTestMode(), false, false)) {
+                // Paystack test keys only allow a handful of account look-ups per day.
+                return 'Account checks are limited while payments are in test mode. Switch to live Paystack keys, or try again tomorrow.';
+            }
             return 'Too many checks right now. Please try again in a few minutes.';
         }
         return $message ?: 'We could not verify that account number.';

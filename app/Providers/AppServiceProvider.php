@@ -58,6 +58,17 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Gozak Credit: a cancelled order paid with credit gives the money back.
+        \App\Models\Order::updated(function (\App\Models\Order $order) {
+            if ($order->wasChanged('status') && $order->status === 'cancelled' && $order->payment_method === \App\Services\Credit\CreditService::GATEWAY) {
+                try {
+                    app(\App\Services\Credit\CreditService::class)->reverseOrder($order, auth()->id());
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('Credit reversal failed for order ' . $order->id . ': ' . $e->getMessage());
+                }
+            }
+        });
+
         View::composer('*', function ($view) {
             if (Auth::check()) {
                 $view->with('currentUser', Auth::user());

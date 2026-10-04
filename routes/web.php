@@ -23,6 +23,7 @@ use App\Http\Controllers\SearchController;
 use App\Http\Controllers\StockLocationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\CreditAdminController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -266,6 +267,36 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/adminaddresses/data', [AddressController::class, 'data'])->name('adminaddresses.data');
     Route::get('/adminaddresses/customers', [AddressController::class, 'customers'])->name('adminaddresses.customers');
     Route::resource('adminaddresses', AddressController::class);
+
+    // Gozak Credit — permissions: View credit | Review credit applications | Manage credit | Manage credit settings
+    Route::prefix('admin/credit')->name('admin.credit.')->group(function () {
+        Route::get('/',                                     [CreditAdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/applications',                         [CreditAdminController::class, 'applications'])->name('applications');
+        Route::get('/applications/{application}',           [CreditAdminController::class, 'application'])->name('application');
+        Route::post('/applications/{application}/approve',  [CreditAdminController::class, 'approve'])->name('approve');
+        Route::post('/applications/{application}/reject',   [CreditAdminController::class, 'reject'])->name('reject');
+        Route::get('/accounts',                             [CreditAdminController::class, 'accounts'])->name('accounts');
+        Route::get('/accounts/export',                      [CreditAdminController::class, 'export'])->name('accounts.export');
+        Route::get('/accounts/{account}',                   [CreditAdminController::class, 'account'])->name('account');
+        Route::post('/accounts/{account}/limit',            [CreditAdminController::class, 'setLimit'])->name('limit');
+        Route::post('/accounts/{account}/status',           [CreditAdminController::class, 'setStatus'])->name('status');
+        Route::post('/accounts/{account}/markup',           [CreditAdminController::class, 'setMarkup'])->name('markup');
+        Route::post('/accounts/{account}/adjust',           [CreditAdminController::class, 'adjust'])->name('adjust');
+        Route::post('/accounts/{account}/payment',          [CreditAdminController::class, 'recordPayment'])->name('payment');
+        Route::post('/accounts/{account}/debit',            [CreditAdminController::class, 'debit'])->name('debit');
+        Route::post('/accounts/{account}/recalculate',      [CreditAdminController::class, 'recalculate'])->name('recalculate');
+        Route::post('/mandates/{mandate}/revoke',           [CreditAdminController::class, 'revokeMandate'])->name('mandate.revoke');
+        Route::post('/mandates/{mandate}/primary',          [CreditAdminController::class, 'primaryMandate'])->name('mandate.primary');
+        Route::post('/mandates/{mandate}/refresh',          [CreditAdminController::class, 'refreshMandate'])->name('mandate.refresh');
+        Route::get('/statements',                           [CreditAdminController::class, 'statements'])->name('statements');
+        Route::get('/statements/{statement}',               [CreditAdminController::class, 'statement'])->name('statement');
+        Route::post('/statements/{statement}/waive-fee',    [CreditAdminController::class, 'waiveFee'])->name('waive');
+        Route::get('/collections',                          [CreditAdminController::class, 'collections'])->name('collections');
+        Route::get('/activity',                             [CreditAdminController::class, 'audit'])->name('audit');
+        Route::get('/settings',                             [CreditAdminController::class, 'settings'])->name('settings');
+        Route::put('/settings',                             [CreditAdminController::class, 'saveSettings'])->name('settings.save');
+        Route::post('/run',                                 [CreditAdminController::class, 'runBilling'])->name('run');
+    });
 
     // Live chat inbox — permission: Chat with customers | Manage chat
     Route::prefix('admin/chat')->name('admin.chat.')->group(function () {
