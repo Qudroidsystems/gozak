@@ -304,22 +304,89 @@
                 <!-- Right Column -->
                 <div class="col-xl-8">
                     <!-- Status Update -->
+                    @php
+                        $statusBadge = ['pending' => 'warning', 'processing' => 'info', 'shipped' => 'primary', 'delivered' => 'success', 'cancelled' => 'danger'][$order->status] ?? 'secondary';
+                        $trackSteps = ['pending' => 'Placed', 'processing' => 'Processing', 'shipped' => 'Shipped', 'delivered' => 'Delivered'];
+                        $trackIdx = array_search($order->status, array_keys($trackSteps), true);
+                        $deliveryCfg = \App\Models\OrderSetting::current();
+                    @endphp
                     <div class="card mb-3">
-                        <div class="card-body d-flex justify-content-between align-items-center">
-                            <div>
-                                <h5>Current Status:
-                                    <span class="badge bg-primary-subtle text-primary fs-6">
-                                        {{ ucfirst($order->status) }}
-                                    </span>
+                        <div class="card-body">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <h5 class="mb-0">Current Status:
+                                    <span id="orderStatusBadge" class="badge bg-{{ $statusBadge }}-subtle text-{{ $statusBadge }} fs-6">{{ ucfirst($order->status) }}</span>
                                 </h5>
+                                @can('Manage order')
+                                <div class="d-flex align-items-center gap-2">
+                                    <select class="form-select w-auto" id="orderStatusSelect" data-current="{{ $order->status }}">
+                                        @foreach(['pending','processing','shipped','delivered','cancelled'] as $s)
+                                            <option value="{{ $s }}" {{ $order->status == $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
+                                        @endforeach
+                                    </select>
+                                    <span id="orderStatusSpinner" class="spinner-border spinner-border-sm text-primary d-none"></span>
+                                </div>
+                                @endcan
                             </div>
-                            <select class="form-select w-auto status-select" data-id="{{ $order->id }}">
-                                @foreach(['pending','processing','shipped','delivered','cancelled'] as $s)
-                                    <option value="{{ $s }}" {{ $order->status == $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
+                            <div class="form-text mt-1">Changing the status notifies the customer instantly (push + in-app notification).</div>
+
+                            @if($order->status !== 'cancelled')
+                            <div class="d-flex justify-content-between position-relative mt-4 mb-1 px-2">
+                                <div class="position-absolute top-50 start-0 end-0 translate-middle-y mx-4" style="height:3px;background:#e9ecef;z-index:0;"></div>
+                                @foreach($trackSteps as $key => $label)
+                                    @php $done = $trackIdx !== false && $loop->index <= $trackIdx; @endphp
+                                    <div class="text-center" style="z-index:1;min-width:70px;">
+                                        <div class="rounded-circle d-inline-flex align-items-center justify-content-center {{ $done ? 'bg-success text-white' : 'bg-light text-muted border' }}" style="width:30px;height:30px;">
+                                            <i class="{{ $done ? 'ri-check-line' : 'ri-time-line' }}"></i>
+                                        </div>
+                                        <div class="small fw-semibold mt-1">{{ $label }}</div>
+                                        <div class="small text-muted">
+                                            @if($key === 'pending'){{ optional($order->order_date ?? $order->created_at)->format('j M, H:i') }}
+                                            @elseif($key === 'shipped'){{ optional($order->shipped_at)->format('j M, H:i') }}
+                                            @elseif($key === 'delivered'){{ optional($order->delivered_at)->format('j M, H:i') }}
+                                            @else{{ optional($order->statusHistory->firstWhere('status', $key)?->created_at)->format('j M, H:i') }}@endif
+                                        </div>
+                                    </div>
                                 @endforeach
-                            </select>
+                            </div>
+                            @endif
+
+                            @if(in_array($order->status, ['shipped', 'delivered']))
+                                <div class="alert {{ $order->received_confirmed_at ? 'alert-success' : 'alert-warning' }} small mt-3 mb-0">
+                                    @if($order->received_confirmed_at)
+                                        <i class="ri-checkbox-circle-line"></i>
+                                        Receipt confirmed {{ $order->received_confirmed_at->format('j M Y, H:i') }}
+                                        — {{ ['customer' => 'by the customer in the app', 'auto' => 'automatically (no response from customer)', 'admin' => 'when an admin marked it delivered'][$order->delivery_confirmed_by] ?? '' }}.
+                                    @elseif($order->status === 'shipped')
+                                        <i class="ri-truck-line"></i> Waiting for the customer to confirm receipt in the app.
+                                        @if($deliveryCfg->auto_confirm_enabled && $order->shipped_at)
+                                            Auto-confirms on <b>{{ $order->shipped_at->copy()->addDays($deliveryCfg->auto_confirm_days)->format('D j M, H:i') }}</b>.
+                                        @endif
+                                    @else
+                                        <i class="ri-information-line"></i> Marked delivered by an admin; the customer hasn't confirmed receipt yet.
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     </div>
+
+                    @if($order->statusHistory->isNotEmpty())
+                    <div class="card mb-3">
+                        <div class="card-header"><h5 class="mb-0"><i class="ri-history-line"></i> Status history</h5></div>
+                        <div class="card-body">
+                            @foreach($order->statusHistory->sortByDesc('id') as $h)
+                                <div class="d-flex gap-3 mb-3">
+                                    <span class="badge bg-light text-dark align-self-start">{{ $h->created_at->format('j M H:i') }}</span>
+                                    <div>
+                                        <div class="fw-semibold">
+                                            @if($h->from_status && $h->from_status !== $h->status){{ ucfirst($h->from_status) }} → @endif{{ ucfirst($h->status) }}
+                                        </div>
+                                        <div class="small text-muted">by {{ $h->actorLabel() }}@if($h->note) · {{ $h->note }}@endif</div>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
 
                     <!-- Order Items -->
                     <div class="card">
@@ -447,6 +514,32 @@
 </div>
 
 <script>
+(function () {
+    var sel = document.getElementById('orderStatusSelect');
+    if (!sel) return;
+    sel.addEventListener('change', function () {
+        var oldStatus = sel.dataset.current, newStatus = sel.value;
+        var msg = newStatus === 'cancelled'
+            ? 'Cancel this order? The customer will be notified.'
+            : 'Change status to "' + newStatus + '"? The customer will be notified.';
+        var go = function () {
+            document.getElementById('orderStatusSpinner').classList.remove('d-none');
+            axios.post('{{ route("adminorders.status", $order->id) }}', { status: newStatus })
+                .then(function () { window.location.reload(); })
+                .catch(function (e) {
+                    sel.value = oldStatus;
+                    document.getElementById('orderStatusSpinner').classList.add('d-none');
+                    var m = (e.response && e.response.data && e.response.data.message) || 'Could not update the status.';
+                    if (window.Swal) Swal.fire('Error', m, 'error'); else alert(m);
+                });
+        };
+        if (window.Swal) {
+            Swal.fire({ title: 'Update status', text: msg, icon: 'question', showCancelButton: true, confirmButtonText: 'Yes, update' })
+                .then(function (r) { if (r.isConfirmed) go(); else sel.value = oldStatus; });
+        } else if (confirm(msg)) { go(); } else { sel.value = oldStatus; }
+    });
+})();
+
 function emailInvoice(id) {
     axios.post('{{ route("adminorders.emailInvoice", ":id") }}'.replace(':id', id))
         .then(() => Swal.fire('Success', 'Invoice sent to customer', 'success'))

@@ -198,6 +198,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/orders/{id}',                   [APIOrderController::class, 'destroy'])->name('orders.destroy');
     Route::patch('/orders/{id}/status',             [APIOrderController::class, 'updateStatus'])->name('orders.update-status');
     Route::put('/orders/{id}/status',               [APIOrderController::class, 'updateStatus']); // the app uses PUT
+    Route::get('/orders/{id}/tracking',             [\App\Http\Controllers\APIOrderTrackingController::class, 'show'])->name('orders.tracking');
+    Route::post('/orders/{id}/confirm-delivery',    [\App\Http\Controllers\APIOrderTrackingController::class, 'confirm'])->name('orders.confirm-delivery');
+
+    // In-app notification centre
+    Route::get('/notifications',                    [\App\Http\Controllers\APIUserNotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/notifications/unread-count',       [\App\Http\Controllers\APIUserNotificationController::class, 'unread'])->name('notifications.unread');
+    Route::post('/notifications/read-all',          [\App\Http\Controllers\APIUserNotificationController::class, 'readAll'])->name('notifications.read-all');
+    Route::post('/notifications/{id}/read',         [\App\Http\Controllers\APIUserNotificationController::class, 'read'])->name('notifications.read');
+
     Route::get('/orders/{id}/barcode',              [APIOrderController::class, 'getBarcode'])->name('orders.barcode');
     Route::post('/orders/scan-barcode',             [APIOrderController::class, 'scanBarcode'])->name('orders.scan-barcode');
 
@@ -229,8 +238,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/preferences',                  [FcmTestController::class, 'getPreferences'])->name('fcm.preferences');
         Route::put('/preferences',                  [FcmTestController::class, 'updatePreferences'])->name('fcm.update-preferences');
         Route::post('/test',                        [FcmTestController::class, 'sendTestNotification'])->name('fcm.test');
-        Route::get('/notifications',                [FcmTestController::class, 'getNotifications'])->name('fcm.notifications');
-        Route::post('/notifications/{notification}/read', [FcmTestController::class, 'markAsRead'])->name('fcm.mark-read');
-        Route::post('/notifications/read-all',      [FcmTestController::class, 'markAllAsRead'])->name('fcm.mark-all-read');
+        Route::get('/notifications',                [\App\Http\Controllers\APIUserNotificationController::class, 'index'])->name('fcm.notifications');
+        Route::post('/notifications/{notification}/read', [\App\Http\Controllers\APIUserNotificationController::class, 'read'])->name('fcm.mark-read');
+        Route::post('/notifications/read-all',      [\App\Http\Controllers\APIUserNotificationController::class, 'readAll'])->name('fcm.mark-all-read');
     });
 });

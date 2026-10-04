@@ -47,6 +47,11 @@ return [
     'service_account_path' => env('FIREBASE_CREDENTIALS', storage_path('app/firebase/service-account.json')),
 ],
 // ✅ ADD THIS SECTION FOR GOOGLE OAUTH
+    // Sign in with Apple: iOS bundle id (and Services ID if you add web/Android later), comma separated.
+    'apple' => [
+        'client_id' => env('APPLE_CLIENT_ID', 'ng.gozakmart.shop'),
+    ],
+
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),

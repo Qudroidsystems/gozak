@@ -58,6 +58,33 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Order tracking: timestamps, status timeline and in-app notifications
+        // for every status change, wherever it comes from (admin, app, scheduler).
+        \App\Models\Order::updating(function (\App\Models\Order $order) {
+            try {
+                app(\App\Services\OrderTrackingService::class)->stampTimestamps($order);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Order timestamps: ' . $e->getMessage());
+            }
+        });
+        \App\Models\Order::created(function (\App\Models\Order $order) {
+            try {
+                app(\App\Services\OrderTrackingService::class)->orderCreated($order);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Order created hook: ' . $e->getMessage());
+            }
+        });
+        \App\Models\Order::updated(function (\App\Models\Order $order) {
+            if (!$order->wasChanged('status')) {
+                return;
+            }
+            try {
+                app(\App\Services\OrderTrackingService::class)->statusChanged($order, $order->getOriginal('status'), (string) $order->status);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Order status hook: ' . $e->getMessage());
+            }
+        });
+
         // Gozak Credit: a cancelled order paid with credit gives the money back.
         \App\Models\Order::updated(function (\App\Models\Order $order) {
             if ($order->wasChanged('status') && $order->status === 'cancelled' && $order->payment_method === \App\Services\Credit\CreditService::GATEWAY) {

@@ -31,6 +31,10 @@ class Order extends Model
         'barcode_data',
         'paid_at',
         'payment_status',
+        'shipped_at',
+        'delivered_at',
+        'received_confirmed_at',
+        'delivery_confirmed_by',
     ];
 
     protected $casts = [
@@ -41,6 +45,9 @@ class Order extends Model
         'order_date' => 'datetime',
         'delivery_date' => 'datetime',
         'paid_at' => 'datetime',
+        'shipped_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'received_confirmed_at' => 'datetime',
         'billing_address_same_as_shipping' => 'boolean',
         'barcode_data' => 'array',
         'created_at' => 'datetime',
@@ -74,6 +81,12 @@ class Order extends Model
     public function billingAddress()
     {
         return $this->belongsTo(Address::class, 'billing_address_id');
+    }
+
+    /** Status timeline (who changed what, when). */
+    public function statusHistory()
+    {
+        return $this->hasMany(OrderStatusHistory::class)->orderBy('created_at')->orderBy('id');
     }
 
     public function transactions()

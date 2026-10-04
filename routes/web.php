@@ -250,6 +250,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [OrderController::class, 'index'])->name('index');
         Route::get('/data', [OrderController::class, 'data'])->name('data');
         Route::get('/export', [OrderController::class, 'export'])->name('export');
+        Route::put('/delivery-settings', [OrderController::class, 'saveDeliverySettings'])->name('delivery-settings');
 
         Route::prefix('{order}')->group(function () {
             Route::get('/', [OrderController::class, 'show'])->name('show');

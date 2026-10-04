@@ -25,3 +25,10 @@ Artisan::command('credit:run', function () {
 })->purpose('Run the Gozak Credit billing cycle');
 
 \Illuminate\Support\Facades\Schedule::command('credit:run')->hourlyAt(5)->withoutOverlapping(30);
+
+// Orders: auto-confirm delivery N days after shipping (Orders → Delivery settings).
+Artisan::command('orders:auto-confirm', function () {
+    $n = app(\App\Services\OrderTrackingService::class)->autoConfirm();
+    $this->info("Auto-confirmed {$n} order(s).");
+})->purpose('Mark shipped orders as delivered after the auto-confirm wait');
+\Illuminate\Support\Facades\Schedule::command('orders:auto-confirm')->hourlyAt(20)->withoutOverlapping(30);

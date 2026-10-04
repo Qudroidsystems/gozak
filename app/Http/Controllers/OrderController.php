@@ -30,7 +30,7 @@ class OrderController extends Controller
         $this->orderNotificationService = $orderNotificationService;
 
         $this->middleware('permission:View order|Manage order', ['only' => ['index', 'show', 'data']]);
-        $this->middleware('permission:Manage order', ['only' => ['updateStatus']]);
+        $this->middleware('permission:Manage order', ['only' => ['updateStatus', 'saveDeliverySettings']]);
         $this->middleware('permission:Refund order', ['only' => ['refund', 'refundStatus']]);
     }
 
@@ -183,6 +183,7 @@ public function show($id)
         'transactions',
         'refunds', // Add this if you want to show refunds
         'notes',   // Add this if you want to show notes
+        'statusHistory.actor',
     ])->withCount('items') // Add this line to get the items count
     ->findOrFail($id);
 
@@ -227,6 +228,21 @@ public function show($id)
             'message'     => 'Status updated',
             'badge_class' => $this->getStatusBadgeClass($newStatus),
         ]);
+    }
+
+    /** Orders → Delivery settings (auto-confirm after N days). */
+    public function saveDeliverySettings(Request $request)
+    {
+        $data = $request->validate([
+            'auto_confirm_days' => 'required|integer|min:1|max:60',
+        ]);
+        $s = \App\Models\OrderSetting::query()->first() ?? new \App\Models\OrderSetting();
+        $s->fill([
+            'auto_confirm_enabled' => $request->boolean('auto_confirm_enabled'),
+            'auto_confirm_days'    => (int) $data['auto_confirm_days'],
+        ])->save();
+
+        return back()->with('success', 'Delivery settings saved.');
     }
 
     public function invoice($id)

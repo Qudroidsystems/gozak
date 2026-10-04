@@ -17,10 +17,39 @@
             <span class="cb-meta-pill"><i class="ri-time-line"></i> {{ number_format($stats['unpaid']) }} not paid</span>
         </x-slot:pills>
         <x-slot:actions>
+            @can('Manage order')
+            <button type="button" class="cb-hero-btn" data-bs-toggle="modal" data-bs-target="#deliverySettingsModal"><i class="ri-truck-line"></i> Delivery settings</button>
+            @endcan
             <button type="button" class="cb-hero-btn" onclick="exportOrders('xlsx')"><i class="ri-file-excel-2-line"></i> Export Excel</button>
             <button type="button" class="cb-hero-btn" onclick="exportOrders('csv')"><i class="ri-file-text-line"></i> Export CSV</button>
         </x-slot:actions>
     </x-cb.hero>
+
+    @can('Manage order')
+    @php $deliveryCfg = \App\Models\OrderSetting::current(); @endphp
+    <div class="modal fade" id="deliverySettingsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <form method="POST" action="{{ route('adminorders.delivery-settings') }}" class="modal-content">
+                @csrf @method('PUT')
+                <div class="modal-header"><h5 class="modal-title"><i class="ri-truck-line"></i> Delivery confirmation</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <p class="small text-muted">When an order is <b>Shipped</b>, the customer sees an <b>“I've received my order”</b> button in the app. If they don't tap it, the order can be confirmed as delivered automatically.</p>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="auto_confirm_enabled" name="auto_confirm_enabled" value="1" @checked($deliveryCfg->auto_confirm_enabled)>
+                        <label class="form-check-label" for="auto_confirm_enabled">Auto-confirm delivery</label>
+                    </div>
+                    <label class="form-label">Days after shipping</label>
+                    <div class="input-group" style="max-width:220px;">
+                        <input type="number" min="1" max="60" class="form-control" name="auto_confirm_days" value="{{ $deliveryCfg->auto_confirm_days }}">
+                        <span class="input-group-text">days</span>
+                    </div>
+                    <div class="form-text">Runs hourly via the scheduler (<code>orders:auto-confirm</code>).</div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save</button></div>
+            </form>
+        </div>
+    </div>
+    @endcan
 
     <div class="row g-3 mb-4">
         <div class="col-xl-3 col-md-6"><x-cb.stat label="Total revenue (paid)" :value="$cur . number_format($analytics['total_revenue'], 2)" icon="ri-money-dollar-circle-line" accent="green" /></div>

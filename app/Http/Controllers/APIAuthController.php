@@ -177,8 +177,12 @@ class APIAuthController extends Controller
     public function socialLogin(Request $request)
     {
         try {
+            if ($request->input('provider') === 'apple') {
+                return $this->appleLogin($request);
+            }
+
             $validated = $request->validate([
-                'provider'     => 'required|string|in:google',
+                'provider'     => 'required|string|in:google,apple',
                 'access_token' => 'required|string',
             ]);
 
@@ -240,6 +244,89 @@ class APIAuthController extends Controller
                 'message' => 'Google login failed',
                 'error'   => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Sign in with Apple (iOS). The app sends Apple's identity token; we verify
+     * it with Apple's public keys, then find or create the customer.
+     * Apple only shares the name (and sometimes email) on the very first sign-in,
+     * so the app forwards them and we keep them.
+     */
+    protected function appleLogin(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'identity_token' => 'required|string',
+                'nonce'          => 'nullable|string|max:255',
+                'first_name'     => 'nullable|string|max:100',
+                'last_name'      => 'nullable|string|max:100',
+                'email'          => 'nullable|email|max:191',
+            ]);
+
+            $apple = app(\App\Services\Auth\AppleIdentityVerifier::class)->verify($data['identity_token'], $data['nonce'] ?? null);
+            $email = $apple['email'] ?: (isset($data['email']) ? strtolower($data['email']) : null);
+
+            $user = User::where('apple_id', $apple['sub'])->first();
+            if (!$user && $email) {
+                $user = User::where('email', $email)->first();
+            }
+
+            if (!$user) {
+                if (!$email) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Apple didn\'t share an email address. Go to Settings → Apple ID → Sign-In & Security → Sign in with Apple, remove Gozak Mart, then try again.',
+                    ], 422);
+                }
+                $first = trim((string) ($data['first_name'] ?? '')) ?: 'Gozak';
+                $last  = trim((string) ($data['last_name'] ?? '')) ?: 'Customer';
+                $user = User::create([
+                    'first_name'                        => $first,
+                    'last_name'                         => $last,
+                    'username'                          => $email,
+                    'email'                             => $email,
+                    'social_provider'                   => 'apple',
+                    'email_verified_at'                 => now(),
+                    'push_notifications_enabled'        => true,
+                    'order_updates_enabled'             => true,
+                    'promotional_notifications_enabled' => true,
+                    'security_alerts_enabled'           => true,
+                    'email_notifications_enabled'       => true,
+                ]);
+                Log::info('New user created via Apple sign-in: ' . $user->id);
+            } else {
+                $updates = ['social_provider' => 'apple', 'email_verified_at' => $user->email_verified_at ?? now()];
+                if (!empty($data['first_name']) && in_array($user->first_name, ['', 'Gozak'], true)) {
+                    $updates['first_name'] = $data['first_name'];
+                }
+                if (!empty($data['last_name']) && in_array($user->last_name, ['', 'Customer'], true)) {
+                    $updates['last_name'] = $data['last_name'];
+                }
+                $user->update($updates);
+            }
+
+            if (empty($user->apple_id)) {
+                $user->forceFill(['apple_id' => $apple['sub']])->save();
+            }
+
+            $user->ensureAppUserRole();
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'success' => true,
+                'token'   => $token,
+                'user'    => $this->formatUser($user),
+                'message' => 'Apple sign-in successful',
+            ], 200);
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $e->errors()], 422);
+        } catch (\RuntimeException $e) {
+            Log::warning('Apple sign-in rejected: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'We couldn\'t verify your Apple sign-in. Please try again.'], 401);
+        } catch (\Throwable $e) {
+            Log::error('Apple sign-in error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Apple sign-in failed. Please try again.'], 500);
         }
     }
 
