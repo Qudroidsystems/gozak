@@ -32,7 +32,7 @@ class CreditAdminController extends Controller
     public function __construct(protected CreditService $credit, protected CreditGateway $gateway)
     {
         $this->middleware('permission:View credit|Manage credit|Review credit applications|Manage credit settings');
-        $this->middleware('permission:Review credit applications', ['only' => ['approve', 'reject']]);
+        $this->middleware('permission:Review credit applications', ['only' => ['approve', 'reject', 'recheckBvn']]);
         $this->middleware('permission:Manage credit', ['only' => [
             'setLimit', 'setStatus', 'setMarkup', 'adjust', 'recordPayment', 'debit', 'waiveFee', 'recalculate', 'revokeMandate', 'primaryMandate', 'refreshMandate', 'runBilling',
         ]]);
@@ -153,6 +153,16 @@ class CreditAdminController extends Controller
             'account'      => CreditAccount::where('user_id', $user->id)->first(),
             'settings'     => CreditSetting::current(),
         ]);
+    }
+
+    public function recheckBvn(CreditApplication $application)
+    {
+        $app = app(\App\Services\Credit\CreditBvnVerifier::class)->start($application);
+        return $this->back(match ($app->bvn_status) {
+            'pending' => 'BVN check sent to Paystack. The result usually arrives within a few minutes.',
+            'failed'  => 'BVN check failed: ' . $app->bvn_failure_reason,
+            default   => $app->bvn_failure_reason ?: 'BVN check could not start.',
+        }, $app->bvn_status === 'failed' ? 'error' : 'success');
     }
 
     public function approve(Request $request, CreditApplication $application)

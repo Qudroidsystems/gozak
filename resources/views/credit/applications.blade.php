@@ -27,7 +27,7 @@
         </div>
         <div class="table-responsive">
             <table class="table gzc-table table-hover mb-0">
-                <thead><tr><th>Applicant</th><th>Applied</th><th>Income</th><th>Employment</th><th class="text-end">Requested</th><th class="text-end">Suggested</th><th>Score</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>Applicant</th><th>Applied</th><th>Income</th><th>Employment</th><th class="text-end">Requested</th><th class="text-end">Suggested</th><th>Score</th><th>BVN</th><th>Status</th><th></th></tr></thead>
                 <tbody>
                 @forelse($rows as $app)
                     <tr>
@@ -38,6 +38,8 @@
                         <td class="text-end gzc-money">₦{{ number_format($app->requested_limit) }}</td>
                         <td class="text-end gzc-money">₦{{ number_format($app->suggested_limit) }}</td>
                         <td><span class="badge bg-{{ $app->risk_score >= 60 ? 'success' : ($app->risk_score >= 40 ? 'warning' : 'danger') }}">{{ $app->risk_score }}/100</span></td>
+                        @php [$bl, $bc] = $app->bvnBadge(); @endphp
+                        <td><span class="badge bg-{{ $bc }}-subtle text-{{ $bc }}">{{ $bl }}</span></td>
                         <td>
                             <span class="badge bg-{{ ['pending' => 'info', 'approved' => 'success', 'rejected' => 'danger'][$app->status] ?? 'secondary' }}">{{ ucfirst($app->status) }}</span>
                             @if($app->reviewer)<div class="small text-muted">by {{ $app->reviewer->full_name }}</div>@endif
@@ -45,7 +47,7 @@
                         <td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('admin.credit.application', $app) }}">{{ $app->status === 'pending' ? 'Review' : 'View' }}</a></td>
                     </tr>
                 @empty
-                    <tr><td colspan="9" class="text-center text-muted py-5">No applications here.</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-5">No applications here.</td></tr>
                 @endforelse
                 </tbody>
             </table>

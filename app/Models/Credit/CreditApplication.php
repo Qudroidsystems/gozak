@@ -11,10 +11,12 @@ class CreditApplication extends Model
 
     protected $guarded = ['id'];
 
-    protected $hidden = ['bvn'];
+    protected $hidden = ['bvn', 'account_number'];
 
     protected $casts = [
         'bvn'             => 'encrypted',
+        'account_number'  => 'encrypted',
+        'bvn_checked_at'  => 'datetime',
         'risk_factors'    => 'array',
         'date_of_birth'   => 'date',
         'reviewed_at'     => 'datetime',
@@ -53,6 +55,16 @@ class CreditApplication extends Model
     public function account()
     {
         return $this->hasOne(CreditAccount::class, 'application_id');
+    }
+
+    public function bvnBadge(): array
+    {
+        return match ($this->bvn_status) {
+            'verified' => ['BVN verified', 'success'],
+            'pending'  => ['BVN check in progress', 'info'],
+            'failed'   => ['BVN not matched', 'danger'],
+            default    => ['BVN not checked', 'secondary'],
+        };
     }
 
     public function incomeLabel(): string

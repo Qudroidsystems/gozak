@@ -540,6 +540,41 @@ class PaystackService
         return $this->credit('get', '/transaction/verify/' . rawurlencode($reference))['data'] ?? [];
     }
 
+    // ── Customers & identity (BVN) ──────────────────────────────────────────────
+
+    /** Create the Paystack customer (or return the existing one for this email). */
+    public function createCustomer(string $email, ?string $firstName = null, ?string $lastName = null, ?string $phone = null): array
+    {
+        return $this->credit('post', '/customer', array_filter([
+            'email'      => $email,
+            'first_name' => $firstName,
+            'last_name'  => $lastName,
+            'phone'      => $phone,
+        ]))['data'] ?? [];
+    }
+
+    public function fetchCustomer(string $emailOrCode): array
+    {
+        return $this->credit('get', '/customer/' . rawurlencode($emailOrCode))['data'] ?? [];
+    }
+
+    /**
+     * Ask Paystack to match BVN + bank account + names (asynchronous).
+     * Result: webhook customeridentification.success / customeridentification.failed.
+     */
+    public function validateCustomer(string $customerCode, string $bvn, string $accountNumber, string $bankCode, string $firstName, string $lastName): array
+    {
+        return $this->credit('post', '/customer/' . rawurlencode($customerCode) . '/identification', [
+            'country'        => 'NG',
+            'type'           => 'bank_account',
+            'account_number' => $accountNumber,
+            'bvn'            => $bvn,
+            'bank_code'      => $bankCode,
+            'first_name'     => $firstName,
+            'last_name'      => $lastName,
+        ]);
+    }
+
     /** True when using a Paystack test secret key (sk_test_…). */
     public function isTestMode(): bool
     {

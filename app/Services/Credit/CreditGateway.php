@@ -49,6 +49,11 @@ class CreditGateway
         $user = $a->user;
         $address = [];
         $app = $a->application;
+        // Default to the bank account the customer applied (and verified their BVN) with.
+        if (!$accountNumber && $app && $app->account_number && $app->bank_code) {
+            $accountNumber = $app->account_number;
+            $bankCode = $app->bank_code;
+        }
         if ($app && $app->address) {
             $address = array_filter(['street' => $app->address, 'state' => $app->state, 'city' => $app->state]);
         }
@@ -413,6 +418,10 @@ class CreditGateway
     {
         $type = (string) ($event['event'] ?? '');
         $data = $event['data'] ?? [];
+
+        if (app(CreditBvnVerifier::class)->handleWebhook($type, $data)) {
+            return true;
+        }
 
         if (str_starts_with($type, 'direct_debit.')) {
             $m = null;

@@ -154,6 +154,11 @@ class CreditService
             'date_of_birth'     => $data['date_of_birth'] ?? null,
             'bvn'               => $bvn ?: null,
             'bvn_last4'         => $bvn ? substr($bvn, -4) : null,
+            'bank_code'         => $data['bank_code'] ?? null,
+            'bank_name'         => $data['bank_name'] ?? null,
+            'account_number'    => $data['account_number'] ?? null,
+            'account_last4'     => isset($data['account_number']) ? substr($data['account_number'], -4) : null,
+            'bvn_status'        => 'unverified',
             'employment_status' => $data['employment_status'],
             'employer'          => $data['employer'] ?? null,
             'monthly_income'    => $data['monthly_income'],
@@ -169,7 +174,14 @@ class CreditService
         ]);
 
         $this->audit(null, $user->id, $user->id, 'application.submitted', 'Applied for ₦' . number_format($app->requested_limit) . ' (score ' . $score . ')', ['application_id' => $app->id]);
-        return $app;
+
+        // Verify the BVN with Paystack (BVN + bank account + names). Never blocks the application.
+        try {
+            app(CreditBvnVerifier::class)->start($app);
+        } catch (\Throwable $e) {
+            Log::warning('BVN check not started: ' . $e->getMessage());
+        }
+        return $app->fresh();
     }
 
     public function approve(CreditApplication $app, float $limit, User $admin, ?string $note = null): CreditAccount

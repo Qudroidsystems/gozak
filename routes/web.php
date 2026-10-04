@@ -275,6 +275,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/applications/{application}',           [CreditAdminController::class, 'application'])->name('application');
         Route::post('/applications/{application}/approve',  [CreditAdminController::class, 'approve'])->name('approve');
         Route::post('/applications/{application}/reject',   [CreditAdminController::class, 'reject'])->name('reject');
+        Route::post('/applications/{application}/bvn',      [CreditAdminController::class, 'recheckBvn'])->name('bvn');
         Route::get('/accounts',                             [CreditAdminController::class, 'accounts'])->name('accounts');
         Route::get('/accounts/export',                      [CreditAdminController::class, 'export'])->name('accounts.export');
         Route::get('/accounts/{account}',                   [CreditAdminController::class, 'account'])->name('account');

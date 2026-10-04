@@ -39,7 +39,7 @@ class CreditBillingService
     public function run(): array
     {
         $out = [];
-        foreach (['issueStatements', 'sendReminders', 'markOverdue', 'applyLateFees', 'suspendOverdue', 'collectDue', 'sweep'] as $step) {
+        foreach (['issueStatements', 'sendReminders', 'markOverdue', 'applyLateFees', 'suspendOverdue', 'collectDue', 'sweep', 'sweepBvn'] as $step) {
             try {
                 $out[$step] = $this->{$step}();
             } catch (\Throwable $e) {
@@ -248,6 +248,11 @@ class CreditBillingService
                 }
             });
         return $n;
+    }
+
+    public function sweepBvn(): int
+    {
+        return app(CreditBvnVerifier::class)->sweep();
     }
 
     public function sweep(): int

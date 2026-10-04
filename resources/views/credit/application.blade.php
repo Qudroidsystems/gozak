@@ -21,6 +21,7 @@
                         <div class="gzc-kv"><span>Phone</span><span>{{ $app->phone }}</span></div>
                         <div class="gzc-kv"><span>Date of birth</span><span>{{ $app->date_of_birth?->format('j M Y') }} ({{ $app->date_of_birth?->age }} yrs)</span></div>
                         <div class="gzc-kv"><span>BVN</span><span class="font-monospace">•••••••{{ $app->bvn_last4 }}</span></div>
+                        <div class="gzc-kv"><span>Bank account</span><span>{{ $app->bank_name ?: '—' }} @if($app->account_last4)•••• {{ $app->account_last4 }}@endif</span></div>
                     </div>
                     <div class="col-md-6">
                         <div class="gzc-kv"><span>Employment</span><span>{{ $app->employmentLabel() }}</span></div>
@@ -72,6 +73,28 @@
         </div>
 
         <div class="col-lg-4">
+            @php [$bvnLabel, $bvnCls] = $app->bvnBadge(); @endphp
+            <x-cb.card title="Identity (BVN)" icon="ri-fingerprint-line" class="mb-3">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-{{ $bvnCls }} fs-6">{{ $bvnLabel }}</span>
+                    @if($app->bvn_checked_at)<span class="small text-muted">{{ $app->bvn_checked_at->diffForHumans() }}</span>@endif
+                </div>
+                <div class="gzc-kv"><span>Name on application</span><b>{{ $app->full_name }}</b></div>
+                <div class="gzc-kv"><span>Name at the bank</span><b class="{{ $app->account_name && strcasecmp(preg_replace('/\s+/', ' ', trim($app->account_name)), preg_replace('/\s+/', ' ', trim($app->full_name))) !== 0 ? 'text-warning' : '' }}">{{ $app->account_name ?: '—' }}</b></div>
+                <div class="gzc-kv"><span>Bank account</span><span>{{ $app->bank_name }} •••• {{ $app->account_last4 }}</span></div>
+                @if($app->bvn_failure_reason)
+                    <div class="alert alert-{{ $app->bvn_status === 'failed' ? 'danger' : 'warning' }} small mt-2 mb-0">{{ $app->bvn_failure_reason }}</div>
+                @endif
+                <p class="small text-muted mt-2 mb-2">Paystack asks the bank to confirm that this BVN, this bank account and the applicant's first and last name belong to the same person.</p>
+                @can('Review credit applications')
+                    @if($app->bvn_status !== 'verified')
+                        <form method="POST" action="{{ route('admin.credit.bvn', $app) }}">@csrf
+                            <button class="btn btn-sm btn-outline-primary w-100"><i class="ri-refresh-line"></i> {{ $app->bvn_status === 'pending' ? 'Check again' : 'Run BVN check' }}</button>
+                        </form>
+                    @endif
+                @endcan
+            </x-cb.card>
+
             <x-cb.card title="System assessment" icon="ri-shield-check-line">
                 <div class="d-flex align-items-center gap-3 mb-2">
                     <div class="display-6 fw-bold text-{{ $app->risk_score >= 60 ? 'success' : ($app->risk_score >= 40 ? 'warning' : 'danger') }}">{{ $app->risk_score }}</div>
@@ -89,7 +112,10 @@
             @if($app->status === 'pending')
                 @can('Review credit applications')
                 <x-cb.card title="Decision" icon="ri-scales-3-line" class="mt-3">
-                    <form method="POST" action="{{ route('admin.credit.approve', $app) }}" onsubmit="return confirm('Approve with this limit?');">@csrf
+                    @if($app->bvn_status !== 'verified')
+                        <div class="alert alert-warning small"><i class="ri-error-warning-line"></i> The BVN is <b>not verified</b>{{ $app->bvn_status === 'pending' ? ' yet (check in progress)' : '' }}. Approving now means lending without a confirmed identity.</div>
+                    @endif
+                    <form method="POST" action="{{ route('admin.credit.approve', $app) }}" onsubmit="return confirm('{{ $app->bvn_status === 'verified' ? 'Approve with this limit?' : 'The BVN is NOT verified. Approve anyway?' }}');">@csrf
                         <label class="form-label fw-semibold">Credit limit (₦)</label>
                         <input type="number" class="form-control mb-2" name="limit" step="1000" min="{{ $settings->min_limit }}" max="{{ $settings->max_limit }}" value="{{ (int) $app->suggested_limit }}" required>
                         <div class="small text-muted mb-2">Between {{ $n($settings->min_limit) }} and {{ $n($settings->max_limit) }}.</div>

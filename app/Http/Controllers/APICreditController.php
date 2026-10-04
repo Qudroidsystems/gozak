@@ -52,7 +52,10 @@ class APICreditController extends Controller
             return $this->fail('Gozak Credit is not available yet.', 403);
         }
         $s = $this->credit->settings();
-        $request->merge(['bvn' => preg_replace('/\D/', '', (string) $request->input('bvn'))]);
+        $request->merge([
+            'bvn'            => preg_replace('/\D/', '', (string) $request->input('bvn')),
+            'account_number' => preg_replace('/\D/', '', (string) $request->input('account_number')),
+        ]);
         $data = $request->validate([
             'full_name'         => 'required|string|max:150',
             'phone'             => ['required', 'string', 'regex:/^(\+?234|0)[789][01]\d{8}$/'],
@@ -64,6 +67,9 @@ class APICreditController extends Controller
             'address'           => 'required|string|max:255',
             'state'             => 'required|string|max:60',
             'requested_limit'   => 'required|numeric|min:' . $s->min_limit . '|max:' . $s->max_limit,
+            'bank_code'         => 'required|string|max:20',
+            'bank_name'         => 'nullable|string|max:120',
+            'account_number'    => 'required|digits:10',
             'accept_terms'      => 'accepted',
             'accept_autodebit'  => 'accepted',
         ], [
@@ -72,6 +78,8 @@ class APICreditController extends Controller
             'accept_autodebit.accepted' => 'Please agree to automatic repayment from your bank account.',
             'phone.regex'               => 'Enter a valid Nigerian phone number.',
             'bvn.digits'                => 'Your BVN has 11 digits.',
+            'account_number.digits'     => 'Account numbers have 10 digits.',
+            'bank_code.required'        => 'Choose your bank.',
         ]);
 
         try {
