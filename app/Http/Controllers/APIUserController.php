@@ -201,10 +201,20 @@ class APIUserController extends Controller
         try {
             $user = $request->user();
 
+            // Do not let a customer erase an unpaid Gozak Credit balance by deleting the account
+            $credit = \App\Models\Credit\CreditAccount::where('user_id', $user->id)->first();
+            if ($credit && ((float) $credit->balance + (float) $credit->unbilled) > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You have an outstanding Gozak Credit balance. Please settle it before closing your account.',
+                ], 422);
+            }
+
             if ($user->profile_image) {
                 Storage::disk('public')->delete($user->profile_image);
             }
 
+            $user->tokens()->delete();
             $user->delete();
 
             return response()->json([
@@ -217,7 +227,6 @@ class APIUserController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete account',
-                'error'   => $e->getMessage(),
             ], 500);
         }
     }

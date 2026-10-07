@@ -78,8 +78,8 @@ Route::get('/banners',                             [APIBannerController::class, 
 Route::post('/banners',                            [APIBannerController::class, 'store']);
 
 // Legal / Privacy
-Route::get('/privacy-policy',                      [PrivacyPolicyController::class, 'show'])->name('privacy.policy');
-Route::get('/user-data-safety',                    [PrivacyPolicyController::class, 'showUserDataSafety'])->name('user.data-safety');
+Route::get('/privacy-policy', fn () => redirect('/privacy', 301))->name('privacy.policy');
+Route::get('/user-data-safety', fn () => redirect('/delete-account', 301))->name('user.data-safety');
 
 // Global settings (public — used on app launch before login)
 Route::get('/settings/global',                     [APISettingsController::class, 'global'])->name('settings.global');

@@ -345,3 +345,9 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('{id}',        [ProductController::class, 'lightningDealDestroy'])->name('destroy');
     });
 });
+
+
+// ── Public legal pages (Google Play: privacy policy, terms, account deletion) ──
+Route::view('/privacy', 'legal.privacy')->name('legal.privacy');
+Route::view('/terms', 'legal.terms')->name('legal.terms');
+Route::view('/delete-account', 'legal.delete-account')->name('legal.delete-account');

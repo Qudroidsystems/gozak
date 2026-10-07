@@ -123,8 +123,7 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-
-
-
+    // Contact address shown on the public privacy / terms / delete-account pages
+    'support_email' => env('SUPPORT_EMAIL', 'support@gozakmart.ng'),
 
 ];
