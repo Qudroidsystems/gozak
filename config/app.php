@@ -126,4 +126,7 @@ return [
     // Contact address shown on the public privacy / terms / delete-account pages
     'support_email' => env('SUPPORT_EMAIL', 'support@gozakmart.ng'),
 
+    // FCCPC digital-lending registration/approval reference (shown on legal pages when set)
+    'fccpc_registration' => env('FCCPC_REGISTRATION'),
+
 ];

@@ -26,6 +26,10 @@
 </ul>
 <p>The app does <strong>not</strong> access your contacts, SMS messages, call logs, microphone or precise location.</p>
 
+@if(config('app.fccpc_registration'))
+<div class="box">Gozak Credit is offered by Qudroid Systems in line with the FCCPC Digital Lending Framework. FCCPC registration/approval reference: <strong>{{ config('app.fccpc_registration') }}</strong>.</div>
+@endif
+
 <h2>2. How we use your information</h2>
 <ul>
     <li>To create and secure your account and sign you in.</li>

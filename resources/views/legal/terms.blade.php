@@ -19,6 +19,9 @@
 <p>Delivery times are estimates. Refunds for cancelled or returned orders are paid to your original payment method or to the refund bank account you saved in the app, as described in the order details at the time of purchase.</p>
 
 <h2>5. Gozak Credit</h2>
+@if(config('app.fccpc_registration'))
+<div class="box">Gozak Credit is offered by Qudroid Systems in line with the FCCPC Digital Lending Framework. FCCPC registration/approval reference: <strong>{{ config('app.fccpc_registration') }}</strong>.</div>
+@endif
 <p>Gozak Credit is an optional pay-later facility, available to approved customers only. Approval, your credit limit and the fees that apply are shown in the app before you apply and before you use it. By activating it you authorise repayments by direct debit from the bank account or backup card you add, in the amounts and on the dates shown in your statement. Late payment can result in a late fee and in your credit being paused until the overdue amount is paid. You can view statements and repayment methods in the app.</p>
 
 <h2>6. Acceptable use</h2>
