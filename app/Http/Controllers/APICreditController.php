@@ -39,6 +39,29 @@ class APICreditController extends Controller
     }
 
     /** GET /credit — card, limits, what's due, application status, terms. */
+    /**
+     * GET /credit/availability (public)
+     *
+     * Lets the app decide whether to show the Credit tab, including to guests.
+     * Follows the admin switch: off → false for everyone except staff;
+     * "pilot" → only pilot emails / staff (guests get false);
+     * "everyone" → true. A signed-in user with an existing credit account
+     * always gets true so they can still see their balance and repay.
+     */
+    public function availability(Request $request): JsonResponse
+    {
+        $user = $request->user('sanctum');
+
+        if ($user) {
+            $enabled = $this->credit->isOfferedTo($user) || $this->credit->accountFor($user) !== null;
+        } else {
+            $s = $this->credit->settings();
+            $enabled = (bool) $s->enabled && $s->audience === 'everyone';
+        }
+
+        return $this->ok(['enabled' => $enabled]);
+    }
+
     public function summary(Request $request): JsonResponse
     {
         return $this->ok($this->credit->summary($request->user()));

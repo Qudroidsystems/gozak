@@ -260,8 +260,45 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/note', [OrderController::class, 'addNote'])->name('note');
             Route::post('/refund', [OrderController::class, 'refund'])->name('refund');
             Route::post('/refunds/{refund}/status', [OrderController::class, 'refundStatus'])->name('refund-status');
-            Route::get('/packing-slip', [OrderController::class, 'packingSlip'])->name('packing-slip');
+            Route::get('/packing-slip', [\App\Http\Controllers\Dispatch\PackingController::class, 'packingSlip'])->name('packing-slip');
+            // Packing & parcel labels
+            Route::post('/packing', [\App\Http\Controllers\Dispatch\PackingController::class, 'save'])->name('packing.save');
+            Route::post('/packing/verify', [\App\Http\Controllers\Dispatch\PackingController::class, 'verify'])->name('packing.verify');
+            Route::get('/labels', [\App\Http\Controllers\Dispatch\PackingController::class, 'labels'])->name('labels');
         });
+    });
+
+    // ===================================================================
+    // DISPATCH — batches, riders, zones, manifests
+    // ===================================================================
+    Route::prefix('admin/dispatch')->name('dispatch.')->group(function () {
+        $dc = \App\Http\Controllers\Dispatch\DispatchController::class;
+        $rz = \App\Http\Controllers\Dispatch\RiderZoneController::class;
+
+        Route::get('/riders', [$rz, 'riders'])->name('riders');
+        Route::post('/riders', [$rz, 'storeRider'])->name('riders.store');
+        Route::put('/riders/{rider}', [$rz, 'updateRider'])->name('riders.update');
+        Route::get('/zones', [$rz, 'zones'])->name('zones');
+        Route::post('/zones', [$rz, 'storeZone'])->name('zones.store');
+        Route::put('/zones/{zone}', [$rz, 'updateZone'])->name('zones.update');
+
+        Route::get('/', [$dc, 'index'])->name('index');
+        Route::get('/lookup', [$dc, 'lookup'])->name('lookup');
+        Route::post('/batches', [$dc, 'store'])->name('store');
+        Route::get('/batches/{batch}', [$dc, 'show'])->name('show');
+        Route::put('/batches/{batch}', [$dc, 'update'])->name('update');
+        Route::post('/batches/{batch}/orders', [$dc, 'addOrders'])->name('orders.add');
+        Route::delete('/batches/{batch}/orders/{order}', [$dc, 'removeOrder'])->name('orders.remove');
+        Route::post('/batches/{batch}/orders/{order}/move', [$dc, 'move'])->name('orders.move');
+        Route::post('/batches/{batch}/orders/{order}/stop', [$dc, 'stop'])->name('orders.stop');
+        Route::post('/batches/{batch}/sequence', [$dc, 'autoSequence'])->name('sequence');
+        Route::post('/batches/{batch}/scan', [$dc, 'scan'])->name('scan');
+        Route::post('/batches/{batch}/parcels/{parcel}/unload', [$dc, 'unload'])->name('unload');
+        Route::post('/batches/{batch}/dispatch', [$dc, 'dispatchBatch'])->name('dispatch');
+        Route::post('/batches/{batch}/complete', [$dc, 'complete'])->name('complete');
+        Route::post('/batches/{batch}/cancel', [$dc, 'cancel'])->name('cancel');
+        Route::get('/batches/{batch}/manifest', [$dc, 'manifest'])->name('manifest');
+        Route::get('/batches/{batch}/labels', [$dc, 'labels'])->name('labels');
     });
 
     // Address Management

@@ -50,6 +50,9 @@ Route::get('promo-banners',                        [APIPromoBannerController::cl
 Route::get('promo-banners', [APIPromoBannerController::class, 'index']);
 Route::post('promo-banners/mark-shown', [APIPromoBannerController::class, 'markShown']);
 
+// Gozak Credit on/off for the app's Credit tab (public; personalised when a token is sent)
+Route::get('/credit/availability',                 [APICreditController::class, 'availability'])->name('credit.availability');
+
 // Products — IMPORTANT: specific routes BEFORE wildcard {id} route
 Route::get('/products/lightning-deals',            [APIProductController::class, 'lightningDeals']);
 // Search & recommendations (public; personalised when a token is sent)

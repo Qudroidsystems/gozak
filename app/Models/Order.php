@@ -35,6 +35,20 @@ class Order extends Model
         'delivered_at',
         'received_confirmed_at',
         'delivery_confirmed_by',
+        // packing + dispatch
+        'stock_location_id',
+        'delivery_zone_id',
+        'packing_status',
+        'package_count',
+        'packing_notes',
+        'packed_by',
+        'packed_at',
+        'checked_by',
+        'checked_at',
+        'dispatch_batch_id',
+        'stop_sequence',
+        'dispatch_status',
+        'dispatch_note',
     ];
 
     protected $casts = [
@@ -48,6 +62,8 @@ class Order extends Model
         'shipped_at' => 'datetime',
         'delivered_at' => 'datetime',
         'received_confirmed_at' => 'datetime',
+        'packed_at' => 'datetime',
+        'checked_at' => 'datetime',
         'billing_address_same_as_shipping' => 'boolean',
         'barcode_data' => 'array',
         'created_at' => 'datetime',
@@ -81,6 +97,45 @@ class Order extends Model
     public function billingAddress()
     {
         return $this->belongsTo(Address::class, 'billing_address_id');
+    }
+
+    // ── Packing & dispatch ────────────────────────────────────────────────
+
+    /** Short human order number used on labels, slips and manifests. */
+    public function getRefAttribute(): string
+    {
+        return $this->invoice_number ?: strtoupper(substr((string) $this->id, 0, 8));
+    }
+
+    /** Fulfilling branch (stock location). */
+    public function branch()
+    {
+        return $this->belongsTo(StockLocation::class, 'stock_location_id');
+    }
+
+    public function deliveryZone()
+    {
+        return $this->belongsTo(\App\Models\Dispatch\DeliveryZone::class, 'delivery_zone_id');
+    }
+
+    public function parcels()
+    {
+        return $this->hasMany(\App\Models\Dispatch\OrderParcel::class)->orderBy('sequence');
+    }
+
+    public function dispatchBatch()
+    {
+        return $this->belongsTo(\App\Models\Dispatch\DispatchBatch::class, 'dispatch_batch_id');
+    }
+
+    public function packer()
+    {
+        return $this->belongsTo(User::class, 'packed_by');
+    }
+
+    public function checker()
+    {
+        return $this->belongsTo(User::class, 'checked_by');
     }
 
     /** Status timeline (who changed what, when). */

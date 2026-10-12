@@ -46,6 +46,9 @@
                             <a href="{{ route('adminorders.packing-slip', $order->id) }}" target="_blank" class="btn btn-secondary">
                                 Print Packing Slip
                             </a>
+                            <a href="#packing" class="btn btn-dark">
+                                <i class="ri-barcode-line"></i> Packing &amp; labels
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -368,6 +371,8 @@
                             @endif
                         </div>
                     </div>
+
+                    @include('dispatch._order-packing')
 
                     @if($order->statusHistory->isNotEmpty())
                     <div class="card mb-3">

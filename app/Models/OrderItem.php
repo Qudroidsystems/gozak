@@ -23,6 +23,8 @@ class OrderItem extends Model
         'sku',
         'weight',
         'dimensions',
+        'picked_quantity',
+        'substitution',
     ];
 
     protected $casts = [

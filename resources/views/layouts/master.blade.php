@@ -598,7 +598,7 @@
                     @endcan
 
                     {{-- SALES --}}
-                    @canany(['View order', 'View customer', 'View addresses', 'Chat with customers', 'Manage chat', 'View credit', 'Manage credit'])
+                    @canany(['View order', 'View dispatch', 'View customer', 'View addresses', 'Chat with customers', 'Manage chat', 'View credit', 'Manage credit'])
                         <li class="menu-title"><i class="ri-more-fill"></i> <span>SALES</span></li>
                     @endcanany
 
@@ -609,6 +609,16 @@
                             </a>
                         </li>
                     @endcan
+
+                    @canany(['View dispatch', 'Manage dispatch', 'Manage riders'])
+                        @php try { $gzDispatchReady = \App\Models\Order::whereNull('dispatch_batch_id')->where('packing_status', 'verified')->whereIn('status', ['pending', 'processing'])->count(); } catch (\Throwable $e) { $gzDispatchReady = 0; } @endphp
+                        <li class="nav-item">
+                            <a href="{{ route('dispatch.index') }}" class="nav-link menu-link {{ Route::is('dispatch.*') ? 'active' : '' }}">
+                                <i class="ph-truck"></i> <span>Dispatch</span>
+                                @if($gzDispatchReady)<span class="badge rounded-pill bg-success ms-auto" title="Packed &amp; checked, waiting for a rider">{{ $gzDispatchReady }}</span>@endif
+                            </a>
+                        </li>
+                    @endcanany
 
                     @canany(['View credit', 'Manage credit', 'Review credit applications', 'Manage credit settings'])
                         @php try { $gzcPendingNav = \App\Models\Credit\CreditApplication::where('status', 'pending')->count(); } catch (\Throwable $e) { $gzcPendingNav = 0; } @endphp
@@ -1423,6 +1433,7 @@
         /* ── Sales ── */
         @can('View order')
         {title:'Orders',                    url:'{{ route("adminorders.index") }}',            icon:'mdi-cart',               category:'Sales',              keywords:['order','invoice','payment','paystack','delivery']},
+        {title:'Dispatch',                  url:'{{ route("dispatch.index") }}',               icon:'mdi-truck-delivery',     category:'Sales',              keywords:['dispatch','rider','manifest','label','parcel','batch','route']},
         @endcan
         @canany(['View credit', 'Manage credit', 'Review credit applications'])
         {title:'Gozak Credit',              url:'{{ route("admin.credit.dashboard") }}',      icon:'mdi-credit-card-clock',  category:'Sales',              keywords:['credit','bnpl','pay later','loan','statement','debit','mandate']},
