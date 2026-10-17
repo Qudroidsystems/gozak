@@ -136,7 +136,7 @@ class FetchProductImages extends Command
             fclose($log);
             $this->saveState();
             $this->writeReview();
-            $this->info('Review the pictures: ' . storage_path("app/{$this->dir}/review.html"));
+            $this->info('Review the pictures: ' . Storage::disk('local')->path("{$this->dir}/review.html"));
         }
         $this->info("Found {$done}, not found {$missed}. Web searches used this run: {$this->searches}.");
 
@@ -353,7 +353,7 @@ class FetchProductImages extends Command
 
     protected function openLog()
     {
-        $file = storage_path("app/{$this->dir}/log.csv");
+        $file = Storage::disk('local')->path("{$this->dir}/log.csv");
         $new = !file_exists($file);
         $h = fopen($file, 'a');
         if ($new) {
@@ -378,7 +378,7 @@ class FetchProductImages extends Command
     /** One page with every auto picture, newest first, to scan for wrong ones. */
     protected function writeReview(): void
     {
-        $file = storage_path("app/{$this->dir}/log.csv");
+        $file = Storage::disk('local')->path("{$this->dir}/log.csv");
         if (!file_exists($file)) {
             return;
         }
@@ -405,6 +405,6 @@ class FetchProductImages extends Command
             . 'img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff}figcaption{font-size:12px;margin-top:6px}</style>'
             . '<h2>Auto pictures (' . count($latest) . ')</h2><p>Wrong picture? Note the #IDs and run <code>php artisan products:fetch-images --undo=ID,ID</code></p><main>'
             . $cards . '</main>';
-        file_put_contents(storage_path("app/{$this->dir}/review.html"), $html);
+        file_put_contents(Storage::disk('local')->path("{$this->dir}/review.html"), $html);
     }
 }
