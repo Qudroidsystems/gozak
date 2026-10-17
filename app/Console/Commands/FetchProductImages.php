@@ -13,8 +13,11 @@ use Intervention\Image\Laravel\Facades\Image;
 /**
  * Finds a picture for every product that has none and sets it as the product thumbnail.
  *
- *  1. Real barcodes (EAN/UPC) are looked up in the free Open Food / Beauty / Products Facts databases.
- *  2. Everything else is searched with the Brave Image Search API (BRAVE_SEARCH_API_KEY in .env).
+ * Free sources only, no API key needed. Products with a real retail barcode (EAN/UPC) are looked up in:
+ *  1. Open Food Facts, Open Beauty Facts and Open Products Facts (free, unlimited, CC BY-SA pictures)
+ *  2. UPCitemdb free lookup (about 100 look-ups a day – the run stops when the day's limit is reached)
+ * Products with in-store codes (no real barcode) can't be matched automatically and are skipped.
+ * (Optional, paid: set BRAVE_SEARCH_API_KEY in .env and use --source=all to also web-search the rest.)
  *
  * Every pick is logged to storage/app/product-images/log.csv and shown on
  * storage/app/product-images/review.html so wrong pictures can be removed with --undo.
@@ -30,7 +33,7 @@ class FetchProductImages extends Command
         {--limit=200 : How many products to process this run}
         {--ids= : Only these product IDs (comma separated)}
         {--category= : Only products in this category name}
-        {--source=all : all | barcode | search}
+        {--source=barcode : barcode (free) | all (barcode + paid Brave web search, needs BRAVE_SEARCH_API_KEY)}
         {--force : Also replace pictures products already have}
         {--retry : Try again products that found nothing last time}
         {--dry-run : Show the picks without downloading or saving anything}
@@ -44,6 +47,9 @@ class FetchProductImages extends Command
     protected array $state = ['missed' => [], 'blocked' => []];
     protected array $byTitle = [];                       // normalised title => saved path (re-use for duplicates)
     protected int $searches = 0;
+    protected bool $upcLimitHit = false;
+    protected bool $offOnly = false;
+    protected int $upcCalls = 0;
 
     /** Sites whose pictures are watermarked stock photos, social posts, or not product shots. */
     protected array $badHosts = ['pinterest.', 'pinimg.', 'facebook.', 'fbcdn.', 'instagram.', 'tiktok.', 'x.com', 'twitter.',
@@ -67,7 +73,6 @@ class FetchProductImages extends Command
         $key = config('services.brave.key', env('BRAVE_SEARCH_API_KEY'));
         $source = $this->option('source');
         if ($source !== 'barcode' && !$key) {
-            $this->warn('BRAVE_SEARCH_API_KEY is not set – only barcode look-ups will be used. Get a key at https://brave.com/search/api/');
             $source = 'barcode';
         }
 
@@ -89,7 +94,20 @@ class FetchProductImages extends Command
             $q->whereNotIn('id', $skip);
         }
 
-        $products = $q->limit((int) $this->option('limit'))->get();
+        if ($source === 'barcode') {
+            $ids = [];
+            foreach ((clone $q)->toBase()->select('products.id', 'products.barcode')->cursor() as $row) {
+                if ($this->isRealBarcode((string) $row->barcode)) {
+                    $ids[] = $row->id;
+                    if (count($ids) >= (int) $this->option('limit')) {
+                        break;
+                    }
+                }
+            }
+            $products = $ids ? Product::with('brand:id,name')->whereIn('id', $ids)->orderBy('id')->get() : collect();
+        } else {
+            $products = $q->limit((int) $this->option('limit'))->get();
+        }
         if ($products->isEmpty()) {
             $this->info('No products need a picture.');
             return self::SUCCESS;
@@ -102,6 +120,11 @@ class FetchProductImages extends Command
         $rows = [];
 
         foreach ($products as $p) {
+            if ($this->upcLimitHit && !$this->offOnly) {
+                $this->newLine();
+                $this->warn('UPCitemdb free daily limit reached – continuing with Open Facts only. Run again tomorrow with --retry for the rest.');
+                $this->offOnly = true;
+            }
             $bar->advance();
             try {
                 [$path, $pick] = $this->findAndSave($p, $source, $key, $dry);
@@ -117,7 +140,7 @@ class FetchProductImages extends Command
                 }
             } else {
                 $missed++;
-                if (!$dry) {
+                if (!$dry && !$this->upcLimitHit) {
                     $this->state['missed'][$p->id] = now()->toDateString();
                 }
             }
@@ -138,7 +161,7 @@ class FetchProductImages extends Command
             $this->writeReview();
             $this->info('Review the pictures: ' . Storage::disk('local')->path("{$this->dir}/review.html"));
         }
-        $this->info("Found {$done}, not found {$missed}. Web searches used this run: {$this->searches}.");
+        $this->info("Found {$done}, not found {$missed}. UPCitemdb look-ups used: {$this->upcCalls}" . ($this->searches ? ", web searches: {$this->searches}" : '') . '.');
 
         return self::SUCCESS;
     }
@@ -205,6 +228,32 @@ class FetchProductImages extends Command
                 $out[] = ['source' => explode('.', $host)[1], 'image' => $img, 'page' => "https://{$host}/product/{$code}",
                     'note' => 'CC BY-SA (' . $res->json('product.product_name') . ')'];
                 break;
+            }
+        }
+        if (!$out && !$this->upcLimitHit) {
+            $out = $this->upcLookup($code);
+        }
+        return $out;
+    }
+
+    /** UPCitemdb free trial endpoint – no key, about 100 requests a day and a few per minute. */
+    protected function upcLookup(string $code): array
+    {
+        usleep(11000000); // ~6 per minute keeps under the burst limit
+        $res = $this->http()->get('https://api.upcitemdb.com/prod/trial/lookup', ['upc' => $code]);
+        $this->upcCalls++;
+        if ($res->status() === 429 || $res->json('code') === 'TOO_FAST' || $res->json('code') === 'EXCEED_LIMIT') {
+            $this->upcLimitHit = true;
+            return [];
+        }
+        $item = $res->ok() ? ($res->json('items.0') ?? null) : null;
+        if (!$item || empty($item['images'])) {
+            return [];
+        }
+        $out = [];
+        foreach (array_slice($item['images'], 0, 4) as $img) {
+            if (!Str::contains(strtolower($img), $this->badHosts)) {
+                $out[] = ['source' => 'upcitemdb', 'image' => $img, 'page' => 'https://www.upcitemdb.com/upc/' . $code, 'note' => $item['title'] ?? ''];
             }
         }
         return $out;
