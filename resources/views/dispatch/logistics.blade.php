@@ -85,6 +85,19 @@
                         <input class="form-check-input" type="checkbox" name="own_delivery_enabled" value="1" id="lgOwn" @checked($s->own_delivery_enabled ?? true)>
                         <label class="form-check-label" for="lgOwn"><b>Also offer GozakMart's own riders</b></label>
                     </div>
+                    <div class="form-check form-switch mb-2">
+                        <input type="hidden" name="own_via_marketplace" value="0">
+                        <input class="form-check-input" type="checkbox" name="own_via_marketplace" value="1" id="lgOwnVia" @checked($s->own_via_marketplace ?? false) @disabled(!$s->own_provider_name && !($s->own_via_marketplace ?? false))>
+                        <label class="form-check-label" for="lgOwnVia"><b>Run "{{ $s->own_delivery_label ?? 'GozakMart Delivery' }}" through our delivery team on {{ $s->marketplace_name ?: 'the marketplace' }}</b>
+                            <div class="small text-muted">
+                                @if($s->own_provider_name)
+                                    Orders are booked to <b>{{ $s->own_provider_name }}</b> when packing is verified. Your team assigns the rider in the logistics app, and the customer follows the rider live in the GozakMart app. Customers must pin their address on the map. The marketplace's commission applies.
+                                @else
+                                    First link your delivery team: in the logistics app, open your merchant API page › <i>Your own delivery team</i>, choose your provider account, then come back and Save here.
+                                @endif
+                            </div>
+                        </label>
+                    </div>
                     <div class="row g-2">
                         <div class="col-md-6"><label class="form-label small mb-1">Name at checkout</label><input name="own_delivery_label" class="form-control form-control-sm" maxlength="80" value="{{ $s->own_delivery_label ?? 'GozakMart Delivery' }}"></div>
                         <div class="col-md-6"><label class="form-label small mb-1">Delivery time shown</label><input name="own_delivery_eta" class="form-control form-control-sm" maxlength="80" value="{{ $s->own_delivery_eta ?? 'Same day' }}"></div>

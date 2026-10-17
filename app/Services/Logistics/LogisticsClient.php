@@ -41,6 +41,18 @@ class LogisticsClient
         return $this->call('get', '/deliveries/' . rawurlencode($externalOrderId));
     }
 
+    /** Rider position, stops, ETA and the drop-off code for one delivery. */
+    public function tracking(string $externalOrderId): array
+    {
+        return $this->call('get', '/deliveries/' . rawurlencode($externalOrderId) . '/tracking');
+    }
+
+    /** The receiver tells the rider they are ready, need time, want a call… */
+    public function reply(string $externalOrderId, string $reply, ?string $note = null): array
+    {
+        return $this->call('post', '/deliveries/' . rawurlencode($externalOrderId) . '/reply', array_filter(['reply' => $reply, 'note' => $note]));
+    }
+
     public function cancel(string $externalOrderId, ?string $reason = null): array
     {
         return $this->call('post', '/deliveries/' . rawurlencode($externalOrderId) . '/cancel', array_filter(['reason' => $reason]));

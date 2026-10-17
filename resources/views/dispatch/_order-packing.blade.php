@@ -55,11 +55,11 @@
             <div class="border rounded p-3 mb-3 {{ in_array($pkCourier->status, ['failed', 'delivery_failed']) ? 'border-danger' : '' }}">
                 <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
                     <div>
-                        <div class="small text-muted"><i class="ri-truck-line"></i> Marketplace courier{{ $pkCourier->marketplace_name ? ' · ' . $pkCourier->marketplace_name : '' }}</div>
+                        <div class="small text-muted"><i class="ri-truck-line"></i> {{ $pkCourier->isOwn() ? 'Our delivery team' : 'Marketplace courier' }}{{ $pkCourier->marketplace_name ? ' · ' . $pkCourier->marketplace_name : '' }}</div>
                         <div class="fw-semibold">{{ $pkCourier->provider_name }} <span class="text-muted fw-normal">· {{ $pkCourier->service_name }}{{ $pkCourier->eta_label ? ' · ' . $pkCourier->eta_label : '' }}</span></div>
                         <div class="small">
                             ₦{{ number_format($pkCourier->price ?? $pkCourier->quoted_price, 2) }}
-                            · {{ $pkCourier->fee_payer === 'receiver' ? 'customer pays the rider in cash' : 'paid in the order, GozakMart pays the marketplace' }}
+                            · {{ $pkCourier->isOwn() ? 'assign the rider in the logistics app' : ($pkCourier->fee_payer === 'receiver' ? 'customer pays the rider in cash' : 'paid in the order, GozakMart pays the marketplace') }}
                             @if($pkCourier->tracking_code) · <span class="font-monospace">{{ $pkCourier->tracking_code }}</span>@endif
                             @if($pkCourier->tracking_url) · <a href="{{ $pkCourier->tracking_url }}" target="_blank">Track</a>@endif
                             @if($pkCourier->payment_url) · <a href="{{ $pkCourier->payment_url }}" target="_blank" class="text-danger fw-semibold">Pay for this delivery</a>@endif

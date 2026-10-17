@@ -55,13 +55,15 @@ class LogisticsAdminController extends Controller
             'enabled'              => $request->boolean('enabled'),
             'allow_receiver_pays'  => $request->boolean('allow_receiver_pays'),
             'own_delivery_enabled' => $request->boolean('own_delivery_enabled'),
+            'own_via_marketplace'  => $request->boolean('own_via_marketplace'),
         ]);
         if ($keyChanged) {
             $s->merchant_status = null; // must be checked again
         }
         $s->save();
 
-        if ($s->base_url && $s->api_key && ($keyChanged || !$s->merchant_status)) {
+        // Checked on every save, so a newly linked own delivery team (and the marketplace name) shows up straight away.
+        if ($s->base_url && $s->api_key) {
             try {
                 $this->logistics->testConnection();
             } catch (LogisticsException $e) {

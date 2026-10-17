@@ -68,7 +68,7 @@ class PackingController extends Controller
         // A marketplace courier was chosen at checkout: book it now that the parcels are ready.
         $courier = app(\App\Services\Logistics\LogisticsService::class)->bookIfReady($order->fresh());
         if ($courier) {
-            return back()->with(str_starts_with($courier, 'Courier booked') ? 'success' : 'error', 'Packing verified. ' . $courier);
+            return back()->with(str_starts_with($courier, 'Courier not booked') ? 'error' : 'success', 'Packing verified. ' . $courier);
         }
         return back()->with('success', 'Packing verified — the order is ready for dispatch.');
     }

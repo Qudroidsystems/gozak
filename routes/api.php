@@ -216,6 +216,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/orders/{id}/status',               [APIOrderController::class, 'updateStatus']); // the app uses PUT
     Route::get('/orders/{id}/tracking',             [\App\Http\Controllers\APIOrderTrackingController::class, 'show'])->name('orders.tracking');
     Route::post('/orders/{id}/confirm-delivery',    [\App\Http\Controllers\APIOrderTrackingController::class, 'confirm'])->name('orders.confirm-delivery');
+    Route::get('/orders/{id}/live-tracking',        [\App\Http\Controllers\APIOrderTrackingController::class, 'live'])->middleware('throttle:30,1')->name('orders.live-tracking');
+    Route::post('/orders/{id}/rider-reply',         [\App\Http\Controllers\APIOrderTrackingController::class, 'reply'])->middleware('throttle:10,1')->name('orders.rider-reply');
 
     // In-app notification centre
     Route::get('/notifications',                    [\App\Http\Controllers\APIUserNotificationController::class, 'index'])->name('notifications.index');

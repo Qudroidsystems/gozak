@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Log;
  *   order      attach(): the customer's choice is saved on the order (fee in the order, or paid to the rider)
  *   packing    book(): when packing is verified the courier is booked with the chosen provider
  *   updates    handleWebhook() / sync(): picked up → order shipped, delivered → order delivered
+ *   own team   with own_via_marketplace on, "GozakMart Delivery" is booked to GozakMart's own team on the marketplace
+ *              ("provider": "own"); its staff assign the rider there, and liveTracking() shows that rider in the app
  */
 class LogisticsService
 {
@@ -88,6 +90,7 @@ class LogisticsService
             'marketplace_name'  => $me['marketplace']['name'] ?? null,
             'marketplace_badge' => $me['marketplace']['badge_text'] ?? null,
             'marketplace_logo'  => $me['marketplace']['badge_logo'] ?? null,
+            'own_provider_name' => $me['own_provider']['name'] ?? null,
             'last_checked_at'   => now(),
             'last_error'        => null,
         ])->save();
@@ -117,16 +120,27 @@ class LogisticsService
                 'provider' => 'GozakMart', 'provider_logo' => null, 'rating' => null, 'rating_count' => 0,
                 'service' => 'Delivered by GozakMart riders', 'eta' => $s->own_delivery_eta ?: 'Same day',
                 'price' => $shipping, 'tags' => $shipping <= 0 ? ['free'] : [], 'fee_payers' => [self::FEE_NOW],
-            ];
+            ] + ($s->ownViaMarketplace() ? [
+                // Run by GozakMart's team on the marketplace: the rider needs the map pin, and the customer can follow them live.
+                'marketplace' => $s->marketplace_name, 'needs_pin' => true, 'live_tracking' => true,
+            ] : []);
         }
 
         $marketplace = null;
         if ($s->isLive()) {
+            // Known from the connection, so the app can name the marketplace before any courier is quoted.
+            if ($s->marketplace_name) {
+                $marketplace = ['name' => $s->marketplace_name, 'badge' => $s->marketplace_badge, 'logo' => $s->marketplace_logo];
+            }
             $lat = $address['latitude'] ?? null;
             $lng = $address['longitude'] ?? null;
             $pickup = $this->pickupPoint(null);
             if (!is_numeric($lat) || !is_numeric($lng)) {
-                $notice = 'Pin your delivery address on the map to see courier options and prices.';
+                $notice = match (true) {
+                    $s->ownViaMarketplace() => 'Pin your delivery address on the map so our rider can find you' . ($marketplace ? ", and to see couriers from {$marketplace['name']}." : '.'),
+                    (bool) $marketplace     => "Pin your delivery address on the map to see couriers from {$marketplace['name']} and their prices.",
+                    default                 => 'Pin your delivery address on the map to see courier options and prices.',
+                };
             } elseif (!$pickup) {
                 $notice = null; // a set-up problem for staff, not the customer
                 Log::warning('Logistics: pickup branch has no map position; couriers hidden at checkout.');
@@ -183,7 +197,16 @@ class LogisticsService
     public function chosen(?int $userId, ?string $optionId, ?string $feePayer, float $ownShipping): array
     {
         if (!$optionId || $optionId === self::OWN) {
-            return ['shipping' => $ownShipping, 'option' => null, 'fee_payer' => self::FEE_NOW];
+            $s = $this->settings();
+            if (!$s->ownViaMarketplace()) {
+                return ['shipping' => $ownShipping, 'option' => null, 'fee_payer' => self::FEE_NOW];
+            }
+            // GozakMart Delivery, run by GozakMart's own team on the marketplace.
+            return ['shipping' => $ownShipping, 'fee_payer' => self::FEE_NOW, 'option' => [
+                'id' => 'own', 'mode' => 'own', 'provider' => $s->own_delivery_label ?: 'GozakMart Delivery', 'provider_logo' => null,
+                'rating' => null, 'service' => 'Delivered by GozakMart riders', 'eta' => $s->own_delivery_eta ?: 'Same day',
+                'price' => $ownShipping, 'marketplace' => $s->marketplace_name,
+            ]];
         }
         $opt = Cache::get($this->cacheKey($userId, $optionId));
         if (!$opt) {
@@ -207,6 +230,7 @@ class LogisticsService
         $shipment = OrderShipment::create([
             'order_id'         => $order->id,
             'carrier'          => 'logistics',
+            'mode'             => ($o['mode'] ?? null) === 'own' ? 'own' : 'courier',
             'option_id'        => $o['id'],
             'service_name'     => $o['service'] ?? null,
             'provider_id'      => $o['provider_id'] ?? null,
@@ -255,11 +279,15 @@ class LogisticsService
         $weight  = (int) round($parcels->sum(fn ($p) => (float) $p->weight_kg) * 1000) ?: (int) $s->default_weight_g;
         $unpaid  = $order->payment_status !== 'paid';
 
-        $body = [
-            'external_order_id' => (string) $order->id,
-            'option_id'         => $shipment->option_id,
-            'max_price'         => (int) ceil(((float) $shipment->quoted_price) * 100 * (1 + ((int) $s->max_price_increase_percent) / 100)),
-            'fee_payer'         => $shipment->fee_payer,
+        $who = $shipment->isOwn()
+            // GozakMart's own team: the price is what the customer paid for GozakMart Delivery (none: the team's price list).
+            ? array_filter(['provider' => 'own', 'price' => (int) round(((float) $order->shipping_cost) * 100) ?: null])
+            : [
+                'option_id' => $shipment->option_id,
+                'max_price' => (int) ceil(((float) $shipment->quoted_price) * 100 * (1 + ((int) $s->max_price_increase_percent) / 100)),
+                'fee_payer' => $shipment->fee_payer,
+            ];
+        $body = ['external_order_id' => (string) $order->id] + $who + [
             'pickup'            => $pickup,
             'dropoff'           => $this->dropoffFrom([
                 'street' => $addr->street, 'city' => $addr->city, 'lga' => $addr->lga ?? null, 'state' => $addr->state,
@@ -294,7 +322,8 @@ class LogisticsService
             'tracking_url'          => $res['tracking_url'] ?? null,
             'payment_url'           => $res['payment_url'] ?? null,
             'price'                 => isset($res['price']) ? round(((int) $res['price']) / 100, 2) : $shipment->quoted_price,
-            'provider_name'         => $res['provider']['name'] ?? $shipment->provider_name,
+            // The customer keeps seeing "GozakMart Delivery" for the own team.
+            'provider_name'         => $shipment->isOwn() ? $shipment->provider_name : ($res['provider']['name'] ?? $shipment->provider_name),
             'provider_id'           => $res['provider']['id'] ?? $shipment->provider_id,
             'booked_at'             => now(),
             'last_error'            => !empty($res['payment_url']) ? 'GozakMart pays per delivery on this marketplace: open the payment link to release the booking.' : null,
@@ -315,6 +344,10 @@ class LogisticsService
         }
         try {
             $s = $this->book($order);
+            if ($s->isOwn()) {
+                $team = $s->payload['provider']['name'] ?? $this->settings()->own_provider_name ?? 'our delivery team';
+                return "Sent to {$team}" . ($s->marketplace_name ? " on {$s->marketplace_name}" : '') . '. Assign the rider there.';
+            }
             return "Courier booked with {$s->provider_name}" . ($s->marketplace_name ? " via {$s->marketplace_name}" : '') . '.';
         } catch (LogisticsException $e) {
             return 'Courier not booked yet: ' . $e->getMessage();
@@ -339,6 +372,76 @@ class LogisticsService
             $order->forceFill(['dispatch_status' => null])->saveQuietly();
         });
         DispatchEvent::log('courier_cancelled', $order, null, ['note' => $reason ?: 'Switched to GozakMart riders']);
+    }
+
+    // ── Live tracking for the customer app ───────────────────────────────────
+
+    public const LIVE_CACHE_SECONDS = 5;
+
+    /**
+     * The rider on the map for one order: status, rider (first name, vehicle, position, ETA), the shop and the
+     * customer's pin, the delivery code to give the rider, and the "I'm ready / call me" replies. Null when the order
+     * has no booked marketplace delivery.
+     */
+    public function liveTracking(Order $order): ?array
+    {
+        $order->loadMissing('shipment');
+        $sh = $order->shipment;
+        if (!$sh || !in_array($sh->status, ['booked', 'assigned', 'picked_up', 'delivery_failed', 'delivered'], true)) {
+            return null;
+        }
+        $t = Cache::remember('logistics_live:' . $order->id, self::LIVE_CACHE_SECONDS, fn () => $this->client()->tracking((string) $order->id));
+
+        // Keep the order in step while the customer is watching (webhooks remain the main path).
+        $status = self::SHIPMENT_STATUS[$t['delivery_status'] ?? ''] ?? null;
+        if ($status && $status !== $sh->status) {
+            $this->apply($sh, $status, $t, 'live');
+            $sh->refresh();
+        }
+
+        $d = $t['driver'] ?? null;
+        $stops = collect($t['stops'] ?? []);
+        $place = fn ($type) => ($x = $stops->where('type', $type)->last()) ? ['lat' => (float) $x['lat'], 'lng' => (float) $x['lng'], 'address' => $x['address'] ?? null] : null;
+
+        return [
+            'status'        => $sh->status,
+            'status_label'  => $sh->label(),
+            'provider'      => $sh->provider_name,
+            'marketplace'   => $sh->marketplace_name,
+            'mode'          => $sh->mode ?: 'courier',
+            'tracking_code' => $t['tracking_code'] ?? $sh->tracking_code,
+            'pickup'        => $place('pickup'),
+            'dropoff'       => $place('dropoff'),
+            'rider'         => $d ? [
+                'first_name'           => $d['first_name'] ?? 'Your rider',
+                'vehicle'              => $d['vehicle'] ?? null,
+                'rating'               => isset($d['rating']) ? round((float) $d['rating'], 1) : null,
+                'lat'                  => isset($d['lat']) ? (float) $d['lat'] : null,
+                'lng'                  => isset($d['lng']) ? (float) $d['lng'] : null,
+                'seconds_since_update' => isset($d['seconds_since_update']) ? (int) abs((float) $d['seconds_since_update']) : null,
+                'eta'                  => $d['eta']['label'] ?? null,
+                'eta_to'               => $d['eta']['to'] ?? null,        // pickup | dropoff
+                'eta_stale'            => (bool) ($d['eta']['stale'] ?? false),
+            ] : null,
+            'delivery_code' => $t['delivery_code'] ?? null,
+            'reply'         => $t['reply'] ?? null,
+            'can_reply'     => (bool) ($t['can_reply'] ?? false),
+            'reply_options' => $t['reply_options'] ?? [],
+            'refresh_after' => max(8, (int) ($t['poll_after_seconds'] ?? 15)),
+            'delivered_at'  => $t['delivered_at'] ?? null,
+        ];
+    }
+
+    /** The customer answers the rider from the app ("I'm ready", "Call me when you arrive"…). */
+    public function replyToRider(Order $order, string $reply, ?string $note = null): string
+    {
+        $order->loadMissing('shipment');
+        if (!$order->shipment || !$order->shipment->isLive()) {
+            throw new LogisticsException('This delivery is not on its way yet.');
+        }
+        $res = $this->client()->reply((string) $order->id, $reply, $note);
+        Cache::forget('logistics_live:' . $order->id);
+        return $res['message'] ?? 'The rider has been told.';
     }
 
     // ── Updates from the marketplace ─────────────────────────────────────────

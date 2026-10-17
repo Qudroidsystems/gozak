@@ -121,6 +121,11 @@ class APIOrderController extends Controller
             } catch (\App\Services\Logistics\LogisticsException $e) {
                 return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'delivery_option_expired'], 422);
             }
+            // GozakMart Delivery run by our team on the marketplace: the rider navigates to the customer's map pin.
+            if (($delivery['option']['mode'] ?? null) === 'own'
+                && (!is_numeric($validated['shipping_address']['latitude'] ?? null) || !is_numeric($validated['shipping_address']['longitude'] ?? null))) {
+                return response()->json(['success' => false, 'message' => 'Pin your delivery address on the map so our rider can find you.', 'code' => 'pin_required'], 422);
+            }
             if (abs($delivery['shipping'] - (float) $quote['shipping']) >= 0.01) {
                 $quote['total']    = round((float) $quote['total'] - (float) $quote['shipping'] + $delivery['shipping'], 2);
                 $quote['shipping'] = $delivery['shipping'];

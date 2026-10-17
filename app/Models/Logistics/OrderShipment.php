@@ -28,7 +28,7 @@ class OrderShipment extends Model
         'order_id', 'carrier', 'option_id', 'service_name', 'provider_id', 'provider_name', 'provider_logo', 'provider_rating',
         'marketplace_name', 'eta_label', 'quoted_price', 'price', 'fee_payer', 'status', 'external_status', 'agreement',
         'external_order_number', 'tracking_code', 'tracking_url', 'payment_url', 'booked_at', 'picked_up_at', 'delivered_at',
-        'synced_at', 'attempts', 'last_error', 'payload',
+        'synced_at', 'attempts', 'last_error', 'payload', 'mode',
     ];
 
     protected $casts = [
@@ -63,6 +63,17 @@ class OrderShipment extends Model
         };
     }
 
+    /** Booked and not finished: there is something to follow on the map. */
+    public function isLive(): bool
+    {
+        return in_array($this->status, self::ACTIVE, true);
+    }
+
+    public function isOwn(): bool
+    {
+        return $this->mode === 'own';
+    }
+
     public function canBook(): bool
     {
         return in_array($this->status, ['selected', 'failed'], true);
@@ -85,6 +96,10 @@ class OrderShipment extends Model
             'status_label'  => $this->label(),
             'tracking_code' => $this->tracking_code,
             'tracking_url'  => $this->tracking_url,
+            // own = GozakMart Delivery run by GozakMart's team on the marketplace
+            'mode'          => $this->mode ?: 'courier',
+            // The app can show the rider live (GET /api/orders/{id}/live-tracking) while this is true.
+            'live'          => $this->isLive(),
         ];
     }
 }
