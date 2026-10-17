@@ -58,6 +58,14 @@ class ImportProducts extends Command
 
         $rows = $this->readRows($file);
         $this->info(count($rows) . ' rows read from ' . basename($file));
+        $first = $rows ? reset($rows) : [];
+        $this->line('Columns found: ' . implode(', ', array_keys($first)));
+        foreach (['title', 'price'] as $need) {
+            if (!array_key_exists($need, $first)) {
+                $this->error("The file has no \"{$need}\" column. The first row must be: title, sku, barcode, category, brand, unit, price, cost_price, stock, is_active, description");
+                return self::FAILURE;
+            }
+        }
 
         $dry = (bool) $this->option('dry-run');
         $location = $this->option('no-stock') ? null : $this->location($dry);
@@ -76,6 +84,10 @@ class ImportProducts extends Command
                     $bar->advance();
                     [$result, $msg] = $this->importRow($r, $existing, $location, $dry, $counts);
                     $counts[$result]++;
+                    if ($result === 'failed' && $counts['failed'] <= 5) {
+                        $this->newLine();
+                        $this->warn("Row {$rowNum} failed: {$msg}");
+                    }
                     if ($result !== 'created' || $msg) {
                         fputcsv($report, [$rowNum, $r['title'] ?? '', $result, $msg]);
                     }
@@ -313,8 +325,11 @@ class ImportProducts extends Command
             $reader->setReadDataOnly(true);
             $all = $reader->load($file)->getSheet(0)->toArray(null, false, false, false);
         }
-        $head = array_map(fn ($x) => Str::snake(trim(preg_replace('/[^A-Za-z0-9 ]/', ' ', (string) $x))), array_shift($all) ?? []);
-        $head = array_map(fn ($x) => str_replace('__', '_', $x), $head);
+        $head = array_map(function ($x) {
+            $x = is_object($x) && method_exists($x, 'getPlainText') ? $x->getPlainText() : (string) $x;
+            $x = preg_replace('/^\xEF\xBB\xBF/', '', $x);            // UTF-8 BOM from Excel CSVs
+            return trim(preg_replace('/[^a-z0-9]+/', '_', strtolower(trim($x))), '_');
+        }, array_shift($all) ?? []);
         $rows = [];
         foreach ($all as $i => $line) {
             if (!array_filter($line, fn ($v) => trim((string) $v) !== '')) {
@@ -323,7 +338,14 @@ class ImportProducts extends Command
             $row = [];
             foreach ($head as $j => $k) {
                 if ($k !== '') {
-                    $row[$k] = is_string($line[$j] ?? null) ? trim($line[$j]) : ($line[$j] ?? null);
+                    $v = $line[$j] ?? null;
+                    if (is_object($v) && method_exists($v, 'getPlainText')) {
+                        $v = $v->getPlainText();
+                    }
+                    if (is_float($v) && floor($v) == $v && abs($v) < 1e15) {
+                        $v = (string) (int) $v;
+                    }
+                    $row[$k] = $v === null ? null : trim((string) $v);
                 }
             }
             $rows[$i + 2] = $row;
