@@ -19,6 +19,10 @@ use Intervention\Image\Laravel\Facades\Image;
  *  3. Name search in Open Food Facts / Open Beauty Facts for food, drinks, cosmetics and toiletries –
  *     works without a barcode. Only accepted when most words of the name (and the brand) match.
  *     Open Facts allows about 10 name searches a minute, so big runs take a while – leave them running.
+ *  4. Other products (electronics, phones, home, kitchen, toys, fashion, gifts…):
+ *     - Open Products Facts name search (any product type)
+ *     - Wikimedia Commons for branded models (brand + model words must match)
+ *     - Openverse public-domain / CC0 photos for generic items – logged as "example picture" to replace later
  * (Optional, paid: set BRAVE_SEARCH_API_KEY in .env and use --source=all to also web-search the rest.)
  *
  * Every pick is logged to storage/app/product-images/log.csv and shown on
@@ -50,6 +54,7 @@ class FetchProductImages extends Command
     protected array $byTitle = [];                       // normalised title => saved path (re-use for duplicates)
     protected int $searches = 0;
     protected bool $upcLimitHit = false;
+    protected bool $openverseBlocked = false;
     protected bool $offOnly = false;
     protected int $upcCalls = 0;
 
@@ -101,7 +106,7 @@ class FetchProductImages extends Command
             $rows = (clone $q)->toBase()->leftJoin('categories as c_', 'c_.id', '=', 'products.category_id')
                 ->select('products.id', 'products.barcode', 'c_.name as cat')->cursor();
             foreach ($rows as $row) {
-                if ($this->isRealBarcode((string) $row->barcode) || ($source === 'free' && $this->nameSearchHost($row->cat))) {
+                if ($source === 'free' || $this->isRealBarcode((string) $row->barcode)) {
                     $ids[] = $row->id;
                     if (count($ids) >= (int) $this->option('limit')) {
                         break;
@@ -144,7 +149,7 @@ class FetchProductImages extends Command
                 }
             } else {
                 $missed++;
-                if (!$dry && !$this->upcLimitHit) {
+                if (!$dry && !$this->upcLimitHit && !$this->openverseBlocked) {
                     $this->state['missed'][$p->id] = now()->toDateString();
                 }
             }
@@ -183,8 +188,22 @@ class FetchProductImages extends Command
         if ($source !== 'search' && $this->isRealBarcode((string) $p->barcode)) {
             $candidates = array_merge($candidates, $this->barcodeLookup($p->barcode));
         }
-        if (!$candidates && in_array($source, ['free', 'all'], true) && ($host = $this->nameSearchHost($p->category->name ?? null))) {
-            $candidates = $this->nameLookup($p, $host);
+        if (!$candidates && in_array($source, ['free', 'all'], true)) {
+            $cat = $p->category->name ?? null;
+            if ($host = $this->nameSearchHost($cat)) {
+                $candidates = $this->nameLookup($p, $host);
+            } else {
+                $route = $this->otherRoute($cat);
+                if ($p->brand) {
+                    $candidates = $this->nameLookup($p, 'world.openproductsfacts.org');
+                    if (!$candidates) {
+                        $candidates = $this->commonsLookup($p);
+                    }
+                }
+                if (!$candidates && ($route === 'generic' || !$p->brand)) {
+                    $candidates = $this->openverseLookup($p);
+                }
+            }
         }
         if (!$candidates && $source === 'all' && $key) {
             $candidates = $this->search($p, $key);
@@ -260,7 +279,124 @@ class FetchProductImages extends Command
                 return 'world.openfoodfacts.org';
             }
         }
-        return null; // electronics, fashion, home decor, toys… aren't in these databases
+        return null; // electronics, fashion, home decor, toys… → otherRoute()
+    }
+
+    /** branded = look for the exact model (electronics, phones); generic = an example photo is acceptable. */
+    protected function otherRoute(?string $category): string
+    {
+        $c = strtolower((string) $category);
+        foreach (['electronic', 'phone', 'computer', 'appliance'] as $w) {
+            if (str_contains($c, $w)) {
+                return 'branded';
+            }
+        }
+        return 'generic';
+    }
+
+    /** Wikimedia Commons file search – good for well-known branded models. Free, no key. */
+    protected function commonsLookup(Product $p): array
+    {
+        $brand = $this->words($p->brand->name ?? '');
+        $want = $this->modelWords($p);
+        if (!$brand || count($want) < 2) {
+            return [];
+        }
+        $query = trim(($p->brand->name ?? '') . ' ' . implode(' ', array_diff($want, $brand)));
+        $items = $this->cachedGet('commons-' . md5($query), 1100000, 'https://commons.wikimedia.org/w/api.php', [
+            'action' => 'query', 'format' => 'json', 'generator' => 'search', 'gsrnamespace' => 6, 'gsrlimit' => 12,
+            'gsrsearch' => $query . ' filetype:bitmap', 'prop' => 'imageinfo', 'iiprop' => 'url|size|mime', 'iiurlwidth' => 800,
+        ], fn ($json) => array_values($json['query']['pages'] ?? []));
+
+        $best = null;
+        foreach ($items as $it) {
+            $info = $it['imageinfo'][0] ?? null;
+            $title = $it['title'] ?? '';
+            if (!$info || !in_array($info['mime'] ?? '', ['image/jpeg', 'image/png', 'image/webp'], true) || stripos($title, 'logo') !== false) {
+                continue;
+            }
+            if (($info['width'] ?? 0) < (int) $this->option('min-size')) {
+                continue;
+            }
+            $got = $this->words($title);
+            if (!array_intersect($brand, $got)) {
+                continue;
+            }
+            $overlap = count(array_intersect($want, $got)) / count($want);
+            if ($overlap >= 0.6 && (!$best || $overlap > $best['score'])) {
+                $best = ['score' => $overlap, 'source' => 'wikimedia commons', 'image' => $info['thumburl'] ?? $info['url'],
+                    'page' => $info['descriptionurl'] ?? '', 'note' => sprintf('match %d%%: %s (check licence on source page)', $overlap * 100, $title)];
+            }
+        }
+        return $best ? [$best] : [];
+    }
+
+    /** Openverse public-domain / CC0 photos – a representative picture for generic items. Free, no key. */
+    protected function openverseLookup(Product $p): array
+    {
+        if ($this->openverseBlocked) {
+            return [];
+        }
+        $brand = $this->words($p->brand->name ?? '');
+        $want = array_values(array_diff($this->modelWords($p), $brand));
+        $want = array_values(array_filter($want, fn ($w) => !preg_match('/\d/', $w)));   // drop model codes like "s67", "km-f0576"
+        $want = array_slice(array_diff($want, ['design', 'quality', 'super', 'fancy', 'luxury', 'classic', 'mix', 'color', 'colour']), 0, 4);
+        if (!$want) {
+            return [];
+        }
+        $query = implode(' ', $want);
+        $items = $this->cachedGet('openverse-' . md5($query), 3500000, 'https://api.openverse.org/v1/images/', [
+            'q' => $query, 'license' => 'cc0,pdm', 'page_size' => 15, 'mature' => 'false',
+        ], fn ($json) => $json['results'] ?? []);
+        if ($items === null) {
+            $this->openverseBlocked = true;
+            $this->newLine();
+            $this->warn('Openverse limit reached for now – generic items will be retried next run (use --retry).');
+            return [];
+        }
+
+        $best = null;
+        foreach ($items as $it) {
+            if (empty($it['url']) || (($it['width'] ?? 9999) < (int) $this->option('min-size'))) {
+                continue;
+            }
+            $got = $this->words(($it['title'] ?? '') . ' ' . implode(' ', array_column($it['tags'] ?? [], 'name')));
+            $overlap = count(array_intersect($want, $got)) / count($want);
+            if ($overlap >= 0.5 && (!$best || $overlap > $best['score'])) {
+                $best = ['score' => $overlap, 'source' => 'openverse (example picture)', 'image' => $it['url'], 'fallback' => $it['thumbnail'] ?? null,
+                    'page' => $it['foreign_landing_url'] ?? '', 'note' => 'example picture, ' . strtoupper($it['license'] ?? '') . ' – replace with your own photo when you can'];
+            }
+        }
+        return $best ? [$best] : [];
+    }
+
+    /** Words of the title without sizes, pack counts and filler. */
+    protected function modelWords(Product $p): array
+    {
+        $t = preg_replace('/\b(X\s?\d+|\d+\s?X|CTN|CARTON|PCS?|PET)\b/i', ' ', $p->title);
+        return array_values(array_filter($this->words($t), fn ($w) => !preg_match('/^\d+(ml|cl|l|g|kg|ltr|cm|mm|inch|pcs|x)?$/', $w)));
+    }
+
+    /**
+     * GET with on-disk cache and a polite pause. Returns the parsed list, [] when nothing,
+     * or null when the service says we're going too fast (429).
+     */
+    protected function cachedGet(string $key, int $pauseMicro, string $url, array $params, callable $extract): ?array
+    {
+        $file = "{$this->dir}/cache/{$key}.json";
+        if (Storage::disk('local')->exists($file)) {
+            return json_decode(Storage::disk('local')->get($file), true) ?: [];
+        }
+        usleep($pauseMicro);
+        $res = $this->http()->timeout(30)->get($url, $params);
+        if ($res->status() === 429) {
+            return null;
+        }
+        $items = $res->ok() ? ($extract($res->json() ?? []) ?: []) : [];
+        if ($res->ok()) {
+            Storage::disk('local')->put($file, json_encode($items));
+        }
+        return $items;
     }
 
     /** Search Open Facts by product name; accept only a close match. */
