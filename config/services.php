@@ -58,4 +58,8 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
     ],
 
+    'brave' => [
+        'key' => env('BRAVE_SEARCH_API_KEY'),
+    ],
+
 ];
