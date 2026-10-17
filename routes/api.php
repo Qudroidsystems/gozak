@@ -124,7 +124,19 @@ Route::prefix('fcm')->group(function () {
 //  AUTHENTICATED ROUTES (Sanctum required)
 // ══════════════════════════════════════════════════════════════════════════════
 
+// Logistics marketplace → GozakMart delivery updates (HMAC-signed, no login).
+Route::post('/webhooks/logistics', \App\Http\Controllers\Logistics\LogisticsWebhookController::class)->middleware('throttle:120,1')->name('webhooks.logistics');
+
 Route::middleware('auth:sanctum')->group(function () {
+
+    // ── Rider app (delivery riders) ──────────────────────────────────────────
+    Route::prefix('rider')->name('api.rider.')->group(function () {
+        Route::get('/runs',                                  [\App\Http\Controllers\APIRiderController::class, 'runs'])->name('runs');
+        Route::get('/runs/{batch}',                          [\App\Http\Controllers\APIRiderController::class, 'run'])->whereNumber('batch')->name('run');
+        Route::post('/runs/{batch}/stops/{order}/deliver',   [\App\Http\Controllers\APIRiderController::class, 'deliver'])->whereNumber('batch')->name('deliver');
+        Route::post('/runs/{batch}/stops/{order}/fail',      [\App\Http\Controllers\APIRiderController::class, 'fail'])->whereNumber('batch')->name('fail');
+        Route::post('/runs/{batch}/stops/{order}/call',      [\App\Http\Controllers\APIRiderController::class, 'call'])->whereNumber('batch')->name('call');
+    });
 
     // ── Auth ─────────────────────────────────────────────────────────────────
     Route::post('/logout',                          [APIAuthController::class, 'logout'])->name('auth.logout');
@@ -195,6 +207,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders',                           [APIOrderController::class, 'index'])->name('orders.index');
     Route::post('/orders',                          [APIOrderController::class, 'store'])->name('orders.store');
     Route::post('/checkout/quote',                  [APIOrderController::class, 'quote'])->name('checkout.quote');
+    Route::post('/checkout/delivery-options',       [APIOrderController::class, 'deliveryOptions'])->middleware('throttle:30,1')->name('checkout.delivery-options');
     Route::get('/orders/{id}',                      [APIOrderController::class, 'show'])->name('orders.show');
     Route::put('/orders/{id}',                      [APIOrderController::class, 'update'])->name('orders.update');
     Route::patch('/orders/{id}',                    [APIOrderController::class, 'patch']);

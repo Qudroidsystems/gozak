@@ -50,12 +50,64 @@
             <div class="col-sm-3"><div class="text-muted">Checked by</div><div class="fw-semibold">{{ $pkChecker?->full_name ?? '—' }}</div><div class="text-muted">{{ $order->checked_at?->format('j M H:i') }}</div></div>
         </div>
 
+        @php $pkCourier = $order->shipment()->first(); @endphp
+        @if($pkCourier)
+            <div class="border rounded p-3 mb-3 {{ in_array($pkCourier->status, ['failed', 'delivery_failed']) ? 'border-danger' : '' }}">
+                <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                    <div>
+                        <div class="small text-muted"><i class="ri-truck-line"></i> Marketplace courier{{ $pkCourier->marketplace_name ? ' · ' . $pkCourier->marketplace_name : '' }}</div>
+                        <div class="fw-semibold">{{ $pkCourier->provider_name }} <span class="text-muted fw-normal">· {{ $pkCourier->service_name }}{{ $pkCourier->eta_label ? ' · ' . $pkCourier->eta_label : '' }}</span></div>
+                        <div class="small">
+                            ₦{{ number_format($pkCourier->price ?? $pkCourier->quoted_price, 2) }}
+                            · {{ $pkCourier->fee_payer === 'receiver' ? 'customer pays the rider in cash' : 'paid in the order, GozakMart pays the marketplace' }}
+                            @if($pkCourier->tracking_code) · <span class="font-monospace">{{ $pkCourier->tracking_code }}</span>@endif
+                            @if($pkCourier->tracking_url) · <a href="{{ $pkCourier->tracking_url }}" target="_blank">Track</a>@endif
+                            @if($pkCourier->payment_url) · <a href="{{ $pkCourier->payment_url }}" target="_blank" class="text-danger fw-semibold">Pay for this delivery</a>@endif
+                        </div>
+                        @if($pkCourier->last_error)<div class="small text-danger mt-1">{{ $pkCourier->last_error }}</div>@endif
+                    </div>
+                    <span class="badge bg-{{ $pkCourier->badge() }}">{{ $pkCourier->label() }}</span>
+                </div>
+                @if(auth()->user()?->can('Manage dispatch') || $pkCanPack)
+                    <div class="d-flex gap-2 mt-2 flex-wrap">
+                        @if($pkCourier->canBook())
+                            <form method="POST" action="{{ route('dispatch.courier.book', $order->id) }}">@csrf
+                                <button class="btn btn-sm btn-primary" @disabled($pkStatus !== 'verified') title="{{ $pkStatus !== 'verified' ? 'Verify the packing first' : '' }}"><i class="ri-send-plane-line"></i> {{ $pkCourier->status === 'failed' ? 'Try booking again' : 'Book courier now' }}</button>
+                            </form>
+                        @endif
+                        @if(in_array($pkCourier->status, \App\Models\Logistics\OrderShipment::ACTIVE))
+                            <form method="POST" action="{{ route('dispatch.courier.refresh', $order->id) }}">@csrf<button class="btn btn-sm btn-outline-secondary"><i class="ri-refresh-line"></i> Refresh status</button></form>
+                        @endif
+                        @if(in_array($pkCourier->status, ['selected', 'failed', 'booked', 'assigned', 'delivery_failed']))
+                            <form method="POST" action="{{ route('dispatch.courier.own', $order->id) }}" onsubmit="return confirm('Cancel the courier and deliver with GozakMart riders?')">@csrf
+                                <button class="btn btn-sm btn-outline-danger"><i class="ri-e-bike-2-line"></i> Use GozakMart riders instead</button>
+                            </form>
+                        @endif
+                    </div>
+                @endif
+            </div>
+        @endif
+
         @if($pkBatch)
             <div class="alert alert-primary py-2 small d-flex justify-content-between align-items-center">
                 <span><i class="ri-truck-line"></i> On batch <b>{{ $pkBatch->code }}</b> · route <b>{{ $pkBatch->route_code }}</b> · stop {{ $order->stop_sequence }}
                     · {{ $pkBatch->statusLabel() }}@if($pkBatch->rider) · rider {{ $pkBatch->rider->name }}@endif</span>
                 @can('View dispatch')<a href="{{ route('dispatch.show', $pkBatch) }}" class="btn btn-sm btn-primary">Open batch</a>@endcan
             </div>
+            @if($order->dispatch_status === 'out_for_delivery' && $order->delivery_code && auth()->user()?->can('Manage dispatch'))
+                <div class="small mb-2"><i class="ri-lock-password-line"></i> Delivery code <span class="font-monospace fw-bold">{{ $order->delivery_code }}</span>
+                    <span class="text-muted">— the customer sees it in the app; read it to them by phone if they don't use the app.</span></div>
+            @endif
+            @if($order->dispatch_status === 'delivered')
+                @php $mLabel = ['code' => 'customer\'s delivery code', 'photo' => 'photo proof', 'admin' => 'dispatch (manual)', 'none' => 'rider']; @endphp
+                <div class="alert alert-success py-2 small mb-3">
+                    <i class="ri-checkbox-circle-line"></i> Delivered {{ $order->delivered_at?->format('j M H:i') }}, confirmed by <b>{{ $mLabel[$order->delivery_method] ?? $order->delivery_method }}</b>
+                    @if($order->delivery_receiver) · received by {{ $order->delivery_receiver }}@endif
+                    @if($order->cash_collected) · collected ₦{{ number_format($order->cash_collected, 2) }} ({{ $order->cash_method }})@endif
+                    @if($order->delivery_proof) · <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($order->delivery_proof) }}" target="_blank">photo</a>@endif
+                    @if($order->delivered_lat) · <a href="https://www.google.com/maps?q={{ $order->delivered_lat }},{{ $order->delivered_lng }}" target="_blank">location</a>@endif
+                </div>
+            @endif
         @elseif($order->dispatch_status === 'returned' && $order->dispatch_note)
             <div class="alert alert-warning py-2 small"><i class="ri-arrow-go-back-line"></i> {{ $order->dispatch_note }}</div>
         @endif

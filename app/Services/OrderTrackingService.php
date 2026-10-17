@@ -212,6 +212,10 @@ class OrderTrackingService
             'delivery_confirmed_by' => $order->delivery_confirmed_by,
             'auto_confirm_at'       => $autoAt,
             'auto_confirm_days'     => $s->auto_confirm_enabled ? $s->auto_confirm_days : null,
+            // Rider + delivery code while the order is on the road (null otherwise).
+            'delivery'              => app(\App\Services\Dispatch\DispatchService::class)->customerDeliveryInfo($order),
+            // Marketplace courier (provider, marketplace, status, tracking link) when the customer chose one.
+            'courier'               => $order->shipment?->toCustomer(),
         ];
     }
 
@@ -243,6 +247,12 @@ class OrderTrackingService
         } catch (\Throwable $e) {
             Log::warning('Order history not saved for ' . $order->id . ': ' . $e->getMessage());
         }
+    }
+
+    /** Public entry for other services (dispatch) to drop a notice in the customer's notification centre. */
+    public function notifyCustomer(Order $order, string $type, string $title, string $body, array $extra = []): void
+    {
+        $this->inApp($order, $type, $title, $body, $extra);
     }
 
     /** In-app notification row: shows in the app's notification centre even without a push token. */

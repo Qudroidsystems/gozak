@@ -20,6 +20,13 @@ class Address extends Model
         'landmark',
         'address_type',
         'alternate_phone',
+        'latitude',
+        'longitude',
+    ];
+
+    protected $casts = [
+        'latitude'  => 'float',
+        'longitude' => 'float',
     ];
 
     public function user()

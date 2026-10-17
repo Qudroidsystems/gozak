@@ -66,9 +66,70 @@
         @if($history->hasPages())<div class="p-3">{{ $history->links() }}</div>@endif
     </x-cb.card>
 @else
+    @if($alerts->count())
+        <div class="cb-card mb-3">
+            <div class="cb-card-header">
+                <h5><i class="ri-alarm-warning-line"></i> Needs attention <span class="cb-count" style="background:#e11d48;">{{ $alerts->count() }}</span></h5>
+            </div>
+            <div class="list-group list-group-flush">
+                @foreach($alerts as $a)
+                    <a href="{{ $a['url'] ?? '#' }}" class="list-group-item list-group-item-action d-flex gap-3 align-items-start py-2">
+                        <i class="{{ $a['icon'] }} fs-4 text-{{ $a['level'] }}"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">{{ $a['title'] }}</div>
+                            <div class="small text-muted">{{ $a['detail'] }}</div>
+                        </div>
+                        <span class="badge bg-{{ $a['level'] }}-subtle text-{{ $a['level'] }} align-self-center">{{ ['danger' => 'urgent', 'warning' => 'soon', 'info' => 'to do'][$a['level']] ?? '' }}</span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     <div class="row g-3">
         {{-- Ready queue --}}
         <div class="col-xl-7">
+            @if($canManage && $suggestions->count())
+                <div class="cb-card mb-3">
+                    <div class="cb-card-header">
+                        <h5><i class="ri-magic-line"></i> Suggested runs <span class="cb-count">{{ $suggestions->count() }}</span></h5>
+                        <span class="small text-muted">By zone, promised time, route order and rider capacity</span>
+                    </div>
+                    <div class="p-3">
+                        @foreach($suggestions as $sg)
+                            @php $lvl = ['overdue' => 'danger', 'urgent' => 'warning', 'normal' => 'secondary'][$sg['level']]; @endphp
+                            <form method="POST" action="{{ route('dispatch.store') }}" class="border rounded p-3 mb-2 {{ $sg['level'] === 'overdue' ? 'border-danger' : '' }}">
+                                @csrf
+                                <input type="hidden" name="suggested" value="1">
+                                @if($sg['zone'])<input type="hidden" name="delivery_zone_id" value="{{ $sg['zone']->id }}">@endif
+                                @foreach($sg['orders'] as $o)<input type="hidden" name="orders[]" value="{{ $o->id }}">@endforeach
+                                <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                                    <div>
+                                        <span class="badge" style="background: {{ $sg['zone']?->color ?: '#334155' }}">{{ $sg['zone']?->code ?? 'GEN' }}</span>
+                                        <span class="fw-semibold">{{ $sg['orders']->count() }} stops · {{ $sg['parcels'] }} parcels</span>
+                                        @if($sg['level'] !== 'normal')<span class="badge bg-{{ $lvl }} ms-1">{{ $sg['level'] }}</span>@endif
+                                        @if($sg['cod'] > 0)<span class="badge bg-warning-subtle text-warning ms-1">COD ₦{{ number_format($sg['cod']) }}</span>@endif
+                                        <div class="small text-muted mt-1">{{ $sg['why'] }}</div>
+                                        <div class="small mt-1">
+                                            @foreach($sg['orders'] as $o)<span class="me-2"><b>{{ $loop->iteration }}.</b> {{ $o->ref }} <span class="text-muted">{{ \Illuminate\Support\Str::limit(\App\Support\DeliveryInfo::shortAddress($o, 30), 30) }}</span></span>@endforeach
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <select name="rider_id" class="form-select form-select-sm" style="min-width: 150px;">
+                                            <option value="">Assign later</option>
+                                            @foreach($riders as $r)
+                                                <option value="{{ $r->id }}" @selected($sg['rider']?->id === $r->id)>{{ $r->name }}{{ in_array($r->id, $busyRiderIds) ? ' (busy)' : '' }}</option>
+                                            @endforeach
+                                        </select>
+                                        <button class="btn btn-sm btn-success text-nowrap"><i class="ri-check-line"></i> Create run</button>
+                                    </div>
+                                </div>
+                            </form>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             <form method="POST" action="{{ route('dispatch.store') }}" id="batchForm">
                 @csrf
                 @forelse($queue as $zoneId => $orders)

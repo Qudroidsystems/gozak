@@ -3,11 +3,15 @@
 namespace App\Services\Dispatch;
 
 use App\Models\Dispatch\DeliveryZone;
+use App\Models\Dispatch\DispatchEvent;
+use App\Models\Dispatch\DispatchSetting;
 use App\Models\Dispatch\DispatchBatch;
 use App\Models\Dispatch\OrderParcel;
 use App\Models\Order;
 use App\Models\StockLocation;
 use App\Services\OrderNotificationService;
+use App\Services\OrderTrackingService;
+use App\Support\DeliveryInfo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -220,6 +224,7 @@ class DispatchService
             ->whereNull('dispatch_batch_id')
             ->whereIn('status', ['pending', 'processing'])
             ->whereIn('packing_status', ['packed', 'verified'])
+            ->where(fn ($q) => $q->whereNull('dispatch_status')->orWhere('dispatch_status', '!=', 'courier'))
             ->when($branchId, fn ($q) => $q->where('stock_location_id', $branchId))
             ->orderByRaw('delivery_date IS NULL, delivery_date')
             ->orderBy('created_at')
@@ -320,8 +325,10 @@ class DispatchService
             return [PHP_INT_MAX - 1, mb_strtolower((string) $a->street)];
         };
 
-        $sorted = $orders->sort(function ($x, $y) use ($rank) {
-            return $rank($x) <=> $rank($y);
+        // Orders already past their promised time go first; the rest follow the road.
+        $late = fn (Order $o) => $o->promisedAt()?->isPast() ? 0 : 1;
+        $sorted = $orders->sort(function ($x, $y) use ($rank, $late) {
+            return [$late($x), ...$rank($x)] <=> [$late($y), ...$rank($y)];
         })->values();
 
         foreach ($sorted as $i => $o) {
@@ -420,23 +427,161 @@ class DispatchService
             throw new RuntimeException("{$missing} parcel(s) have not been scanned onto the vehicle.");
         }
 
-        DB::transaction(function () use ($batch, $orders, $userId) {
-            $batch->update(['status' => 'dispatched', 'dispatched_at' => now(), 'dispatched_by' => $userId]);
+        $useCodes = DispatchSetting::current()->require_delivery_code;
+
+        DB::transaction(function () use ($batch, $orders, $userId, $useCodes) {
+            $batch->update([
+                'status'        => 'dispatched',
+                'dispatched_at' => now(),
+                'dispatched_by' => $userId,
+                'cash_expected' => $orders->sum(fn ($o) => DeliveryInfo::amountToCollect($o)),
+            ]);
             $batch->parcels()->update(['status' => 'out_for_delivery']);
             foreach ($orders as $order) {
                 $order->dispatch_status = 'out_for_delivery';
+                $order->out_for_delivery_at = now();
+                $order->delivery_code = $useCodes ? str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT) : null;
+                $order->delivery_code_attempts = 0;
                 $order->status = 'shipped';
                 $order->save();
             }
+            DispatchEvent::log('dispatched', null, $batch, ['note' => $orders->count() . ' stops']);
         });
 
+        $batch->load('rider');
         foreach ($orders as $order) {
-            $this->notify($order, 'shipped');
+            $this->notifyOutForDelivery($order->fresh(), $batch);
         }
     }
 
-    /** $outcome: delivered | failed */
-    public function recordStop(DispatchBatch $batch, Order $order, string $outcome, ?string $note = null): void
+    /** Tell the customer who is coming and (if enabled) the code to give the rider. */
+    private function notifyOutForDelivery(Order $order, DispatchBatch $batch): void
+    {
+        $rider = $batch->rider;
+        $who   = $rider ? "{$rider->name}" . ($rider->phone ? " ({$rider->phone})" : '') : 'our rider';
+        $title = '🚚 Your order is on its way';
+        $body  = "Order #{$order->ref} is out for delivery with {$who}.";
+        if ($order->delivery_code) {
+            $body .= " Your delivery code is {$order->delivery_code} — give it to the rider only when you have all your items.";
+        }
+
+        try {
+            app(OrderTrackingService::class)->notifyCustomer($order, 'order_delivery', $title, $body, [
+                'delivery_code' => $order->delivery_code,
+                'rider_name'    => $rider?->name,
+                'rider_phone'   => $rider?->phone,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dispatch: in-app delivery notice failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
+        try {
+            app(OrderNotificationService::class)->notifyCustom($order, $title, $body, [
+                'type'          => 'order_delivery',
+                'delivery_code' => (string) $order->delivery_code,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Dispatch: delivery push failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /** For the customer app's tracking screen. */
+    public function customerDeliveryInfo(Order $order): ?array
+    {
+        if ($order->dispatch_status !== 'out_for_delivery' || !$order->dispatch_batch_id) {
+            return null;
+        }
+        $batch = $order->dispatchBatch()->with('rider')->first();
+        $ahead = $batch ? $batch->orders()->where('dispatch_status', 'out_for_delivery')->where('stop_sequence', '<', (int) $order->stop_sequence)->count() : null;
+
+        return [
+            'delivery_code' => $order->delivery_code,
+            'rider_name'    => $batch?->rider?->name,
+            'rider_phone'   => $batch?->rider?->phone,
+            'vehicle'       => $batch?->rider?->vehicleLabel(),
+            'stops_before_you' => $ahead,
+            'out_since'     => $order->out_for_delivery_at?->toIso8601String(),
+            'parcels'       => (int) ($order->package_count ?: $order->parcels()->count()),
+        ];
+    }
+
+    /** Admin / supervisor records a stop from the batch page. $outcome: delivered | failed */
+    public function recordStop(DispatchBatch $batch, Order $order, string $outcome, ?string $note = null, array $cash = []): void
+    {
+        if ($outcome === 'delivered') {
+            $this->confirmDelivery($batch, $order, [
+                'method'         => 'admin',
+                'note'           => $note,
+                'cash_collected' => $cash['cash_collected'] ?? null,
+                'cash_method'    => $cash['cash_method'] ?? null,
+            ]);
+        } else {
+            $this->failDelivery($batch, $order, $note ?: 'Delivery attempt failed');
+        }
+    }
+
+    /**
+     * Mark a stop delivered.
+     * $o = [method => code|photo|admin|none, receiver, proof, lat, lng, cash_collected, cash_method, note]
+     */
+    public function confirmDelivery(DispatchBatch $batch, Order $order, array $o): void
+    {
+        $this->assertOpenStop($batch, $order);
+
+        $due  = DeliveryInfo::amountToCollect($order);
+        $cash = array_key_exists('cash_collected', $o) && $o['cash_collected'] !== null && $o['cash_collected'] !== ''
+            ? round((float) $o['cash_collected'], 2)
+            : ($due > 0 ? $due : null);
+        $method = $cash ? (in_array($o['cash_method'] ?? null, ['cash', 'transfer', 'pos'], true) ? $o['cash_method'] : 'cash') : null;
+
+        DB::transaction(function () use ($batch, $order, $o, $due, $cash, $method) {
+            $order->parcels()->update(['status' => 'delivered', 'delivered_at' => now()]);
+            $order->fill([
+                'dispatch_status'   => 'delivered',
+                'dispatch_note'     => $o['note'] ?? null,
+                'delivery_method'   => $o['method'] ?? 'admin',
+                'delivery_receiver' => $o['receiver'] ?? null,
+                'delivery_proof'    => $o['proof'] ?? $order->delivery_proof,
+                'delivered_lat'     => $o['lat'] ?? null,
+                'delivered_lng'     => $o['lng'] ?? null,
+                'cash_collected'    => $cash,
+                'cash_method'       => $method,
+                'status'            => 'delivered',
+            ]);
+            // A correct delivery code is the customer confirming receipt.
+            if (($o['method'] ?? null) === 'code') {
+                $order->delivery_confirmed_by = 'customer';
+                $order->received_confirmed_at = now();
+            }
+            // Pay-on-delivery settled in full.
+            if ($due > 0 && $cash !== null && $cash + 0.01 >= $due) {
+                $order->payment_status = 'paid';
+                $order->paid_at = now();
+            }
+            $order->save();
+
+            DispatchEvent::log('delivered', $order, $batch, [
+                'note' => trim(($o['method'] ?? 'admin') . ($cash ? " · collected ₦" . number_format($cash, 2) . " ({$method})" : '') . (!empty($o['note']) ? ' · ' . $o['note'] : '')),
+                'lat'  => $o['lat'] ?? null,
+                'lng'  => $o['lng'] ?? null,
+            ]);
+        });
+
+        $this->notify($order, 'delivered');
+    }
+
+    public function failDelivery(DispatchBatch $batch, Order $order, string $reason, ?float $lat = null, ?float $lng = null): void
+    {
+        $this->assertOpenStop($batch, $order);
+
+        $order->dispatch_status = 'failed';
+        $order->dispatch_note = $reason;
+        $order->delivery_attempts = (int) $order->delivery_attempts + 1;
+        $order->save();
+
+        DispatchEvent::log('failed', $order, $batch, ['note' => $reason, 'lat' => $lat, 'lng' => $lng]);
+    }
+
+    private function assertOpenStop(DispatchBatch $batch, Order $order): void
     {
         if ($batch->status !== 'dispatched') {
             throw new RuntimeException('Deliveries can only be recorded while the batch is out.');
@@ -444,27 +589,13 @@ class DispatchService
         if ((int) $order->dispatch_batch_id !== $batch->id) {
             throw new RuntimeException('That order is not on this batch.');
         }
-
-        DB::transaction(function () use ($order, $outcome, $note) {
-            if ($outcome === 'delivered') {
-                $order->parcels()->update(['status' => 'delivered', 'delivered_at' => now()]);
-                $order->dispatch_status = 'delivered';
-                $order->dispatch_note = $note ?: null;
-                $order->status = 'delivered';
-            } else {
-                $order->dispatch_status = 'failed';
-                $order->dispatch_note = $note ?: 'Delivery attempt failed';
-            }
-            $order->save();
-        });
-
-        if ($outcome === 'delivered') {
-            $this->notify($order, 'delivered');
+        if ($order->dispatch_status !== 'out_for_delivery') {
+            throw new RuntimeException("Stop for order {$order->ref} is already closed ({$order->dispatch_status}).");
         }
     }
 
     /** Close the run. Failed stops go back to the queue with their parcels. */
-    public function complete(DispatchBatch $batch): int
+    public function complete(DispatchBatch $batch, ?float $cashReceived = null, ?string $cashNote = null, ?int $userId = null): int
     {
         if ($batch->status !== 'dispatched') {
             throw new RuntimeException('Only a batch that is out for delivery can be completed.');
@@ -474,14 +605,41 @@ class DispatchService
             throw new RuntimeException("{$open} stop(s) are still open — mark them delivered or failed first.");
         }
 
-        return DB::transaction(function () use ($batch) {
+        return DB::transaction(function () use ($batch, $cashReceived, $cashNote, $userId) {
             $failed = $batch->orders()->where('dispatch_status', 'failed')->get();
             foreach ($failed as $order) {
                 $this->releaseOrder($order, "Returned from {$batch->code}: " . ($order->dispatch_note ?: 'not delivered'), 'processing');
             }
-            $batch->update(['status' => 'completed', 'completed_at' => now()]);
+            $inHand = $batch->cashCollectedInHand();
+            $batch->update([
+                'status'             => 'completed',
+                'completed_at'       => now(),
+                'cash_received'      => $cashReceived ?? ($inHand > 0 ? null : 0),
+                'cash_received_by'   => $cashReceived !== null ? $userId : null,
+                'cash_reconciled_at' => $cashReceived !== null ? now() : null,
+                'cash_note'          => $cashNote,
+            ]);
+            DispatchEvent::log('completed', null, $batch, ['note' => $failed->count() . ' returned']);
+            if ($cashReceived !== null) {
+                DispatchEvent::log('cash_in', null, $batch, ['note' => '₦' . number_format($cashReceived, 2) . ' handed in (rider reported ₦' . number_format($inHand, 2) . ' cash)']);
+            }
             return $failed->count();
         });
+    }
+
+    /** Record cash handed in for a run that was closed without it. */
+    public function reconcileCash(DispatchBatch $batch, float $amount, ?string $note, int $userId): void
+    {
+        if ($batch->status !== 'completed') {
+            throw new RuntimeException('Close the run first.');
+        }
+        $batch->update([
+            'cash_received'      => round($amount, 2),
+            'cash_received_by'   => $userId,
+            'cash_reconciled_at' => now(),
+            'cash_note'          => $note,
+        ]);
+        DispatchEvent::log('cash_in', null, $batch, ['note' => '₦' . number_format($amount, 2) . ' handed in']);
     }
 
     public function cancel(DispatchBatch $batch): void
@@ -507,6 +665,9 @@ class DispatchService
             if ($o->dispatch_batch_id) {
                 throw new RuntimeException("Order {$o->ref} is already on another batch.");
             }
+            if ($o->dispatch_status === 'courier') {
+                throw new RuntimeException("Order {$o->ref} goes with a marketplace courier. Switch it to GozakMart riders on the order page first.");
+            }
             if ($o->packing_status !== 'verified') {
                 throw new RuntimeException("Order {$o->ref} has not been checked (packing verification) yet.");
             }
@@ -527,6 +688,7 @@ class DispatchService
                 'dispatch_note'     => null,
             ]);
             $order->parcels()->update(['dispatch_batch_id' => $batch->id, 'status' => 'packed', 'loaded_at' => null, 'loaded_by' => null]);
+            DispatchEvent::log('assigned', $order, $batch, ['note' => "{$batch->code} stop " . ($startAt + $i + 1)]);
         }
     }
 
@@ -535,12 +697,17 @@ class DispatchService
         $order->parcels()->update(['dispatch_batch_id' => null, 'status' => 'packed', 'loaded_at' => null, 'loaded_by' => null]);
         $order->dispatch_batch_id = null;
         $order->stop_sequence = null;
+        $order->delivery_code = null;
+        $order->delivery_code_attempts = 0;
         $order->dispatch_status = $note ? 'returned' : null;
         $order->dispatch_note = $note;
         if ($status) {
             $order->status = $status;
         }
         $order->save();
+        if ($note) {
+            DispatchEvent::log('returned', $order, null, ['note' => $note]);
+        }
     }
 
     private function renumber(DispatchBatch $batch): void

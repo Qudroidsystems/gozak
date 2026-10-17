@@ -31,7 +31,15 @@
                 @foreach($branches as $b)<option value="{{ $b->id }}" @selected($rider?->stock_location_id == $b->id)>{{ $b->name }}</option>@endforeach
             </select>
         </div>
-        <div class="{{ $rider ? 'col-md-3' : 'col-12' }}">
+        <div class="{{ $rider ? 'col-md-4' : 'col-12' }}">
+            <label class="form-label small mb-1">Rider app login (email)</label>
+            <input type="email" name="login_email" class="form-control form-control-sm" maxlength="190" placeholder="musa.rider@gozakmart.ng" value="{{ $rider?->user?->email }}">
+        </div>
+        <div class="{{ $rider ? 'col-md-4' : 'col-12' }}">
+            <label class="form-label small mb-1">{{ $rider?->user ? 'New password (leave blank to keep)' : 'Password (min 8)' }}</label>
+            <input type="password" name="login_password" class="form-control form-control-sm" autocomplete="new-password" minlength="8">
+        </div>
+        <div class="{{ $rider ? 'col-md-4' : 'col-12' }}">
             <label class="form-label small mb-1">Notes</label>
             <input name="notes" class="form-control form-control-sm" maxlength="500" value="{{ $rider?->notes }}">
         </div>

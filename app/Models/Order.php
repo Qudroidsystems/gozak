@@ -49,6 +49,18 @@ class Order extends Model
         'stop_sequence',
         'dispatch_status',
         'dispatch_note',
+        // delivery confirmation
+        'delivery_code',
+        'delivery_code_attempts',
+        'delivery_method',
+        'delivery_proof',
+        'delivery_receiver',
+        'delivered_lat',
+        'delivered_lng',
+        'delivery_attempts',
+        'out_for_delivery_at',
+        'cash_collected',
+        'cash_method',
     ];
 
     protected $casts = [
@@ -64,6 +76,8 @@ class Order extends Model
         'received_confirmed_at' => 'datetime',
         'packed_at' => 'datetime',
         'checked_at' => 'datetime',
+        'out_for_delivery_at' => 'datetime',
+        'cash_collected' => 'decimal:2',
         'billing_address_same_as_shipping' => 'boolean',
         'barcode_data' => 'array',
         'created_at' => 'datetime',
@@ -105,6 +119,33 @@ class Order extends Model
     public function getRefAttribute(): string
     {
         return $this->invoice_number ?: strtoupper(substr((string) $this->id, 0, 8));
+    }
+
+    /**
+     * When the customer was promised the order. A date without a time means
+     * "by the end of the delivery day" (dispatch setting, default 6pm).
+     */
+    public function promisedAt(): ?\Illuminate\Support\Carbon
+    {
+        if (!$this->delivery_date) {
+            return null;
+        }
+        $d = $this->delivery_date->copy();
+        if ($d->format('H:i:s') === '00:00:00') {
+            $d->setTime((int) \App\Models\Dispatch\DispatchSetting::current()->default_promise_hour, 0);
+        }
+        return $d;
+    }
+
+    /** Marketplace courier chosen at checkout (null = GozakMart riders). */
+    public function shipment()
+    {
+        return $this->hasOne(\App\Models\Logistics\OrderShipment::class);
+    }
+
+    public function dispatchEvents()
+    {
+        return $this->hasMany(\App\Models\Dispatch\DispatchEvent::class)->latest('id');
     }
 
     /** Fulfilling branch (stock location). */

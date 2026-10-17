@@ -6,8 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Dispatch\DeliveryRider;
 use App\Models\Dispatch\DeliveryZone;
 use App\Models\StockLocation;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class RiderZoneController extends Controller
 {
@@ -21,7 +26,7 @@ class RiderZoneController extends Controller
 
     public function riders()
     {
-        $riders = DeliveryRider::with('branch')
+        $riders = DeliveryRider::with(['branch', 'user'])
             ->withCount(['batches as runs_count' => fn ($q) => $q->where('status', 'completed')])
             ->orderByDesc('is_active')->orderBy('name')->get();
         $branches  = StockLocation::active()->orderBy('name')->get(['id', 'name']);
@@ -31,14 +36,89 @@ class RiderZoneController extends Controller
 
     public function storeRider(Request $request)
     {
-        DeliveryRider::create($this->riderData($request) + ['is_active' => true]);
-        return back()->with('success', 'Rider added.');
+        $data = $this->riderData($request);
+        DB::transaction(function () use ($request, $data) {
+            $rider = DeliveryRider::create($data + ['is_active' => true]);
+            $this->linkLogin($request, $rider);
+        });
+        return back()->with('success', 'Rider added.' . ($request->filled('login_email') ? ' They can sign in and open /rider on their phone.' : ''));
     }
 
     public function updateRider(Request $request, DeliveryRider $rider)
     {
-        $rider->update($this->riderData($request) + ['is_active' => $request->boolean('is_active')]);
+        $data = $this->riderData($request);
+        DB::transaction(function () use ($request, $rider, $data) {
+            $rider->update($data + ['is_active' => $request->boolean('is_active')]);
+            $this->linkLogin($request, $rider);
+        });
         return back()->with('success', 'Rider updated.');
+    }
+
+    /**
+     * Rider app login: link (or create) a staff user account with the "Rider" role.
+     * Customer (app) accounts are never converted.
+     */
+    private function linkLogin(Request $request, DeliveryRider $rider): void
+    {
+        $email    = strtolower(trim((string) $request->input('login_email')));
+        $password = (string) $request->input('login_password');
+        if ($email === '') {
+            if ($password !== '' && $rider->user) {
+                $this->checkPassword($password);
+                $rider->user->forceFill(['password' => Hash::make($password)])->save();
+            }
+            return;
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw ValidationException::withMessages(['login_email' => 'Enter a valid email for the rider login.']);
+        }
+
+        $user = User::where('email', $email)->first();
+        if ($user) {
+            if ($user->role !== 'staff') {
+                throw ValidationException::withMessages(['login_email' => 'That email belongs to a customer account. Use a different email for the rider login.']);
+            }
+            $taken = DeliveryRider::where('user_id', $user->id)->where('id', '!=', $rider->id)->first();
+            if ($taken) {
+                throw ValidationException::withMessages(['login_email' => "That login is already used by rider {$taken->name}."]);
+            }
+            if ($password !== '') {
+                $this->checkPassword($password);
+                $user->forceFill(['password' => Hash::make($password)])->save();
+            }
+        } else {
+            $this->checkPassword($password, true);
+            $parts = preg_split('/\s+/', trim($rider->name), 2);
+            $base  = Str::slug(Str::before($email, '@'), '_') ?: 'rider';
+            $username = $base;
+            for ($i = 2; User::where('username', $username)->exists(); $i++) {
+                $username = $base . $i;
+            }
+            $user = User::forceCreate([
+                'first_name'   => $parts[0] ?? $rider->name,
+                'last_name'    => $parts[1] ?? 'Rider',
+                'username'     => $username,
+                'email'        => $email,
+                'phone_number' => $rider->phone,
+                'password'     => Hash::make($password),
+                'role'         => 'staff',
+            ]);
+        }
+
+        if (!$user->hasRole('Rider')) {
+            $user->assignRole('Rider');
+        }
+        $rider->update(['user_id' => $user->id]);
+    }
+
+    private function checkPassword(string $password, bool $required = false): void
+    {
+        if ($password === '' && !$required) {
+            return;
+        }
+        if (mb_strlen($password) < 8) {
+            throw ValidationException::withMessages(['login_password' => 'The rider login password must be at least 8 characters.']);
+        }
     }
 
     private function riderData(Request $request): array

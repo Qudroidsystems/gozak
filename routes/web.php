@@ -299,6 +299,32 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/batches/{batch}/cancel', [$dc, 'cancel'])->name('cancel');
         Route::get('/batches/{batch}/manifest', [$dc, 'manifest'])->name('manifest');
         Route::get('/batches/{batch}/labels', [$dc, 'labels'])->name('labels');
+        Route::post('/batches/{batch}/cash', [$dc, 'cash'])->name('cash');
+
+        Route::get('/performance', [$dc, 'performance'])->name('performance');
+        Route::get('/settings', [$dc, 'settings'])->name('settings');
+
+        // Logistics marketplace (couriers at checkout)
+        $lc = \App\Http\Controllers\Logistics\LogisticsAdminController::class;
+        Route::get('/logistics', [$lc, 'settings'])->name('logistics');
+        Route::put('/logistics', [$lc, 'save'])->name('logistics.save');
+        Route::post('/logistics/test', [$lc, 'test'])->name('logistics.test');
+        Route::post('/courier/{order}/book', [$lc, 'book'])->name('courier.book');
+        Route::post('/courier/{order}/refresh', [$lc, 'refresh'])->name('courier.refresh');
+        Route::post('/courier/{order}/own-riders', [$lc, 'switchToOwn'])->name('courier.own');
+        Route::put('/settings', [$dc, 'saveSettings'])->name('settings.save');
+    });
+
+    // ===================================================================
+    // RIDER APP (mobile web) — riders sign in and open /rider
+    // ===================================================================
+    Route::prefix('rider')->name('rider.')->group(function () {
+        $ra = \App\Http\Controllers\Dispatch\RiderAppController::class;
+        Route::get('/', [$ra, 'index'])->name('index');
+        Route::get('/runs/{batch}', [$ra, 'run'])->whereNumber('batch')->name('run');
+        Route::post('/runs/{batch}/stops/{order}/deliver', [$ra, 'deliver'])->whereNumber('batch')->name('deliver');
+        Route::post('/runs/{batch}/stops/{order}/fail', [$ra, 'fail'])->whereNumber('batch')->name('fail');
+        Route::post('/runs/{batch}/stops/{order}/call', [$ra, 'call'])->whereNumber('batch')->name('call');
     });
 
     // Address Management

@@ -5,7 +5,12 @@
         @canany(['Manage riders', 'Manage dispatch', 'View dispatch'])
             <a class="cb-hero-btn" href="{{ route('dispatch.riders') }}"><i class="ri-e-bike-2-line"></i> Riders</a>
             <a class="cb-hero-btn" href="{{ route('dispatch.zones') }}"><i class="ri-map-pin-range-line"></i> Zones</a>
+            <a class="cb-hero-btn" href="{{ route('dispatch.performance') }}"><i class="ri-bar-chart-2-line"></i> Performance</a>
         @endcanany
+        @can('Manage dispatch settings')
+            <a class="cb-hero-btn" href="{{ route('dispatch.logistics') }}"><i class="ri-store-3-line"></i> Couriers</a>
+            <a class="cb-hero-btn" href="{{ route('dispatch.settings') }}"><i class="ri-settings-3-line"></i> Settings</a>
+        @endcan
     </x-slot:actions>
 </x-cb.hero>
 

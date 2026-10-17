@@ -36,6 +36,12 @@ class DeliveryRider extends Model
         return $this->hasMany(DispatchBatch::class, 'rider_id');
     }
 
+    /** The rider profile of the signed-in user, if any. */
+    public static function forUser(?int $userId): ?self
+    {
+        return $userId ? static::where('user_id', $userId)->first() : null;
+    }
+
     public function scopeActive($q)
     {
         return $q->where('is_active', true);

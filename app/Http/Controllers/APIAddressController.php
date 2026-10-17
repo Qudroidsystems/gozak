@@ -351,6 +351,9 @@ class APIAddressController extends Controller
             'phone_number'    => ['required', 'string', $phone],
             'alternate_phone' => ['nullable', 'string', $phone],
             'is_default'      => 'boolean',
+            // Map pin ("Use my current location"): needed to price marketplace couriers.
+            'latitude'        => 'nullable|numeric|between:-90,90',
+            'longitude'       => 'nullable|numeric|between:-180,180',
         ], [
             'phone_number.regex'    => 'Enter a valid phone number, e.g. 0803 123 4567.',
             'alternate_phone.regex' => 'Enter a valid alternate phone number, e.g. 0803 123 4567.',

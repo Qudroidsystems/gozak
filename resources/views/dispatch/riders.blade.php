@@ -19,7 +19,8 @@
                         <tbody>
                         @forelse($riders as $r)
                             <tr class="{{ $r->is_active ? '' : 'opacity-50' }}">
-                                <td><div class="fw-semibold">{{ $r->name }}</div><div class="small text-muted">{{ $r->phone }}</div></td>
+                                <td><div class="fw-semibold">{{ $r->name }}</div><div class="small text-muted">{{ $r->phone }}</div>
+                                    @if($r->user)<div class="small"><i class="ri-smartphone-line"></i> {{ $r->user->email }}</div>@else<div class="small text-warning">No app login</div>@endif</td>
                                 <td>{{ $r->vehicleLabel() }}</td>
                                 <td>{{ $r->branch?->name ?? 'Any' }}</td>
                                 <td class="num">{{ $r->capacity ?: '—' }}</td>

@@ -611,7 +611,7 @@
                     @endcan
 
                     @canany(['View dispatch', 'Manage dispatch', 'Manage riders'])
-                        @php try { $gzDispatchReady = \App\Models\Order::whereNull('dispatch_batch_id')->where('packing_status', 'verified')->whereIn('status', ['pending', 'processing'])->count(); } catch (\Throwable $e) { $gzDispatchReady = 0; } @endphp
+                        @php try { $gzDispatchReady = \App\Models\Order::whereNull('dispatch_batch_id')->where('packing_status', 'verified')->whereIn('status', ['pending', 'processing'])->where(fn ($q) => $q->whereNull('dispatch_status')->orWhere('dispatch_status', '!=', 'courier'))->count(); } catch (\Throwable $e) { $gzDispatchReady = 0; } @endphp
                         <li class="nav-item">
                             <a href="{{ route('dispatch.index') }}" class="nav-link menu-link {{ Route::is('dispatch.*') ? 'active' : '' }}">
                                 <i class="ph-truck"></i> <span>Dispatch</span>

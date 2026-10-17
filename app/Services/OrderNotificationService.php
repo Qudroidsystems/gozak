@@ -125,6 +125,28 @@ class OrderNotificationService
         return $this->sendToUser($user, $title, $body, $data, 'order_status_update');
     }
 
+    /**
+     * Free-form push about an order (e.g. "your rider is on the way, delivery code 4821").
+     * Respects the user's order-updates switch, same as status pushes.
+     */
+    public function notifyCustom(Order $order, string $title, string $body, array $data = []): array
+    {
+        $user = $order->user ?? User::find($order->user_id);
+        if (!$user || !$user->hasActiveFcmToken() || !($user->order_updates_enabled ?? true)) {
+            return ['sent' => 0, 'failed' => 0];
+        }
+
+        $data = array_map('strval', array_merge([
+            'type'           => 'order_delivery',
+            'order_id'       => (string) $order->id,
+            'invoice_number' => (string) ($order->invoice_number ?? ''),
+            'status'         => (string) $order->status,
+            'route'          => '/orders/' . $order->id,
+        ], $data));
+
+        return $this->sendToUser($user, $title, $body, $data, $data['type']);
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private function sendToUser(

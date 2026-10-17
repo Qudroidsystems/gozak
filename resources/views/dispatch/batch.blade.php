@@ -96,13 +96,46 @@
                                 <button class="btn btn-sm btn-outline-danger w-100"><i class="ri-close-circle-line"></i> Cancel batch</button>
                             </form>
                         @elseif($out)
+                            @php
+                                $inHand  = $batch->orders->where('cash_method', 'cash')->sum('cash_collected');
+                                $inBank  = $batch->orders->whereIn('cash_method', ['transfer', 'pos'])->sum('cash_collected');
+                            @endphp
                             <form method="POST" action="{{ route('dispatch.complete', $batch) }}">
                                 @csrf
+                                @if((float) $batch->cash_expected > 0 || $inHand > 0)
+                                    <div class="small mb-1">Rider reported <b>₦{{ number_format($inHand, 2) }}</b> cash@if($inBank > 0) · ₦{{ number_format($inBank, 2) }} transfer/POS@endif</div>
+                                    <label class="form-label small mb-1">Cash handed in (₦)</label>
+                                    <input type="number" step="0.01" min="0" name="cash_received" class="form-control form-control-sm mb-1" value="{{ number_format($inHand, 2, '.', '') }}">
+                                    <input type="text" name="cash_note" maxlength="500" class="form-control form-control-sm mb-2" placeholder="Note (e.g. ₦500 short — change given)">
+                                @endif
                                 <button class="btn btn-primary w-100" @disabled($openStops > 0)><i class="ri-flag-2-line"></i> Close the run</button>
                                 @if($openStops)<div class="small text-muted mt-1">{{ $openStops }} stop(s) still open.</div>@endif
                             </form>
                         @endif
                     </div>
+                @endif
+
+                @if($batch->status === 'completed')
+                    @php
+                        $inHand = $batch->orders->where('cash_method', 'cash')->sum('cash_collected');
+                        $var = $batch->cash_received !== null ? (float) $batch->cash_received - $inHand : null;
+                    @endphp
+                    <hr>
+                    <div class="small text-muted mb-1">Cash</div>
+                    <table class="table table-sm small mb-2">
+                        <tr><td>Expected (COD at dispatch)</td><td class="text-end">₦{{ number_format($batch->cash_expected, 2) }}</td></tr>
+                        <tr><td>Rider reported (cash)</td><td class="text-end">₦{{ number_format($inHand, 2) }}</td></tr>
+                        <tr><td>Handed in</td><td class="text-end fw-semibold">{{ $batch->cash_received !== null ? '₦' . number_format($batch->cash_received, 2) : '—' }}</td></tr>
+                        @if($var !== null)<tr><td>Difference</td><td class="text-end fw-bold {{ $var < -0.009 ? 'text-danger' : 'text-success' }}">{{ $var < 0 ? '−' : '' }}₦{{ number_format(abs($var), 2) }}</td></tr>@endif
+                    </table>
+                    @if($batch->cash_note)<div class="small text-muted">{{ $batch->cash_note }}</div>@endif
+                    @if($batch->cash_received === null && $canManage && $inHand > 0)
+                        <form method="POST" action="{{ route('dispatch.cash', $batch) }}" class="d-flex gap-2">
+                            @csrf
+                            <input type="number" step="0.01" min="0" name="cash_received" class="form-control form-control-sm" value="{{ number_format($inHand, 2, '.', '') }}">
+                            <button class="btn btn-sm btn-primary text-nowrap">Record cash</button>
+                        </form>
+                    @endif
                 @endif
 
                 <hr>
@@ -182,9 +215,20 @@
                                     @endforeach
                                 </td>
                                 <td class="text-end text-nowrap">{!! $amt > 0 ? '<b>₦' . number_format($amt, 2) . '</b>' : '<span class="badge bg-success-subtle text-success">Paid</span>' !!}</td>
-                                <td>
+                                <td class="small">
                                     <span class="badge bg-{{ $stopBadge[$o->dispatch_status] ?? 'secondary' }}">{{ $stopText[$o->dispatch_status] ?? $o->dispatch_status }}</span>
-                                    @if($o->dispatch_note)<div class="small text-muted">{{ $o->dispatch_note }}</div>@endif
+                                    @if($o->dispatch_status === 'delivered')
+                                        @php $mLabel = ['code' => 'Code ✓', 'photo' => 'Photo', 'admin' => 'By admin', 'none' => 'Rider']; @endphp
+                                        <span class="badge bg-{{ $o->delivery_method === 'code' ? 'success' : 'warning' }}-subtle text-{{ $o->delivery_method === 'code' ? 'success' : 'warning' }}">{{ $mLabel[$o->delivery_method] ?? $o->delivery_method }}</span>
+                                        @if($o->delivery_receiver)<div class="text-muted">Received by {{ $o->delivery_receiver }}</div>@endif
+                                        @if($o->delivery_proof)<div><a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($o->delivery_proof) }}" target="_blank"><i class="ri-image-line"></i> Proof photo</a></div>@endif
+                                        @if($o->delivered_lat)<div><a href="https://www.google.com/maps?q={{ $o->delivered_lat }},{{ $o->delivered_lng }}" target="_blank"><i class="ri-map-pin-line"></i> Where</a></div>@endif
+                                        @if($o->cash_collected)<div>₦{{ number_format($o->cash_collected, 2) }} · {{ strtoupper($o->cash_method ?? '') }}</div>@endif
+                                        <div class="text-muted">{{ $o->delivered_at?->format('H:i') }}</div>
+                                    @elseif($o->dispatch_status === 'out_for_delivery' && $o->delivery_code && $canManage)
+                                        <div class="text-muted mt-1" title="Read this to customers who don't use the app">Code <span class="font-monospace fw-bold text-dark">{{ $o->delivery_code }}</span>@if($o->delivery_code_attempts) · <span class="text-danger">{{ $o->delivery_code_attempts }} wrong</span>@endif</div>
+                                    @endif
+                                    @if($o->dispatch_note)<div class="text-muted">{{ $o->dispatch_note }}</div>@endif
                                 </td>
                                 <td class="text-end text-nowrap">
                                     @if($editable)
@@ -193,10 +237,7 @@
                                             <button class="btn btn-sm btn-outline-danger" title="Remove from batch"><i class="ri-close-line"></i></button>
                                         </form>
                                     @elseif($out && $canManage && $o->dispatch_status === 'out_for_delivery')
-                                        <form method="POST" action="{{ route('dispatch.orders.stop', [$batch, $o->id]) }}" class="d-inline">
-                                            @csrf <input type="hidden" name="outcome" value="delivered">
-                                            <button class="btn btn-sm btn-success"><i class="ri-check-double-line"></i> Delivered</button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm btn-success js-deliver" data-url="{{ route('dispatch.orders.stop', [$batch, $o->id]) }}" data-ref="{{ $o->ref }}" data-due="{{ $amt }}"><i class="ri-check-double-line"></i> Delivered</button>
                                         <button type="button" class="btn btn-sm btn-outline-danger js-fail" data-url="{{ route('dispatch.orders.stop', [$batch, $o->id]) }}" data-ref="{{ $o->ref }}">Failed</button>
                                     @endif
                                 </td>
@@ -233,6 +274,26 @@
                     </form>
                 </x-cb.card>
             @endif
+
+            @if($events->count())
+                <x-cb.card title="Activity" icon="ri-history-line" :count="$events->count()" :flush="true">
+                    <div class="list-group list-group-flush small" style="max-height: 360px; overflow:auto;">
+                        @php $evIcon = ['assigned' => 'ri-add-line', 'dispatched' => 'ri-send-plane-2-line', 'delivered' => 'ri-checkbox-circle-line text-success', 'failed' => 'ri-close-circle-line text-danger', 'code_failed' => 'ri-lock-password-line text-danger', 'called' => 'ri-phone-line', 'returned' => 'ri-arrow-go-back-line text-warning', 'completed' => 'ri-flag-2-line', 'cash_in' => 'ri-hand-coin-line text-success']; @endphp
+                        @foreach($events as $e)
+                            <div class="list-group-item d-flex gap-2">
+                                <i class="{{ $evIcon[$e->event] ?? 'ri-information-line' }}"></i>
+                                <div class="flex-grow-1">
+                                    <span class="fw-semibold">{{ str_replace('_', ' ', ucfirst($e->event)) }}</span>
+                                    @if($e->order) · {{ $e->order->ref }}@endif
+                                    @if($e->note)<span class="text-muted"> — {{ $e->note }}</span>@endif
+                                    @if($e->lat)<a class="ms-1" target="_blank" href="https://www.google.com/maps?q={{ $e->lat }},{{ $e->lng }}"><i class="ri-map-pin-line"></i></a>@endif
+                                </div>
+                                <span class="text-muted text-nowrap">{{ $e->created_at?->format('j M H:i') }}@if($e->user) · {{ $e->user->full_name }}@endif</span>
+                            </div>
+                        @endforeach
+                    </div>
+                </x-cb.card>
+            @endif
         </div>
     </div>
 
@@ -244,6 +305,33 @@
 @push('scripts')
 <script>
 (function () {
+    // Admin confirms a delivery (e.g. rider phoned it in). Ask for cash on pay-on-delivery orders.
+    document.querySelectorAll('.js-deliver').forEach(b => b.addEventListener('click', () => {
+        const due = parseFloat(b.dataset.due || '0');
+        const post = (fields) => {
+            const f = document.createElement('form');
+            f.method = 'POST'; f.action = b.dataset.url;
+            f.innerHTML = `<input type="hidden" name="_token" value="{{ csrf_token() }}"><input type="hidden" name="outcome" value="delivered">`;
+            Object.entries(fields).forEach(([k, v]) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; f.appendChild(i); });
+            document.body.appendChild(f); f.submit();
+        };
+        Swal.fire({
+            title: 'Mark ' + b.dataset.ref + ' delivered?',
+            html: due > 0
+                ? `<div class="text-start small">Pay on delivery: ₦${due.toLocaleString()}</div>
+                   <input id="swCash" type="number" step="0.01" class="swal2-input" value="${due.toFixed(2)}" placeholder="Amount collected">
+                   <select id="swMethod" class="swal2-select"><option value="cash">Cash</option><option value="transfer">Transfer</option><option value="pos">POS</option></select>
+                   <input id="swNote" class="swal2-input" placeholder="Note (who confirmed?)">`
+                : `<input id="swNote" class="swal2-input" placeholder="Note (who confirmed?)">`,
+            showCancelButton: true, confirmButtonText: 'Delivered', confirmButtonColor: '#16a34a',
+            preConfirm: () => ({
+                cash_collected: due > 0 ? document.getElementById('swCash').value : '',
+                cash_method: due > 0 ? document.getElementById('swMethod').value : '',
+                note: document.getElementById('swNote').value || 'Confirmed by dispatch',
+            }),
+        }).then(r => { if (r.isConfirmed) post(r.value); });
+    }));
+
     // Failed delivery → ask for the reason.
     document.querySelectorAll('.js-fail').forEach(b => b.addEventListener('click', () => {
         Swal.fire({

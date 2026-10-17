@@ -64,6 +64,12 @@ class APIOrderController extends Controller
                 'shipping_address.postal_code'     => 'nullable|string|max:20',
                 'shipping_address.country'         => 'required|string|max:255',
                 'shipping_address.phone_number'    => 'nullable|string|max:50',
+                'shipping_address.latitude'        => 'nullable|numeric|between:-90,90',
+                'shipping_address.longitude'       => 'nullable|numeric|between:-180,180',
+                // From POST /checkout/delivery-options: "store" (GozakMart riders) or a marketplace option id.
+                'delivery_option_id'               => 'nullable|string|max:40',
+                // now = delivery fee added to this order; on_delivery = paid to the courier's rider in cash.
+                'delivery_fee_payer'               => 'nullable|in:now,on_delivery',
                 'billing_address'                  => 'required_if:billing_address_same_as_shipping,false|array',
                 'billing_address.name'             => 'required_if:billing_address_same_as_shipping,false|string|max:255',
                 'billing_address.street'           => 'required_if:billing_address_same_as_shipping,false|string|max:255',
@@ -108,7 +114,19 @@ class APIOrderController extends Controller
 
             $userId = Auth::id();
 
-            return DB::transaction(function () use ($validated, $quote, $priceChanged, $clientTotal, $userId) {
+            // ── Delivery: GozakMart riders (store shipping rules) or the marketplace courier the customer picked ──
+            $logistics = app(\App\Services\Logistics\LogisticsService::class);
+            try {
+                $delivery = $logistics->chosen($userId, $validated['delivery_option_id'] ?? null, $validated['delivery_fee_payer'] ?? null, (float) $quote['shipping']);
+            } catch (\App\Services\Logistics\LogisticsException $e) {
+                return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'delivery_option_expired'], 422);
+            }
+            if (abs($delivery['shipping'] - (float) $quote['shipping']) >= 0.01) {
+                $quote['total']    = round((float) $quote['total'] - (float) $quote['shipping'] + $delivery['shipping'], 2);
+                $quote['shipping'] = $delivery['shipping'];
+            }
+
+            return DB::transaction(function () use ($validated, $quote, $priceChanged, $clientTotal, $userId, $delivery, $logistics) {
                 // Addresses used to be dropped (not fillable on Order), so orders
                 // had no delivery address. Save them as the customer's addresses
                 // (re-using an identical one) and link them to the order.
@@ -132,6 +150,8 @@ class APIOrderController extends Controller
                     'billing_address_same_as_shipping' => $validated['billing_address_same_as_shipping'],
                     'delivery_date'                    => $validated['delivery_date'] ?? now()->addDays(7),
                 ]);
+
+                $courier = $logistics->attach($order, $delivery);
 
                 foreach ($quote['items'] as $item) {
                     $order->items()->create([
@@ -191,6 +211,7 @@ class APIOrderController extends Controller
                         'tax'      => $quote['tax'],
                         'total'    => $quote['total'],
                     ],
+                    'courier'       => $courier?->toCustomer(),
                     'price_changed' => $priceChanged,
                     'message'       => $priceChanged
                         ? 'Some prices changed since you added them to your cart. Your order total has been updated.'
@@ -233,6 +254,8 @@ class APIOrderController extends Controller
             'postal_code'     => $a['postal_code'] ?? null,
             'phone_number'    => $a['phone_number'] ?? null,
             'alternate_phone' => $a['alternate_phone'] ?? null,
+            'latitude'        => $a['latitude'] ?? null,
+            'longitude'       => $a['longitude'] ?? null,
         ], fn ($v) => $v !== null && $v !== '');
 
         $address = Address::firstOrCreate($match, $extra + ['is_default' => false]);
@@ -242,6 +265,45 @@ class APIOrderController extends Controller
             $address->save();
         }
         return $address->id;
+    }
+
+    /**
+     * POST /api/checkout/delivery-options — how this cart can reach this address:
+     * "GozakMart Delivery" (own riders) plus every logistics-marketplace provider with price, speed and rating.
+     * Body: { address: {street, city, lga, state, landmark, name, phone_number, latitude, longitude} | address_id, items: [...] }
+     */
+    public function deliveryOptions(Request $request, \App\Services\Logistics\LogisticsService $logistics)
+    {
+        $data = $request->validate([
+            'address_id'           => 'nullable|integer',
+            'address'              => 'required_without:address_id|array',
+            'address.street'       => 'nullable|string|max:255',
+            'address.city'         => 'nullable|string|max:255',
+            'address.lga'          => 'nullable|string|max:255',
+            'address.state'        => 'nullable|string|max:255',
+            'address.name'         => 'nullable|string|max:255',
+            'address.phone_number' => 'nullable|string|max:50',
+            'address.latitude'     => 'nullable|numeric|between:-90,90',
+            'address.longitude'    => 'nullable|numeric|between:-180,180',
+            'items'                => 'nullable|array|max:100',
+            'items.*.product_id'   => 'required_with:items|exists:products,id',
+            'items.*.variation_id' => 'nullable|exists:product_variations,id',
+            'items.*.quantity'     => 'required_with:items|integer|min:1|max:1000',
+        ]);
+        $address = $data['address'] ?? [];
+        if (!empty($data['address_id'])) {
+            $a = Address::where('id', $data['address_id'])->where('user_id', Auth::id())->first();
+            if (!$a) {
+                return response()->json(['success' => false, 'message' => 'Address not found.'], 404);
+            }
+            $address = $a->only(['street', 'city', 'lga', 'state', 'name', 'phone_number', 'latitude', 'longitude']);
+        }
+        try {
+            $res = $logistics->checkoutOptions(Auth::id(), $address, $data['items'] ?? []);
+        } catch (\App\Services\Logistics\LogisticsException $e) {
+            return response()->json(['success' => false, 'message' => 'Delivery options are not available right now. Please try again.'], 503);
+        }
+        return response()->json(['success' => true, 'data' => $res]);
     }
 
     /**

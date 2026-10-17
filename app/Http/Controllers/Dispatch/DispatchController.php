@@ -9,7 +9,10 @@ use App\Models\Dispatch\DispatchBatch;
 use App\Models\Dispatch\OrderParcel;
 use App\Models\Order;
 use App\Models\StockLocation;
+use App\Models\Dispatch\DispatchSetting;
+use App\Services\Dispatch\DispatchPlanner;
 use App\Services\Dispatch\DispatchService;
+use Illuminate\Support\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -19,7 +22,8 @@ class DispatchController extends Controller
     public function __construct(private DispatchService $dispatch)
     {
         $this->middleware('permission:View dispatch|Manage dispatch');
-        $this->middleware('permission:Manage dispatch', ['except' => ['index', 'show', 'manifest', 'labels', 'lookup']]);
+        $this->middleware('permission:Manage dispatch', ['except' => ['index', 'show', 'manifest', 'labels', 'lookup', 'performance', 'settings', 'saveSettings']]);
+        $this->middleware('permission:Manage dispatch settings', ['only' => ['settings', 'saveSettings']]);
     }
 
     // ── Board ────────────────────────────────────────────────────────────────
@@ -59,8 +63,12 @@ class DispatchController extends Controller
 
         $busyRiderIds = DispatchBatch::whereIn('status', ['loading', 'dispatched'])->pluck('rider_id')->filter()->all();
 
+        $planner     = app(DispatchPlanner::class);
+        $suggestions = $tab === 'history' ? collect() : $planner->suggestions($branchId);
+        $alerts      = $tab === 'history' ? collect() : $planner->alerts($branchId);
+
         $pagetitle = 'Dispatch';
-        return view('dispatch.index', compact('pagetitle', 'branches', 'branchId', 'zones', 'riders', 'queue', 'active', 'history', 'tab', 'awaitingPacking', 'busyRiderIds'));
+        return view('dispatch.index', compact('pagetitle', 'branches', 'branchId', 'zones', 'riders', 'queue', 'active', 'history', 'tab', 'awaitingPacking', 'busyRiderIds', 'suggestions', 'alerts'));
     }
 
     public function store(Request $request)
@@ -73,10 +81,14 @@ class DispatchController extends Controller
             'stock_location_id'    => 'nullable|integer|exists:stock_locations,id',
             'planned_departure_at' => 'nullable|date',
             'notes'                => 'nullable|string|max:1000',
+            'suggested'            => 'nullable|boolean',
         ]);
 
         try {
             $batch = $this->dispatch->createBatch($data['orders'], $data, (int) auth()->id());
+            if ($request->boolean('suggested')) {
+                $batch->update(['suggested' => true]);
+            }
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -91,10 +103,15 @@ class DispatchController extends Controller
         $batch->load(['rider', 'zone', 'branch', 'creator', 'dispatcher',
             'orders' => fn ($q) => $q->with(['parcels', 'shippingAddress', 'billingAddress', 'user', 'customer'])]);
 
+        $events = \App\Models\Dispatch\DispatchEvent::with(['order:id,invoice_number', 'user:id,first_name,last_name'])
+            ->where('dispatch_batch_id', $batch->id)->latest('id')->limit(80)->get();
+        $settings = DispatchSetting::current();
+
         $riders = DeliveryRider::active()->orderBy('name')->get();
         $addable = $batch->isEditable()
             ? Order::with(['shippingAddress', 'billingAddress', 'user', 'customer', 'deliveryZone'])
                 ->whereNull('dispatch_batch_id')->where('packing_status', 'verified')
+                ->where(fn ($q) => $q->whereNull('dispatch_status')->orWhere('dispatch_status', '!=', 'courier'))
                 ->whereIn('status', ['pending', 'processing'])
                 ->orderByRaw('CASE WHEN delivery_zone_id = ? THEN 0 ELSE 1 END', [(int) $batch->delivery_zone_id])
                 ->orderBy('created_at')->limit(200)->get()
@@ -104,7 +121,7 @@ class DispatchController extends Controller
         $parcelLoaded = $batch->orders->sum(fn ($o) => $o->parcels->whereIn('status', ['loaded', 'out_for_delivery', 'delivered'])->count());
 
         $pagetitle = "Batch {$batch->code}";
-        return view('dispatch.batch', compact('pagetitle', 'batch', 'riders', 'addable', 'parcelTotal', 'parcelLoaded'));
+        return view('dispatch.batch', compact('pagetitle', 'batch', 'riders', 'addable', 'parcelTotal', 'parcelLoaded', 'events', 'settings'));
     }
 
     public function update(Request $request, DispatchBatch $batch)
@@ -184,24 +201,94 @@ class DispatchController extends Controller
     public function stop(Request $request, DispatchBatch $batch, string $order)
     {
         $data = $request->validate([
-            'outcome' => 'required|in:delivered,failed',
-            'note'    => 'nullable|string|max:500',
+            'outcome'        => 'required|in:delivered,failed',
+            'note'           => 'nullable|string|max:500',
+            'cash_collected' => 'nullable|numeric|min:0',
+            'cash_method'    => 'nullable|in:cash,transfer,pos',
         ]);
         $order = Order::findOrFail($order);
         return $this->attempt(
-            fn () => $this->dispatch->recordStop($batch, $order, $data['outcome'], $data['note'] ?? null),
+            fn () => $this->dispatch->recordStop($batch, $order, $data['outcome'], $data['note'] ?? null, $data),
             $data['outcome'] === 'delivered' ? "Order {$order->ref} delivered." : "Order {$order->ref} marked as failed delivery."
         );
     }
 
-    public function complete(DispatchBatch $batch)
+    public function complete(Request $request, DispatchBatch $batch)
     {
+        $data = $request->validate([
+            'cash_received' => 'nullable|numeric|min:0',
+            'cash_note'     => 'nullable|string|max:500',
+        ]);
         try {
-            $returned = $this->dispatch->complete($batch);
+            $returned = $this->dispatch->complete(
+                $batch,
+                isset($data['cash_received']) && $data['cash_received'] !== '' ? (float) $data['cash_received'] : null,
+                $data['cash_note'] ?? null,
+                (int) auth()->id()
+            );
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
         return back()->with('success', "Batch {$batch->code} completed." . ($returned ? " {$returned} undelivered order(s) are back in the dispatch queue." : ''));
+    }
+
+    /** Cash handed in after the run was closed. */
+    public function cash(Request $request, DispatchBatch $batch)
+    {
+        $data = $request->validate([
+            'cash_received' => 'required|numeric|min:0',
+            'cash_note'     => 'nullable|string|max:500',
+        ]);
+        return $this->attempt(
+            fn () => $this->dispatch->reconcileCash($batch, (float) $data['cash_received'], $data['cash_note'] ?? null, (int) auth()->id()),
+            'Cash recorded.'
+        );
+    }
+
+    // ── Performance & settings ───────────────────────────────────────────────
+
+    public function performance(Request $request)
+    {
+        $from = $request->filled('from') ? Carbon::parse($request->from)->startOfDay() : now()->subDays(6)->startOfDay();
+        $to   = $request->filled('to') ? Carbon::parse($request->to)->endOfDay() : now()->endOfDay();
+        if ($from->gt($to)) {
+            [$from, $to] = [$to->copy()->startOfDay(), $from->copy()->endOfDay()];
+        }
+        $branchId = $request->integer('branch') ?: null;
+        $branches = StockLocation::active()->orderBy('name')->get(['id', 'name']);
+        $report   = app(DispatchPlanner::class)->performance($from, $to, $branchId);
+
+        $pagetitle = 'Rider performance';
+        return view('dispatch.performance', compact('pagetitle', 'report', 'from', 'to', 'branchId', 'branches'));
+    }
+
+    public function settings()
+    {
+        $settings  = DispatchSetting::query()->first() ?? new DispatchSetting(DispatchSetting::defaults());
+        $pagetitle = 'Dispatch settings';
+        return view('dispatch.settings', compact('settings', 'pagetitle'));
+    }
+
+    public function saveSettings(Request $request)
+    {
+        $data = $request->validate([
+            'max_code_attempts'     => 'required|integer|min:1|max:20',
+            'default_capacity'      => 'required|integer|min:1|max:500',
+            'max_stops_per_run'     => 'required|integer|min:1|max:100',
+            'default_promise_hour'  => 'required|integer|min:6|max:23',
+            'pack_within_minutes'   => 'required|integer|min:10|max:2880',
+            'at_risk_minutes'       => 'required|integer|min:10|max:1440',
+            'loading_stuck_minutes' => 'required|integer|min:10|max:1440',
+            'run_overdue_minutes'   => 'required|integer|min:30|max:2880',
+        ]);
+        $data['require_delivery_code'] = $request->boolean('require_delivery_code');
+        $data['allow_photo_fallback']  = $request->boolean('allow_photo_fallback');
+
+        $s = DispatchSetting::query()->first() ?? new DispatchSetting();
+        $s->fill($data)->save();
+        DispatchSetting::forget();
+
+        return back()->with('success', 'Dispatch settings saved.');
     }
 
     public function cancel(DispatchBatch $batch)

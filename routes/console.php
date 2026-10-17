@@ -32,3 +32,6 @@ Artisan::command('orders:auto-confirm', function () {
     $this->info("Auto-confirmed {$n} order(s).");
 })->purpose('Mark shipped orders as delivered after the auto-confirm wait');
 \Illuminate\Support\Facades\Schedule::command('orders:auto-confirm')->hourlyAt(20)->withoutOverlapping(30);
+
+// Logistics marketplace: refresh marketplace courier deliveries (backup for missed webhooks).
+\Illuminate\Support\Facades\Schedule::command('logistics:sync')->everyTenMinutes()->withoutOverlapping(15);

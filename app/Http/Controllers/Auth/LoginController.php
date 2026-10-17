@@ -60,6 +60,11 @@ class LoginController extends Controller
             ]);
         }
 
+        // Riders (no back-office access) go straight to the rider app.
+        if ($user->can('Deliver orders') && !$user->can('View order') && !$user->can('View dispatch')) {
+            return redirect()->route('rider.index');
+        }
+
         // If role check passes, proceed to default redirect
         return redirect()->intended($this->redirectPath());
     }
