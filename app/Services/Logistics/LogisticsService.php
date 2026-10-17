@@ -91,6 +91,7 @@ class LogisticsService
             'marketplace_badge' => $me['marketplace']['badge_text'] ?? null,
             'marketplace_logo'  => $me['marketplace']['badge_logo'] ?? null,
             'own_provider_name' => $me['own_provider']['name'] ?? null,
+            'own_price_mode'    => $me['own_provider']['price_mode'] ?? null,
             'last_checked_at'   => now(),
             'last_error'        => null,
         ])->save();
@@ -106,6 +107,10 @@ class LogisticsService
     public function checkoutOptions(?int $userId, array $address, array $items = []): array
     {
         $s = $this->settings();
+        $ownVia = $s->ownViaMarketplace() && $s->own_delivery_enabled;
+        $ownLabel = $s->own_delivery_label ?: 'GozakMart Delivery';
+        // GozakMart's own fee for GozakMart Delivery (sent with the order), or null: the team's price list on the marketplace.
+        $shopFee = $ownVia && $s->ownFeeFromGozakMart() ? $this->ownShipping($items) : null;
         $options = [];
         $notice = null;
         $feeLabels = [self::FEE_NOW => 'Pay delivery now with your order'];
@@ -113,17 +118,15 @@ class LogisticsService
             $feeLabels[self::FEE_ON_DELIVERY] = 'Pay the rider in cash on delivery';
         }
 
-        if ($s->own_delivery_enabled || !$s->isLive()) {
+        // GozakMart Delivery with in-house riders, priced by GozakMart's shipping rules.
+        if (!$ownVia && ($s->own_delivery_enabled || !$s->isLive())) {
             $shipping = $this->ownShipping($items);
             $options[] = [
-                'id' => self::OWN, 'type' => 'store', 'name' => $s->own_delivery_label ?: 'GozakMart Delivery',
+                'id' => self::OWN, 'type' => 'store', 'name' => $ownLabel,
                 'provider' => 'GozakMart', 'provider_logo' => null, 'rating' => null, 'rating_count' => 0,
                 'service' => 'Delivered by GozakMart riders', 'eta' => $s->own_delivery_eta ?: 'Same day',
-                'price' => $shipping, 'tags' => $shipping <= 0 ? ['free'] : [], 'fee_payers' => [self::FEE_NOW],
-            ] + ($s->ownViaMarketplace() ? [
-                // Run by GozakMart's team on the marketplace: the rider needs the map pin, and the customer can follow them live.
-                'marketplace' => $s->marketplace_name, 'needs_pin' => true, 'live_tracking' => true,
-            ] : []);
+                'price' => $shipping, 'priced' => true, 'tags' => $shipping <= 0 ? ['free'] : [], 'fee_payers' => [self::FEE_NOW],
+            ];
         }
 
         $marketplace = null;
@@ -137,48 +140,75 @@ class LogisticsService
             $pickup = $this->pickupPoint(null);
             if (!is_numeric($lat) || !is_numeric($lng)) {
                 $notice = match (true) {
-                    $s->ownViaMarketplace() => 'Pin your delivery address on the map so our rider can find you' . ($marketplace ? ", and to see couriers from {$marketplace['name']}." : '.'),
-                    (bool) $marketplace     => "Pin your delivery address on the map to see couriers from {$marketplace['name']} and their prices.",
-                    default                 => 'Pin your delivery address on the map to see courier options and prices.',
+                    $ownVia             => "Pin your delivery address on the map to see the {$ownLabel} price" . ($marketplace ? " and couriers from {$marketplace['name']}." : '.'),
+                    (bool) $marketplace => "Pin your delivery address on the map to see couriers from {$marketplace['name']} and their prices.",
+                    default             => 'Pin your delivery address on the map to see courier options and prices.',
                 };
+                if ($ownVia) {
+                    // Shown, but it can only be chosen once the address is pinned (priced there unless GozakMart sets the fee).
+                    $options[] = $this->ownPlaceholder($s, $marketplace['name'] ?? null, $shopFee);
+                    if ($shopFee !== null) {
+                        $notice = "Pin your delivery address on the map so our rider can find you" . ($marketplace ? ", and to see couriers from {$marketplace['name']}." : '.');
+                    }
+                }
             } elseif (!$pickup) {
                 $notice = null; // a set-up problem for staff, not the customer
                 Log::warning('Logistics: pickup branch has no map position; couriers hidden at checkout.');
             } else {
                 try {
-                    $res = $this->client()->options([
-                        'pickup'   => $pickup,
-                        'dropoff'  => $this->dropoffFrom($address),
-                        'weight_g' => (int) $s->default_weight_g,
-                    ]);
+                    $res = $this->client()->options(array_filter([
+                        'pickup'    => $pickup,
+                        'dropoff'   => $this->dropoffFrom($address),
+                        'weight_g'  => (int) $s->default_weight_g,
+                        // Our fee for GozakMart Delivery, used for our team's options when its account allows it.
+                        'own_price' => $shopFee !== null ? (int) round($shopFee * 100) : null,
+                    ], fn ($v) => $v !== null));
                     $marketplace = [
                         'name'  => $res['marketplace']['name'] ?? $s->marketplace_name,
                         'badge' => $res['marketplace']['badge_text'] ?? $s->marketplace_badge,
                         'logo'  => $res['marketplace']['badge_logo'] ?? $s->marketplace_logo,
                     ];
+                    $own = [];
+                    $couriers = [];
                     foreach ($res['options'] ?? [] as $o) {
+                        $mine = !empty($o['own']);
+                        if ($mine && !$ownVia) {
+                            continue; // our own team only appears as GozakMart Delivery
+                        }
+                        // GozakMart's fee when it sets it (the customer pays that; a free delivery stays free), else the marketplace price.
+                        $price = $mine && $shopFee !== null ? $shopFee : round(((int) $o['price']) / 100, 2);
                         $opt = [
                             'id'            => $o['option_id'],
-                            'type'          => 'courier',
-                            'name'          => $o['provider']['name'] ?? 'Delivery partner',
-                            'provider'      => $o['provider']['name'] ?? 'Delivery partner',
-                            'provider_logo' => $o['provider']['logo'] ?? null,
+                            'type'          => $mine ? 'store' : 'courier',
+                            'mode'          => $mine ? 'own' : 'courier',
+                            'name'          => $mine ? $ownLabel : ($o['provider']['name'] ?? 'Delivery partner'),
+                            'provider'      => $mine ? $ownLabel : ($o['provider']['name'] ?? 'Delivery partner'),
+                            'provider_logo' => $mine ? null : ($o['provider']['logo'] ?? null),
                             'rating'        => $o['provider']['rating'] ?? null,
                             'rating_count'  => (int) ($o['provider']['rating_count'] ?? 0),
                             'service'       => $o['service']['name'] ?? 'Delivery',
                             'eta'           => $o['eta']['label'] ?? null,
-                            'price'         => round(((int) $o['price']) / 100, 2),
-                            'tags'          => $o['tags'] ?? [],
-                            'fee_payers'    => array_keys($feeLabels),
+                            'price'         => $price,
+                            'priced'        => true,
+                            'tags'          => $mine && $shopFee !== null ? ($price <= 0 ? ['free'] : []) : ($o['tags'] ?? []),
+                            'fee_payers'    => $price > 0 ? array_keys($feeLabels) : [self::FEE_NOW],
+                            'price_source'  => $mine ? ($shopFee !== null ? 'gozakmart' : 'marketplace') : 'marketplace',
                             'marketplace'   => $marketplace['name'],
+                            'live_tracking' => true,
+                            'needs_pin'     => true,
                         ];
-                        $options[] = $opt;
+                        $mine ? $own[] = $opt : $couriers[] = $opt;
                         Cache::put($this->cacheKey($userId, $opt['id']), $opt + ['provider_id' => $o['provider']['id'] ?? null], now()->addMinutes(self::OPTION_TTL_MINUTES));
                     }
+                    if ($ownVia && !$own) {
+                        $notice = "{$ownLabel} does not reach this address yet. Choose a courier below.";
+                    }
+                    // GozakMart Delivery first, then the marketplace couriers.
+                    array_push($options, ...$own, ...$couriers);
                 } catch (LogisticsException $e) {
                     Log::info('Logistics options unavailable: ' . $e->getMessage());
                     if (!$options) {
-                        throw $e;
+                        throw new LogisticsException('Delivery prices are not available right now. Please try again in a moment.');
                     }
                 }
             }
@@ -189,7 +219,20 @@ class LogisticsService
             'options'          => $options,
             'fee_payer_labels' => $feeLabels,
             'notice'           => $notice,
-            'default_option'   => $options[0]['id'] ?? null,
+            // Nothing is chosen for the customer: no delivery fee is added until they pick an option.
+            'default_option'   => null,
+        ];
+    }
+
+    /** GozakMart Delivery before the address is pinned: listed, but priced only once the marketplace can quote it. */
+    private function ownPlaceholder(LogisticsSetting $s, ?string $marketplace, ?float $fee = null): array
+    {
+        return [
+            'id' => self::OWN, 'type' => 'store', 'mode' => 'own', 'name' => $s->own_delivery_label ?: 'GozakMart Delivery',
+            'provider' => 'GozakMart', 'provider_logo' => null, 'rating' => null, 'rating_count' => 0,
+            'service' => 'Delivered by GozakMart riders', 'eta' => $s->own_delivery_eta ?: 'Same day',
+            'price' => $fee, 'priced' => false, 'tags' => [], 'fee_payers' => [], 'marketplace' => $marketplace,
+            'needs_pin' => true, 'live_tracking' => true,
         ];
     }
 
@@ -198,15 +241,12 @@ class LogisticsService
     {
         if (!$optionId || $optionId === self::OWN) {
             $s = $this->settings();
-            if (!$s->ownViaMarketplace()) {
-                return ['shipping' => $ownShipping, 'option' => null, 'fee_payer' => self::FEE_NOW];
+            if ($optionId === self::OWN && $s->ownViaMarketplace() && $s->own_delivery_enabled) {
+                // GozakMart Delivery is priced by our team on the marketplace, which needs the map pin.
+                throw new LogisticsException('Pin your delivery address on the map to see the ' . ($s->own_delivery_label ?: 'GozakMart Delivery') . ' price, then choose it again.');
             }
-            // GozakMart Delivery, run by GozakMart's own team on the marketplace.
-            return ['shipping' => $ownShipping, 'fee_payer' => self::FEE_NOW, 'option' => [
-                'id' => 'own', 'mode' => 'own', 'provider' => $s->own_delivery_label ?: 'GozakMart Delivery', 'provider_logo' => null,
-                'rating' => null, 'service' => 'Delivered by GozakMart riders', 'eta' => $s->own_delivery_eta ?: 'Same day',
-                'price' => $ownShipping, 'marketplace' => $s->marketplace_name,
-            ]];
+            // In-house riders at GozakMart's shipping rules (also older app versions that send no choice).
+            return ['shipping' => $ownShipping, 'option' => null, 'fee_payer' => self::FEE_NOW];
         }
         $opt = Cache::get($this->cacheKey($userId, $optionId));
         if (!$opt) {
@@ -279,14 +319,18 @@ class LogisticsService
         $weight  = (int) round($parcels->sum(fn ($p) => (float) $p->weight_kg) * 1000) ?: (int) $s->default_weight_g;
         $unpaid  = $order->payment_status !== 'paid';
 
-        $who = $shipment->isOwn()
-            // GozakMart's own team: the price is what the customer paid for GozakMart Delivery (none: the team's price list).
+        $who = $shipment->isOwn() && $shipment->option_id === 'own'
+            // GozakMart's own team without a quoted option: the price is what the customer paid (none: the team's price list).
             ? array_filter(['provider' => 'own', 'price' => (int) round(((float) $order->shipping_cost) * 100) ?: null])
-            : [
-                'option_id' => $shipment->option_id,
-                'max_price' => (int) ceil(((float) $shipment->quoted_price) * 100 * (1 + ((int) $s->max_price_increase_percent) / 100)),
-                'fee_payer' => $shipment->fee_payer,
-            ];
+            : ($shipment->isOwn()
+                // Our team: the fee the customer was charged is sent with the order. The team's account on the
+                // marketplace decides whether it is used or its own price list applies.
+                ? ['option_id' => $shipment->option_id, 'fee_payer' => $shipment->fee_payer, 'price' => (int) round(((float) $shipment->quoted_price) * 100)]
+                : [
+                    'option_id' => $shipment->option_id,
+                    'max_price' => (int) ceil(((float) $shipment->quoted_price) * 100 * (1 + ((int) $s->max_price_increase_percent) / 100)),
+                    'fee_payer' => $shipment->fee_payer,
+                ]);
         $body = ['external_order_id' => (string) $order->id] + $who + [
             'pickup'            => $pickup,
             'dropoff'           => $this->dropoffFrom([
@@ -321,7 +365,8 @@ class LogisticsService
             'external_order_number' => $res['order'] ?? null,
             'tracking_url'          => $res['tracking_url'] ?? null,
             'payment_url'           => $res['payment_url'] ?? null,
-            'price'                 => isset($res['price']) ? round(((int) $res['price']) / 100, 2) : $shipment->quoted_price,
+            // Our team: what the customer was charged (the marketplace's own figure stays in payload).
+            'price'                 => $shipment->isOwn() ? $shipment->quoted_price : (isset($res['price']) ? round(((int) $res['price']) / 100, 2) : $shipment->quoted_price),
             // The customer keeps seeing "GozakMart Delivery" for the own team.
             'provider_name'         => $shipment->isOwn() ? $shipment->provider_name : ($res['provider']['name'] ?? $shipment->provider_name),
             'provider_id'           => $res['provider']['id'] ?? $shipment->provider_id,

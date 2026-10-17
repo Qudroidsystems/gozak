@@ -119,7 +119,8 @@ class APIOrderController extends Controller
             try {
                 $delivery = $logistics->chosen($userId, $validated['delivery_option_id'] ?? null, $validated['delivery_fee_payer'] ?? null, (float) $quote['shipping']);
             } catch (\App\Services\Logistics\LogisticsException $e) {
-                return response()->json(['success' => false, 'message' => $e->getMessage(), 'code' => 'delivery_option_expired'], 422);
+                return response()->json(['success' => false, 'message' => $e->getMessage(),
+                    'code' => str_starts_with($e->getMessage(), 'Pin your') ? 'pin_required' : 'delivery_option_expired'], 422);
             }
             // GozakMart Delivery run by our team on the marketplace: the rider navigates to the customer's map pin.
             if (($delivery['option']['mode'] ?? null) === 'own'

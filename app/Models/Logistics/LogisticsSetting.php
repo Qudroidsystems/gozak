@@ -10,7 +10,7 @@ class LogisticsSetting extends Model
         'enabled', 'base_url', 'api_key', 'webhook_secret', 'environment', 'merchant_code', 'merchant_name', 'merchant_status',
         'marketplace_name', 'marketplace_badge', 'marketplace_logo', 'last_checked_at', 'last_error', 'pickup_stock_location_id',
         'default_weight_g', 'max_price_increase_percent', 'allow_receiver_pays', 'own_delivery_enabled', 'own_delivery_label', 'own_delivery_eta',
-        'own_via_marketplace', 'own_provider_name',
+        'own_via_marketplace', 'own_provider_name', 'own_price_source', 'own_price_mode',
     ];
 
     protected $casts = [
@@ -47,6 +47,15 @@ class LogisticsSetting extends Model
     public function ownViaMarketplace(): bool
     {
         return $this->isLive() && $this->own_via_marketplace && $this->own_provider_name;
+    }
+
+    /**
+     * GozakMart Delivery is charged at GozakMart's own shipping fee (sent with each order) rather than the team's price
+     * list on the marketplace. Only when our delivery account there lets the shop set the fee.
+     */
+    public function ownFeeFromGozakMart(): bool
+    {
+        return $this->ownViaMarketplace() && $this->own_price_source === 'gozakmart' && ($this->own_price_mode ?? 'shop') === 'shop';
     }
 
     public function maskedKey(): ?string

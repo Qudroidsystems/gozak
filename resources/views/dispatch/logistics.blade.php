@@ -91,7 +91,17 @@
                         <label class="form-check-label" for="lgOwnVia"><b>Run "{{ $s->own_delivery_label ?? 'GozakMart Delivery' }}" through our delivery team on {{ $s->marketplace_name ?: 'the marketplace' }}</b>
                             <div class="small text-muted">
                                 @if($s->own_provider_name)
-                                    Orders are booked to <b>{{ $s->own_provider_name }}</b> when packing is verified. Your team assigns the rider in the logistics app, and the customer follows the rider live in the GozakMart app. Customers must pin their address on the map. The marketplace's commission applies.
+                                    Orders are sent to <b>{{ $s->own_provider_name }}</b> when packing is verified; your team assigns the rider there, and the customer follows the rider live in the GozakMart app. Customers pin their address and can pay now or pay the rider. The marketplace's commission applies.
+                                    <div class="mt-2" style="max-width:520px">
+                                        <label class="form-label small mb-1 text-body"><b>Delivery fee for "{{ $s->own_delivery_label ?? 'GozakMart Delivery' }}"</b></label>
+                                        <select name="own_price_source" class="form-select form-select-sm">
+                                            <option value="marketplace" @selected(($s->own_price_source ?? 'marketplace') === 'marketplace')>{{ $s->own_provider_name }}'s price list on {{ $s->marketplace_name ?: 'the marketplace' }}</option>
+                                            <option value="gozakmart" @selected(($s->own_price_source ?? '') === 'gozakmart')>GozakMart's shipping fee (set in the shop settings), sent with each order</option>
+                                        </select>
+                                        @if(($s->own_price_source ?? '') === 'gozakmart' && ($s->own_price_mode ?? 'shop') === 'team')
+                                            <div class="small text-warning mt-1"><i class="ri-error-warning-line"></i> Your delivery account on {{ $s->marketplace_name ?: 'the marketplace' }} is set to always use its own price list, so its prices are used. Change "Delivery fee for your shop's own deliveries" on the logistics app's API page to let GozakMart set the fee.</div>
+                                        @endif
+                                    </div>
                                 @else
                                     First link your delivery team: in the logistics app, open your merchant API page › <i>Your own delivery team</i>, choose your provider account, then come back and Save here.
                                 @endif

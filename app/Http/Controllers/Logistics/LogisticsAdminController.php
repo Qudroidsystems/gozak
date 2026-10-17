@@ -42,6 +42,7 @@ class LogisticsAdminController extends Controller
             'max_price_increase_percent' => 'required|integer|min:0|max:50',
             'own_delivery_label'         => 'required|string|max:80',
             'own_delivery_eta'           => 'required|string|max:80',
+            'own_price_source'           => 'nullable|in:marketplace,gozakmart',
         ]);
         $s = LogisticsSetting::query()->first() ?? new LogisticsSetting();
         // Blank secret fields keep what is stored.
