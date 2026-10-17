@@ -16,7 +16,9 @@ use Intervention\Image\Laravel\Facades\Image;
  * Free sources only, no API key needed. Products with a real retail barcode (EAN/UPC) are looked up in:
  *  1. Open Food Facts, Open Beauty Facts and Open Products Facts (free, unlimited, CC BY-SA pictures)
  *  2. UPCitemdb free lookup (about 100 look-ups a day – the run stops when the day's limit is reached)
- * Products with in-store codes (no real barcode) can't be matched automatically and are skipped.
+ *  3. Name search in Open Food Facts / Open Beauty Facts for food, drinks, cosmetics and toiletries –
+ *     works without a barcode. Only accepted when most words of the name (and the brand) match.
+ *     Open Facts allows about 10 name searches a minute, so big runs take a while – leave them running.
  * (Optional, paid: set BRAVE_SEARCH_API_KEY in .env and use --source=all to also web-search the rest.)
  *
  * Every pick is logged to storage/app/product-images/log.csv and shown on
@@ -33,7 +35,7 @@ class FetchProductImages extends Command
         {--limit=200 : How many products to process this run}
         {--ids= : Only these product IDs (comma separated)}
         {--category= : Only products in this category name}
-        {--source=barcode : barcode (free) | all (barcode + paid Brave web search, needs BRAVE_SEARCH_API_KEY)}
+        {--source=free : free (barcode + name search) | barcode (barcode only) | all (free + paid Brave web search)}
         {--force : Also replace pictures products already have}
         {--retry : Try again products that found nothing last time}
         {--dry-run : Show the picks without downloading or saving anything}
@@ -76,7 +78,7 @@ class FetchProductImages extends Command
             $source = 'barcode';
         }
 
-        $q = Product::query()->with('brand:id,name')->orderBy('id');
+        $q = Product::query()->with(['brand:id,name', 'category:id,name'])->orderBy('id');
         if (!$this->option('force')) {
             $q->where(fn ($w) => $w->whereNull('thumbnail')->orWhere('thumbnail', ''));
         }
@@ -94,17 +96,19 @@ class FetchProductImages extends Command
             $q->whereNotIn('id', $skip);
         }
 
-        if ($source === 'barcode') {
+        if ($source !== 'all') {
             $ids = [];
-            foreach ((clone $q)->toBase()->select('products.id', 'products.barcode')->cursor() as $row) {
-                if ($this->isRealBarcode((string) $row->barcode)) {
+            $rows = (clone $q)->toBase()->leftJoin('categories as c_', 'c_.id', '=', 'products.category_id')
+                ->select('products.id', 'products.barcode', 'c_.name as cat')->cursor();
+            foreach ($rows as $row) {
+                if ($this->isRealBarcode((string) $row->barcode) || ($source === 'free' && $this->nameSearchHost($row->cat))) {
                     $ids[] = $row->id;
                     if (count($ids) >= (int) $this->option('limit')) {
                         break;
                     }
                 }
             }
-            $products = $ids ? Product::with('brand:id,name')->whereIn('id', $ids)->orderBy('id')->get() : collect();
+            $products = $ids ? Product::with(['brand:id,name', 'category:id,name'])->whereIn('id', $ids)->orderBy('id')->get() : collect();
         } else {
             $products = $q->limit((int) $this->option('limit'))->get();
         }
@@ -179,8 +183,11 @@ class FetchProductImages extends Command
         if ($source !== 'search' && $this->isRealBarcode((string) $p->barcode)) {
             $candidates = array_merge($candidates, $this->barcodeLookup($p->barcode));
         }
-        if ($source !== 'barcode' && $key) {
-            $candidates = array_merge($candidates, $this->search($p, $key));
+        if (!$candidates && in_array($source, ['free', 'all'], true) && ($host = $this->nameSearchHost($p->category->name ?? null))) {
+            $candidates = $this->nameLookup($p, $host);
+        }
+        if (!$candidates && $source === 'all' && $key) {
+            $candidates = $this->search($p, $key);
         }
         if (!$candidates) {
             return [null, ['source' => 'none', 'note' => 'no match']];
@@ -234,6 +241,72 @@ class FetchProductImages extends Command
             $out = $this->upcLookup($code);
         }
         return $out;
+    }
+
+    /** Which Open Facts database to name-search for this category (null = not a packaged food/beauty product). */
+    protected function nameSearchHost(?string $category): ?string
+    {
+        $c = strtolower((string) $category);
+        if ($c === '') {
+            return 'world.openfoodfacts.org';
+        }
+        foreach (['beauty', 'cosmetic', 'toiletr', 'personal care', 'perfume', 'fragrance', 'baby', 'oral', 'dental'] as $w) {
+            if (str_contains($c, $w)) {
+                return 'world.openbeautyfacts.org';
+            }
+        }
+        foreach (['grocer', 'provision', 'drink', 'juice', 'wine', 'spirit', 'beverage', 'biscuit', 'snack', 'spice', 'season', 'tea', 'bakery', 'dairy', 'food', 'cereal'] as $w) {
+            if (str_contains($c, $w)) {
+                return 'world.openfoodfacts.org';
+            }
+        }
+        return null; // electronics, fashion, home decor, toys… aren't in these databases
+    }
+
+    /** Search Open Facts by product name; accept only a close match. */
+    protected function nameLookup(Product $p, string $host): array
+    {
+        $query = $this->query($p);
+        $cacheFile = "{$this->dir}/cache/name-" . md5($host . $query) . '.json';
+        if (Storage::disk('local')->exists($cacheFile)) {
+            $items = json_decode(Storage::disk('local')->get($cacheFile), true) ?: [];
+        } else {
+            usleep(6500000); // Open Facts allows ~10 searches a minute
+            $res = $this->http()->timeout(30)->get("https://{$host}/cgi/search.pl", [
+                'search_terms' => $query, 'search_simple' => 1, 'action' => 'process', 'json' => 1, 'page_size' => 15,
+                'fields' => 'code,product_name,brands,quantity,image_front_url,image_url',
+            ]);
+            if ($res->status() === 429) {
+                sleep(60);
+                return [];
+            }
+            $items = $res->ok() ? ($res->json('products') ?? []) : [];
+            Storage::disk('local')->put($cacheFile, json_encode($items));
+        }
+
+        $want = array_values(array_filter($this->words($p->title), fn ($w) => !preg_match('/^\d+(ml|cl|l|g|kg|ltr|pcs|x)?$/', $w)));
+        $brand = $p->brand ? $this->words($p->brand->name) : [];
+        if (count($want) < 2) {
+            return [];
+        }
+        $best = null;
+        foreach ($items as $it) {
+            $img = $it['image_front_url'] ?? $it['image_url'] ?? null;
+            if (!$img) {
+                continue;
+            }
+            $got = $this->words(($it['product_name'] ?? '') . ' ' . ($it['brands'] ?? '') . ' ' . ($it['quantity'] ?? ''));
+            if ($brand && !array_intersect($brand, $got)) {
+                continue; // different brand
+            }
+            $overlap = count(array_intersect($want, $got)) / count($want);
+            if ($overlap >= 0.6 && (!$best || $overlap > $best['score'])) {
+                $best = ['score' => $overlap, 'source' => 'name search (' . explode('.', $host)[1] . ')', 'image' => $img,
+                    'page' => "https://{$host}/product/" . ($it['code'] ?? ''),
+                    'note' => sprintf('match %d%%: %s', $overlap * 100, trim(($it['brands'] ?? '') . ' ' . ($it['product_name'] ?? '')))];
+            }
+        }
+        return $best ? [$best] : [];
     }
 
     /** UPCitemdb free trial endpoint – no key, about 100 requests a day and a few per minute. */
