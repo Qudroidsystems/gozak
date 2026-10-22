@@ -37,6 +37,7 @@ class Product extends Model
         'brand_id',
         'is_nsfw',
         'is_active',
+        'size_guide',
     ];
 
     protected $casts = [
@@ -49,29 +50,20 @@ class Product extends Model
         'is_top_rated'=> 'boolean',
         'is_nsfw'     => 'boolean',
         'is_active'   => 'boolean',
+        'size_guide'  => 'array',
     ];
 
     // ── $appends ──────────────────────────────────────────────────────────────
-    // 'reviews_count' and 'average_rating' are intentionally EXCLUDED here.
-    //
-    // When the API controller calls ->withCount('reviews')->withAvg('reviews','rating'),
-    // Eloquent populates $product->reviews_count and $product->reviews_avg_rating
-    // on the model directly as aggregated attributes from a single JOIN — zero
-    // extra queries.
-    //
-    // If we listed them in $appends, the accessor methods below would OVERRIDE
-    // those aggregated values with individual COUNT/AVG queries per product,
-    // causing N+1 on every product listing. So we keep them out of $appends
-    // but still expose the accessor methods so admin panels / non-API code
-    // that accesses these properties directly still works correctly.
-    // ─────────────────────────────────────────────────────────────────────────
-    protected $appends = [
-        'current_stock',
-        'total_sold',
-        'revenue',
-        'margin',
-        'margin_percent',
-    ];
+    // Intentionally empty. current_stock / total_sold / revenue / margin used to
+    // be appended, which ran 3 extra queries for EVERY product each time a
+    // product was turned into JSON (admin product table: ~5 queries per row).
+    // Nothing reads them from JSON; the accessors below still work when you
+    // access them directly ($product->current_stock), and they use
+    // pre-loaded aggregates (ledger_stock, sold_total) when the query has them.
+    protected $appends = [];
+
+    /** Per-instance cache so repeated $product->current_stock reads cost one query at most. */
+    protected ?int $ledgerStockCache = null;
 
     // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -85,11 +77,10 @@ class Product extends Model
             }
         });
 
-        static::retrieved(function ($product) {
-            if (isset($product->stock)) {
-                $product->stock = $product->calculateStockFromInventory();
-            }
-        });
+        // (A `retrieved` hook used to re-add the stock ledger for every product
+        // loaded: one extra query per product on every page and API call.
+        // products.stock is already kept in sync by StockObserver and the
+        // stocks-table DB triggers, so it was removed.)
     }
 
     // ── Stock helpers ─────────────────────────────────────────────────────────
@@ -116,7 +107,26 @@ class Product extends Model
 
     public function getCurrentStockAttribute()
     {
-        return $this->calculateCurrentStock();
+        // Pre-loaded by the query (see scopeWithLedgerStock) → no extra query.
+        if (array_key_exists('ledger_stock', $this->attributes)) {
+            return max(0, (int) $this->attributes['ledger_stock']);
+        }
+        return $this->ledgerStockCache ??= (int) $this->calculateCurrentStock();
+    }
+
+    /**
+     * Adds `ledger_stock` (live stock from the ledger) as a subquery, so
+     * listing many products costs one query instead of one per product.
+     */
+    public function scopeWithLedgerStock($query)
+    {
+        return $query->addSelect(['ledger_stock' => Stock::query()
+            ->selectRaw('COALESCE(SUM(CASE
+                WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
+                WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                ELSE 0 END), 0)')
+            ->whereColumn('stocks.product_id', 'products.id'),
+        ]);
     }
 
     public function isLowStock($threshold = 10)
@@ -194,13 +204,17 @@ class Product extends Model
 
     public function getTotalSoldAttribute()
     {
+        // withSum('orderItems as sold_total', 'quantity') → no extra query
+        if (array_key_exists('sold_total', $this->attributes)) {
+            return (int) $this->attributes['sold_total'];
+        }
         return $this->orderItems()->sum('quantity');
     }
 
     public function getRevenueAttribute()
     {
         $price = $this->sale_price ?? $this->price;
-        return $this->getTotalSoldAttribute() * $price;
+        return $this->total_sold * $price;
     }
 
     public function getMarginAttribute()
@@ -247,6 +261,30 @@ class Product extends Model
     public function images()
     {
         return $this->hasMany(ProductImage::class);
+    }
+
+    /** Photos + videos in display order (primary first, then sort_order). */
+    public function media()
+    {
+        return $this->hasMany(ProductImage::class)->ordered();
+    }
+
+    /** Photos only, in display order. */
+    public function photos()
+    {
+        return $this->hasMany(ProductImage::class)->photos()->ordered();
+    }
+
+    /** Short product videos, in display order. */
+    public function videos()
+    {
+        return $this->hasMany(ProductImage::class)->videos()->ordered();
+    }
+
+    /** Jumia-style specifications list (Material, Warranty …). */
+    public function specifications()
+    {
+        return $this->hasMany(ProductSpecification::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function categories()

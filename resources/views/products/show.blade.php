@@ -191,12 +191,12 @@
                                             <img src="{{ asset('storage/' . $product->thumbnail) }}" alt="{{ $product->title }}" class="img-fluid">
                                         </div>
                                     @endif
-                                    @foreach($product->images as $img)
+                                    @foreach($product->images->reject(fn ($i) => $i->isVideo()) as $img)
                                         <div class="swiper-slide">
                                             <img src="{{ asset('storage/' . $img->image_path) }}" alt="Gallery" class="img-fluid">
                                         </div>
                                     @endforeach
-                                    @if(!$product->thumbnail && $product->images->isEmpty())
+                                    @if(!$product->thumbnail && $product->images->reject(fn ($i) => $i->isVideo())->isEmpty())
                                         <div class="swiper-slide">
                                             <div class="d-flex align-items-center justify-content-center h-100">
                                                 <i class="bi bi-image fs-1 text-muted"></i>
@@ -218,7 +218,7 @@
                                             </div>
                                         </div>
                                     @endif
-                                    @foreach($product->images as $img)
+                                    @foreach($product->images->reject(fn ($i) => $i->isVideo()) as $img)
                                         <div class="swiper-slide">
                                             <div class="nav-slide-item">
                                                 <img src="{{ asset('storage/' . $img->image_path) }}" alt="" class="img-fluid">

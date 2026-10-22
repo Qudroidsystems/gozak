@@ -113,12 +113,16 @@ Route::get('/sanctum/csrf-cookie', [CsrfCookieController::class, 'show'])->name(
 //  FCM TEST ROUTES — development only, remove or guard in production
 // ══════════════════════════════════════════════════════════════════════════════
 
-Route::prefix('fcm')->group(function () {
-    Route::get('/test-connection',           [FcmTestController::class, 'testConnection']);
-    Route::post('/send-test',                [FcmTestController::class, 'sendTestNotification']);
-    Route::post('/test-lightning-single',    [FcmTestController::class, 'testLightningSingle']);
-    Route::post('/test-lightning-multiple',  [FcmTestController::class, 'testLightningMultiple']);
-});
+// These had no login check, so anyone could send push notifications to
+// customers. They now exist only on a developer machine (APP_ENV=local).
+if (app()->environment('local')) {
+    Route::prefix('fcm')->group(function () {
+        Route::get('/test-connection',           [FcmTestController::class, 'testConnection']);
+        Route::post('/send-test',                [FcmTestController::class, 'sendTestNotification']);
+        Route::post('/test-lightning-single',    [FcmTestController::class, 'testLightningSingle']);
+        Route::post('/test-lightning-multiple',  [FcmTestController::class, 'testLightningMultiple']);
+    });
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  AUTHENTICATED ROUTES (Sanctum required)

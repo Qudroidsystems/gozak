@@ -279,6 +279,9 @@
                             <input type="hidden" name="id" id="product_id">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="modalTitle">Add Product</h5>
+                                <a href="#" id="mediaPageLink" class="btn btn-sm btn-outline-primary ms-3 d-none" target="_blank">
+                                    <i class="bi bi-images me-1"></i>Photos, video &amp; specs
+                                </a>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
@@ -360,9 +363,29 @@
                                                             <div class="col-md-2"><button type="button" class="btn btn-danger btn-sm remove-attribute">Remove</button></div>
                                                         </div>
                                                     </div>
-                                                    <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="addAttribute">+ Add Attribute</button>
-                                                    <button type="button" class="btn btn-primary btn-sm mb-3" id="generateVariations">Generate Variations</button>
+                                                    <small class="text-muted d-block mb-2">Separate values with commas, e.g. <code>Navy Blue, Wine Red, Black</code>.</small>
+                                                    <div class="d-flex flex-wrap gap-2 mb-3">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm" id="addAttribute">+ Add Attribute</button>
+                                                        <div class="dropdown">
+                                                            <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" id="libraryBtn">
+                                                                <i class="bi bi-collection me-1"></i>From library
+                                                            </button>
+                                                            <ul class="dropdown-menu" id="libraryMenu" style="max-height:320px;overflow:auto">
+                                                                <li><span class="dropdown-item-text text-muted small">Loading…</span></li>
+                                                            </ul>
+                                                        </div>
+                                                        <button type="button" class="btn btn-primary btn-sm" id="generateVariations">Generate Variations</button>
+                                                        <a href="{{ route('web.catalog.attributes.index') }}" target="_blank" class="btn btn-link btn-sm">Manage library</a>
+                                                    </div>
                                                     <hr>
+                                                    <div id="bulkFillBar" class="row g-2 align-items-end mb-2 d-none">
+                                                        <div class="col-auto small fw-semibold pt-1">Fill all rows:</div>
+                                                        <div class="col"><input type="number" step="0.01" min="0" id="bulk_cost" class="form-control form-control-sm" placeholder="Cost"></div>
+                                                        <div class="col"><input type="number" step="0.01" min="0" id="bulk_price" class="form-control form-control-sm" placeholder="Price"></div>
+                                                        <div class="col"><input type="number" step="0.01" min="0" id="bulk_sale" class="form-control form-control-sm" placeholder="Sale price"></div>
+                                                        <div class="col"><input type="number" step="1" min="0" id="bulk_stock" class="form-control form-control-sm" placeholder="Add stock"></div>
+                                                        <div class="col-auto"><button type="button" class="btn btn-sm btn-secondary" id="applyBulkFill">Apply</button></div>
+                                                    </div>
                                                     <div id="variationsTable"></div>
                                                 </div>
                                             </div>
@@ -707,6 +730,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('productForm').reset();
         document.getElementById('product_id').value = '';
         document.getElementById('modalTitle').textContent = 'Add Product';
+        document.getElementById('mediaPageLink')?.classList.add('d-none');
+        document.getElementById('bulkFillBar')?.classList.add('d-none');
         document.getElementById('thumbnail_preview').style.display = 'none';
         document.getElementById('thumbnail_preview').src = '';
         document.getElementById('thumbnail_placeholder').style.display = 'block';
@@ -858,6 +883,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <th>Cost Price</th>
                                 <th>Price</th>
                                 <th>Sale Price</th>
+                                <th class="text-center">Stock</th>
+                                <th>Add stock</th>
                                 <th>Image</th>
                                 <th>Action</th>
                             </tr></thead><tbody>`;
@@ -880,7 +907,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const varSalePrice = parseFloat(varItem.sale_price) || 0;
                                 const varDiscount = calculateDiscountPercentage(varPrice, varSalePrice);
 
-                                html += `<tr>
+                                html += `<tr data-key="${variationKey(varItem.attributes || {})}" data-stock="${varItem.stock ?? 0}" data-image="${varItem.image || ''}">
                                     <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}${idHidden}${existingImageHidden}</td>
                                     <td><input type="text" name="variations[${index}][sku]" class="form-control form-control-sm" value="${varItem.sku || ''}"></td>
                                     <td><input type="text" name="variations[${index}][barcode]" class="form-control form-control-sm" value="${varItem.barcode || ''}"></td>
@@ -892,6 +919,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <span class="input-group-text variation-discount-badge" style="font-size:0.7rem;padding:0 5px;">${varDiscount > 0 ? varDiscount + '%' : ''}</span>
                                         </div>
                                     </td>
+                                    <td class="text-center"><span class="badge ${(varItem.stock ?? 0) > 0 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}">${varItem.stock ?? 0}</span></td>
+                                    <td><input type="number" min="0" step="1" name="variations[${index}][add_stock]" class="form-control form-control-sm variation-add-stock" placeholder="0" style="width:80px"></td>
                                     <td>
                                         <div class="d-flex flex-column align-items-center">
                                             ${imageHtml}
@@ -905,7 +934,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
                             html += '</tbody></table></div>';
                             variationsTable.innerHTML = html;
+                            document.getElementById('bulkFillBar')?.classList.remove('d-none');
                         }
+                    }
+
+                    const mediaLink = document.getElementById('mediaPageLink');
+                    if (mediaLink && p.media_url) {
+                        mediaLink.href = p.media_url;
+                        mediaLink.classList.remove('d-none');
                     }
 
                     toggleVariationsSection();
@@ -1108,12 +1144,15 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // ==================== GENERATE VARIATIONS ====================
+    // Rows for combinations that already exist keep their id, prices, image and
+    // stock. (Regenerating used to drop the ids, so saving deleted and re-created
+    // every variation, which also wiped its stock history.)
     document.getElementById('generateVariations')?.addEventListener('click', function() {
         const attrs = [];
         document.querySelectorAll('.attribute-row').forEach(row => {
             const name = row.querySelector('input[name$="[name]"]')?.value.trim();
-            const values = row.querySelector('input[name$="[values]"]')?.value.split(',').map(v => v.trim()).filter(v => v);
-            if (name && values.length) attrs.push({ name, values });
+            const values = (row.querySelector('input[name$="[values]"]')?.value || '').split(',').map(v => v.trim()).filter(v => v);
+            if (name && values.length) attrs.push({ name, values: [...new Set(values)] });
         });
 
         if (!attrs.length) {
@@ -1121,9 +1160,32 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Snapshot existing rows by combination
+        const existing = {};
+        document.querySelectorAll('#variationsTable tbody tr[data-key]').forEach(tr => {
+            const val = sel => tr.querySelector(sel)?.value ?? '';
+            existing[tr.dataset.key] = {
+                id: val('input[name$="[id]"]'),
+                sku: val('input[name$="[sku]"]'),
+                barcode: val('input[name$="[barcode]"]'),
+                cost: val('input[name$="[cost_price]"]'),
+                price: val('input[name$="[price]"]'),
+                sale: val('input[name$="[sale_price]"]'),
+                addStock: val('input[name$="[add_stock]"]'),
+                existingImage: val('input[name$="[existing_image]"]'),
+                image: tr.dataset.image || '',
+                stock: tr.dataset.stock,
+            };
+        });
+        const hadExisting = Object.keys(existing).length > 0;
+
         const combos = attrs.reduce((acc, attr) => acc.flatMap(obj => attr.values.map(val => ({ ...obj, [attr.name]: val }))), [{}]);
+        if (combos.length > 200 && !confirm(`This makes ${combos.length} variations. Continue?`)) return;
+
         const baseSku = document.getElementById('sku')?.value || 'PROD';
         const discount = parseFloat(document.getElementById('discount_percent')?.value) || 0;
+        const basePrice = document.getElementById('price')?.value || '';
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
         let html = `<div class="table-responsive"><table class="table table-bordered table-hover"><thead class="table-light"><tr>
             <th>Variant</th>
@@ -1132,33 +1194,44 @@ document.addEventListener('DOMContentLoaded', function() {
             <th>Cost Price</th>
             <th>Price</th>
             <th>Sale Price</th>
+            <th class="text-center">Stock</th>
+            <th>Add stock</th>
             <th>Image</th>
             <th>Action</th>
         </tr></thead><tbody>`;
 
         combos.forEach((combo, i) => {
-            const badges = Object.entries(combo).map(([k, v]) => `<span class="badge bg-primary me-1">${k}: ${v}</span>`).join(' ');
-            const hiddens = Object.entries(combo).map(([k, v]) => `<input type="hidden" name="variations[${i}][attributes][${k}]" value="${v}">`).join('');
+            const key = variationKey(combo);
+            const old = existing[key];
+            const badges = Object.entries(combo).map(([k, v]) => `<span class="badge bg-primary me-1">${esc(k)}: ${esc(v)}</span>`).join(' ');
+            const hiddens = Object.entries(combo).map(([k, v]) => `<input type="hidden" name="variations[${i}][attributes][${esc(k)}]" value="${esc(v)}">`).join('');
             const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-            const bc = `${baseSku}-${Object.values(combo).join('-')}-${random}`.substring(0, 20);
-            const salePrice = calculateSalePrice(100, discount);
+            const bc = old?.barcode || `${baseSku}-${Object.values(combo).join('-')}-${random}`.replace(/\s+/g, '').substring(0, 20);
+            const price = old ? old.price : basePrice;
+            const sale = old ? old.sale : calculateSalePrice(parseFloat(basePrice) || 0, discount);
+            const pct = calculateDiscountPercentage(parseFloat(price) || 0, parseFloat(sale) || 0);
+            const stock = old ? (parseInt(old.stock) || 0) : 0;
 
-            html += `<tr>
-                <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}</td>
-                <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" value="${baseSku}-VAR${i+1}"></td>
-                <td><input type="text" name="variations[${i}][barcode]" class="form-control form-control-sm" value="${bc}"></td>
-                <td><input type="number" step="0.01" name="variations[${i}][cost_price]" class="form-control form-control-sm" placeholder="0.00"></td>
-                <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm variation-price" required placeholder="0.00"></td>
+            html += `<tr data-key="${key}" data-stock="${stock}" data-image="${esc(old?.image || '')}">
+                <td><div class="d-flex flex-wrap gap-1">${badges}</div>${hiddens}
+                    ${old?.id ? `<input type="hidden" name="variations[${i}][id]" value="${esc(old.id)}">` : ''}</td>
+                <td><input type="text" name="variations[${i}][sku]" class="form-control form-control-sm" value="${esc(old?.sku || `${baseSku}-VAR${i+1}`)}"></td>
+                <td><input type="text" name="variations[${i}][barcode]" class="form-control form-control-sm" value="${esc(bc)}"></td>
+                <td><input type="number" step="0.01" name="variations[${i}][cost_price]" class="form-control form-control-sm" placeholder="0.00" value="${esc(old?.cost || '')}"></td>
+                <td><input type="number" step="0.01" name="variations[${i}][price]" class="form-control form-control-sm variation-price" required placeholder="0.00" value="${esc(price)}"></td>
                 <td>
                     <div class="input-group input-group-sm">
-                        <input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm variation-sale-price" placeholder="0.00" value="${salePrice}">
-                        <span class="input-group-text variation-discount-badge" style="font-size:0.7rem;padding:0 5px;">${discount > 0 ? discount + '%' : ''}</span>
+                        <input type="number" step="0.01" name="variations[${i}][sale_price]" class="form-control form-control-sm variation-sale-price" placeholder="0.00" value="${esc(sale)}">
+                        <span class="input-group-text variation-discount-badge" style="font-size:0.7rem;padding:0 5px;">${pct > 0 ? pct + '%' : ''}</span>
                     </div>
                 </td>
+                <td class="text-center">${old ? `<span class="badge ${stock > 0 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}">${stock}</span>` : '<span class="badge bg-info-subtle text-info">New</span>'}</td>
+                <td><input type="number" min="0" step="1" name="variations[${i}][add_stock]" class="form-control form-control-sm variation-add-stock" placeholder="0" style="width:80px" value="${esc(old?.addStock || '')}"></td>
                 <td>
                     <div class="d-flex flex-column align-items-center">
+                        ${old?.image ? `<img src="${esc(old.image)}" class="img-fluid rounded mb-2" style="max-height:60px;width:60px;object-fit:cover;">` : ''}
                         <input type="file" name="variations[${i}][image]" class="form-control form-control-sm variation-image" accept="image/*">
-                        <input type="hidden" name="variations[${i}][existing_image]" value="">
+                        <input type="hidden" name="variations[${i}][existing_image]" value="${esc(old?.existingImage || '')}">
                         <img class="variation-preview mt-2 img-fluid rounded" style="max-height:60px;width:60px;object-fit:cover;display:none;">
                     </div>
                 </td>
@@ -1168,9 +1241,72 @@ document.addEventListener('DOMContentLoaded', function() {
 
         html += '</tbody></table></div>';
         document.getElementById('variationsTable').innerHTML = html;
+        document.getElementById('bulkFillBar')?.classList.remove('d-none');
 
-        // Apply current discount to all variations
-        updateVariationSalePrices();
+        // Fresh tables pick up the product-level discount; existing prices are left alone.
+        if (!hadExisting && discount > 0) updateVariationSalePrices();
+    });
+
+    // Stable key for a combination, e.g. {"Colour":"Red","Size":"M"} (order-independent)
+    function variationKey(attrs) {
+        const sorted = Object.keys(attrs || {}).sort().reduce((o, k) => { o[k] = String(attrs[k]); return o; }, {});
+        return encodeURIComponent(JSON.stringify(sorted));
+    }
+
+    // ==================== BULK FILL ====================
+    document.getElementById('applyBulkFill')?.addEventListener('click', () => {
+        const map = { bulk_cost: '[cost_price]', bulk_price: '[price]', bulk_sale: '[sale_price]', bulk_stock: '[add_stock]' };
+        let touched = 0;
+        document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
+            Object.entries(map).forEach(([id, suffix]) => {
+                const v = document.getElementById(id)?.value;
+                if (v === '' || v === undefined) return;
+                const input = row.querySelector(`input[name$="${suffix}"]`);
+                if (input) { input.value = v; touched++; }
+            });
+            updateVariationDiscountBadge(row);
+        });
+        if (touched) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Applied to all rows', timer: 1500, showConfirmButton: false });
+    });
+
+    // ==================== ATTRIBUTE LIBRARY ====================
+    let attributeLibrary = [];
+    axios.get(@json(route('web.catalog.attributes.json'))).then(res => {
+        attributeLibrary = res.data.data || [];
+        const menu = document.getElementById('libraryMenu');
+        if (!menu) return;
+        if (!attributeLibrary.length) {
+            menu.innerHTML = `<li><a class="dropdown-item small" href="{{ route('web.catalog.attributes.index') }}" target="_blank">Library is empty: set it up</a></li>`;
+            return;
+        }
+        menu.innerHTML = attributeLibrary.map((a, i) => `<li><a class="dropdown-item" href="#" data-lib="${i}">
+            ${a.display_type === 'color' ? '<i class="bi bi-palette me-1"></i>' : '<i class="bi bi-tag me-1"></i>'}${a.name}
+            <small class="text-muted">(${a.values.length})</small></a></li>`).join('');
+    }).catch(() => {
+        const menu = document.getElementById('libraryMenu');
+        if (menu) menu.innerHTML = '<li><span class="dropdown-item-text small text-danger">Could not load library</span></li>';
+    });
+
+    document.getElementById('libraryMenu')?.addEventListener('click', e => {
+        const link = e.target.closest('[data-lib]');
+        if (!link) return;
+        e.preventDefault();
+        const lib = attributeLibrary[+link.dataset.lib];
+        const values = lib.values.map(v => v.value).join(', ');
+        // Re-use an empty row if there is one
+        const empty = [...document.querySelectorAll('.attribute-row')].find(r =>
+            !r.querySelector('input[name$="[name]"]').value.trim() && !r.querySelector('input[name$="[values]"]').value.trim());
+        if (empty) {
+            empty.querySelector('input[name$="[name]"]').value = lib.name;
+            empty.querySelector('input[name$="[values]"]').value = values;
+        } else {
+            document.getElementById('addAttribute').click();
+            const rows = document.querySelectorAll('.attribute-row');
+            const row = rows[rows.length - 1];
+            row.querySelector('input[name$="[name]"]').value = lib.name;
+            row.querySelector('input[name$="[values]"]').value = values;
+        }
+        Swal.fire({ toast: true, position: 'top-end', icon: 'info', title: `${lib.name} added: delete any values you don't stock, then Generate`, timer: 3500, showConfirmButton: false });
     });
 
     // ==================== VARIATION IMAGE PREVIEW ====================
@@ -1214,8 +1350,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         document.querySelectorAll('#variationsTable tbody tr').forEach(row => {
-            const priceInput = row.querySelector('input[name*="price"]');
-            const saleInput = row.querySelector('input[name*="sale_price"]');
+            const priceInput = row.querySelector('input[name$="[price]"]');
+            const saleInput = row.querySelector('input[name$="[sale_price]"]');
             const badge = row.querySelector('.variation-discount-badge');
             const price = parseFloat(priceInput?.value) || 0;
             if (price > 0 && saleInput) {

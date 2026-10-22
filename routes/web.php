@@ -154,6 +154,26 @@ Route::middleware(['auth'])->group(function () {
            Route::post('/bulk-flags', [ProductController::class, 'bulkUpdateFlags']) ->name('bulk-flags.update');
         });
 
+        // Catalog: attribute library + per-product photos, video & specs
+        Route::prefix('catalog')->name('catalog.')->group(function () {
+            Route::get('attributes/json', [\App\Http\Controllers\AttributeLibraryController::class, 'json'])->name('attributes.json');
+            Route::get('attributes', [\App\Http\Controllers\AttributeLibraryController::class, 'index'])->name('attributes.index');
+            Route::post('attributes', [\App\Http\Controllers\AttributeLibraryController::class, 'store'])->name('attributes.store');
+            Route::put('attributes/{attribute}', [\App\Http\Controllers\AttributeLibraryController::class, 'update'])->whereNumber('attribute')->name('attributes.update');
+            Route::delete('attributes/{attribute}', [\App\Http\Controllers\AttributeLibraryController::class, 'destroy'])->whereNumber('attribute')->name('attributes.destroy');
+
+            Route::prefix('products/{product}/media')->whereNumber('product')->name('products.media.')->group(function () {
+                Route::get('/', [\App\Http\Controllers\ProductMediaController::class, 'show'])->name('show');
+                Route::post('photos', [\App\Http\Controllers\ProductMediaController::class, 'storePhotos'])->name('photos');
+                Route::post('video', [\App\Http\Controllers\ProductMediaController::class, 'storeVideo'])->name('video');
+                Route::post('reorder', [\App\Http\Controllers\ProductMediaController::class, 'reorder'])->name('reorder');
+                Route::put('specifications', [\App\Http\Controllers\ProductMediaController::class, 'saveSpecifications'])->name('specifications');
+                Route::put('size-guide', [\App\Http\Controllers\ProductMediaController::class, 'saveSizeGuide'])->name('size-guide');
+                Route::patch('{media}', [\App\Http\Controllers\ProductMediaController::class, 'updateItem'])->whereNumber('media')->name('update');
+                Route::delete('{media}', [\App\Http\Controllers\ProductMediaController::class, 'destroyItem'])->whereNumber('media')->name('destroy');
+            });
+        });
+
         // Product Reviews Management
         Route::resource('reviews', ProductReviewController::class)->except(['show']);
         Route::prefix('reviews')->name('reviews.')->group(function () {

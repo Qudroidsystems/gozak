@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\LightningDeal;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use App\Models\Stock;
 use App\Models\StoreSetting;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -116,6 +117,10 @@ class OrderPricingService
             $subtotal += $unit * $qty;
         }
 
+        if (config('shop.enforce_stock_on_order', true)) {
+            $this->assertInStock($items, $products, $variations);
+        }
+
         $subtotal = round($subtotal, 2);
         $rates    = $this->settings();
         $shipping = ($rates['free_shipping_threshold'] > 0 && $subtotal >= $rates['free_shipping_threshold'])
@@ -125,6 +130,69 @@ class OrderPricingService
         $total = round($subtotal + $shipping + $tax, 2);
 
         return compact('subtotal', 'shipping', 'tax', 'total', 'changed') + ['items' => $priced];
+    }
+
+    /**
+     * Stops orders for options that don't exist or more units than are in
+     * stock. Uses the same stock ledger as the product API (one grouped query).
+     * Quantities of the same item on several cart lines are added together.
+     */
+    protected function assertInStock(array $items, $products, $variations): void
+    {
+        $productIds = $products->keys();
+        $withOptions = ProductVariation::whereIn('product_id', $productIds)
+            ->select('product_id')->distinct()->pluck('product_id')->map(fn ($id) => (int) $id)->flip();
+
+        $rows = Stock::whereIn('product_id', $productIds)
+            ->selectRaw('product_id, product_variant_id, SUM(CASE
+                WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
+                WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                ELSE 0 END) as qty')
+            ->groupBy('product_id', 'product_variant_id')
+            ->get();
+
+        $productStock = [];
+        $variantStock = [];
+        foreach ($rows as $r) {
+            $productStock[(int) $r->product_id] = ($productStock[(int) $r->product_id] ?? 0) + (int) $r->qty;
+            if ($r->product_variant_id) {
+                $variantStock[(int) $r->product_variant_id] = ($variantStock[(int) $r->product_variant_id] ?? 0) + (int) $r->qty;
+            }
+        }
+
+        $wanted = [];   // "p:v" => [qty, index, product, variation]
+        foreach ($items as $i => $item) {
+            $product = $products->get($item['product_id']);
+            $vid     = !empty($item['variation_id']) ? (int) $item['variation_id'] : null;
+
+            if (!$vid && isset($withOptions[(int) $product->id])) {
+                throw ValidationException::withMessages([
+                    "items.$i.variation_id" => 'Please choose an option (size, colour …) for ' . $product->title . '.',
+                ]);
+            }
+
+            $key = $product->id . ':' . ($vid ?? 0);
+            $wanted[$key] ??= [0, $i, $product, $vid ? $variations->get($vid) : null];
+            $wanted[$key][0] += max(1, (int) $item['quantity']);
+        }
+
+        foreach ($wanted as [$qty, $i, $product, $variation]) {
+            $available = max(0, $variation
+                ? ($variantStock[(int) $variation->id] ?? 0)
+                : ($productStock[(int) $product->id] ?? 0));
+
+            if ($qty > $available) {
+                $label = $product->title;
+                if ($variation && is_array($variation->attributes) && $variation->attributes) {
+                    $label .= ' (' . implode(', ', array_map('strval', $variation->attributes)) . ')';
+                }
+                throw ValidationException::withMessages([
+                    "items.$i.quantity" => $available > 0
+                        ? "Only {$available} left of {$label}. Please reduce the quantity."
+                        : "{$label} is sold out.",
+                ]);
+            }
+        }
     }
 
     protected function unitPrice(Product $product, ?ProductVariation $variation): float

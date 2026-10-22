@@ -384,7 +384,7 @@
     @if (Route::is('roles.*'))                                   @include('layouts.pages-assets.css.roles-list-css') @endif
     @if (Route::is('permissions.*'))                             @include('layouts.pages-assets.css.permission-list-css') @endif
     @if (Route::is('web.brands.*') || Route::is('web.categories.*') || Route::is('web.banners.*') ||
-         Route::is('web.promo-banners.*') || Route::is('web.products.*') || Route::is('lightning-deals.*') ||
+         Route::is('web.promo-banners.*') || Route::is('web.products.*') || Route::is('web.catalog.*') || Route::is('lightning-deals.*') ||
          Route::is('web.reviews.*') || Route::is('inventory.*') || Route::is('stock-locations.*') ||
          Route::is('adminorders.*') || Route::is('customers.*') || Route::is('adminaddresses.*') || Route::is('sales.*'))
         @include('layouts.pages-assets.css.users-list-css')
@@ -557,6 +557,7 @@
                                 <ul class="nav nav-sm flex-column">
                                     <li class="nav-item"><a href="{{ route('web.products.index') }}" class="nav-link">All Products</a></li>
                                     <li class="nav-item"><a href="{{ route('lightning-deals.index') }}" class="nav-link">Lightning Deals</a></li>
+                                    <li class="nav-item"><a href="{{ route('web.catalog.attributes.index') }}" class="nav-link">Attribute Library</a></li>
                                 </ul>
                             </div>
                         </li>
@@ -1407,6 +1408,7 @@
         @can('View product')
         {title:'Products',                  url:'{{ route("web.products.index") }}',           icon:'mdi-package-variant',    category:'Catalog',            keywords:['product','item','sku','barcode','price']},
         {title:'Add Product',               url:'{{ route("web.products.create") }}',          icon:'mdi-package-variant-plus', category:'Catalog',          keywords:['new','create','product']},
+        {title:'Attribute Library',         url:'{{ route("web.catalog.attributes.index") }}',  icon:'mdi-tune-variant',       category:'Catalog',            keywords:['size','colour','color','variant','option','attribute']},
         {title:'Lightning Deals',           url:'{{ route("lightning-deals.index") }}',        icon:'mdi-flash',              category:'Catalog',            keywords:['deal','flash','sale','discount','lightning']},
         @endcan
         @can('View review')

@@ -4,7 +4,7 @@
 @section('title','Privacy Policy')
 @section('content')
 <h1>Privacy Policy</h1>
-<p class="meta">Gozak Mart (package ng.gozakmart.shop) &middot; Last updated: October 7, 2026</p>
+<p class="meta">Gozak Mart (package ng.gozakmart.shop) &middot; Last updated: October 22, 2026</p>
 
 <p>Gozak Mart ("we", "us") is an online shopping app and website operated by Qudroid Systems. This policy explains what information we collect when you use the Gozak Mart mobile app and gozakmart.ng, why we collect it, who we share it with, and the choices you have.</p>
 
@@ -24,7 +24,8 @@
     <li>Device and app information needed to send notifications and keep the app working: push notification token, device platform (Android), app version, and IP address.</li>
     <li>Usage and diagnostic information about how the app is used, collected through Google Firebase (for example Firebase Analytics and Firebase Cloud Messaging).</li>
 </ul>
-<p>The app does <strong>not</strong> access your contacts, SMS messages, call logs, microphone or precise location.</p>
+<p><strong>Location (optional):</strong> when you add a delivery address you can tap "Use my location" to pin the exact spot on a map, so couriers can price and find your delivery. The app then reads your device's precise location once, only while you are using it, and only after you allow it. We save the pinned map point with that address. We do not track your location in the background. You can type your address and move the map yourself instead, and you can turn location access off at any time in your phone settings.</p>
+<p>The app does <strong>not</strong> access your contacts, SMS messages, call logs or microphone.</p>
 
 @if(config('app.fccpc_registration'))
 <div class="box">Gozak Credit is offered by Qudroid Systems in line with the FCCPC Digital Lending Framework. FCCPC registration/approval reference: <strong>{{ config('app.fccpc_registration') }}</strong>.</div>

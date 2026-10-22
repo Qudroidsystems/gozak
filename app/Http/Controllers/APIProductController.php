@@ -9,6 +9,8 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use App\Models\ProductCategory;
 use App\Models\LightningDeal;
+use App\Models\ProductImage;
+use App\Models\Variant;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
@@ -111,9 +113,10 @@ class APIProductController extends Controller
 
         return $attributes->map(function ($attr) {
             return [
-                'id'     => $attr->id ?? null,
-                'name'   => $attr->name ?? '',
-                'values' => $this->formatAttributeValues($attr->values),
+                'id'           => $attr->id ?? null,
+                'name'         => $attr->name ?? '',
+                'values'       => $this->formatAttributeValues($attr->values),
+                'display_type' => $attr->display_type ?? null,
             ];
         })->toArray();
     }
@@ -217,6 +220,96 @@ class APIProductController extends Controller
     }
 
     /**
+     * Adds what the app needs to draw a Jumia/Temu-style picker:
+     *
+     *   display_type  color | size | image | button
+     *   hint          e.g. "EU sizing"
+     *   options[]     {value, color_hex, image, in_stock}
+     *
+     * `values` (plain strings) is left untouched for older app versions.
+     * Colour hex codes come from the Attribute Library (one cached lookup).
+     */
+    protected function enrichAttributes(array $attributes, array $variations, array $media): array
+    {
+        if (!$attributes) {
+            return [];
+        }
+        $library = Variant::lookup();
+
+        return array_map(function ($attr) use ($library, $variations, $media) {
+            $name   = (string) ($attr['name'] ?? '');
+            $values = array_values(array_map('strval', (array) ($attr['values'] ?? [])));
+            $lib    = $library[mb_strtolower(trim($name))] ?? null;
+            $isColourName = (bool) preg_match('/colou?r/i', $name);
+
+            $options = [];
+            $anyImage = false;
+            foreach ($values as $value) {
+                // Photo for this option: a gallery photo tied to it, else a variation photo
+                $image = null;
+                foreach ($media as $m) {
+                    if ($m['type'] === ProductImage::TYPE_IMAGE
+                        && $m['attribute_name'] !== null
+                        && mb_strtolower($m['attribute_name']) === mb_strtolower($name)
+                        && (string) $m['attribute_value'] === $value) {
+                        $image = $m['thumb_url'] ?: $m['url'];
+                        break;
+                    }
+                }
+                $inStock = false;
+                $hasVariation = false;
+                foreach ($variations as $v) {
+                    if ((string) ($v['attributes'][$name] ?? '') !== $value) continue;
+                    $hasVariation = true;
+                    if (!$image && !empty($v['image'])) $image = $v['image'];
+                    if (($v['stock'] ?? 0) > 0) $inStock = true;
+                }
+                $anyImage = $anyImage || $image;
+
+                $options[] = [
+                    'value'     => $value,
+                    'color_hex' => $lib['values'][mb_strtolower(trim($value))] ?? null,
+                    'image'     => $image,
+                    // No variation for this value at all → nothing to sell
+                    'in_stock'  => $hasVariation ? $inStock : false,
+                ];
+            }
+
+            $displayType = $attr['display_type'] ?? null;
+            if (!$displayType) {
+                $displayType = $lib['display_type']
+                    ?? ($isColourName ? ($anyImage ? 'image' : 'color') : 'button');
+            }
+            // Colour attribute with photos but no swatch colours → show photos
+            if ($displayType === 'color' && $anyImage && !collect($options)->contains(fn ($o) => $o['color_hex'])) {
+                $displayType = 'image';
+            }
+
+            return array_merge($attr, [
+                'display_type' => $displayType,
+                'hint'         => $lib['hint'] ?? null,
+                'options'      => $options,
+            ]);
+        }, $attributes);
+    }
+
+    protected function formatSizeGuide($guide): ?array
+    {
+        if (is_string($guide)) {
+            $guide = json_decode($guide, true);
+        }
+        if (!is_array($guide) || empty($guide['columns']) || empty($guide['rows'])) {
+            return null;
+        }
+        return [
+            'unit'    => $guide['unit'] ?? null,
+            'columns' => array_values($guide['columns']),
+            'rows'    => array_values($guide['rows']),
+            'note'    => $guide['note'] ?? null,
+        ];
+    }
+
+    /**
      * Format complete product data with real-time calculations.
      *
      * Expects the product to have been loaded with:
@@ -249,15 +342,19 @@ class APIProductController extends Controller
             'name' => $product->category->name ?? '',
         ] : null;
 
-        $images = $product->images && $product->images->isNotEmpty()
-            ? $product->images
-                ->map(fn($img) => url(Storage::url(preg_replace('/^storage\//', '', $img->image_path))))
-                ->filter()
-                ->values()
-                ->toArray()
-            : [];
+        // `images` stays a plain list of photo URLs (what older app versions
+        // read). Videos only appear in the new `media` list.
+        $mediaItems = $product->images ?? collect();
+        $images = $mediaItems
+            ->reject(fn ($img) => ($img->media_type ?? 'image') === ProductImage::TYPE_VIDEO)
+            ->map(fn ($img) => ProductImage::publicUrl($img->image_path))
+            ->filter()
+            ->values()
+            ->toArray();
+        $media = $mediaItems->map(fn ($img) => $img->toMediaArray())->values()->toArray();
 
         $variations = $this->formatProductVariations($product->variations, $product->id);
+        $attributes = $this->enrichAttributes($attributes, $variations, $media);
 
         // ── Rating aggregates ─────────────────────────────────────────────
         // withAvg / withCount append virtual attributes to the model.
@@ -293,6 +390,8 @@ class APIProductController extends Controller
             'brand'               => $brand,
             'category'            => $category,
             'images'              => $images,
+            'media'               => $media,
+            'has_video'           => collect($media)->contains('type', ProductImage::TYPE_VIDEO),
             'product_attributes'  => $attributes,
             'product_variations'  => $variations,
         ];
@@ -311,7 +410,10 @@ class APIProductController extends Controller
                 'brand:id,name,logo',
                 'attributes:id,product_id,name,values',
                 'variations:id,product_id,sku,barcode,price,sale_price,attributes,image',
-                'images:id,product_id,image_path',
+                'images' => fn ($q) => $q->select([
+                    'id', 'product_id', 'image_path', 'media_type', 'thumb_path', 'poster_path',
+                    'duration_seconds', 'attribute_name', 'attribute_value', 'alt_text', 'is_primary', 'sort_order',
+                ])->ordered(),
             ])
             ->withAvg('reviews', 'rating')   // → reviews_avg_rating
             ->withCount('reviews');           // → reviews_count
@@ -456,8 +558,18 @@ class APIProductController extends Controller
     public function show($id)
     {
         try {
-            $product   = $this->baseQuery()->findOrFail($id);
+            $product = $this->baseQuery()
+                ->with(['specifications:id,product_id,label,value,group,sort_order'])
+                ->findOrFail($id);
+            $this->preloadStock([$product->id]);   // one query instead of one per variation
             $formatted = $this->formatProductData($product);
+
+            // Detail-page-only extras
+            $formatted['specifications'] = $product->specifications
+                ->map(fn ($s) => ['label' => $s->label, 'value' => $s->value, 'group' => $s->group])
+                ->values()
+                ->toArray();
+            $formatted['size_guide'] = $this->formatSizeGuide($product->size_guide);
 
             return response()->json([
                 'success' => true,
@@ -516,6 +628,7 @@ class APIProductController extends Controller
                 $related = $related->merge($fallback);
             }
 
+            $this->preloadStock($related->pluck('id'));
             $formatted = $related
                 ->map(fn($p) => $this->formatProductData($p))
                 ->values();

@@ -15,6 +15,12 @@ use App\Exports\ProductsExport;
 use App\Imports\ProductsImport;
 use App\Http\Controllers\Controller;
 use App\Services\LightningDealNotificationService;
+use App\Services\ProductMediaService;
+use App\Models\Stock;
+use App\Models\StockLocation;
+use App\Models\Variant;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -58,6 +64,7 @@ class ProductController extends Controller
             ->leftJoin('brands', 'brands.id', '=', 'products.brand_id')
             ->select('products.*', 'categories.name as category_name', 'brands.name as brand_name')
             ->withSum('orderItems as sold_total', 'quantity')
+            ->withLedgerStock()   // live stock for every row in one query
             ->when($request->filled('category_id'), function ($q) use ($request) {
                 // include the chosen category's sub-categories
                 $ids = Category::where('id', $request->category_id)->orWhere('parent_id', $request->category_id)->pluck('id');
@@ -128,6 +135,7 @@ class ProductController extends Controller
                     . '<li><a class="dropdown-item" href="' . route('web.products.show', $p->id) . '">View</a></li>';
                 if ($user->can('Update product')) {
                     $h .= '<li><a class="dropdown-item edit-item-btn" href="javascript:void(0);" data-id="' . $p->id . '">Edit</a></li>';
+                    $h .= '<li><a class="dropdown-item" href="' . route('web.catalog.products.media.show', $p->id) . '">Photos, video & specs</a></li>';
                 }
                 if ($user->can('Delete product')) {
                     $h .= '<li><a class="dropdown-item remove-item-btn text-danger" href="javascript:void(0);" data-id="' . $p->id . '">Delete</a></li>';
@@ -176,10 +184,25 @@ class ProductController extends Controller
             $values = is_array($attr->values)
                 ? implode(', ', $attr->values)
                 : ($attr->values ?? '');
-            return ['name' => $attr->name, 'values' => $values];
+            return [
+                'name'         => $attr->name,
+                'values'       => $values,
+                'variant_id'   => $attr->variant_id ?? null,
+                'display_type' => $attr->display_type ?? null,
+            ];
         })->toArray();
 
-        $variations = $product->variations->map(function ($var) {
+        // Current stock per variation (one grouped query) so the form can show it.
+        $variationStock = Stock::where('product_id', $product->id)
+            ->whereNotNull('product_variant_id')
+            ->selectRaw('product_variant_id, SUM(CASE
+                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
+                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                    ELSE 0 END) as qty')
+            ->groupBy('product_variant_id')
+            ->pluck('qty', 'product_variant_id');
+
+        $variations = $product->variations->map(function ($var) use ($variationStock) {
             $attributes = is_array($var->attributes)
                 ? $var->attributes
                 : (json_decode($var->attributes, true) ?? []);
@@ -193,6 +216,7 @@ class ProductController extends Controller
                 'image'      => $var->image ? asset('storage/' . $var->image) : null,
                 'image_path' => $var->image, // Store the actual path for update
                 'attributes' => $attributes,
+                'stock'      => max(0, (int) ($variationStock[$var->id] ?? 0)),
             ];
         })->toArray();
 
@@ -229,6 +253,7 @@ class ProductController extends Controller
             'attributes' => $attributes,
             'variations' => $variations,
             'units'      => $units,
+            'media_url'  => route('web.catalog.products.media.show', $product->id),
         ]);
     }
 
@@ -267,6 +292,7 @@ class ProductController extends Controller
             'variations.*.cost_price'    => 'nullable|numeric|min:0',
             'variations.*.sale_price'    => 'nullable|numeric|min:0',
             'variations.*.image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'variations.*.add_stock'     => 'nullable|integer|min:0|max:1000000',
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -277,7 +303,7 @@ class ProductController extends Controller
         try {
             $thumbnailPath = null;
             if ($request->hasFile('thumbnail')) {
-                $thumbnailPath = $request->file('thumbnail')->store('product', 'public');
+                $thumbnailPath = app(ProductMediaService::class)->storeThumbnail($request->file('thumbnail'));
             }
 
             $product = Product::create([
@@ -354,6 +380,7 @@ class ProductController extends Controller
             'variations.*.cost_price'    => 'nullable|numeric|min:0',
             'variations.*.sale_price'    => 'nullable|numeric|min:0',
             'variations.*.image'         => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'variations.*.add_stock'     => 'nullable|integer|min:0|max:1000000',
             'variations.*.existing_image' => 'nullable|string', // For keeping existing images
         ];
 
@@ -422,7 +449,7 @@ class ProductController extends Controller
                 if ($product->thumbnail) {
                     Storage::disk('public')->delete($product->thumbnail);
                 }
-                $data['thumbnail'] = $request->file('thumbnail')->store('product', 'public');
+                $data['thumbnail'] = app(ProductMediaService::class)->storeThumbnail($request->file('thumbnail'));
             }
 
             \Log::info('Updating product with data:', $data);
@@ -571,13 +598,25 @@ class ProductController extends Controller
     private function syncImages($product, $request)
     {
         if ($request->hasFile('images')) {
+            $media = app(ProductMediaService::class);
             foreach ($request->file('images') as $image) {
-                $path = $image->store('product/gallery', 'public');
-                $product->images()->create(['image_path' => $path]);
+                if ($image && $image->isValid()) {
+                    $media->storePhoto($product, $image);
+                }
             }
         }
     }
 
+    /**
+     * Saves the product's options (attributes) and variations.
+     *
+     *  - Attribute values are split on commas only, so "Navy Blue, Wine Red"
+     *    stays two values (it used to split on spaces too → four values).
+     *  - Attributes are linked to the Attribute Library by name, which gives
+     *    the app the display type (colour swatches, size boxes …).
+     *  - variations[i][add_stock] records opening/added stock for that
+     *    variation in the stock ledger at the default location.
+     */
     private function syncAttributesAndVariations($product, $request, $isUpdate = false)
     {
         $product->attributes()->delete();
@@ -588,43 +627,51 @@ class ProductController extends Controller
             $product->variations()->delete();
         }
 
-        if ($request->has('attributes') && is_array($request->attributes)) {
-            foreach ($request->attributes as $attr) {
+        $library = Variant::lookup();
+
+        if ($request->has('attributes') && is_array($request->input('attributes'))) {
+            $order = 0;
+            foreach ($request->input('attributes') as $attr) {
                 $name        = trim($attr['name'] ?? '');
-                $valuesInput = trim($attr['values'] ?? '');
-                if ($name && $valuesInput) {
-                    $values = array_filter(preg_split('/[\s,]+/', $valuesInput));
-                    $product->attributes()->create(['name' => $name, 'values' => $values]);
+                $valuesInput = $attr['values'] ?? '';
+                $values = is_array($valuesInput)
+                    ? $valuesInput
+                    : explode(',', (string) $valuesInput);
+                $values = array_values(array_unique(array_filter(array_map('trim', $values), fn ($v) => $v !== '')));
+
+                if ($name && $values) {
+                    $lib = $library[mb_strtolower($name)] ?? null;
+                    $product->attributes()->create([
+                        'name'         => $name,
+                        'values'       => $values,
+                        'variant_id'   => $lib['id'] ?? null,
+                        'display_type' => $attr['display_type'] ?? ($lib['display_type'] ?? null),
+                        'sort_order'   => $order++,
+                    ]);
                 }
             }
         }
 
         if ($request->product_type === 'variable' && $request->has('variations') && is_array($request->variations)) {
             // For update, we need to handle existing variations
-            if ($isUpdate) {
-                // Get existing variation IDs to keep track
-                $existingVariationIds = $product->variations()->pluck('id')->toArray();
-                $updatedVariationIds = [];
-            }
+            $existingVariationIds = $isUpdate ? $product->variations()->pluck('id')->toArray() : [];
+            $updatedVariationIds  = [];
+            $stockToAdd           = [];   // variation id => qty
 
             foreach ($request->variations as $index => $var) {
                 $imagePath = null;
 
-                // ── FIX ─────────────────────────────────────────────────────────
-                // Use $request->hasFile() instead of a manual "instanceof UploadedFile"
-                // check. An empty <input type="file"> still submits as an UploadedFile
-                // instance (just an invalid one with UPLOAD_ERR_NO_FILE), so the old
-                // "instanceof" check was true even when no image was actually chosen —
-                // wiping out the existing image on every update. hasFile() correctly
-                // validates the file before treating it as "a new image was uploaded".
+                // hasFile() (not "instanceof UploadedFile"): an empty file input
+                // still submits an invalid UploadedFile, which used to wipe the
+                // existing image on every update.
                 if ($request->hasFile("variations.{$index}.image")) {
-                    $imagePath = $request->file("variations.{$index}.image")->store('product/variations', 'public');
+                    $imagePath = app(ProductMediaService::class)
+                        ->optimise($request->file("variations.{$index}.image"), 'product/variations', false, 1000)[0];
                 }
                 // For updates, keep existing image if no new (valid) one was uploaded
                 elseif ($isUpdate && isset($var['existing_image']) && !empty($var['existing_image'])) {
                     $imagePath = $var['existing_image'];
                 }
-                // ── END FIX ─────────────────────────────────────────────────────
 
                 $attributes = [];
                 if (isset($var['attributes']) && is_array($var['attributes'])) {
@@ -644,60 +691,37 @@ class ProductController extends Controller
                     $barcode     = substr("{$baseSku}-{$attrString}-{$random}", 0, 20);
                 }
 
-                // For update, check if this variation has an ID (existing)
-                if ($isUpdate && isset($var['id']) && !empty($var['id'])) {
-                    // Update existing variation
+                $payload = [
+                    'sku'        => $var['sku'] ?? null,
+                    'barcode'    => $barcode,
+                    'price'      => $var['price'] ?? 0,
+                    'cost_price' => $var['cost_price'] ?? null,
+                    'sale_price' => $var['sale_price'] ?? null,
+                    'image'      => $imagePath,
+                    'attributes' => $attributes,
+                ];
+
+                $variation = null;
+                if ($isUpdate && !empty($var['id'])) {
                     $variation = $product->variations()->find($var['id']);
                     if ($variation) {
                         // Delete old image only if a genuinely new, valid image was uploaded
                         if ($request->hasFile("variations.{$index}.image") && $variation->image) {
                             Storage::disk('public')->delete($variation->image);
                         }
+                        $variation->update($payload);
+                    }
+                }
+                // New row — or an id was submitted for a variation that no longer
+                // exists (e.g. re-generated rows): create it fresh so nothing is lost.
+                if (!$variation) {
+                    $variation = $product->variations()->create($payload);
+                }
+                $updatedVariationIds[] = $variation->id;
 
-                        $variation->update([
-                            'sku'        => $var['sku'] ?? null,
-                            'barcode'    => $barcode,
-                            'price'      => $var['price'] ?? 0,
-                            'cost_price' => $var['cost_price'] ?? null,
-                            'sale_price' => $var['sale_price'] ?? null,
-                            'image'      => $imagePath,
-                            'attributes' => $attributes,
-                        ]);
-                        $updatedVariationIds[] = $variation->id;
-                    } else {
-                        // ── FIX ─────────────────────────────────────────────────
-                        // An id was submitted (the row was rendered from an existing
-                        // variation, e.g. re-generated via "Generate Variations")
-                        // but that variation no longer exists in the DB. Previously
-                        // this silently did nothing, which meant the row (and its
-                        // existing_image reference) was just dropped on the floor.
-                        // Create it fresh instead so nothing is lost.
-                        $variation = $product->variations()->create([
-                            'sku'        => $var['sku'] ?? null,
-                            'barcode'    => $barcode,
-                            'price'      => $var['price'] ?? 0,
-                            'cost_price' => $var['cost_price'] ?? null,
-                            'sale_price' => $var['sale_price'] ?? null,
-                            'image'      => $imagePath,
-                            'attributes' => $attributes,
-                        ]);
-                        $updatedVariationIds[] = $variation->id;
-                        // ── END FIX ─────────────────────────────────────────────
-                    }
-                } else {
-                    // Create new variation
-                    $variation = $product->variations()->create([
-                        'sku'        => $var['sku'] ?? null,
-                        'barcode'    => $barcode,
-                        'price'      => $var['price'] ?? 0,
-                        'cost_price' => $var['cost_price'] ?? null,
-                        'sale_price' => $var['sale_price'] ?? null,
-                        'image'      => $imagePath,
-                        'attributes' => $attributes,
-                    ]);
-                    if ($isUpdate) {
-                        $updatedVariationIds[] = $variation->id;
-                    }
+                $add = (int) ($var['add_stock'] ?? 0);
+                if ($add > 0) {
+                    $stockToAdd[$variation->id] = ($stockToAdd[$variation->id] ?? 0) + $add;
                 }
             }
 
@@ -714,7 +738,57 @@ class ProductController extends Controller
                     }
                 }
             }
+
+            if ($stockToAdd) {
+                $this->recordVariationStock($product, $stockToAdd);
+            }
         }
+
+        Cache::forget("api_product_detail_{$product->id}");
+    }
+
+    /**
+     * Adds stock-in entries to the ledger for the given variations at the
+     * default stock location (same ledger the Inventory module uses, so the
+     * product's total stock trigger keeps working).
+     *
+     * @param array<int,int> $quantities variation id => quantity to add
+     */
+    private function recordVariationStock($product, array $quantities): void
+    {
+        $location = StockLocation::getDefault() ?? StockLocation::query()->orderBy('id')->first();
+        if (!$location) {
+            Log::warning('Variation stock not recorded: no stock location exists', ['product_id' => $product->id]);
+            return;
+        }
+
+        DB::transaction(function () use ($product, $quantities, $location) {
+            foreach ($quantities as $variationId => $qty) {
+                $current = (int) Stock::where('product_id', $product->id)
+                    ->where('product_variant_id', $variationId)
+                    ->selectRaw('COALESCE(SUM(CASE
+                        WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
+                        WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                        ELSE 0 END), 0) as qty')
+                    ->value('qty');
+
+                Stock::create([
+                    'product_id'         => $product->id,
+                    'product_variant_id' => $variationId,
+                    'stock_location_id'  => $location->id,
+                    'user_id'            => auth()->id(),
+                    'type'               => Stock::TYPE_IN,
+                    'quantity'           => $qty,
+                    'previous_quantity'  => $current,
+                    'new_quantity'       => $current + $qty,
+                    'unit_cost'          => null,
+                    'reference_number'   => 'PF-' . strtoupper(Str::random(10)),
+                    'reference_type'     => Stock::REFERENCE_PURCHASE,
+                    'notes'              => 'Added from the product form',
+                    'transaction_date'   => now(),
+                ]);
+            }
+        });
     }
 
     public function destroy($id)
