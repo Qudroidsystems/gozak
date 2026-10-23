@@ -771,95 +771,99 @@
                     </div>
                     @endif
 
-                    <!-- Product Variations Section -->
+                    <!-- Product Variations Section (editable) -->
                     @if($product->product_type === 'variable' && $product->variations->count() > 0)
-                    <div class="card mt-4">
-                        <div class="card-header">
+                    @php
+                        $vStock = $variationStock ?? collect();
+                        $totalVariationStock = $product->variations->sum(fn ($v) => (int) ($vStock[$v->id] ?? 0));
+                    @endphp
+                    <div class="card mt-4" id="variationsCard">
+                        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
                             <h5 class="card-title mb-0">
                                 <i class="bi bi-grid-3x3-gap me-2"></i>Product Variations
                                 <span class="badge bg-primary ms-2">{{ $product->variations->count() }}</span>
                             </h5>
+                            @can('Update product')
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="small text-muted mb-0" for="variationLocation">Stock changes go to</label>
+                                <select id="variationLocation" class="form-select form-select-sm" style="width:auto">
+                                    @foreach($stockLocations ?? [] as $loc)
+                                        <option value="{{ $loc->id }}" @selected($loc->is_default)>{{ $loc->name }}{{ $loc->is_default ? ' (default)' : '' }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            @endcan
                         </div>
                         <div class="card-body">
+                            @can('Update product')
+                            <p class="small text-muted mb-2">
+                                Edit any row and press <strong>Save</strong>. In <strong>Stock change</strong>, type a number to add stock (e.g. <code>10</code>)
+                                or a minus number to remove it (e.g. <code>-2</code>).
+                            </p>
+                            @endcan
                             <div class="table-responsive">
-                                <table class="table table-hover table-striped align-middle mb-0">
+                                <table class="table table-hover align-middle mb-0">
                                     <thead class="table-light">
                                         <tr>
-                                            <th style="width: 80px;">Image</th>
-                                            <th>Attributes</th>
-                                            <th>SKU</th>
-                                            <th>Price</th>
-                                            <th>Sale Price</th>
-                                            <th>Stock</th>
-                                            <th>Status</th>
+                                            <th style="width: 70px;">Image</th>
+                                            <th>Option</th>
+                                            <th style="min-width:120px">SKU</th>
+                                            <th style="min-width:110px">Cost</th>
+                                            <th style="min-width:110px">Price</th>
+                                            <th style="min-width:110px">Sale price</th>
+                                            <th class="text-center">Stock</th>
+                                            @can('Update product')
+                                            <th style="min-width:110px">Stock change</th>
+                                            <th></th>
+                                            @endcan
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach($product->variations as $variation)
-                                        <tr>
+                                        @php $vs = (int) ($vStock[$variation->id] ?? 0); @endphp
+                                        <tr data-variation-row="{{ $variation->id }}">
                                             <td>
                                                 @if($variation->image)
-                                                    <img src="{{ asset('storage/' . $variation->image) }}"
-                                                        alt="Variation"
-                                                        class="img-thumbnail"
-                                                        style="width: 60px; height: 60px; object-fit: cover;">
+                                                    <img src="{{ asset('storage/' . $variation->image) }}" alt="Variation" class="img-thumbnail" style="width: 56px; height: 56px; object-fit: cover;">
                                                 @else
-                                                    <div class="bg-light d-flex align-items-center justify-content-center"
-                                                        style="width: 60px; height: 60px; border-radius: 4px;">
+                                                    <div class="bg-light d-flex align-items-center justify-content-center" style="width: 56px; height: 56px; border-radius: 4px;">
                                                         <i class="bi bi-image text-muted"></i>
                                                     </div>
                                                 @endif
-                                            </div>
+                                            </td>
                                             <td>
                                                 @if($variation->attributes && is_array($variation->attributes))
                                                     @foreach($variation->attributes as $key => $value)
-                                                        <span class="badge bg-info-subtle text-info me-1 mb-1">
-                                                            {{ ucfirst($key) }}: {{ $value }}
-                                                        </span>
+                                                        <span class="badge bg-info-subtle text-info me-1 mb-1">{{ ucfirst($key) }}: {{ $value }}</span>
                                                     @endforeach
                                                 @else
                                                     <span class="text-muted">N/A</span>
                                                 @endif
-                                            </div>
-                                            <td>
-                                                <code class="text-dark">{{ $variation->sku ?? 'N/A' }}</code>
-                                            </div>
-                                            <td>
-                                                <strong>₦{{ number_format($variation->price, 2) }}</strong>
-                                            </div>
-                                            <td>
-                                                @if($variation->sale_price)
-                                                    <span class="text-danger fw-bold">
-                                                        ₦{{ number_format($variation->sale_price, 2) }}
-                                                    </span>
-                                                    <br>
-                                                    <small class="badge bg-success">
-                                                        {{ round((($variation->price - $variation->sale_price) / $variation->price) * 100) }}% OFF
-                                                    </small>
-                                                @else
-                                                    <span class="text-muted">—</span>
-                                                @endif
-                                            </div>
-                                            <td>
-                                                <span class="badge {{ $variation->stock > 10 ? 'bg-success' : ($variation->stock > 0 ? 'bg-warning' : 'bg-danger') }}">
-                                                    {{ $variation->stock }} units
+                                            </td>
+                                            @can('Update product')
+                                                <td><input type="text" class="form-control form-control-sm v-sku" value="{{ $variation->sku }}" maxlength="100"></td>
+                                                <td><input type="number" step="0.01" min="0" class="form-control form-control-sm v-cost" value="{{ $variation->cost_price }}"></td>
+                                                <td><input type="number" step="0.01" min="0" class="form-control form-control-sm v-price" value="{{ $variation->price }}" required></td>
+                                                <td><input type="number" step="0.01" min="0" class="form-control form-control-sm v-sale" value="{{ $variation->sale_price }}"></td>
+                                            @else
+                                                <td><code class="text-dark">{{ $variation->sku ?? 'N/A' }}</code></td>
+                                                <td>{{ $variation->cost_price ? '₦' . number_format($variation->cost_price, 2) : '—' }}</td>
+                                                <td><strong>₦{{ number_format($variation->price, 2) }}</strong></td>
+                                                <td>{!! $variation->sale_price ? '<span class="text-danger fw-bold">₦' . number_format($variation->sale_price, 2) . '</span>' : '<span class="text-muted">—</span>' !!}</td>
+                                            @endcan
+                                            <td class="text-center">
+                                                <span class="badge v-stock-badge {{ $vs > 10 ? 'bg-success-subtle text-success' : ($vs > 0 ? 'bg-warning-subtle text-warning' : 'bg-danger-subtle text-danger') }}">
+                                                    {{ $vs > 0 ? $vs . ' units' : 'Out of stock' }}
                                                 </span>
-                                            </div>
-                                            <td>
-                                                @if($variation->stock > 10)
-                                                    <span class="badge bg-success-subtle text-success">
-                                                        <i class="bi bi-check-circle me-1"></i>In Stock
-                                                    </span>
-                                                @elseif($variation->stock > 0)
-                                                    <span class="badge bg-warning-subtle text-warning">
-                                                        <i class="bi bi-exclamation-triangle me-1"></i>Low Stock
-                                                    </span>
-                                                @else
-                                                    <span class="badge bg-danger-subtle text-danger">
-                                                        <i class="bi bi-x-circle me-1"></i>Out of Stock
-                                                    </span>
-                                                @endif
-                                            </div>
+                                            </td>
+                                            @can('Update product')
+                                            <td><input type="number" step="1" class="form-control form-control-sm v-change" placeholder="+10 / -2"></td>
+                                            <td class="text-end">
+                                                <button type="button" class="btn btn-sm btn-primary v-save" data-url="{{ route('web.products.variations.update', [$product->id, $variation->id]) }}">
+                                                    <span class="spinner-border spinner-border-sm d-none me-1"></span>Save
+                                                </button>
+                                            </td>
+                                            @endcan
                                         </tr>
                                         @endforeach
                                     </tbody>
@@ -880,7 +884,7 @@
                                     <div class="card border shadow-none bg-light mb-0">
                                         <div class="card-body text-center">
                                             <h6 class="text-muted mb-2">Total Stock</h6>
-                                            <h4 class="mb-0">{{ $product->variations->sum('stock') }}</h4>
+                                            <h4 class="mb-0" id="variationsTotalStock">{{ $totalVariationStock }}</h4>
                                         </div>
                                     </div>
                                 </div>
@@ -889,9 +893,7 @@
                                         <div class="card-body text-center">
                                             <h6 class="text-muted mb-2">Lowest Price</h6>
                                             <h4 class="mb-0 text-success">
-                                                ₦{{ number_format($product->variations->min(function($v) {
-                                                    return $v->sale_price ?? $v->price;
-                                                }), 2) }}
+                                                ₦{{ number_format($product->variations->min(fn ($v) => ($v->sale_price && $v->sale_price > 0) ? $v->sale_price : $v->price), 2) }}
                                             </h4>
                                         </div>
                                     </div>
@@ -900,9 +902,7 @@
                                     <div class="card border shadow-none bg-light mb-0">
                                         <div class="card-body text-center">
                                             <h6 class="text-muted mb-2">Highest Price</h6>
-                                            <h4 class="mb-0 text-primary">
-                                                ₦{{ number_format($product->variations->max('price'), 2) }}
-                                            </h4>
+                                            <h4 class="mb-0 text-primary">₦{{ number_format($product->variations->max('price'), 2) }}</h4>
                                         </div>
                                     </div>
                                 </div>
@@ -1492,6 +1492,59 @@ document.addEventListener('DOMContentLoaded', function () {
     window.addEventListener('load', function() {
         if (thumbnailSlider) thumbnailSlider.update();
         if (navSlider) navSlider.update();
+    });
+});
+</script>
+<script>
+// ── Editable variations (Product page) ──────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    const card = document.getElementById('variationsCard');
+    if (!card) return;
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+    card.addEventListener('click', async function (e) {
+        const btn = e.target.closest('.v-save');
+        if (!btn) return;
+        const row = btn.closest('tr');
+        const val = sel => row.querySelector(sel)?.value ?? '';
+        const change = parseInt(val('.v-change') || '0', 10) || 0;
+        const payload = {
+            sku: val('.v-sku'),
+            cost_price: val('.v-cost') || null,
+            price: val('.v-price'),
+            sale_price: val('.v-sale') || null,
+            stock_change: change,
+            location_id: document.getElementById('variationLocation')?.value || null,
+        };
+        btn.disabled = true;
+        btn.querySelector('.spinner-border')?.classList.remove('d-none');
+        try {
+            const res = await fetch(btn.dataset.url, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                const msg = data.message || (data.errors ? Object.values(data.errors).flat().join(' ') : 'Could not save');
+                throw new Error(msg);
+            }
+            const badge = row.querySelector('.v-stock-badge');
+            const s = data.variation_stock ?? 0;
+            badge.className = 'badge v-stock-badge ' + (s > 10 ? 'bg-success-subtle text-success' : (s > 0 ? 'bg-warning-subtle text-warning' : 'bg-danger-subtle text-danger'));
+            badge.textContent = s > 0 ? s + ' units' : 'Out of stock';
+            row.querySelector('.v-change').value = '';
+            let total = 0;
+            card.querySelectorAll('.v-stock-badge').forEach(b => { total += parseInt(b.textContent, 10) || 0; });
+            const totalEl = document.getElementById('variationsTotalStock');
+            if (totalEl) totalEl.textContent = total;
+            if (window.Swal) Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: data.message || 'Saved', timer: 1800, showConfirmButton: false });
+        } catch (err) {
+            if (window.Swal) Swal.fire('Not saved', err.message, 'error'); else alert(err.message);
+        } finally {
+            btn.disabled = false;
+            btn.querySelector('.spinner-border')?.classList.add('d-none');
+        }
     });
 });
 </script>

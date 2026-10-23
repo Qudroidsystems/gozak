@@ -51,6 +51,23 @@ class OrderPricingService
                 }
             }
         }
+
+        // Tax on/off (Settings › Payment Gateways › Checkout). When off, the
+        // rate sent to the app is 0 so every app version shows no tax, and the
+        // saved rate is kept for when it's switched back on.
+        $enabled = true;
+        try {
+            if ($s && Schema::hasColumn('store_settings', 'tax_enabled') && $s->tax_enabled !== null) {
+                $enabled = (bool) $s->tax_enabled;
+            }
+        } catch (\Throwable $e) {
+            $enabled = true;
+        }
+        $out['tax_enabled']         = $enabled;
+        $out['tax_rate_configured'] = $out['tax_rate'];
+        if (!$enabled) {
+            $out['tax_rate'] = 0.0;
+        }
         $out['currency'] = 'NGN';
         $out['currency_symbol'] = '₦';
         return $out;
@@ -61,7 +78,7 @@ class OrderPricingService
      * @return array ['items' => [...priced items], 'subtotal', 'shipping', 'tax', 'total', 'changed' => bool]
      * @throws ValidationException when a product/variation doesn't exist or doesn't match
      */
-    public function price(array $items): array
+    public function price(array $items, array $options = []): array
     {
         $productIds   = collect($items)->pluck('product_id')->filter()->unique()->values();
         $variationIds = collect($items)->pluck('variation_id')->filter()->unique()->values();
@@ -117,7 +134,9 @@ class OrderPricingService
             $subtotal += $unit * $qty;
         }
 
-        if (config('shop.enforce_stock_on_order', true)) {
+        // Scan & Shop: the customer is holding the item in the store, so the
+        // shelf is the truth, not the stock count.
+        if (config('shop.enforce_stock_on_order', true) && empty($options['skip_stock'])) {
             $this->assertInStock($items, $products, $variations);
         }
 

@@ -218,6 +218,11 @@ document.addEventListener('DOMContentLoaded', function () {
                             @endforeach
                         </select>
                     </div>
+                    <div class="mb-3 d-none" id="adjust_variation_wrap">
+                        <label class="form-label">Option (size / colour) <span class="text-danger">*</span></label>
+                        <select name="variation_id" id="adjust_variation_id" class="form-control"></select>
+                        <small class="text-muted">This product has options, and stock is kept for each one separately.</small>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Location <span class="text-danger">*</span></label>
                         <select name="location_id" id="adjust_location_id" class="form-control" required>
@@ -294,6 +299,11 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </option>
                             @endforeach
                         </select>
+                    </div>
+                    <div class="mb-3 d-none" id="transfer_variation_wrap">
+                        <label class="form-label">Option (size / colour) <span class="text-danger">*</span></label>
+                        <select name="variation_id" id="transfer_variation_id" class="form-control"></select>
+                        <small class="text-muted">This product has options, and stock is kept for each one separately.</small>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-6">
@@ -378,6 +388,36 @@ document.addEventListener('DOMContentLoaded', function() {
     // DEBUG: Check if routes are available
     console.log('CSRF Token:', axios.defaults.headers.common['X-CSRF-TOKEN']);
 
+    // ── Options (size / colour) ─────────────────────────────────────────────
+    // Products with options keep stock per option. The list comes back with
+    // each stock check and is rebuilt only when the product changes.
+    function variationQuery(prefix, productId) {
+        const sel = document.getElementById(prefix + '_variation_id');
+        if (!sel || sel.dataset.product !== String(productId) || !sel.value) return '';
+        return '?variation_id=' + encodeURIComponent(sel.value);
+    }
+
+    function fillVariations(prefix, productId, data) {
+        const wrap = document.getElementById(prefix + '_variation_wrap');
+        const sel = document.getElementById(prefix + '_variation_id');
+        if (!wrap || !sel) return;
+        const list = data.variations || [];
+        if (!list.length) {
+            wrap.classList.add('d-none'); sel.required = false; sel.innerHTML = ''; sel.dataset.product = String(productId);
+            return;
+        }
+        wrap.classList.remove('d-none'); sel.required = true;
+        const keep = sel.dataset.product === String(productId) ? sel.value : '';
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        sel.innerHTML = '<option value="">Choose an option…</option>' + list.map(v =>
+            `<option value="${v.id}">${esc(v.label)} (stock here: ${v.stock})</option>`).join('');
+        sel.value = keep;
+        sel.dataset.product = String(productId);
+    }
+
+    document.getElementById('adjust_variation_id')?.addEventListener('change', checkCurrentStock);
+    document.getElementById('transfer_variation_id')?.addEventListener('change', checkTransferStock);
+
     // Check current stock when product/location changes in adjust modal
     document.getElementById('adjust_product_id')?.addEventListener('change', checkCurrentStock);
     document.getElementById('adjust_location_id')?.addEventListener('change', checkCurrentStock);
@@ -423,16 +463,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (productId && locationId) {
             // Construct URL manually to avoid route issues
-            const url = `/inventory/stock-level/${productId}/${locationId}`;
+            const url = `/inventory/stock-level/${productId}/${locationId}` + variationQuery('adjust', productId);
             console.log('Fetching stock from:', url);
 
             axios.get(url)
                 .then(response => {
                     console.log('Stock response:', response.data);
                     if (response.data.success) {
+                        fillVariations('adjust', productId, response.data);
                         const stock = response.data.stock || 0;
-                        document.getElementById('currentStockDisplay').innerHTML =
-                            `<span class="text-info">Current stock: ${stock}</span>`;
+                        const needsOption = response.data.requires_variation && !document.getElementById('adjust_variation_id').value;
+                        document.getElementById('currentStockDisplay').innerHTML = needsOption
+                            ? '<span class="text-warning">Choose an option to see its stock</span>'
+                            : `<span class="text-info">Current stock: ${stock}</span>`;
                     }
                 })
                 .catch(error => {
@@ -453,10 +496,11 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Checking transfer stock:', { productId, fromLocationId, toLocationId });
 
         if (productId && fromLocationId) {
-            const url = `/inventory/stock-level/${productId}/${fromLocationId}`;
+            const url = `/inventory/stock-level/${productId}/${fromLocationId}` + variationQuery('transfer', productId);
             axios.get(url)
                 .then(response => {
                     if (response.data.success) {
+                        fillVariations('transfer', productId, response.data);
                         const availableStock = response.data.stock || 0;
                         document.getElementById('fromStockDisplay').innerHTML =
                             `<span class="text-info">Available: ${availableStock}</span>`;
@@ -491,7 +535,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (productId && toLocationId) {
-            const url = `/inventory/stock-level/${productId}/${toLocationId}`;
+            const url = `/inventory/stock-level/${productId}/${toLocationId}` + variationQuery('transfer', productId);
             axios.get(url)
                 .then(response => {
                     if (response.data.success) {
@@ -870,12 +914,16 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('adjustStockModal')?.addEventListener('hidden.bs.modal', function () {
         console.log('Adjust modal closed');
         document.getElementById('adjustStockForm')?.reset();
+        document.getElementById('adjust_variation_wrap')?.classList.add('d-none');
+        const av = document.getElementById('adjust_variation_id'); if (av) { av.innerHTML = ''; av.required = false; av.dataset.product = ''; }
         document.getElementById('currentStockDisplay').innerHTML = '';
     });
 
     document.getElementById('transferStockModal')?.addEventListener('hidden.bs.modal', function () {
         console.log('Transfer modal closed');
         document.getElementById('transferStockForm')?.reset();
+        document.getElementById('transfer_variation_wrap')?.classList.add('d-none');
+        const tv = document.getElementById('transfer_variation_id'); if (tv) { tv.innerHTML = ''; tv.required = false; tv.dataset.product = ''; }
         document.getElementById('fromStockDisplay').innerHTML = '';
         document.getElementById('toStockDisplay').innerHTML = '';
     });

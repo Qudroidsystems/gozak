@@ -19,6 +19,7 @@ use App\Services\ProductMediaService;
 use App\Models\Stock;
 use App\Models\StockLocation;
 use App\Models\Variant;
+use App\Models\ProductVariation;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -33,7 +34,7 @@ class ProductController extends Controller
     {
         $this->middleware('permission:View product|Create product|Update product|Delete product', ['only' => ['index', 'show', 'data']]);
         $this->middleware('permission:Create product', ['only' => ['store']]);
-        $this->middleware('permission:Update product', ['only' => ['edit', 'update', 'updateFlags', 'bulkUpdateFlags']]);
+        $this->middleware('permission:Update product', ['only' => ['edit', 'update', 'updateFlags', 'bulkUpdateFlags', 'updateVariation']]);
         $this->middleware('permission:Delete product', ['only' => ['destroy']]);
     }
 
@@ -848,7 +849,106 @@ class ProductController extends Controller
         $revenue   = $totalSold * $price;
         $pagetitle = $product->title . ' - Product Details';
 
-        return view('products.show', compact('product', 'pagetitle', 'averageRating', 'ratingBreakdown', 'revenue', 'totalSold'));
+        // Real stock per variation from the ledger (one grouped query). The old
+        // page read $variation->stock, a column removed in Jan 2026, so every
+        // option showed 0.
+        $product->load('variations');
+        $variationStock = Stock::where('product_id', $product->id)
+            ->whereNotNull('product_variant_id')
+            ->selectRaw('product_variant_id, SUM(CASE
+                    WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
+                    WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                    ELSE 0 END) as qty')
+            ->groupBy('product_variant_id')
+            ->pluck('qty', 'product_variant_id')
+            ->map(fn ($q) => max(0, (int) $q));
+        $stockLocations  = StockLocation::query()->orderByDesc('is_default')->orderBy('name')->get(['id', 'name', 'is_default']);
+
+        return view('products.show', compact('product', 'pagetitle', 'averageRating', 'ratingBreakdown', 'revenue', 'totalSold', 'variationStock', 'stockLocations'));
+    }
+
+    /**
+     * PATCH /web/products/{product}/variations/{variation}
+     * Update one option's SKU / prices and (optionally) add or remove stock.
+     * stock_change > 0 adds, < 0 removes, at location_id (default location if empty).
+     */
+    public function updateVariation(Request $request, Product $product, ProductVariation $variation)
+    {
+        abort_unless((int) $variation->product_id === (int) $product->id, 404);
+
+        $data = $request->validate([
+            'sku'          => 'nullable|string|max:100',
+            'price'        => 'required|numeric|min:0',
+            'sale_price'   => 'nullable|numeric|min:0',
+            'cost_price'   => 'nullable|numeric|min:0',
+            'stock_change' => 'nullable|integer|between:-1000000,1000000',
+            'location_id'  => 'nullable|exists:stock_locations,id',
+            'note'         => 'nullable|string|max:255',
+        ]);
+
+        $sale = isset($data['sale_price']) && $data['sale_price'] !== '' && (float) $data['sale_price'] > 0 ? (float) $data['sale_price'] : null;
+        if ($sale !== null && $sale >= (float) $data['price']) {
+            return response()->json(['success' => false, 'message' => 'Sale price must be lower than the price.'], 422);
+        }
+
+        $change = (int) ($data['stock_change'] ?? 0);
+
+        try {
+            DB::transaction(function () use ($data, $sale, $change, $product, $variation) {
+                $variation->update([
+                    'sku'        => $data['sku'] ?? $variation->sku,
+                    'price'      => $data['price'],
+                    'sale_price' => $sale,
+                    'cost_price' => $data['cost_price'] ?? null,
+                ]);
+
+                if ($change !== 0) {
+                    $location = !empty($data['location_id'])
+                        ? StockLocation::findOrFail($data['location_id'])
+                        : (StockLocation::getDefault() ?? StockLocation::query()->orderBy('id')->firstOrFail());
+
+                    $current = (int) $location->getProductStock($product->id, $variation->id);
+                    if ($change < 0 && $current < abs($change)) {
+                        throw new \RuntimeException("Only {$current} in stock at {$location->name}, so you can't remove " . abs($change) . '.');
+                    }
+
+                    Stock::create([
+                        'product_id'         => $product->id,
+                        'product_variant_id' => $variation->id,
+                        'stock_location_id'  => $location->id,
+                        'user_id'            => auth()->id(),
+                        'type'               => $change > 0 ? Stock::TYPE_IN : Stock::TYPE_OUT,
+                        'quantity'           => abs($change),
+                        'previous_quantity'  => $current,
+                        'new_quantity'       => $current + $change,
+                        'unit_cost'          => $data['cost_price'] ?? null,
+                        'reference_number'   => 'PV-' . strtoupper(Str::random(10)),
+                        'reference_type'     => Stock::REFERENCE_ADJUSTMENT,
+                        'adjustment_reason'  => $data['note'] ?? 'Updated on the product page',
+                        'transaction_date'   => now(),
+                    ]);
+                }
+            });
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        Cache::forget("api_product_detail_{$product->id}");
+
+        $variationTotal = max(0, (int) Stock::where('product_id', $product->id)
+            ->where('product_variant_id', $variation->id)
+            ->selectRaw('COALESCE(SUM(CASE
+                WHEN type IN ("in", "adjustment", "transfer_in", "return") THEN quantity
+                WHEN type IN ("out", "damage", "transfer") THEN -quantity
+                ELSE 0 END), 0) as qty')
+            ->value('qty'));
+
+        return response()->json([
+            'success'         => true,
+            'message'         => $change ? 'Saved, and stock ' . ($change > 0 ? 'added' : 'removed') . '.' : 'Saved.',
+            'variation_stock' => $variationTotal,
+            'product_stock'   => (int) $product->fresh()->stock,
+        ]);
     }
 
     public function storeReview(Request $request, $id)

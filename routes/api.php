@@ -61,6 +61,9 @@ Route::get('/search/suggest',                     [\App\Http\Controllers\APISear
 Route::get('/search/trending',                    [\App\Http\Controllers\APISearchController::class, 'trending'])->name('search.trending');
 Route::get('/products/recommendations',           [\App\Http\Controllers\APISearchController::class, 'recommendations'])->name('products.recommendations');
 Route::get('/products',                            [APIProductController::class, 'index'])->name('products.index');
+// Scan & Shop (in-store scanning, home delivery)
+Route::get('/scan-shop/stores',                   [APIProductController::class, 'scanShopStores'])->name('scan-shop.stores');
+Route::get('/scan-shop/lookup',                   [APIProductController::class, 'scanShopLookup'])->middleware('throttle:120,1')->name('scan-shop.lookup');
 Route::get('/products/{id}',                       [APIProductController::class, 'show'])->name('products.show');
 Route::get('/products/{id}/related',               [APIProductController::class, 'related'])->name('products.related');
 Route::post('/products',                           [APIProductController::class, 'store']);

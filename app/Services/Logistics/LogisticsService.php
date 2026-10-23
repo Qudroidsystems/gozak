@@ -140,15 +140,15 @@ class LogisticsService
             $pickup = $this->pickupPoint(null);
             if (!is_numeric($lat) || !is_numeric($lng)) {
                 $notice = match (true) {
-                    $ownVia             => "Pin your delivery address on the map to see the {$ownLabel} price" . ($marketplace ? " and couriers from {$marketplace['name']}." : '.'),
-                    (bool) $marketplace => "Pin your delivery address on the map to see couriers from {$marketplace['name']} and their prices.",
+                    $ownVia             => "Pin your delivery address on the map to see the {$ownLabel} price" . ($marketplace ? " and other couriers on {$marketplace['name']}." : '.'),
+                    (bool) $marketplace => "Pin your delivery address on the map to see couriers on {$marketplace['name']} and their prices.",
                     default             => 'Pin your delivery address on the map to see courier options and prices.',
                 };
                 if ($ownVia) {
                     // Shown, but it can only be chosen once the address is pinned (priced there unless GozakMart sets the fee).
                     $options[] = $this->ownPlaceholder($s, $marketplace['name'] ?? null, $shopFee);
                     if ($shopFee !== null) {
-                        $notice = "Pin your delivery address on the map so our rider can find you" . ($marketplace ? ", and to see couriers from {$marketplace['name']}." : '.');
+                        $notice = "Pin your delivery address on the map so our rider can find you" . ($marketplace ? ", and to see other couriers on {$marketplace['name']}." : '.');
                     }
                 }
             } elseif (!$pickup) {

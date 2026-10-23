@@ -137,6 +137,7 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('products', ProductController::class);
         Route::prefix('products')->name('products.')->group(function () {
             Route::delete('/{id}/images/{imageId}', [ProductController::class, 'deleteImage'])->name('images.destroy');
+            Route::patch('/{product}/variations/{variation}', [ProductController::class, 'updateVariation'])->whereNumber(['product', 'variation'])->name('variations.update');
             Route::get('/{product}/edit', [ProductController::class, 'edit'])->name('edit');
             Route::get('/{product}/inventory', [ProductController::class, 'inventoryLog'])->name('inventory');
             Route::get('/template', [ProductController::class, 'template'])->name('template');
@@ -188,6 +189,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('stock-locations')->name('stock-locations.')->group(function () {
         // Custom routes that need to come BEFORE resource
         Route::get('/{id}/stock', [StockLocationController::class, 'getLocationStock'])->name('stock');
+        Route::get('/{id}/scan-shop-qr', [StockLocationController::class, 'scanShopQr'])->whereNumber('id')->name('scan-shop-qr');
         Route::get('/{id}/view', [StockLocationController::class, 'show'])->name('view'); // Alternative show route
         Route::post('/{id}/set-default', [StockLocationController::class, 'setAsDefault'])->name('set-default');
         Route::post('/{id}/toggle-status', [StockLocationController::class, 'toggleStatus'])->name('toggle-status');
@@ -434,3 +436,10 @@ Route::middleware(['auth'])->group(function () {
 Route::view('/privacy', 'legal.privacy')->name('legal.privacy');
 Route::view('/terms', 'legal.terms')->name('legal.terms');
 Route::view('/delete-account', 'legal.delete-account')->name('legal.delete-account');
+
+// Scan & Shop store QR codes point here. The app's scanner reads the store from the
+// link; anyone who opens it with a normal camera gets told to use the app.
+Route::get('/scan-shop/store/{code}', function (string $code) {
+    $store = \App\Models\StockLocation::where('code', $code)->orWhere('id', ctype_digit($code) ? (int) $code : 0)->first();
+    return view('scan-shop.store-link', ['store' => $store]);
+})->name('scan-shop.store-link');

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductVariation;
 use App\Models\Stock;
 use App\Models\StockLocation;
 use App\Models\StockMovement;
@@ -479,6 +480,7 @@ class InventoryController extends Controller
         $validator = Validator::make($request->all(), [
             'product_id' => 'required|exists:products,id',
             'location_id' => 'required|exists:stock_locations,id',
+            'variation_id' => 'nullable|integer',
             'adjustment_type' => 'required|in:add,remove,set',
             'quantity' => 'required|integer|min:1',
             'unit_cost' => 'nullable|numeric|min:0',
@@ -500,7 +502,14 @@ class InventoryController extends Controller
             $product = Product::findOrFail($request->product_id);
             $location = StockLocation::findOrFail($request->location_id);
 
-            $currentStock = $location->getProductStock($product->id);
+            [$variation, $variationError] = $this->resolveVariation($request, $product);
+            if ($variationError) {
+                DB::rollBack();
+                return $variationError;
+            }
+            $variantId = $variation?->id;
+
+            $currentStock = $location->getProductStock($product->id, $variantId);
 
             if ($request->adjustment_type === 'set') {
                 $adjustment = $request->quantity - $currentStock;
@@ -535,6 +544,7 @@ class InventoryController extends Controller
 
             $stock = Stock::create([
                 'product_id' => $product->id,
+                'product_variant_id' => $variantId,
                 'stock_location_id' => $location->id,
                 'user_id' => auth()->id(),
                 'type' => $type,
@@ -597,6 +607,7 @@ class InventoryController extends Controller
             'product_id' => 'required|exists:products,id',
             'from_location_id' => 'required|exists:stock_locations,id',
             'to_location_id' => 'required|exists:stock_locations,id|different:from_location_id',
+            'variation_id' => 'nullable|integer',
             'quantity' => 'required|integer|min:1',
             'reference_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string|max:1000',
@@ -618,7 +629,14 @@ class InventoryController extends Controller
             $fromLocation = StockLocation::findOrFail($request->from_location_id);
             $toLocation = StockLocation::findOrFail($request->to_location_id);
 
-            $availableStock = $fromLocation->getProductStock($product->id);
+            [$variation, $variationError] = $this->resolveVariation($request, $product);
+            if ($variationError) {
+                DB::rollBack();
+                return $variationError;
+            }
+            $variantId = $variation?->id;
+
+            $availableStock = $fromLocation->getProductStock($product->id, $variantId);
             if ($availableStock < $request->quantity) {
                 Log::warning("Insufficient stock for transfer. Available: {$availableStock}, Requested: {$request->quantity}");
                 return response()->json([
@@ -631,11 +649,12 @@ class InventoryController extends Controller
             $totalCost = $unitCost * $request->quantity;
             $referenceNumber = $request->reference_number ?? 'TRF-' . date('YmdHis') . rand(100, 999);
 
-            $fromCurrentStock = $fromLocation->getProductStock($product->id);
-            $toCurrentStock = $toLocation->getProductStock($product->id);
+            $fromCurrentStock = $fromLocation->getProductStock($product->id, $variantId);
+            $toCurrentStock = $toLocation->getProductStock($product->id, $variantId);
 
             $stockOut = Stock::create([
                 'product_id' => $product->id,
+                'product_variant_id' => $variantId,
                 'stock_location_id' => $fromLocation->id,
                 'destination_location_id' => $toLocation->id,
                 'user_id' => auth()->id(),
@@ -653,6 +672,7 @@ class InventoryController extends Controller
 
             $stockIn = Stock::create([
                 'product_id' => $product->id,
+                'product_variant_id' => $variantId,
                 'stock_location_id' => $toLocation->id,
                 'destination_location_id' => null,
                 'user_id' => auth()->id(),
@@ -892,17 +912,72 @@ class InventoryController extends Controller
         }
     }
 
-    public function getProductStock($productId, $locationId)
+    /**
+     * The option (size/colour) a stock change is for. Products with options keep
+     * stock per option, so one must be chosen; others must not send one.
+     *
+     * @return array{0: ?ProductVariation, 1: ?\Illuminate\Http\JsonResponse}
+     */
+    private function resolveVariation(Request $request, Product $product): array
+    {
+        $hasOptions = $product->variations()->exists();
+        $id = $request->integer('variation_id') ?: null;
+
+        if (!$id) {
+            if ($hasOptions) {
+                return [null, response()->json([
+                    'success' => false,
+                    'message' => 'This product has options (size, colour …). Choose which option this stock is for.',
+                    'errors'  => ['variation_id' => ['Choose an option.']],
+                ], 422)];
+            }
+            return [null, null];
+        }
+
+        $variation = ProductVariation::where('product_id', $product->id)->find($id);
+        if (!$variation) {
+            return [null, response()->json([
+                'success' => false,
+                'message' => 'That option does not belong to this product.',
+                'errors'  => ['variation_id' => ['Invalid option.']],
+            ], 422)];
+        }
+        return [$variation, null];
+    }
+
+    private function variationLabel(ProductVariation $v): string
+    {
+        $attrs = is_array($v->attributes) ? $v->attributes : (json_decode((string) $v->attributes, true) ?: []);
+        return $attrs ? implode(' / ', array_map('strval', array_values($attrs))) : ($v->sku ?: 'Option #' . $v->id);
+    }
+
+    public function getProductStock(Request $request, $productId, $locationId)
     {
         try {
-            $product = Product::findOrFail($productId);
+            $product = Product::with('variations:id,product_id,sku,attributes')->findOrFail($productId);
             $location = StockLocation::findOrFail($locationId);
 
-            $stock = $location->getProductStock($productId);
+            // Stock per option (size/colour) at this location, so the forms can offer them.
+            $variations = $product->variations->map(fn ($v) => [
+                'id'    => $v->id,
+                'label' => $this->variationLabel($v),
+                'sku'   => $v->sku,
+                'stock' => (int) $location->getProductStock($productId, $v->id),
+            ])->values();
+
+            $variationId = $request->integer('variation_id') ?: null;
+            if ($variationId && !$product->variations->contains('id', $variationId)) {
+                $variationId = null;
+            }
+
+            $stock = $location->getProductStock($productId, $variationId);
 
             return response()->json([
                 'success' => true,
                 'stock' => $stock,
+                'variation_id' => $variationId,
+                'variations' => $variations,
+                'requires_variation' => $variations->isNotEmpty(),
                 'product_total_stock' => $product->stock,
                 'product' => [
                     'id' => $product->id,

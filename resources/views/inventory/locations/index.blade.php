@@ -81,6 +81,9 @@
                                                         @else
                                                             <span class="text-muted">-</span>
                                                         @endif
+                                                        @if($location->scan_shop_enabled)
+                                                            <span class="badge bg-success-subtle text-success ms-1"><i class="bi bi-upc-scan me-1"></i>Scan &amp; Shop</span>
+                                                        @endif
                                                     </td>
                                                     <td>
                                                         <div class="dropdown">
@@ -99,6 +102,13 @@
                                                                         <i class="bi bi-pencil me-2"></i> Edit
                                                                     </a>
                                                                 </li>
+                                                                @if($location->scan_shop_enabled)
+                                                                <li>
+                                                                    <a class="dropdown-item" href="{{ route('stock-locations.scan-shop-qr', $location->id) }}" target="_blank">
+                                                                        <i class="bi bi-qr-code me-2"></i> Print Scan &amp; Shop QR
+                                                                    </a>
+                                                                </li>
+                                                                @endif
                                                                 @if(!$location->is_default)
                                                                 <li>
                                                                     <a class="dropdown-item text-danger delete-location-btn" href="javascript:void(0);" data-id="{{ $location->id }}">
@@ -185,6 +195,13 @@
                                 <label class="form-check-label" for="is_active">Active</label>
                             </div>
                         </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="scan_shop_enabled" id="scan_shop_enabled">
+                            <label class="form-check-label" for="scan_shop_enabled"><strong>Scan &amp; Shop store</strong></label>
+                        </div>
+                        <small class="text-muted">Customers in this store can scan items with the app, pay, and have them delivered from here.</small>
                     </div>
                     <div class="mb-0">
                         <label class="form-label">Notes</label>
@@ -323,6 +340,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Convert checkboxes to boolean
             data.is_default = this.querySelector('[name="is_default"]').checked ? 1 : 0;
             data.is_active = this.querySelector('[name="is_active"]').checked ? 1 : 0;
+            data.scan_shop_enabled = this.querySelector('[name="scan_shop_enabled"]')?.checked ? 1 : 0;
             
             console.log('Form data to submit:', data);
             console.log('Route:', '{{ route("stock-locations.store") }}');
@@ -476,6 +494,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <label class="form-check-label" for="edit_is_active">Active</label>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="scan_shop_enabled" id="edit_scan_shop_enabled" ${location.scan_shop_enabled ? 'checked' : ''}>
+                                    <label class="form-check-label" for="edit_scan_shop_enabled"><strong>Scan &amp; Shop store</strong></label>
+                                </div>
+                                <small class="text-muted">Customers in this store can scan items with the app, pay, and have them delivered from here.</small>
                             </div>
                             <div class="mb-0">
                                 <label class="form-label">Notes</label>
@@ -809,6 +834,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const isActiveCheckbox = this.querySelector('[name="is_active"]');
             data.is_default = isDefaultCheckbox && !isDefaultCheckbox.disabled && isDefaultCheckbox.checked ? 1 : 0;
             data.is_active = isActiveCheckbox && isActiveCheckbox.checked ? 1 : 0;
+            data.scan_shop_enabled = this.querySelector('[name="scan_shop_enabled"]')?.checked ? 1 : 0;
             
             const locationId = data.id;
             console.log('Updating location ID:', locationId);

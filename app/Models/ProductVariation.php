@@ -13,6 +13,7 @@ class ProductVariation extends Model
         'barcode', // Add this
         'price',
         'sale_price',
+        'cost_price',
         'attributes',
         'image'
     ];

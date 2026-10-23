@@ -19,6 +19,7 @@ class StoreSetting extends Model
         'footer_note',
         'logo',
         'tax_rate',
+        'tax_enabled',
         'shipping_fee',
         'free_shipping_threshold',
     ];

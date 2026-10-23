@@ -23,6 +23,7 @@ class StockLocation extends Model
         'email',
         'is_default',
         'is_active',
+        'scan_shop_enabled',
         'latitude',
         'longitude',
         'sort_order',
@@ -31,6 +32,7 @@ class StockLocation extends Model
 
     protected $casts = [
         'is_default' => 'boolean',
+        'scan_shop_enabled' => 'boolean',
         'is_active' => 'boolean',
         'latitude' => 'decimal:8',
         'longitude' => 'decimal:8'

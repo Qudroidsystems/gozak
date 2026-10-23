@@ -1,0 +1,339 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\User;
+use App\Models\Address;
+use App\Models\OrderItem;
+use App\Models\Transaction;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+
+class Order extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'id',
+        'user_id',
+        'status',
+        'total_amount',
+        'credit_fee',
+        'shipping_cost',
+        'tax_cost',
+        'order_date',
+        'payment_method',
+        'shipping_address_id',
+        'billing_address_id',
+        'delivery_date',
+        'billing_address_same_as_shipping',
+        'barcode_path',
+        'barcode_data',
+        'paid_at',
+        'payment_status',
+        'shipped_at',
+        'delivered_at',
+        'received_confirmed_at',
+        'delivery_confirmed_by',
+        // packing + dispatch
+        'stock_location_id',
+        'delivery_zone_id',
+        'packing_status',
+        'package_count',
+        'packing_notes',
+        'packed_by',
+        'packed_at',
+        'checked_by',
+        'checked_at',
+        'dispatch_batch_id',
+        'stop_sequence',
+        'dispatch_status',
+        'dispatch_note',
+        // delivery confirmation
+        'delivery_code',
+        'delivery_code_attempts',
+        'delivery_method',
+        'delivery_proof',
+        'delivery_receiver',
+        'delivered_lat',
+        'delivered_lng',
+        'delivery_attempts',
+        'out_for_delivery_at',
+        'cash_collected',
+        'cash_method',
+    ];
+
+    protected $casts = [
+        'user_id' => 'integer',
+        'total_amount' => 'decimal:2',
+        'shipping_cost' => 'decimal:2',
+        'tax_cost' => 'decimal:2',
+        'order_date' => 'datetime',
+        'delivery_date' => 'datetime',
+        'paid_at' => 'datetime',
+        'shipped_at' => 'datetime',
+        'delivered_at' => 'datetime',
+        'received_confirmed_at' => 'datetime',
+        'packed_at' => 'datetime',
+        'checked_at' => 'datetime',
+        'out_for_delivery_at' => 'datetime',
+        'cash_collected' => 'decimal:2',
+        'billing_address_same_as_shipping' => 'boolean',
+        'barcode_data' => 'array',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    protected $keyType = 'string';
+    public $incrementing = false;
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /** POS / walk-in customer (orders.customer_id), used when there is no app user. */
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function items()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    public function shippingAddress()
+    {
+        return $this->belongsTo(Address::class, 'shipping_address_id');
+    }
+
+    public function billingAddress()
+    {
+        return $this->belongsTo(Address::class, 'billing_address_id');
+    }
+
+    // ── Packing & dispatch ────────────────────────────────────────────────
+
+    /** Short human order number used on labels, slips and manifests. */
+    public function getRefAttribute(): string
+    {
+        return $this->invoice_number ?: strtoupper(substr((string) $this->id, 0, 8));
+    }
+
+    /**
+     * When the customer was promised the order. A date without a time means
+     * "by the end of the delivery day" (dispatch setting, default 6pm).
+     */
+    public function promisedAt(): ?\Illuminate\Support\Carbon
+    {
+        if (!$this->delivery_date) {
+            return null;
+        }
+        $d = $this->delivery_date->copy();
+        if ($d->format('H:i:s') === '00:00:00') {
+            $d->setTime((int) \App\Models\Dispatch\DispatchSetting::current()->default_promise_hour, 0);
+        }
+        return $d;
+    }
+
+    /** Marketplace courier chosen at checkout (null = GozakMart riders). */
+    public function shipment()
+    {
+        return $this->hasOne(\App\Models\Logistics\OrderShipment::class);
+    }
+
+    public function dispatchEvents()
+    {
+        return $this->hasMany(\App\Models\Dispatch\DispatchEvent::class)->latest('id');
+    }
+
+    /** Fulfilling branch (stock location). */
+    public function branch()
+    {
+        return $this->belongsTo(StockLocation::class, 'stock_location_id');
+    }
+
+    public function deliveryZone()
+    {
+        return $this->belongsTo(\App\Models\Dispatch\DeliveryZone::class, 'delivery_zone_id');
+    }
+
+    public function parcels()
+    {
+        return $this->hasMany(\App\Models\Dispatch\OrderParcel::class)->orderBy('sequence');
+    }
+
+    public function dispatchBatch()
+    {
+        return $this->belongsTo(\App\Models\Dispatch\DispatchBatch::class, 'dispatch_batch_id');
+    }
+
+    public function packer()
+    {
+        return $this->belongsTo(User::class, 'packed_by');
+    }
+
+    public function checker()
+    {
+        return $this->belongsTo(User::class, 'checked_by');
+    }
+
+    /** Status timeline (who changed what, when). */
+    public function statusHistory()
+    {
+        return $this->hasMany(OrderStatusHistory::class)->orderBy('created_at')->orderBy('id');
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
+
+    public function successfulTransaction()
+    {
+        return $this->hasOne(Transaction::class)->where('status', 'success');
+    }
+
+    public function isPaid()
+    {
+        return $this->getPaymentStatusAttribute() === 'paid';
+    }
+
+    public function getPaymentStatusAttribute()
+    {
+        if (isset($this->attributes['payment_status']) && $this->attributes['payment_status']) {
+            return $this->attributes['payment_status'];
+        }
+
+        return $this->transactions()->where('status', 'success')->exists() ? 'paid' : 'unpaid';
+    }
+
+    public function scopePaid($query)
+    {
+        return $query->where('payment_status', 'paid')
+                    ->orWhereHas('transactions', function($q) {
+                        $q->where('status', 'success');
+                    });
+    }
+
+    public function getFormattedOrderDateAttribute(): string
+    {
+        return $this->order_date->format('M j, Y \a\t g:i A');
+    }
+
+    public function getFormattedDeliveryDateAttribute(): ?string
+    {
+        return $this->delivery_date?->format('M j, Y');
+    }
+
+    public function getOrderStatusTextAttribute(): string
+    {
+        $statusMap = [
+            'pending' => 'Order Placed',
+            'processing' => 'Processing',
+            'shipped' => 'Shipped',
+            'delivered' => 'Delivered',
+            'cancelled' => 'Cancelled',
+        ];
+
+        return $statusMap[$this->status] ?? ucfirst($this->status);
+    }
+
+    public function updateBarcodeInfo(string $path, array $data): void
+    {
+        $this->update([
+            'barcode_path' => $path,
+            'barcode_data' => $data,
+        ]);
+    }
+
+    public function hasBarcode(): bool
+    {
+        return !empty($this->barcode_path) && !empty($this->barcode_data);
+    }
+
+    public function getBarcodeUrlAttribute(): ?string
+    {
+        if ($this->barcode_path) {
+            return \Storage::disk('public')->url($this->barcode_path);
+        }
+        return null;
+    }
+
+    public function markAsPaid(): bool
+    {
+        return $this->update([
+            'payment_status' => 'paid',
+            'paid_at' => now(),
+            'status' => 'processing',
+        ]);
+    }
+
+    public function getTotalItemsAttribute(): int
+    {
+        return $this->items->sum('quantity');
+    }
+
+    public function canBeCancelled(): bool
+    {
+        return in_array($this->status, ['pending', 'processing']);
+    }
+
+    public function notes()
+    {
+        return $this->hasMany(OrderNote::class)->latest();
+    }
+
+    public function refunds()
+    {
+        return $this->hasMany(Refund::class)->latest();
+    }
+
+    public function totalRefunded()
+    {
+        return $this->refunds()->where('status', 'processed')->sum('amount');
+    }
+
+    /** Refunds still in progress at the gateway (they already reserve money). */
+    public function pendingRefunds()
+    {
+        return $this->refunds()->whereIn('status', ['pending', 'processing'])->sum('amount');
+    }
+
+    /** What can still be refunded: paid total − processed − in-progress refunds. */
+    public function refundableAmount()
+    {
+        return max(0, round($this->total_amount - $this->totalRefunded() - $this->pendingRefunds(), 2));
+    }
+
+    /** The latest successful payment for this order (used for gateway refunds). */
+    public function latestSuccessfulTransaction()
+    {
+        return $this->transactions()->where('status', 'success')->latest()->first();
+    }
+
+    /**
+     * Get barcode data as array
+     */
+    public function getBarcodeDataAttribute($value)
+    {
+        if (is_string($value)) {
+            return json_decode($value, true) ?? [];
+        }
+
+        return $value ?? [];
+    }
+
+    /**
+     * Set barcode data
+     */
+    public function setBarcodeDataAttribute($value)
+    {
+        if (is_array($value)) {
+            $this->attributes['barcode_data'] = json_encode($value);
+        } else {
+            $this->attributes['barcode_data'] = $value;
+        }
+    }
+}

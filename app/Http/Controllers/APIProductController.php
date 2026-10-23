@@ -555,6 +555,87 @@ class APIProductController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     // SHOW
     // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // SCAN & SHOP
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** GET /api/scan-shop/stores — stores where customers can Scan & Shop. */
+    public function scanShopStores()
+    {
+        try {
+            $stores = \App\Models\StockLocation::query()
+                ->where('is_active', true)
+                ->where('scan_shop_enabled', true)
+                ->orderByDesc('is_default')->orderBy('sort_order')->orderBy('name')
+                ->get(['id', 'name', 'code', 'address', 'latitude', 'longitude']);
+        } catch (\Throwable $e) {
+            $stores = collect();   // migration not run yet
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => $stores->map(fn ($s) => [
+                'id'        => (int) $s->id,
+                'name'      => $s->name,
+                'code'      => $s->code,
+                'address'   => $s->address,
+                'latitude'  => $s->latitude !== null ? (float) $s->latitude : null,
+                'longitude' => $s->longitude !== null ? (float) $s->longitude : null,
+                // What the store's QR poster encodes (the app also accepts the bare code / id)
+                'qr_link'   => route('scan-shop.store-link', $s->code ?: $s->id),
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * GET /api/scan-shop/lookup?code=…&store_id=…
+     * Finds the product (and the exact size/colour when the variation has its
+     * own barcode) for a scanned barcode or SKU.
+     */
+    public function scanShopLookup(Request $request)
+    {
+        $data = $request->validate([
+            'code'     => 'required|string|max:100',
+            'store_id' => 'nullable|integer',
+        ]);
+        $code = trim($data['code']);
+
+        $variation = \App\Models\ProductVariation::where('barcode', $code)->orWhere('sku', $code)->first();
+        $productId = $variation?->product_id
+            ?? Product::where('barcode', $code)->orWhere('sku', $code)->value('id');
+
+        $product = $productId ? $this->baseQuery()->find($productId) : null;
+        if (!$product || $product->is_active === false) {
+            return response()->json([
+                'success' => false,
+                'message' => 'We couldn’t find this item. Please ask a member of staff, or try scanning again.',
+            ], 404);
+        }
+
+        $this->preloadStock([$product->id]);
+        $formatted = $this->formatProductData($product);
+
+        $store = null;
+        $storeStock = null;
+        if (!empty($data['store_id'])) {
+            $store = \App\Models\StockLocation::find($data['store_id']);
+            if ($store) {
+                $storeStock = (int) $store->getProductStock($product->id, $variation?->id);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'product'      => $formatted,
+                // Set when the barcode belongs to one size/colour; otherwise the app asks.
+                'variation_id' => $variation ? (int) $variation->id : null,
+                'store'        => $store ? ['id' => (int) $store->id, 'name' => $store->name] : null,
+                'store_stock'  => $storeStock,
+            ],
+        ]);
+    }
+
     public function show($id)
     {
         try {

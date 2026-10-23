@@ -149,3 +149,58 @@ The logged-in `/api/fcm/*` routes the app uses are unchanged.
   `/account/delete`. If `lib/utils/constants/legal_links.dart` still uses those,
   they are 404s. Point them at the three URLs above, and use the same URLs in
   Play Console.
+
+---
+
+# Part 4: 23 Oct 2026
+
+## Run after deploying
+```bash
+php artisan migrate        # tax_enabled, scan_shop_enabled, orders.channel
+php artisan optimize:clear
+```
+App: `flutter pub get` (adds mobile_scanner), then `flutter analyze`.
+
+## 1. Payment "initialisation failed"
+- The server now returns the real reason in `message` (the app shows it), with a code:
+  PAY-KEY (Paystack key missing/invalid), PAY-EMAIL, PAY-CALLBACK, PAY-NET, PAY-DB, PAY-GW (Paystack's own message), PAY-500.
+- Uses the signed-in customer's email when the app sends none; refuses ₦0 orders clearly.
+- Raw error details are only returned when APP_DEBUG=true.
+- **To find the original cause**, on the live server: `grep -A3 "initializePayment: EXCEPTION" storage/logs/laravel.log | tail -20`
+
+## 2. Stock now goes down when people buy (new: OrderStockService)
+Before today **no order ever reduced stock**.
+- Card/OPay orders: stock out when the payment succeeds.
+- Pay on delivery / credit: stock out when the order is placed.
+- Cancelled: stock goes back. Entries are referenced SALE-<order>-<item> / RTN-<order>-<item>, so nothing is double-counted.
+- Orders placed before this deploy are not back-filled. Do a stock count after deploying.
+
+## 3. Inventory: stock per size/colour
+Inventory › Adjust Stock / Transfer Stock show an **Option** picker for products with options (required),
+with each option's stock at the chosen location.
+
+## 4. Product page: edit variations
+Product › View: the variations table now shows **real** stock (it read a column removed in January, so it always showed 0)
+and lets you edit SKU, cost, price, sale price and **Stock change** (+10 / -2) per row, at a chosen location.
+Fixed: variation cost price was never saved (`cost_price` missing from ProductVariation::$fillable).
+
+## 5. Tax on/off
+Settings › Payment Gateways › Checkout rates: **Charge tax** switch next to the rate. Off = no tax on orders, the app hides the tax line
+(older app versions get 0%), the saved rate is kept.
+
+## 6. Delivery wording
+Checkout shows "Couriers by GozakMart Delivery · provided on <marketplace>" (adds "and partners" when other couriers are listed).
+
+## 7. Scan & Shop
+- **Admin:** Inventory › Locations → edit a store → switch on **Scan & Shop store**. The ⋮ menu has **Print Scan & Shop QR** (poster for the entrance).
+- **Barcodes:** uses the product barcode and each variation's barcode (or SKU), so give each size/colour its own barcode to skip the option picker.
+- **App:** scan icon in the home app bar → pick the store or scan the poster → scan items → cart → checkout (banner says it's from that store) → pay → leave.
+- **Orders:** `channel = scan_shop` and `stock_location_id = store`, shown in Orders as a green "Scan & Shop · <store>" badge (filter: `channel=scan_shop`).
+  Staff pick from that store and deliver as usual. Stock is taken from that store.
+- Scanned items skip the stock-count check (the customer is holding the item).
+- Camera use was added to the privacy policy. Play Console: no extra declaration needed for camera.
+- API: `GET /api/scan-shop/stores`, `GET /api/scan-shop/lookup?code=&store_id=`; `POST /api/orders` accepts `channel` + `store_id`.
+
+## 8. App polish
+- Product cards: ▶ badge for products with a video, "N colours" hint.
+- Cart: uses the colour's gallery photo when a variation has no photo of its own.

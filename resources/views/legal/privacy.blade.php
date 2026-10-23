@@ -4,7 +4,7 @@
 @section('title','Privacy Policy')
 @section('content')
 <h1>Privacy Policy</h1>
-<p class="meta">Gozak Mart (package ng.gozakmart.shop) &middot; Last updated: October 22, 2026</p>
+<p class="meta">Gozak Mart (package ng.gozakmart.shop) &middot; Last updated: October 23, 2026</p>
 
 <p>Gozak Mart ("we", "us") is an online shopping app and website operated by Qudroid Systems. This policy explains what information we collect when you use the Gozak Mart mobile app and gozakmart.ng, why we collect it, who we share it with, and the choices you have.</p>
 
@@ -25,6 +25,7 @@
     <li>Usage and diagnostic information about how the app is used, collected through Google Firebase (for example Firebase Analytics and Firebase Cloud Messaging).</li>
 </ul>
 <p><strong>Location (optional):</strong> when you add a delivery address you can tap "Use my location" to pin the exact spot on a map, so couriers can price and find your delivery. The app then reads your device's precise location once, only while you are using it, and only after you allow it. We save the pinned map point with that address. We do not track your location in the background. You can type your address and move the map yourself instead, and you can turn location access off at any time in your phone settings.</p>
+<p><strong>Camera (optional):</strong> when you use Scan &amp; Shop in a GozakMart store, the app uses the camera to read product barcodes and the store's QR code. The camera is used only while the scanner is open, the images are processed on your phone, and we do not save or upload any photos or video from the scanner. We record which store you shopped in with your order so the store can pack and deliver it.</p>
 <p>The app does <strong>not</strong> access your contacts, SMS messages, call logs or microphone.</p>
 
 @if(config('app.fccpc_registration'))

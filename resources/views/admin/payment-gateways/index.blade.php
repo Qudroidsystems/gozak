@@ -35,11 +35,20 @@
             @csrf @method('PUT')
             <div class="row g-3 align-items-end">
                 <div class="col-md-4">
-                    <label class="form-label" for="tax_rate">Tax (VAT) %</label>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-label mb-1" for="tax_rate">Tax (VAT) %</label>
+                        <div class="form-check form-switch mb-1">
+                            <input type="hidden" name="tax_enabled" value="0">
+                            <input class="form-check-input" type="checkbox" role="switch" id="tax_enabled" name="tax_enabled" value="1" @checked($checkout['tax_enabled'] ?? true)
+                                   onchange="document.getElementById('tax_rate').readOnly = !this.checked; document.getElementById('taxOffNote').classList.toggle('d-none', this.checked);">
+                            <label class="form-check-label small" for="tax_enabled">Charge tax</label>
+                        </div>
+                    </div>
                     <div class="input-group">
-                        <input type="number" step="0.01" min="0" max="100" class="form-control" id="tax_rate" name="tax_rate" value="{{ rtrim(rtrim(number_format($checkout['tax_rate'], 2, '.', ''), '0'), '.') }}" required>
+                        <input type="number" step="0.01" min="0" max="100" class="form-control" id="tax_rate" name="tax_rate" value="{{ rtrim(rtrim(number_format($checkout['tax_rate_configured'] ?? $checkout['tax_rate'], 2, '.', ''), '0'), '.') }}" required @readonly(!($checkout['tax_enabled'] ?? true))>
                         <span class="input-group-text">%</span>
                     </div>
+                    <div class="form-text {{ ($checkout['tax_enabled'] ?? true) ? 'd-none' : '' }}" id="taxOffNote">Tax is off: customers are not charged tax. The rate is kept for when you switch it back on.</div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label" for="shipping_fee">Shipping fee</label>

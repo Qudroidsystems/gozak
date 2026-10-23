@@ -55,9 +55,15 @@ class PaymentGatewayController extends Controller
     {
         $data = $request->validate([
             'tax_rate'                => 'required|numeric|min:0|max:100',
+            'tax_enabled'             => 'nullable|boolean',
             'shipping_fee'            => 'required|numeric|min:0|max:10000000',
             'free_shipping_threshold' => 'required|numeric|min:0|max:1000000000',
         ]);
+
+        $data['tax_enabled'] = $request->boolean('tax_enabled');
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('store_settings', 'tax_enabled')) {
+            unset($data['tax_enabled']);   // run `php artisan migrate` to enable the switch
+        }
 
         $setting = StoreSetting::first() ?? new StoreSetting(['store_name' => config('app.name', 'GozakMart')]);
         $setting->fill($data);

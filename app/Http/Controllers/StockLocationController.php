@@ -44,6 +44,7 @@ class StockLocationController extends Controller
             'email' => 'nullable|email|max:100',
             'is_default' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
+            'scan_shop_enabled' => 'nullable|boolean',
             'notes' => 'nullable|string|max:1000',
             'sort_order' => 'nullable|integer|min:0',
         ]);
@@ -72,6 +73,7 @@ class StockLocationController extends Controller
                 'email' => $request->email,
                 'is_default' => $request->is_default ?? false,
                 'is_active' => $request->is_active ?? true,
+                'scan_shop_enabled' => $request->boolean('scan_shop_enabled'),
                 'notes' => $request->notes,
                 'sort_order' => $request->sort_order ?? 0,
             ]);
@@ -144,6 +146,20 @@ class StockLocationController extends Controller
         ]);
     }
 
+    /** Printable QR poster for a Scan & Shop store (customers scan it in the app to start). */
+    public function scanShopQr($id)
+    {
+        $location = StockLocation::findOrFail($id);
+        $link = route('scan-shop.store-link', $location->code ?: $location->id);
+        $qrSvg = null;
+        try {
+            $qrSvg = (new \Milon\Barcode\DNS2D())->getBarcodeSVG($link, 'QRCODE', 8, 8);
+        } catch (\Throwable $e) {
+            $qrSvg = null;   // the page falls back to a browser-generated QR code
+        }
+        return view('scan-shop.store-qr', compact('location', 'link', 'qrSvg'));
+    }
+
     public function update(Request $request, StockLocation $stock_location)
     {
         $validator = Validator::make($request->all(), [
@@ -155,6 +171,7 @@ class StockLocationController extends Controller
             'email' => 'nullable|email|max:100',
             'is_default' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
+            'scan_shop_enabled' => 'nullable|boolean',
             'notes' => 'nullable|string|max:1000',
             'sort_order' => 'nullable|integer|min:0',
         ]);
@@ -194,6 +211,7 @@ class StockLocationController extends Controller
                 'email' => $request->email,
                 'is_default' => $request->is_default ?? false,
                 'is_active' => $request->is_active ?? true,
+                'scan_shop_enabled' => $request->boolean('scan_shop_enabled'),
                 'notes' => $request->notes,
                 'sort_order' => $request->sort_order ?? $stock_location->sort_order,
             ]);

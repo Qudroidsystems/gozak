@@ -91,7 +91,24 @@ class APIOrderController extends Controller
                 'items.*.image'                    => 'nullable|string|max:2048',
                 'items.*.brand_name'               => 'nullable|string|max:255',
                 'items.*.selected_variation'       => 'nullable|array',
+                // Scan & Shop: items scanned in a GozakMart store, delivered from that store.
+                'channel'                          => 'nullable|in:app,scan_shop',
+                'store_id'                         => 'nullable|required_if:channel,scan_shop|integer',
             ]);
+
+            $scanStore = null;
+            if (($validated['channel'] ?? 'app') === 'scan_shop') {
+                $scanStore = \App\Models\StockLocation::where('id', $validated['store_id'])
+                    ->where('is_active', true)
+                    ->where('scan_shop_enabled', true)
+                    ->first();
+                if (!$scanStore) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Scan & Shop is not available in this store right now. Please ask a member of staff.',
+                    ], 422);
+                }
+            }
 
             if ($validated['billing_address_same_as_shipping']) {
                 $validated['billing_address'] = $validated['shipping_address'];
@@ -100,7 +117,7 @@ class APIOrderController extends Controller
             // ── Price everything from the database ──────────────────────────
             // The app's totals are never trusted: a modified app could otherwise
             // create a ₦1 order for expensive items and pay ₦1.
-            $quote        = $pricing->price($validated['items']);
+            $quote        = $pricing->price($validated['items'], ['skip_stock' => (bool) $scanStore]);
             $clientTotal  = isset($validated['total_amount']) ? (float) $validated['total_amount'] : null;
             $priceChanged = $quote['changed']
                 || ($clientTotal !== null && abs($clientTotal - $quote['total']) >= 0.01);
@@ -132,7 +149,7 @@ class APIOrderController extends Controller
                 $quote['shipping'] = $delivery['shipping'];
             }
 
-            return DB::transaction(function () use ($validated, $quote, $priceChanged, $clientTotal, $userId, $delivery, $logistics) {
+            return DB::transaction(function () use ($validated, $quote, $priceChanged, $clientTotal, $userId, $delivery, $logistics, $scanStore) {
                 // Addresses used to be dropped (not fillable on Order), so orders
                 // had no delivery address. Save them as the customer's addresses
                 // (re-using an identical one) and link them to the order.
@@ -155,7 +172,11 @@ class APIOrderController extends Controller
                     'billing_address_id'               => $billingId,
                     'billing_address_same_as_shipping' => $validated['billing_address_same_as_shipping'],
                     'delivery_date'                    => $validated['delivery_date'] ?? now()->addDays(7),
-                ]);
+                    // Scan & Shop: picked, packed and delivered from the store the customer shopped in.
+                    'stock_location_id'                => $scanStore?->id,
+                ] + (\Illuminate\Support\Facades\Schema::hasColumn('orders', 'channel')
+                    ? ['channel' => $scanStore ? 'scan_shop' : 'app']
+                    : []));
 
                 $courier = $logistics->attach($order, $delivery);
 
@@ -174,6 +195,9 @@ class APIOrderController extends Controller
                             : null,
                     ]);
                 }
+
+                // Pay on delivery / credit: stock comes out now. Card payments: when paid.
+                app(\App\Services\OrderStockService::class)->sync($order);
 
                 if ($priceChanged) {
                     Log::info('Order priced differently from the app', [

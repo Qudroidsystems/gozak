@@ -110,19 +110,24 @@ class OrderController extends Controller
 
         $query = Order::query()
             ->leftJoin('users', 'users.id', '=', 'orders.user_id')
-            ->select('orders.*', 'users.first_name', 'users.last_name', 'users.email as user_email')
+            ->leftJoin('stock_locations', 'stock_locations.id', '=', 'orders.stock_location_id')
+            ->select('orders.*', 'users.first_name', 'users.last_name', 'users.email as user_email', 'stock_locations.name as store_name')
             ->withCount('items')
             ->when($request->filled('status'), fn ($q) => $q->where('orders.status', $request->status))
             ->when($request->filled('payment_status'), fn ($q) => $q->where('orders.payment_status', $request->payment_status))
             ->when($request->filled('from'), fn ($q) => $q->whereDate('orders.created_at', '>=', $request->from))
-            ->when($request->filled('to'), fn ($q) => $q->whereDate('orders.created_at', '<=', $request->to));
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('orders.created_at', '<=', $request->to))
+            ->when($request->filled('channel'), fn ($q) => $q->where('orders.channel', $request->channel));
 
         $canManage = $request->user()->can('Manage order');
 
         return DataTables::eloquent($query)
             ->setRowClass(fn ($o) => $o->status === 'delivered' ? 'table-success' : ($o->status === 'pending' ? 'table-warning' : ''))
             ->setRowAttr(['data-order-id' => fn ($o) => $o->id, 'data-status' => fn ($o) => $o->status])
-            ->addColumn('invoice', fn ($o) => '<a href="' . route('adminorders.show', $o->id) . '" class="fw-bold text-primary">' . e($o->invoice_number ?? ('#' . substr($o->id, 0, 8))) . '</a>')
+            ->addColumn('invoice', fn ($o) => '<a href="' . route('adminorders.show', $o->id) . '" class="fw-bold text-primary">' . e($o->invoice_number ?? ('#' . substr($o->id, 0, 8))) . '</a>'
+                . (($o->channel ?? 'app') === 'scan_shop'
+                    ? '<small class="d-block"><span class="badge bg-success-subtle text-success" title="Customer scanned these items in the store. Pick them from this store and deliver."><i class="bi bi-upc-scan me-1"></i>Scan &amp; Shop' . ($o->store_name ? ' · ' . e($o->store_name) : '') . '</span></small>'
+                    : ''))
             ->addColumn('customer', function ($o) {
                 $name = trim($o->first_name . ' ' . $o->last_name) ?: 'Guest';
                 return '<div class="d-flex align-items-center gap-2"><span class="gz-avatar">' . e(strtoupper(substr($name, 0, 1))) . '</span>'

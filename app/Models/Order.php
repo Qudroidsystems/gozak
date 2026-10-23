@@ -37,6 +37,7 @@ class Order extends Model
         'delivery_confirmed_by',
         // packing + dispatch
         'stock_location_id',
+        'channel',            // app | scan_shop
         'delivery_zone_id',
         'packing_status',
         'package_count',

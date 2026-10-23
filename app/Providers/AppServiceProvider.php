@@ -85,6 +85,14 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        // Stock: take it out when an order is paid (online) / placed (pay on delivery),
+        // put it back when the order is cancelled. See OrderStockService.
+        \App\Models\Order::updated(function (\App\Models\Order $order) {
+            if ($order->wasChanged('status') || $order->wasChanged('payment_status')) {
+                app(\App\Services\OrderStockService::class)->sync($order);
+            }
+        });
+
         // Gozak Credit: a cancelled order paid with credit gives the money back.
         \App\Models\Order::updated(function (\App\Models\Order $order) {
             if ($order->wasChanged('status') && $order->status === 'cancelled' && $order->payment_method === \App\Services\Credit\CreditService::GATEWAY) {

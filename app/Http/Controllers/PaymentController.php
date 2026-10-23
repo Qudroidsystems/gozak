@@ -112,6 +112,13 @@ class PaymentController extends Controller
             ], 401);
         }
 
+        // Use the signed-in customer's email when the app sends none (or spaces around it).
+        $email = trim((string) $request->input('email', ''));
+        if ($email === '' && auth()->user()->email) {
+            $email = trim(auth()->user()->email);
+        }
+        $request->merge(['email' => $email]);
+
         $validator = Validator::make($request->all(), [
             'order_id' => 'required|exists:orders,id',
             'email'    => 'required|email',
@@ -125,13 +132,22 @@ class PaymentController extends Controller
             ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
+                'message' => $validator->errors()->has('email')
+                    ? 'Your account needs a valid email address for card payment. Please add one in your profile and try again.'
+                    : 'We could not find this order. Please go back to your cart and try again.',
                 'errors'  => $validator->errors(),
             ], 422);
         }
 
         try {
             $order = Order::with(['user', 'items.product'])->findOrFail($request->order_id);
+
+            if ((float) $order->total_amount <= 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This order has no amount to pay. Please go back to your cart and try again.',
+                ], 422);
+            }
 
             Log::info('PaymentController@initializePayment: OWNERSHIP CHECK', [
                 'order_id'           => $order->id,
@@ -286,10 +302,49 @@ class PaymentController extends Controller
             ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Payment initialization failed',
-                'error'   => $e->getMessage(),
+                // Tell the customer what actually went wrong (the app shows `message`).
+                'message' => $this->friendlyPaymentError($e),
+                // Raw details only in debug mode, so keys/SQL never reach customers in production.
+                'error'   => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
+    }
+
+    /**
+     * Turns a payment start-up failure into a message a customer can act on,
+     * with a short code (PAY-…) that support can match to the server log.
+     */
+    protected function friendlyPaymentError(\Throwable $e): string
+    {
+        $raw = $e->getMessage();
+
+        // Paystack's own reason, e.g. {"status":false,"message":"Invalid key"}
+        $gatewayMsg = null;
+        if (preg_match('/\{.*\}/s', $raw, $m)) {
+            $json = json_decode($m[0], true);
+            $gatewayMsg = is_array($json) ? ($json['message'] ?? null) : null;
+        }
+        $haystack = strtolower($raw . ' ' . $gatewayMsg);
+
+        if (str_contains($haystack, 'secret key not configured') || str_contains($haystack, 'invalid key')) {
+            return 'Card payment is not set up correctly on our side. Please choose Pay on Delivery or contact support. (PAY-KEY)';
+        }
+        if (str_contains($haystack, 'email')) {
+            return 'The payment provider did not accept your email address. Please check the email in your profile and try again. (PAY-EMAIL)';
+        }
+        if (str_contains($haystack, 'callback')) {
+            return 'Card payment is not set up correctly on our side. Please contact support. (PAY-CALLBACK)';
+        }
+        if (str_contains($haystack, 'timed out') || str_contains($haystack, 'curl') || str_contains($haystack, 'could not resolve')) {
+            return 'We could not reach the payment provider. Please check your internet and try again. (PAY-NET)';
+        }
+        if (str_contains($haystack, 'sqlstate')) {
+            return 'We could not start your payment. Please try again in a moment. (PAY-DB)';
+        }
+        if ($gatewayMsg) {
+            return 'Payment provider: ' . $gatewayMsg . ' (PAY-GW)';
+        }
+        return 'We could not start your payment. Please try again, or choose another payment method. (PAY-500)';
     }
 
     // ─────────────────────────────────────────────────────────────────────────
