@@ -16,7 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
-            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class
+            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            // Shopping website (resources/views/store)
+            'store'      => \App\Http\Middleware\UseCustomerGuard::class,
+            'store.auth' => \App\Http\Middleware\StoreAuthenticate::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

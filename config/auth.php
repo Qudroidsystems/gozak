@@ -40,6 +40,14 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Shoppers on the website (same accounts as the app). Kept separate from
+        // `web`, which the admin panel uses, so a customer signed in on the
+        // website is never signed in to the admin panel.
+        'customer' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

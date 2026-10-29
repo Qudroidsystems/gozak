@@ -986,6 +986,11 @@ class PaymentController extends Controller
             }
         }
 
+        // Website shoppers: back to their order on the website.
+        if ($reference !== '' && session('store_pay_ref') && hash_equals((string) session('store_pay_ref'), $reference)) {
+            return redirect()->route('store.checkout.return', ['reference' => $reference]);
+        }
+
         return view('payment-callback', [
             'reference' => $reference,
             'gateway'   => 'opay',

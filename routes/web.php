@@ -24,13 +24,64 @@ use App\Http\Controllers\StockLocationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\CreditAdminController;
+use App\Http\Controllers\Storefront\AccountController as StoreAccount;
+use App\Http\Controllers\Storefront\AuthController as StoreAuth;
+use App\Http\Controllers\Storefront\CartController as StoreCart;
+use App\Http\Controllers\Storefront\CheckoutController as StoreCheckout;
+use App\Http\Controllers\Storefront\ShopController as StoreShop;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 
-// Public Routes
-Route::get('/', function () {
-    return view('welcome');
+// ===================================================================
+// ONLINE SHOP (shop.gozakmart.ng) — customers browse, buy and track
+// orders on the web, same catalogue/prices/stock/payments as the app.
+// Uses its own 'customer' login, separate from the admin panel.
+// ===================================================================
+Route::middleware('store')->name('store.')->group(function () {
+    Route::get('/', [StoreShop::class, 'home'])->name('home');
+    Route::get('/c/{id}/{slug?}', [StoreShop::class, 'category'])->whereNumber('id')->name('category');
+    Route::get('/brand/{id}/{slug?}', [StoreShop::class, 'brand'])->whereNumber('id')->name('brand');
+    Route::get('/p/{id}/{slug?}', [StoreShop::class, 'product'])->whereNumber('id')->name('product');
+    Route::get('/search', [StoreShop::class, 'search'])->name('search');
+    Route::get('/deals', [StoreShop::class, 'deals'])->name('deals');
+    Route::get('/help', [StoreShop::class, 'help'])->name('help');
+
+    Route::get('/cart', [StoreCart::class, 'show'])->name('cart');
+    Route::post('/cart/add', [StoreCart::class, 'add'])->middleware('throttle:60,1')->name('cart.add');
+    Route::post('/cart/update', [StoreCart::class, 'update'])->name('cart.update');
+    Route::post('/cart/remove', [StoreCart::class, 'remove'])->name('cart.remove');
+
+    Route::get('/account/login', [StoreAuth::class, 'showLogin'])->name('login');
+    Route::post('/account/login', [StoreAuth::class, 'login'])->name('login.submit');
+    Route::get('/account/register', [StoreAuth::class, 'showRegister'])->name('register');
+    Route::post('/account/register', [StoreAuth::class, 'register'])->middleware('throttle:10,1')->name('register.submit');
+    Route::post('/account/logout', [StoreAuth::class, 'logout'])->name('logout');
+
+    Route::middleware('store.auth')->group(function () {
+        Route::get('/checkout', [StoreCheckout::class, 'show'])->name('checkout');
+        Route::post('/checkout/delivery-options', [StoreCheckout::class, 'deliveryOptions'])->middleware('throttle:30,1')->name('checkout.delivery-options');
+        Route::post('/checkout/place', [StoreCheckout::class, 'place'])->middleware('throttle:10,1')->name('checkout.place');
+        Route::get('/checkout/return', [StoreCheckout::class, 'paymentReturn'])->name('checkout.return');
+
+        Route::prefix('account')->name('account.')->group(function () {
+            Route::get('/', fn () => redirect()->route('store.account.orders'));
+            Route::get('/orders', [StoreAccount::class, 'orders'])->name('orders');
+            Route::get('/orders/{id}', [StoreAccount::class, 'order'])->name('order');
+            Route::post('/orders/{id}/pay', [StoreCheckout::class, 'pay'])->middleware('throttle:10,1')->name('order.pay');
+            Route::post('/orders/{id}/received', [StoreAccount::class, 'confirmReceived'])->name('order.received');
+
+            Route::get('/saved', [StoreAccount::class, 'wishlist'])->name('wishlist');
+            Route::post('/saved/toggle', [StoreAccount::class, 'toggleWishlist'])->name('wishlist.toggle');
+
+            Route::get('/addresses', [StoreAccount::class, 'addresses'])->name('addresses');
+            Route::get('/addresses/new', [StoreAccount::class, 'createAddress'])->name('addresses.create');
+            Route::post('/addresses', [StoreAccount::class, 'saveAddress'])->name('addresses.store');
+            Route::get('/addresses/{id}/edit', [StoreAccount::class, 'editAddress'])->whereNumber('id')->name('addresses.edit');
+            Route::put('/addresses/{id}', [StoreAccount::class, 'saveAddress'])->whereNumber('id')->name('addresses.update');
+            Route::delete('/addresses/{id}', [StoreAccount::class, 'deleteAddress'])->whereNumber('id')->name('addresses.destroy');
+        });
+    });
 });
 
 Route::get('/email/verify/{id}/{hash}', [APIAuthController::class, 'verifyEmail'])
@@ -42,6 +93,12 @@ Auth::routes();
 Route::get('/home', [HomeController::class, 'index'])->name('home');
 
 Route::get('/payment-callback', function () {
+    // Shoppers paying on the website come back here too (Paystack uses one
+    // callback URL). Their session knows the reference → send them to their order.
+    $ref = request('reference') ?: request('trxref');
+    if ($ref && session('store_pay_ref') && hash_equals((string) session('store_pay_ref'), (string) $ref)) {
+        return redirect()->route('store.checkout.return', ['reference' => $ref]);
+    }
     return view('payment-callback');
 })->name('payment.callback');
 
