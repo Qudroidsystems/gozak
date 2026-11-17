@@ -25,8 +25,8 @@ class InvoiceSetting extends Model
         if (!$settings) {
             $settings = self::create([
                 'company_name' => config('app.name'),
-                'company_address' => '123 Business Street, City, Country',
-                'company_phone' => '+1 234 567 890',
+                'company_address' => \App\Models\StoreSetting::getSettings()?->address,
+                'company_phone' => \App\Models\StoreSetting::getSettings()?->phone,
                 'company_email' => 'sales@' . parse_url(config('app.url'), PHP_URL_HOST),
                 'logo' => 'img/logo.png',
                 'primary_color' => '#0d6efd',

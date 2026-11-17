@@ -489,6 +489,14 @@
                         </li>
                     @endcan
 
+                    @canany(['View store setting', 'Update store setting'])
+                        <li class="nav-item">
+                            <a class="nav-link menu-link {{ request()->is('admin/store-details*') ? 'active' : '' }}" href="{{ route('settings.store.index') }}">
+                                <i class="ph-storefront"></i> <span>Store Details</span>
+                            </a>
+                        </li>
+                    @endcanany
+
                     {{-- MY ACCOUNT --}}
                     <li class="nav-item">
                         <a class="nav-link menu-link collapsed" href="#sidebaraccount" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="sidebaraccount">
@@ -1382,6 +1390,9 @@
         {title:'Permissions',               url:'{{ route("permissions.index") }}',            icon:'mdi-lock',               category:'Users & Privileges', keywords:['access','rights','permissions']},
         @endcan
 
+        @canany(['View store setting', 'Update store setting'])
+        {title:'Store Details',             url:'{{ route("settings.store.index") }}', icon:'mdi-storefront-outline', category:'Settings', keywords:['store','name','phone','email','address','logo','contact','business']},
+        @endcanany
         @can('Manage payment gateways')
         {title:'Payment Gateways',          url:'{{ route("admin.payment-gateways.index") }}', icon:'mdi-credit-card-settings-outline', category:'Settings', keywords:['paystack','opay','payment','keys','gateway','checkout']},
         @endcan

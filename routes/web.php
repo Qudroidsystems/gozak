@@ -96,6 +96,10 @@ Route::get('/payment-callback', function () {
     // Shoppers paying on the website come back here too (Paystack uses one
     // callback URL). Their session knows the reference → send them to their order.
     $ref = request('reference') ?: request('trxref');
+    // Nuxt storefront (gozakmart.ng) shoppers go back to the storefront.
+    if ($ref && ($back = \App\Http\Controllers\PaymentController::storefrontReturnRedirect((string) $ref))) {
+        return $back;
+    }
     if ($ref && session('store_pay_ref') && hash_equals((string) session('store_pay_ref'), (string) $ref)) {
         return redirect()->route('store.checkout.return', ['reference' => $ref]);
     }
@@ -118,6 +122,10 @@ Route::middleware(['auth'])->group(function () {
         Route::post('{gateway}/toggle',[PaymentGatewayController::class, 'toggleGateway'])->name('toggle');
         Route::post('{gateway}/test',  [PaymentGatewayController::class, 'testGateway'])->name('test');
     });
+
+    // Settings › Store details (name, logo, phone, email, address) — permissions: View / Update store setting
+    Route::get('admin/store-details', [\App\Http\Controllers\StoreSettingController::class, 'index'])->name('settings.store.index');
+    Route::put('admin/store-details', [\App\Http\Controllers\StoreSettingController::class, 'update'])->name('settings.store.update');
     // Dashboard
     Route::prefix('dashboard')->name('dashboard.')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('index');

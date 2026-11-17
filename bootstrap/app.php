@@ -20,6 +20,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // Shopping website (resources/views/store)
             'store'      => \App\Http\Middleware\UseCustomerGuard::class,
             'store.auth' => \App\Http\Middleware\StoreAuthenticate::class,
+            // Catalogue-changing API routes (products, brands, banners, uploads): staff only
+            'api.staff'  => \App\Http\Middleware\EnsureApiStaff::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

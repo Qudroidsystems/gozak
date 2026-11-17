@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use App\Services\BarcodeService;
 use App\Services\PaystackService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Validator;
@@ -123,6 +124,8 @@ class PaymentController extends Controller
             'order_id' => 'required|exists:orders,id',
             'email'    => 'required|email',
             'gateway'  => 'nullable|in:paystack,opay',
+            // Storefront page to send the shopper back to after paying (website only).
+            'return_url' => 'nullable|url|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -275,6 +278,8 @@ class PaymentController extends Controller
                 'amount'            => $order->total_amount,
                 'authorization_url' => $response['data']['authorization_url'],
             ]);
+
+            $this->rememberStorefrontReturn($request->input('return_url'), (string) $response['data']['reference']);
 
             return response()->json([
                 'success' => true,
@@ -967,6 +972,39 @@ class PaymentController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     // OPAY RETURN PAGE — where OPay sends the customer's browser/WebView back to
     // ─────────────────────────────────────────────────────────────────────────
+    /**
+     * Website (Nuxt storefront) payments: remember where to send the shopper
+     * after Paystack/OPay, but only for our own storefront addresses.
+     */
+    private function rememberStorefrontReturn(?string $url, string $reference): void
+    {
+        if (! $url || $reference === '') {
+            return;
+        }
+        $allowed = config('shop.storefront_urls', []);
+        foreach ($allowed as $base) {
+            if ($url === $base || str_starts_with($url, $base . '/')) {
+                Cache::put('pay_return:' . $reference, $url, now()->addDay());
+                return;
+            }
+        }
+        Log::warning('PaymentController: return_url not in STOREFRONT_URLS, ignored', ['return_url' => $url]);
+    }
+
+    /** Redirect to the storefront page saved for this payment, if any. */
+    public static function storefrontReturnRedirect(string $reference)
+    {
+        if ($reference === '') {
+            return null;
+        }
+        $url = Cache::pull('pay_return:' . $reference);
+        if (! $url) {
+            return null;
+        }
+        $sep = str_contains($url, '?') ? '&' : '?';
+        return redirect()->away($url . $sep . 'reference=' . urlencode($reference));
+    }
+
     public function opayReturn(Request $request)
     {
         $reference = (string) $request->query('reference', '');
@@ -984,6 +1022,11 @@ class PaymentController extends Controller
             } catch (\Exception $e) {
                 Log::warning('PaymentController@opayReturn: verify failed', ['reference' => $reference, 'error' => $e->getMessage()]);
             }
+        }
+
+        // Nuxt storefront shoppers: back to the storefront.
+        if ($redirect = self::storefrontReturnRedirect($reference)) {
+            return $redirect;
         }
 
         // Website shoppers: back to their order on the website.

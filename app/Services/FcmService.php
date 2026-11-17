@@ -20,26 +20,45 @@ class FcmService
         $this->initializeServiceAccount();
     }
 
-    protected function initializeServiceAccount(): void
-    {
-        $credentialsPath = env('FIREBASE_CREDENTIALS');
+   protected function initializeServiceAccount(): void
+{
+    $credentialsPath = config(
+        'services.firebase.service_account_path'
+    );
 
-        if (!$credentialsPath) {
-            throw new Exception('FIREBASE_CREDENTIALS env variable is not set');
-        }
-
-        $serviceAccountPath = base_path($credentialsPath);
-
-        if (!file_exists($serviceAccountPath)) {
-            throw new Exception('Firebase service account file not found: ' . $serviceAccountPath);
-        }
-
-        $this->serviceAccount = json_decode(file_get_contents($serviceAccountPath), true);
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Invalid JSON in Firebase service account file');
-        }
+    if (!$credentialsPath) {
+        throw new Exception('FIREBASE_CREDENTIALS is not configured');
     }
+
+    // Support both absolute and relative paths.
+    $serviceAccountPath = str_starts_with($credentialsPath, '/')
+        ? $credentialsPath
+        : base_path($credentialsPath);
+
+    if (!is_file($serviceAccountPath) || !is_readable($serviceAccountPath)) {
+        throw new Exception('Firebase service account file not found or unreadable');
+    }
+
+    $this->serviceAccount = json_decode(
+        file_get_contents($serviceAccountPath),
+        true
+    );
+
+    if (
+        json_last_error() !== JSON_ERROR_NONE ||
+        !is_array($this->serviceAccount) ||
+        empty($this->serviceAccount['project_id']) ||
+        empty($this->serviceAccount['private_key']) ||
+        empty($this->serviceAccount['client_email'])
+    ) {
+        throw new Exception('Invalid or incomplete Firebase service account JSON');
+    }
+
+    if ($this->serviceAccount['project_id'] !== $this->projectId) {
+        throw new Exception('Firebase service account project ID mismatch');
+    }
+}
+
 
     // ── Core send ───────────────────────────────────────────────────────────
 

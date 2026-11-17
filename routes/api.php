@@ -44,8 +44,6 @@ Route::get('/brands',                              [APIBrandController::class, '
 Route::get('/brands/{id}',                         [APIBrandController::class, 'show'])->name('brands.show');
 Route::get('/brands/isFeatured',                   [APIBrandController::class, 'featured'])->name('brands.featured');
 Route::get('/brands/category/{categoryId}',        [APIBrandController::class, 'getbrandsForCategory'])->name('brands.category');
-Route::post('/brands',                             [APIBrandController::class, 'store']);
-Route::post('/brand-categories',                   [APIBrandController::class, 'storeBrandCategory']);
 Route::get('promo-banners',                        [APIPromoBannerController::class, 'index']);
 Route::get('promo-banners', [APIPromoBannerController::class, 'index']);
 Route::post('promo-banners/mark-shown', [APIPromoBannerController::class, 'markShown']);
@@ -66,28 +64,38 @@ Route::get('/scan-shop/stores',                   [APIProductController::class, 
 Route::get('/scan-shop/lookup',                   [APIProductController::class, 'scanShopLookup'])->middleware('throttle:120,1')->name('scan-shop.lookup');
 Route::get('/products/{id}',                       [APIProductController::class, 'show'])->name('products.show');
 Route::get('/products/{id}/related',               [APIProductController::class, 'related'])->name('products.related');
-Route::post('/products',                           [APIProductController::class, 'store']);
-Route::patch('/products/{id}',                     [APIProductController::class, 'updateSingleField']);
-Route::put('/products/{id}',                       [APIProductController::class, 'update']);
-Route::post('/upload',                             [APIProductController::class, 'uploadFile']);
-Route::post('/product-categories',                 [APIProductController::class, 'storeProductCategory']);
 
 // Reviews
 Route::get('/product-reviews',                     [APIProductReviewController::class, 'index'])->name('product-reviews.index');
-Route::post('/product-reviews',                    [APIProductReviewController::class, 'store']);
-Route::put('/product-reviews/{id}/company-comment',[APIProductReviewController::class, 'addCompanyComment']);
-Route::put('/product-reviews/{id}',                [APIProductReviewController::class, 'update']);
-Route::delete('/product-reviews/{id}',             [APIProductReviewController::class, 'destroy']);
 
 // Banners
 Route::get('/banners',                             [APIBannerController::class, 'index'])->name('banners.index');
-Route::post('/banners',                            [APIBannerController::class, 'store']);
+
+// ── Changes to the catalogue: signed-in STAFF only (were open to anyone before 5 Nov 2026) ──
+Route::middleware(['auth:sanctum', 'api.staff'])->group(function () {
+    Route::post('/brands',                              [APIBrandController::class, 'store']);
+    Route::post('/brand-categories',                    [APIBrandController::class, 'storeBrandCategory']);
+    Route::post('/products',                            [APIProductController::class, 'store']);
+    Route::patch('/products/{id}',                      [APIProductController::class, 'updateSingleField']);
+    Route::put('/products/{id}',                        [APIProductController::class, 'update']);
+    Route::post('/upload',                              [APIProductController::class, 'uploadFile']);
+    Route::post('/product-categories',                  [APIProductController::class, 'storeProductCategory']);
+    Route::post('/banners',                             [APIBannerController::class, 'store']);
+    Route::put('/product-reviews/{id}/company-comment', [APIProductReviewController::class, 'addCompanyComment']);
+    Route::put('/product-reviews/{id}',                 [APIProductReviewController::class, 'update']);
+    Route::delete('/product-reviews/{id}',              [APIProductReviewController::class, 'destroy']);
+});
+
+// Writing a review: signed-in customers (the app sends its token), so reviews are tied to a real account.
+Route::post('/product-reviews', [APIProductReviewController::class, 'store'])->middleware(['auth:sanctum', 'throttle:10,1']);
 
 // Legal / Privacy
 Route::get('/privacy-policy', fn () => redirect('/privacy', 301))->name('privacy.policy');
 Route::get('/user-data-safety', fn () => redirect('/delete-account', 301))->name('user.data-safety');
 
 // Global settings (public — used on app launch before login)
+// Store name, logo and contact details (Settings › Store details) for the website and app
+Route::get('/store-info', [APISettingsController::class, 'storeInfo'])->name('store.info');
 Route::get('/settings/global',                     [APISettingsController::class, 'global'])->name('settings.global');
 
 // Webhook (no auth — Paystack calls this externally)

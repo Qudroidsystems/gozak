@@ -176,7 +176,8 @@
 
     <div class="footer">
         <p>Thank you for your business!</p>
-        <p>{{ config('app.url') }} | support@yourstore.com | +1 234 567 890</p>
+        @php($storeInfo = \App\Models\StoreSetting::getSettings())
+        <p>{{ collect([$storeInfo?->website ?: config('app.url'), $storeInfo?->email, $storeInfo?->phone])->filter()->implode(' | ') }}</p>
     </div>
 
 </body>

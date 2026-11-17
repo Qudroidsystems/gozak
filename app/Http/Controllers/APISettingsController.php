@@ -177,6 +177,30 @@ class APISettingsController extends Controller
     /**
      * Fetch global settings
      */
+    /**
+     * GET /api/store-info — public business details set by the admin under
+     * Settings › Store details (used by the gozakmart.ng storefront footer).
+     */
+    public function storeInfo()
+    {
+        $s = \App\Models\StoreSetting::getSettings();
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'name'        => $s?->store_name ?: config('app.name', 'Gozak Mart'),
+                'tagline'     => $s?->motto,
+                'logo'        => $s?->logo ? asset('storage/' . $s->logo) : null,
+                'phone'       => $s?->phone,
+                'email'       => $s?->email,
+                'address'     => $s?->address,
+                'website'     => $s?->website,
+                'currency'    => $s?->currency_symbol ?: '₦',
+                'footer_note' => $s?->footer_note,
+            ],
+        ]);
+    }
+
     public function global(Request $request)
     {
         try {
